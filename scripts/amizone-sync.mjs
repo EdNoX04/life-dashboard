@@ -31,36 +31,67 @@ async function mem(key, value) {
 const clean = s => (s || '').replace(/\s+/g, ' ').trim();
 
 async function run() {
-  const browser = await chromium.launch({ args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'] });
+  // Headful under xvfb (workflow wraps this in xvfb-run) — Cloudflare Turnstile
+  // passes passively for a real, non-headless Chromium; headless is the giveaway.
+  const browser = await chromium.launch({
+    headless: false,
+    args: ['--no-sandbox', '--disable-blink-features=AutomationControlled', '--disable-dev-shm-usage'],
+  });
   const ctx = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36',
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
     viewport: { width: 1366, height: 900 },
+    locale: 'en-IN',
+    timezoneId: 'Asia/Kolkata',
+  });
+  // light stealth: hide the automation fingerprints Cloudflare sniffs
+  await ctx.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+    Object.defineProperty(navigator, 'languages', { get: () => ['en-IN', 'en'] });
+    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+    window.chrome = { runtime: {} };
   });
   const page = await ctx.newPage();
   const report = { ts: new Date().toISOString(), steps: {} };
 
   try {
     // ---- LOGIN ----
-    await page.goto('https://s.amizone.net/', { waitUntil: 'networkidle', timeout: 60000 });
-    await page.fill('input[name="_UserName"]', AMIZONE_USER);
-    await page.fill('input[name="_Password"]', AMIZONE_PASS);
-    // give Turnstile + the Salt/Signature JS a moment to populate hidden fields
-    await page.waitForTimeout(4000);
+    await page.goto('https://s.amizone.net/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    // type like a human so Amizone's Salt/Signature JS fires its input handlers
+    await page.click('input[name="_UserName"]');
+    await page.type('input[name="_UserName"]', AMIZONE_USER, { delay: 60 });
+    await page.click('input[name="_Password"]');
+    await page.type('input[name="_Password"]', AMIZONE_PASS, { delay: 60 });
+
+    // wait (up to ~35s) for the Cloudflare Turnstile token to populate
+    let tok = '';
+    for (let i = 0; i < 35; i++) {
+      tok = await page.evaluate(() => document.querySelector('[name="cf-turnstile-response"]')?.value || '');
+      if (tok) break;
+      await page.waitForTimeout(1000);
+    }
+    const hidden = await page.evaluate(() => ({
+      sig: (document.querySelector('[name="Signature"]')?.value || '').length,
+      salt: (document.querySelector('[name="Salt"]')?.value || '').length,
+      chal: (document.querySelector('[name="Challenge"]')?.value || '').length,
+    }));
+    report.steps.login = { turnstile: tok ? `present(${tok.length})` : 'MISSING', hidden };
+
     await Promise.all([
-      page.waitForNavigation({ waitUntil: 'networkidle', timeout: 60000 }).catch(() => {}),
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {}),
       page.click('button[type="submit"], input[type="submit"]'),
     ]);
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(4000);
 
     const url = page.url();
-    const loggedIn = !/\/Account\/Login/i.test(url) && !(await page.$('input[name="_Password"]'));
-    report.steps.login = { url, loggedIn };
+    const loggedIn = !(await page.$('input[name="_Password"]'));
+    report.steps.login.url = url;
+    report.steps.login.loggedIn = loggedIn;
     if (!loggedIn) {
-      const bodyText = clean(await page.evaluate(() => document.body.innerText)).slice(0, 500);
+      const bodyText = clean(await page.evaluate(() => document.body.innerText)).slice(0, 400);
       report.steps.login.bodyText = bodyText;
       await page.screenshot({ path: 'login-failed.png' }).catch(() => {});
       await mem('amizone_last_sync', { ok: false, reason: 'login_failed', report });
-      console.error('LOGIN FAILED:', bodyText);
+      console.error('LOGIN FAILED. turnstile=%s hidden=%o body=%s', report.steps.login.turnstile, hidden, bodyText);
       await browser.close();
       process.exit(2);
     }
