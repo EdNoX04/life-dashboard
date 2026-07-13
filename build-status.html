@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LIFE HQ — Build Status</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#17101f;--deep:#100a17;--panel:#221632;--panel2:#2c1d40;--border:#4a3468;--bb:#7a55b0;
+  --ink:#f3ecff;--ink2:#b7a8cc;--ink3:#8474a0;--pink:#ff5fa2;--purple:#b967ff;--cyan:#4fd1ff;
+  --yellow:#ffd23f;--green:#6ee76e;--red:#ff5c5c;--orange:#ff9a52}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'VT323',monospace;font-size:19px;
+  background-image:radial-gradient(circle at 20% 10%,rgba(185,103,255,.07),transparent 40%),
+  radial-gradient(circle at 80% 90%,rgba(255,95,162,.06),transparent 40%);padding:28px 18px 60px}
+  h1{font-family:'Press Start 2P',monospace;font-size:17px;text-align:center;color:var(--pink);
+  text-shadow:3px 3px 0 rgba(185,103,255,.4);margin:10px 0 6px}
+  .sub{text-align:center;color:var(--ink3);margin-bottom:26px}
+  .wrap{max-width:1050px;margin:0 auto}
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+  .col{background:var(--panel);border:3px solid var(--border);border-radius:2px;
+  box-shadow:0 4px 0 rgba(0,0,0,.45),inset 0 0 0 2px var(--deep);padding:0 0 10px}
+  .head{font-family:'Press Start 2P',monospace;font-size:10px;padding:12px;border-bottom:3px solid var(--border);
+  letter-spacing:1px}
+  .card{margin:10px;background:var(--deep);border:2px solid var(--border);border-radius:2px;padding:10px}
+  .card b{font-weight:normal;font-size:18px}
+  .card .d{color:var(--ink2);font-size:16px;margin-top:4px;line-height:1.35}
+  .chip{font-family:'Press Start 2P',monospace;font-size:7px;padding:3px 6px;border:2px solid var(--bb);
+  border-radius:2px;color:var(--ink2);background:var(--bg);display:inline-block;margin-top:8px;margin-right:5px;
+  text-transform:uppercase}
+  .c-g{color:var(--green);border-color:var(--green)}.c-y{color:var(--yellow);border-color:var(--yellow)}
+  .c-c{color:var(--cyan);border-color:var(--cyan)}.c-p{color:var(--purple);border-color:var(--purple)}
+  .c-pk{color:var(--pink);border-color:var(--pink)}.c-r{color:var(--red);border-color:var(--red)}
+  .legend{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin:0 0 22px;color:var(--ink2);font-size:17px}
+  .sq{display:inline-block;width:11px;height:11px;margin-right:6px;vertical-align:middle}
+  .foot{text-align:center;color:var(--ink3);margin-top:30px;font-size:17px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>♥ LIFE HQ — BUILD PIPELINE ♥</h1>
+  <div class="sub">Phase 1 shipped · updated 13 Jul 2026 · brain: Cowork</div>
+  <div class="legend">
+    <span><span class="sq" style="background:var(--green)"></span>BUILT</span>
+    <span><span class="sq" style="background:var(--yellow)"></span>IN PROGRESS / NEXT</span>
+    <span><span class="sq" style="background:var(--cyan)"></span>PLANNED</span>
+    <span><span class="sq" style="background:var(--red)"></span>NOT POSSIBLE (AS ASKED)</span>
+  </div>
+
+  <div class="cols">
+    <div class="col">
+      <div class="head" style="color:var(--green)">BUILT (PHASE 1)</div>
+      <div class="card"><b>Retro app shell + 13 tabs</b><div class="d">React + Vite, pixel theme, mobile PWA (Add to Home Screen)</div><span class="chip c-g">DONE</span></div>
+      <div class="card"><b>Todo — TickTick style</b><div class="d">Smart lists (Today / 7 days / Inbox / Done), priorities, due dates, custom lists</div><span class="chip c-g">DONE</span></div>
+      <div class="card"><b>Habit tracker</b><div class="d">Categories, pixel checkboxes, strike-out, 14-day cells, streak counts</div><span class="chip c-g">DONE</span></div>
+      <div class="card"><b>Goals (short/long/lifelong)</b><div class="d">Progress bars + roadmap steps; Cowork drafts roadmaps via request queue</div><span class="chip c-g">DONE</span></div>
+      <div class="card"><b>Journal w/ voice input</b><div class="d">Mic → text (on-device speech), moods, searchable log</div><span class="chip c-g">DONE</span></div>
+      <div class="card"><b>Media tracker (own Letterboxd)</b><div class="d">TMDB search + posters, watchlist/watching/completed, ★ ratings</div><span class="chip c-g">DONE</span></div>
+      <div class="card"><b>Money tab</b><div class="d">Holdings, value/P&amp;L tiles, manual entry, stock-news panel</div><span class="chip c-g">DONE</span></div>
+      <div class="card"><b>College + Subjects tabs</b><div class="d">Timetable, attendance bars (75% alerts), announcements, syllabus → exam-notes requests</div><span class="chip c-g">DONE</span></div>
+      <div class="card"><b>Health tab</b><div class="d">Steps/sleep/HR tiles, manual workout log, insights panel</div><span class="chip c-g">DONE</span></div>
+      <div class="card"><b>Builds — Mission Control</b><div class="d">Pending / In progress / Done / Failed kanban, propose-a-build queue</div><span class="chip c-g">DONE</span></div>
+      <div class="card"><b>HQ morning-brief layout</b><div class="d">Greeting, stat tiles, priorities, classes, news, Ask-Cowork box</div><span class="chip c-g">DONE</span></div>
+      <div class="card"><b>Supabase schema + Cowork protocol</b><div class="d">18 tables, RLS, request queue (ask/refresh/roadmap/notes/build)</div><span class="chip c-g">DONE</span></div>
+    </div>
+
+    <div class="col">
+      <div class="head" style="color:var(--yellow)">IN PROGRESS / NEXT</div>
+      <div class="card"><b>Supabase project</b><div class="d">You create it (free) → run schema.sql → paste keys in Config tab</div><span class="chip c-y">YOUR MOVE</span></div>
+      <div class="card"><b>GitHub push + Vercel deploy</b><div class="d">Connect GitHub to Claude (Settings → Connectors) or share a repo token; then Vercel imports it</div><span class="chip c-y">YOUR MOVE</span></div>
+      <div class="card"><b>Scheduled tasks</b><div class="d">Daily morning brief · Wed-midnight maintenance · request-queue worker</div><span class="chip c-y">SETTING UP</span></div>
+      <div class="card"><b>Amizone sync</b><div class="d">Timetable, per-subject attendance, announcements → needs your login</div><span class="chip c-y">NEXT</span></div>
+      <div class="card"><b>Morning brief generator</b><div class="d">Daily run: classes + tasks + news + portfolio into the HQ brief</div><span class="chip c-y">NEXT</span></div>
+      <div class="card"><b>News engine</b><div class="d">Finance + tech + your-tickers headlines, refreshed on schedule</div><span class="chip c-y">NEXT</span></div>
+    </div>
+
+    <div class="col">
+      <div class="head" style="color:var(--cyan)">PLANNED (PHASE 2-3)</div>
+      <div class="card"><b>INDmoney snapshot</b><div class="d">Chrome automation pulls holdings when your Mac is on; prices kept live via market APIs</div><span class="chip c-c">PHASE 2</span></div>
+      <div class="card"><b>Google Calendar 2-way sync</b><div class="d">Calendar connector; college timetable → events</div><span class="chip c-c">PHASE 2</span></div>
+      <div class="card"><b>Apple Health + Hevy</b><div class="d">Health Auto Export app → Supabase webhook; Hevy Pro API; Bevel-style insights</div><span class="chip c-c">PHASE 2</span></div>
+      <div class="card"><b>Exam notes generator</b><div class="d">Syllabus → detailed downloadable HTML notes per subject</div><span class="chip c-c">PHASE 2</span></div>
+      <div class="card"><b>WhatsApp group scan</b><div class="d">WhatsApp Web via Chrome automation (desktop on) → assignment alerts → auto-drafted solutions</div><span class="chip c-c">PHASE 3</span></div>
+      <div class="card"><b>Midnight autonomous builds</b><div class="d">PRD → your approval → build → review → GitHub push → weekend report</div><span class="chip c-c">PHASE 3</span></div>
+      <div class="card"><b>Auth hardening</b><div class="d">Supabase Auth + PIN so your data isn't open on a public URL</div><span class="chip c-c">PHASE 2</span></div>
+      <div class="card"><b>Charts & trends</b><div class="d">Portfolio history, sleep/steps trends, habit heatmap (validated palette ready)</div><span class="chip c-c">PHASE 3</span></div>
+    </div>
+
+    <div class="col">
+      <div class="head" style="color:var(--red)">NOT POSSIBLE (AS ASKED)</div>
+      <div class="card"><b>Placing orders from dashboard</b><div class="d">INDmoney has no trading API. Cowork preps the trade; you execute in-app in 2 taps</div><span class="chip c-r">CONSTRAINT</span></div>
+      <div class="card"><b>Instant chat on the site</b><div class="d">No API budget → requests answered on scheduled runs (≤1h) or instantly when Cowork is open</div><span class="chip c-r">CONSTRAINT</span></div>
+      <div class="card"><b>Apple Journal sync</b><div class="d">No public API — our own voice journal replaces it</div><span class="chip c-r">CONSTRAINT</span></div>
+      <div class="card"><b>Netflix/Hotstar auto-track</b><div class="d">No public viewing-history APIs — TMDB tracker covers it manually in 2 taps</div><span class="chip c-r">CONSTRAINT</span></div>
+    </div>
+  </div>
+
+  <div class="foot">LIFE HQ v0.1 · React + Supabase + Cowork · retro forever ♥</div>
+</div>
+</body>
+</html>

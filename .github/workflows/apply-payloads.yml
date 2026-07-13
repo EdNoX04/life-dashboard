@@ -1,0 +1,36 @@
+name: Apply data payloads to Supabase
+
+on:
+  push:
+    branches: [main]
+    paths: ['payloads/*.json']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-payloads
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply payloads
+        run: node scripts/apply-payloads.mjs
+        env:
+          SUPABASE_URL: https://xroynvkzephebhcztvfo.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+
+      - name: Archive processed payloads
+        run: |
+          git config user.name "life-hq-bot"
+          git config user.email "actions@github.com"
+          git pull --rebase
+          mkdir -p payloads/processed
+          find payloads -maxdepth 1 -name '*.json' -exec git mv {} payloads/processed/ \;
+          git commit -m "chore: archive applied payloads" || echo "nothing to archive"
+          git push
