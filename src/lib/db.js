@@ -6,8 +6,16 @@
 
 const cfgKey = 'ldx_config';
 
+// Baked-in defaults: the app is connected out of the box on every device.
+// (The publishable key is public by design — safe to ship in the bundle.)
+// Anything saved in the Config tab overrides these for that browser.
+const DEFAULTS = {
+  supabaseUrl: 'https://xroynvkzephebhcztvfo.supabase.co',
+  supabaseKey: 'sb_publishable_OVCd6KhOHNVYz1a9vCisbg_OsIF0uhy',
+};
+
 export function getConfig() {
-  try { return JSON.parse(localStorage.getItem(cfgKey)) || {}; } catch { return {}; }
+  try { return { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(cfgKey)) || {}) }; } catch { return { ...DEFAULTS }; }
 }
 export function setConfig(patch) {
   const next = { ...getConfig(), ...patch };
