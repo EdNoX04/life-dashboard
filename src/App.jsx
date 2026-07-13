@@ -12,6 +12,7 @@ import Health from './tabs/Health.jsx';
 import News from './tabs/News.jsx';
 import Builds from './tabs/Builds.jsx';
 import Settings from './tabs/Settings.jsx';
+import { BootScreen, PlayerCard } from './components/arcade.jsx';
 
 const TABS = [
   ['hq', 'HQ', 'var(--pink)', HQ],
@@ -34,7 +35,8 @@ export default function App() {
   const Active = TABS.find(t => t[0] === tab)?.[3] || HQ;
 
   return (
-    <div className="app">
+    <div className="app crt">
+      <BootScreen />
       <nav className="sidebar">
         <div className="logo">LIFE<span>▮</span>HQ</div>
         {TABS.map(([id, label, color]) => (
@@ -43,6 +45,7 @@ export default function App() {
             {label}
           </div>
         ))}
+        <PlayerCard />
       </nav>
       <main className="main">
         <Active go={setTab} />

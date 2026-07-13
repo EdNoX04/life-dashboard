@@ -24,7 +24,7 @@ export default function Settings() {
       <Card title={`Data mode: ${isRemote() ? 'SUPABASE (live)' : 'LOCAL (this device only)'}`} color={isRemote() ? 'var(--green)' : 'var(--yellow)'}>
         <label>Supabase URL</label>
         <input placeholder="https://xxxx.supabase.co" defaultValue={cfg.supabaseUrl || ''} onChange={upd('supabaseUrl')} />
-        <label className="mt">Supabase anon key</label>
+        <label className="mt">Supabase publishable key (a.k.a. anon key, sb_publishable_…)</label>
         <input placeholder="eyJhbGciOi…" defaultValue={cfg.supabaseKey || ''} onChange={upd('supabaseKey')} />
         <label className="mt">TMDB API key (movie search & posters — free)</label>
         <input placeholder="optional" defaultValue={cfg.tmdbKey || ''} onChange={upd('tmdbKey')} />

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useCollection, todayStr } from '../lib/hooks.js';
-import { Card, Empty, StatTile } from '../components/ui.jsx';
+import { Card, Empty, StatTile, PCheck } from '../components/ui.jsx';
 
 function lastNDays(n) {
   return Array.from({ length: n }, (_, i) => todayStr(new Date(Date.now() - (n - 1 - i) * 864e5)));
@@ -75,7 +75,7 @@ export default function Habits() {
             const streak = streakOf([...dates]);
             return (
               <div className="row" key={h.id}>
-                <span className={`pcheck ${done ? 'done' : ''}`} onClick={() => toggle(h)}>{done ? '✕' : ''}</span>
+                <PCheck done={done} xp={5} onToggle={() => toggle(h)} />
                 <span className={done ? 'struck' : ''} style={{ flex: 1 }}>{h.name}</span>
                 <span className="streak-cells" title="last 14 days">
                   {days.map(d => <span key={d} className={`scell ${dates.has(d) ? 'on' : ''}`} />)}

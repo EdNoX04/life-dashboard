@@ -1,0 +1,170 @@
+/* ============ LIFE HQ v0.2 — ARCADE LAYER ============ */
+
+/* ---- CRT scanlines + vignette ---- */
+.crt::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 100;
+  background: repeating-linear-gradient(
+    to bottom, transparent 0 3px, rgba(0,0,0,.07) 3px 6px);
+}
+.crt::after {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 101;
+  background: radial-gradient(ellipse at center, transparent 66%, rgba(10,4,18,.32) 100%);
+}
+
+/* ---- boot screen ---- */
+.boot {
+  position: fixed; inset: 0; z-index: 200; background: var(--bg-deep);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 26px; animation: bootfade .4s ease .1s both;
+}
+.boot-logo {
+  font-family: var(--font-pixel); font-size: 26px; color: var(--pink);
+  text-shadow: 4px 4px 0 rgba(185,103,255,.5), 0 0 24px rgba(255,95,162,.55);
+  animation: pulse 1.2s steps(2) infinite;
+}
+.boot-bar { width: 240px; height: 18px; border: 3px solid var(--border-bright); background: var(--bg-deep); padding: 3px; }
+.boot-bar > div { height: 100%; background: linear-gradient(90deg, var(--purple), var(--pink)); animation: bootload 1.5s steps(12) forwards; }
+.boot-hint { font-family: var(--font-pixel); font-size: 9px; color: var(--ink-3); letter-spacing: 2px; }
+.boot.done { animation: bootout .45s ease forwards; }
+@keyframes bootload { from { width: 0 } to { width: 100% } }
+@keyframes bootfade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes bootout { to { opacity: 0; visibility: hidden } }
+@keyframes pulse { 50% { opacity: .55 } }
+
+/* ---- glow & pop upgrades ---- */
+.px {
+  position: relative;
+  border-color: var(--border-bright);
+  box-shadow: 0 5px 0 rgba(0,0,0,.5), 0 0 18px rgba(122,85,176,.18), inset 0 0 0 2px var(--bg-deep);
+}
+.px::after {
+  content: ''; position: absolute; top: -3px; left: -3px;
+  width: 9px; height: 9px; background: var(--border-bright);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+  opacity: .9;
+}
+.card-title { color: var(--ink); }
+.card-title .sq { box-shadow: 0 0 8px currentColor; }
+
+.tab-title {
+  font-size: 18px;
+  animation: titlein .25s steps(4) both;
+  text-shadow: 3px 3px 0 rgba(185,103,255,.45), 0 0 18px rgba(255,95,162,.35);
+}
+@keyframes titlein { from { transform: translateY(6px); opacity: 0 } }
+
+/* ---- HUD stat tiles ---- */
+.stat-tile {
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  overflow: hidden;
+}
+.stat-tile::before {
+  content: ''; position: absolute; right: -14px; top: -14px; width: 46px; height: 46px;
+  background: radial-gradient(circle, rgba(255,255,255,.07), transparent 70%);
+}
+.stat-value { text-shadow: 0 0 12px rgba(79,209,255,.35); animation: statin .3s steps(5) both; }
+@keyframes statin { from { transform: scale(.7); opacity: 0 } }
+
+/* ---- player card ---- */
+.player-card {
+  margin-top: auto; padding: 10px; border: 3px solid var(--border-bright);
+  background: var(--panel); border-radius: 2px; text-align: center;
+}
+.player-name { font-family: var(--font-pixel); font-size: 9px; color: var(--cyan); }
+.player-lv { font-family: var(--font-pixel); font-size: 8px; color: var(--yellow); margin-top: 6px; }
+.xp-bar { height: 9px; border: 2px solid var(--border); background: var(--bg-deep); margin-top: 7px; }
+.xp-bar > div { height: 100%; background: linear-gradient(90deg, var(--s4), var(--green)); box-shadow: 0 0 8px rgba(110,231,110,.5); }
+
+/* ---- nav upgrades ---- */
+.nav-item { transition: none; }
+.nav-item.active {
+  box-shadow: inset 0 0 0 2px var(--bg-deep), 0 0 14px rgba(185,103,255,.35);
+  animation: blink-in .2s steps(3) both;
+}
+.nav-item.active .nav-dot { box-shadow: 0 0 10px currentColor; animation: pulse 1.4s steps(2) infinite; }
+@keyframes blink-in { 0% { opacity: 0 } }
+
+/* ---- pixel checkbox: coin pop ---- */
+.pcheck { transition: none; position: relative; }
+.pcheck.done { box-shadow: 0 0 12px rgba(110,231,110,.6); }
+.coin-pop {
+  position: absolute; left: 50%; top: -6px; transform: translateX(-50%);
+  font-family: var(--font-pixel); font-size: 10px; color: var(--yellow);
+  text-shadow: 0 0 8px rgba(255,210,63,.8);
+  animation: coinup .7s steps(7) forwards; pointer-events: none; white-space: nowrap;
+}
+@keyframes coinup { from { opacity: 1; top: -4px } to { opacity: 0; top: -30px } }
+
+/* ---- streak flames ---- */
+.scell { width: 14px; height: 14px; }
+.scell.on {
+  background: linear-gradient(180deg, var(--yellow), var(--s6) 60%, var(--s1));
+  border-color: var(--s6); box-shadow: 0 0 7px rgba(255,154,82,.55);
+}
+
+/* ---- segmented progress bars ---- */
+.pbar {
+  height: 18px; padding: 2px; border: 3px solid var(--border-bright);
+  background:
+    repeating-linear-gradient(90deg, transparent 0 10px, rgba(16,10,23,.9) 10px 12px),
+    var(--bg-deep);
+  background-blend-mode: normal;
+}
+.pbar > div {
+  box-shadow: 0 0 10px rgba(232,65,145,.5);
+  mask: repeating-linear-gradient(90deg, #000 0 10px, transparent 10px 12px);
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 10px, transparent 10px 12px);
+}
+
+/* ---- buttons: arcade press ---- */
+.btn { position: relative; }
+.btn:hover { box-shadow: 0 3px 0 rgba(0,0,0,.5), 0 0 12px rgba(185,103,255,.35); }
+.btn-pink:hover { box-shadow: 0 3px 0 rgba(0,0,0,.5), 0 0 14px rgba(255,95,162,.5); }
+.btn-green:hover { box-shadow: 0 3px 0 rgba(0,0,0,.5), 0 0 14px rgba(110,231,110,.5); }
+.btn-cyan:hover { box-shadow: 0 3px 0 rgba(0,0,0,.5), 0 0 14px rgba(79,209,255,.5); }
+
+/* ---- marquee ticker (HQ) ---- */
+.ticker {
+  overflow: hidden; border: 3px solid var(--border-bright); background: var(--bg-deep);
+  border-radius: 2px; margin-bottom: 14px; position: relative;
+}
+.ticker-inner {
+  display: inline-block; white-space: nowrap; padding: 9px 0;
+  font-family: var(--font-pixel); font-size: 9px; color: var(--yellow);
+  animation: scroll 36s linear infinite;
+}
+.ticker:hover .ticker-inner { animation-play-state: paused; }
+.ticker-inner span { margin: 0 34px; }
+@keyframes scroll { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+
+/* ---- hero banner (HQ) ---- */
+.hero {
+  border: 3px solid var(--border-bright); border-radius: 2px; padding: 18px;
+  margin-bottom: 16px; position: relative; overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(185,103,255,.16), rgba(232,65,145,.10) 60%, transparent),
+    var(--panel);
+  box-shadow: 0 5px 0 rgba(0,0,0,.5), 0 0 24px rgba(185,103,255,.2), inset 0 0 0 2px var(--bg-deep);
+}
+.hero h1 { margin: 0 0 8px; }
+.hero .world { font-family: var(--font-pixel); font-size: 9px; color: var(--cyan); letter-spacing: 1px; }
+.pix-clouds { position: absolute; right: 12px; top: 10px; opacity: .8; image-rendering: pixelated; }
+
+/* ---- empty states ---- */
+.empty .pix { animation: pulse 1.6s steps(2) infinite; }
+
+/* ---- kanban glow heads ---- */
+.kanban-head { text-shadow: 0 0 10px currentColor; }
+
+/* ---- chips glow subtle ---- */
+.chip { box-shadow: 0 2px 0 rgba(0,0,0,.4); }
+
+@media (max-width: 760px) {
+  .player-card { display: none; }
+  .hero { padding: 14px; }
+}
+
+/* ---- reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  .ticker-inner, .boot-logo, .nav-item.active .nav-dot, .empty .pix { animation: none; }
+}

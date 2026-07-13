@@ -1,6 +1,7 @@
 import React from 'react';
 import { useCollection, todayStr } from '../lib/hooks.js';
 import { Card, Empty, StatTile, AskCowork, useNow } from '../components/ui.jsx';
+import { Ticker, PixelClouds } from '../components/arcade.jsx';
 
 export default function HQ({ go }) {
   const now = useNow();
@@ -26,8 +27,13 @@ export default function HQ({ go }) {
 
   return (
     <>
-      <h1 className="tab-title">{greet}, NEEL</h1>
-      <p className="tab-sub">{dayName}, {now.toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })} · {now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+      <div className="hero">
+        <PixelClouds />
+        <div className="world">WORLD {now.getMonth() + 1}-{now.getDate()} · {dayName.toUpperCase()}</div>
+        <h1 className="tab-title" style={{ marginTop: 8 }}>{greet}, NEEL</h1>
+        <p className="tab-sub" style={{ margin: 0 }}>{now.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} · {now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+      </div>
+      <Ticker />
 
       <div className="tile-row">
         <StatTile label="Due today" value={openTodos.length} note="tasks" color="var(--yellow)" />

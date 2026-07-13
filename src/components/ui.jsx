@@ -91,6 +91,21 @@ export function AskCowork() {
   );
 }
 
+// Pixel checkbox with "+XP" coin pop on completion
+export function PCheck({ done, onToggle, xp = 10 }) {
+  const [pop, setPop] = useState(false);
+  return (
+    <span className={`pcheck ${done ? 'done' : ''}`}
+      onClick={() => {
+        if (!done) { setPop(true); setTimeout(() => setPop(false), 750); }
+        onToggle();
+      }}>
+      {done ? '✕' : ''}
+      {pop && <span className="coin-pop">+{xp}xp</span>}
+    </span>
+  );
+}
+
 export function useNow(intervalMs = 30000) {
   const [now, setNow] = useState(new Date());
   useEffect(() => {

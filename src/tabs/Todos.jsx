@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useCollection, todayStr } from '../lib/hooks.js';
-import { Card, Empty } from '../components/ui.jsx';
+import { Card, Empty, PCheck } from '../components/ui.jsx';
 
 const PRI = { 3: ['HIGH', 'c-red'], 2: ['MED', 'c-yellow'], 1: ['LOW', 'c-cyan'], 0: ['—', ''] };
 const SMART = ['Today', 'Next 7 Days', 'Inbox', 'Done'];
@@ -71,10 +71,8 @@ export default function Todos() {
         {shown.length === 0 && <Empty icon="✓" text="Nothing here. Peaceful." />}
         {shown.map(t => (
           <div className="row" key={t.id}>
-            <span className={`pcheck ${t.completed ? 'done' : ''}`}
-              onClick={() => patch(t.id, { completed: !t.completed, completed_at: t.completed ? null : new Date().toISOString() })}>
-              {t.completed ? '✕' : ''}
-            </span>
+            <PCheck done={t.completed} xp={10}
+              onToggle={() => patch(t.id, { completed: !t.completed, completed_at: t.completed ? null : new Date().toISOString() })} />
             <span className={t.completed ? 'struck' : ''} style={{ flex: 1 }}>{t.title}</span>
             {t.priority > 0 && <span className={`chip ${PRI[t.priority][1]}`}>{PRI[t.priority][0]}</span>}
             {t.due_date && <span className={`chip ${t.due_date < today && !t.completed ? 'c-red' : 'c-purple'}`}>{t.due_date}</span>}
