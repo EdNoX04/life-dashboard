@@ -1,0 +1,45 @@
+name: Amizone sync
+
+on:
+  schedule:
+    - cron: '0 1 * * *'      # daily 06:30 IST (01:00 UTC)
+    - cron: '0 13 * * *'     # daily 18:30 IST (13:00 UTC) — catches afternoon classes
+  workflow_dispatch:          # manual "Sync now" button in the Actions tab
+
+concurrency:
+  group: amizone-sync
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright + Chromium
+        run: |
+          npm init -y >/dev/null 2>&1 || true
+          npm install playwright@1.48.0
+          npx playwright install --with-deps chromium
+
+      - name: Run Amizone sync
+        run: node scripts/amizone-sync.mjs
+        env:
+          AMIZONE_USER: ${{ secrets.AMIZONE_USER }}
+          AMIZONE_PASS: ${{ secrets.AMIZONE_PASS }}
+          SUPABASE_URL: https://xroynvkzephebhcztvfo.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+
+      - name: Upload debug screenshot on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: amizone-debug
+          path: |
+            *.png
+          if-no-files-found: ignore
