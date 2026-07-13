@@ -64,11 +64,12 @@ export default function HQ({ go }) {
         </Card>
 
         <Card title="Today's classes" color="var(--cyan)" right={<button className="btn btn-sm" onClick={() => go('college')}>open →</button>}>
-          {classes.length === 0 && <Empty icon="☺" text="No classes today." />}
-          {classes.slice(0, 5).map(t => (
+          {classes.length === 0 && <Empty icon="☺" text="No classes today — free roam." />}
+          {classes.slice(0, 6).map(t => (
             <div className="row" key={t.id}>
               <span className="chip c-cyan">{t.start_time}</span>
               <span style={{ flex: 1 }}>{t.subject}</span>
+              {t.room && <span className="chip c-purple">{t.room}</span>}
             </div>
           ))}
         </Card>

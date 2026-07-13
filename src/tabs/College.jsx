@@ -32,7 +32,9 @@ export default function College() {
       </div>
 
       <Card title={`Today — ${todayName}`} color="var(--cyan)">
-        {timetable.filter(t => t.day === todayName).length === 0 && <Empty icon="☺" text="No classes today (or Amizone not synced yet)." />}
+        {timetable.filter(t => t.day === todayName).length === 0 && (
+          <Empty icon="☺" text={timetable.length ? `No classes on ${todayName} — free roam. Your classes: ${[...new Set(timetable.map(t => t.day))].join(', ')}.` : 'No classes synced yet — ask Cowork to sync your college.'} />
+        )}
         {timetable.filter(t => t.day === todayName).map(t => (
           <div className="row" key={t.id}>
             <span className="chip c-cyan">{t.start_time}–{t.end_time}</span>
