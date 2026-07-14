@@ -138,9 +138,11 @@
 @keyframes scroll { from { transform: translateX(0) } to { transform: translateX(-50%) } }
 
 /* ---- hero banner (HQ) with live sky (right-side only, blended left) ---- */
+/* wrap holds the (clipped) hero + the spark, so the spark is never cut off */
+.hero-wrap { position: relative; margin-bottom: 16px; }
 .hero {
   border: 3px solid var(--border-bright); border-radius: 2px; padding: 18px;
-  margin-bottom: 16px; position: relative; overflow: hidden; min-height: 150px;
+  position: relative; overflow: hidden; min-height: 150px;
   background: var(--panel);
   box-shadow: 0 5px 0 rgba(0,0,0,.5), 0 0 24px rgba(185,103,255,.2), inset 0 0 0 2px var(--bg-deep);
 }
@@ -178,9 +180,10 @@
   .star { animation: none; }
 }
 
-/* ---- daily spark inside the hero (bottom-right) ---- */
+/* ---- daily spark: overlaps the hero bottom-right on desktop (sits in .hero-wrap,
+       outside the hero's overflow:hidden so it can never be clipped) ---- */
 .hero-spark {
-  position: absolute; right: 14px; bottom: 12px; z-index: 2;
+  position: absolute; right: 14px; bottom: 12px; z-index: 5;
   max-width: 46%; text-align: right;
   padding: 7px 11px 8px; border-radius: 3px;
   background: linear-gradient(90deg, transparent 0%, rgba(12,7,20,.5) 45%, rgba(12,7,20,.7) 100%);
@@ -189,8 +192,13 @@
 .hero-spark .hs-q { display: block; font-size: 15px; color: var(--ink); line-height: 1.32; text-shadow: 0 1px 4px rgba(0,0,0,.85); }
 .hero-spark .hs-a { display: block; font-family: var(--font-pixel); font-size: 6.5px; color: var(--ink-2); margin-top: 5px; letter-spacing: .5px; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
 @media (max-width: 760px) {
-  .hero-spark { position: static; max-width: 100%; text-align: left; margin-top: 14px; background: none; padding: 0; }
-  .hero-spark .hs-q { font-size: 17px; }
+  /* below the hero on mobile: full-width strip, always visible */
+  .hero-spark {
+    position: static; max-width: 100%; text-align: left; margin-top: 8px;
+    padding: 10px 12px; border: 2px solid var(--border);
+    background: linear-gradient(90deg, rgba(154,99,232,.12), rgba(12,7,20,.55));
+  }
+  .hero-spark .hs-q { font-size: 16px; }
 }
 
 /* ---- empty states ---- */
@@ -205,6 +213,52 @@
 @media (max-width: 760px) {
   .player-card { display: none; }
   .hero { padding: 14px; }
+}
+
+/* ---- readiness ring (Bevel-style, pixel) ---- */
+.ready-ring {
+  width: 108px; height: 108px; border-radius: 50%; flex-shrink: 0;
+  background:
+    radial-gradient(closest-side, var(--panel) 0 68%, transparent 69% 100%),
+    conic-gradient(var(--c) calc(var(--p) * 1%), var(--border) 0);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--c) 40%, transparent), inset 0 0 0 3px var(--bg-deep);
+  image-rendering: pixelated;
+}
+.ready-inner { text-align: center; }
+.ready-score { font-family: var(--font-pixel); font-size: 24px; text-shadow: 0 0 10px currentColor; }
+.ready-band { font-family: var(--font-pixel); font-size: 7px; color: var(--ink-2); margin-top: 6px; letter-spacing: 1px; }
+
+/* ---- month calendar ---- */
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.cal-title { font-family: var(--font-pixel); font-size: 12px; color: var(--ink); text-shadow: 0 0 10px rgba(185,103,255,.4); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.cal-dow { margin-bottom: 5px; }
+.cal-dow-cell { text-align: center; font-family: var(--font-pixel); font-size: 8px; color: var(--ink-3); padding: 4px 0; }
+.cal-cell {
+  aspect-ratio: 1 / 1; min-height: 46px; padding: 5px; border: 2px solid var(--border);
+  background: var(--bg-deep); color: var(--ink); display: flex; flex-direction: column;
+  align-items: flex-start; justify-content: flex-start; cursor: pointer; position: relative;
+  font-family: inherit; border-radius: 2px;
+}
+.cal-cell:hover { border-color: var(--border-bright); box-shadow: 0 0 10px rgba(185,103,255,.3); }
+.cal-cell.out { opacity: .3; }
+.cal-cell.today { border-color: var(--pink); box-shadow: inset 0 0 0 1px var(--pink), 0 0 12px rgba(232,65,145,.4); }
+.cal-cell.sel { border-color: var(--cyan); box-shadow: 0 0 12px rgba(79,209,255,.5); }
+.cal-num { font-size: 13px; line-height: 1; }
+.cal-cell.today .cal-num { color: var(--pink); text-shadow: 0 0 8px rgba(232,65,145,.7); }
+.cal-dots { display: flex; flex-wrap: wrap; gap: 3px; margin-top: auto; align-items: center; }
+.cal-dot { width: 7px; height: 7px; display: inline-block; border-radius: 1px; }
+.cal-dot.d-class { background: var(--purple); box-shadow: 0 0 5px var(--purple); }
+.cal-dot.d-gcal { background: var(--cyan); box-shadow: 0 0 5px var(--cyan); }
+.cal-more { font-size: 9px; color: var(--ink-3); line-height: 1; }
+.cal-legend { display: flex; gap: 14px; margin-top: 12px; align-items: center; flex-wrap: wrap; }
+.cal-legend > span { display: inline-flex; align-items: center; gap: 5px; }
+@media (max-width: 760px) {
+  .cal-grid { gap: 3px; }
+  .cal-cell { min-height: 40px; padding: 3px; }
+  .cal-num { font-size: 11px; }
+  .cal-dot { width: 5px; height: 5px; }
 }
 
 /* ---- reduced motion ---- */

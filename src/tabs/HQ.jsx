@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCollection, todayStr } from '../lib/hooks.js';
-import { Card, Empty, StatTile, AskCowork, useNow, useMoneyVisible, money } from '../components/ui.jsx';
+import { Card, Empty, StatTile, AskCowork, EyeBtn, useNow, useMoneyVisible, money } from '../components/ui.jsx';
 import { Ticker, Sky, useDailySpark } from '../components/arcade.jsx';
 import PortfolioChart from '../components/PortfolioChart.jsx';
 import * as db from '../lib/db.js';
@@ -39,11 +39,13 @@ export default function HQ({ go }) {
 
   return (
     <>
-      <div className="hero">
-        <Sky hour={now.getHours()} />
-        <div className="world">WORLD {now.getMonth() + 1}-{now.getDate()} · {dayName.toUpperCase()}</div>
-        <h1 className="tab-title" style={{ marginTop: 8 }}>{greet}, NEEL</h1>
-        <p className="tab-sub" style={{ margin: 0 }}>{now.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} · {now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+      <div className="hero-wrap">
+        <div className="hero">
+          <Sky hour={now.getHours()} />
+          <div className="world">WORLD {now.getMonth() + 1}-{now.getDate()} · {dayName.toUpperCase()}</div>
+          <h1 className="tab-title" style={{ marginTop: 8 }}>{greet}, NEEL</h1>
+          <p className="tab-sub" style={{ margin: 0 }}>{now.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} · {now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+        </div>
         <div className="hero-spark">
           <span className="hs-label">✦ DAILY SPARK</span>
           <span className="hs-q">“{spark.q}”</span>
@@ -95,9 +97,9 @@ export default function HQ({ go }) {
       </div>
 
       {held.length > 0 && (
-        <Card title="Portfolio" color="var(--pink)" right={<button className="btn btn-sm" onClick={() => go('money')}>open →</button>}>
+        <Card title="Portfolio" color="var(--pink)" right={<span className="flex" style={{ gap: 6 }}><EyeBtn visible={moneyVis} onClick={toggleMoney} /><button className="btn btn-sm" onClick={() => go('money')}>open →</button></span>}>
           <div className="spread" style={{ marginBottom: 6 }}>
-            <span className="stat-value" style={{ fontSize: 16 }} onClick={toggleMoney}>{money(pValue, moneyVis)}</span>
+            <span className="stat-value" style={{ fontSize: 16, cursor: 'pointer' }} onClick={toggleMoney}>{money(pValue, moneyVis)}</span>
             <span className="chip" style={{ color: pPct >= 0 ? 'var(--green)' : 'var(--red)', borderColor: pPct >= 0 ? 'var(--green)' : 'var(--red)' }}>{pPct >= 0 ? '▲' : '▼'} {Math.abs(pPct).toFixed(2)}%</span>
           </div>
           <PortfolioChart orders={orders} currentValue={pValue} visible={moneyVis} variant="mini" />
