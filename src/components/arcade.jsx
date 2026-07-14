@@ -82,9 +82,9 @@ function Cloud({ style, scale = 1, fill = '#e8dcff' }) {
 export function Sky({ hour }) {
   const phase = hour >= 5 && hour < 8 ? 'sunrise' : hour >= 8 && hour < 16 ? 'day' : hour >= 16 && hour < 19 ? 'sunset' : 'night';
   const isNight = phase === 'night';
-  // orb position: rises left→high→right through the day; moon centered at night
-  const orbLeft = phase === 'sunrise' ? '16%' : phase === 'day' ? '50%' : phase === 'sunset' ? '82%' : '76%';
-  const orbTop = phase === 'day' ? '14%' : isNight ? '20%' : '46%';
+  // orb lives on the RIGHT side of the banner; tracks a low→high→low arc through the day
+  const orbLeft = phase === 'sunrise' ? '62%' : phase === 'day' ? '74%' : phase === 'sunset' ? '90%' : '82%';
+  const orbTop = phase === 'day' ? '16%' : isNight ? '22%' : '44%';
   const orbColor = isNight ? '#e8e2ff' : phase === 'day' ? '#ffe08a' : '#ffb15c';
   const cloudFill = isNight ? '#3a2c52' : phase === 'sunset' ? '#c98ab0' : '#e8dcff';
 
@@ -92,7 +92,7 @@ export function Sky({ hour }) {
     <div className={`sky sky-${phase}`} aria-hidden="true">
       {isNight && (
         <div className="stars">
-          {[[12, 20], [28, 40], [45, 18], [62, 55], [78, 30], [88, 60], [20, 62], [70, 15], [55, 35], [38, 68]].map(([l, t], i) => (
+          {[[56, 22], [64, 46], [72, 16], [80, 58], [90, 32], [66, 64], [94, 52], [76, 14], [86, 40], [60, 70]].map(([l, t], i) => (
             <span key={i} className="star" style={{ left: l + '%', top: t + '%', animationDelay: (i * 0.4) + 's' }} />
           ))}
         </div>

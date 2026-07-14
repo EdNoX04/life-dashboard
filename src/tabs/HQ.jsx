@@ -44,6 +44,11 @@ export default function HQ({ go }) {
         <div className="world">WORLD {now.getMonth() + 1}-{now.getDate()} · {dayName.toUpperCase()}</div>
         <h1 className="tab-title" style={{ marginTop: 8 }}>{greet}, NEEL</h1>
         <p className="tab-sub" style={{ margin: 0 }}>{now.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} · {now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+        <div className="hero-spark">
+          <span className="hs-label">✦ DAILY SPARK</span>
+          <span className="hs-q">“{spark.q}”</span>
+          <span className="hs-a">— {spark.a}</span>
+        </div>
       </div>
       <Ticker />
 
@@ -107,14 +112,6 @@ export default function HQ({ go }) {
             <span className="chip c-purple">{n.category}</span>
           </div>
         ))}
-      </Card>
-
-      <Card title="Daily spark" color="var(--yellow)">
-        <div className="spark">
-          <span className="mark">“</span>
-          <div className="q">{spark.q}</div>
-          <div className="a">— {spark.a}</div>
-        </div>
       </Card>
 
       <AskCowork />
