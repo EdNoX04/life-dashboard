@@ -106,6 +106,39 @@ export function PCheck({ done, onToggle, xp = 10 }) {
   );
 }
 
+// Money privacy: amounts hidden by default each visit; eye reveals for the session.
+// Shared across tabs via a window event so HQ + Money stay in sync.
+export function useMoneyVisible() {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const h = e => setVisible(e.detail);
+    window.addEventListener('ldx-money-vis', h);
+    return () => window.removeEventListener('ldx-money-vis', h);
+  }, []);
+  const toggle = () => {
+    setVisible(v => {
+      const nv = !v;
+      window.dispatchEvent(new CustomEvent('ldx-money-vis', { detail: nv }));
+      return nv;
+    });
+  };
+  return [visible, toggle];
+}
+
+export function EyeBtn({ visible, onClick }) {
+  return (
+    <button className="btn btn-sm" onClick={onClick} title={visible ? 'Hide amounts' : 'Show amounts'} aria-label="toggle amounts">
+      {visible ? '🙈 hide' : '👁 show'}
+    </button>
+  );
+}
+
+export function money(n, visible, cur = '$') {
+  if (n == null) return '—';
+  if (!visible) return '•••••';
+  return cur + Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
 export function useNow(intervalMs = 30000) {
   const [now, setNow] = useState(new Date());
   useEffect(() => {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCollection, todayStr } from '../lib/hooks.js';
-import { Card, Empty, StatTile, AskCowork, useNow } from '../components/ui.jsx';
+import { Card, Empty, StatTile, AskCowork, useNow, useMoneyVisible, money } from '../components/ui.jsx';
 import { Ticker, PixelClouds } from '../components/arcade.jsx';
 
 export default function HQ({ go }) {
@@ -20,7 +20,11 @@ export default function HQ({ go }) {
   const liveHabits = habits.filter(h => !h.archived);
   const habitsDone = liveHabits.filter(h => logs.some(l => l.habit_id === h.id && l.date === today)).length;
   const classes = timetable.filter(t => t.day === dayName);
-  const pValue = investments.reduce((s, h) => s + Number(h.qty) * Number(h.last_price || h.avg_cost || 0), 0);
+  const [moneyVis, toggleMoney] = useMoneyVisible();
+  const held = investments.filter(h => Number(h.qty) > 0);
+  const pValue = held.reduce((s, h) => s + Number(h.qty) * Number(h.last_price || h.avg_cost || 0), 0);
+  const pCost = held.reduce((s, h) => s + Number(h.qty) * Number(h.avg_cost || 0), 0);
+  const pPct = pCost ? ((pValue - pCost) / pCost) * 100 : 0;
 
   const hour = now.getHours();
   const greet = hour < 5 ? 'STILL UP?' : hour < 12 ? 'GOOD MORNING' : hour < 17 ? 'GOOD AFTERNOON' : 'GOOD EVENING';
@@ -39,7 +43,9 @@ export default function HQ({ go }) {
         <StatTile label="Due today" value={openTodos.length} note="tasks" color="var(--yellow)" />
         <StatTile label="Habits" value={`${habitsDone}/${liveHabits.length}`} note="done today" color="var(--green)" />
         <StatTile label="Classes" value={classes.length} note="today" color="var(--cyan)" />
-        <StatTile label="Portfolio" value={pValue ? '$' + pValue.toLocaleString(undefined, { maximumFractionDigits: 0 }) : '—'} color="var(--pink)" />
+        <StatTile label="Portfolio" value={held.length ? money(pValue, moneyVis) : '—'}
+          note={held.length ? <span onClick={toggleMoney} style={{ cursor: 'pointer', color: pPct >= 0 ? 'var(--green)' : 'var(--red)' }}>{pPct >= 0 ? '▲' : '▼'} {Math.abs(pPct).toFixed(2)}% · {moneyVis ? 'hide' : 'tap to show'}</span> : null}
+          color="var(--pink)" />
       </div>
 
       <Card title={`Morning brief — ${brief?.date || today}`} color="var(--pink)">

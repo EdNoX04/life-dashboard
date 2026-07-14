@@ -1,62 +1,72 @@
 import React, { useState } from 'react';
 import { useCollection } from '../lib/hooks.js';
-import { Card, Empty, StatTile, RefreshButton } from '../components/ui.jsx';
-
-const fmt = (n, cur = '$') => n == null ? '—' : cur + Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
+import { Card, Empty, StatTile, RefreshButton, EyeBtn, useMoneyVisible, money } from '../components/ui.jsx';
 
 export default function Money() {
   const { items, add, patch, del, refresh } = useCollection('investments', { order: 'ticker', asc: true });
   const { items: news } = useCollection('news', { order: 'published_at' });
   const [form, setForm] = useState({ ticker: '', qty: '', avg_cost: '' });
+  const [visible, toggle] = useMoneyVisible();
 
-  const value = items.reduce((s, h) => s + (Number(h.qty) * Number(h.last_price || h.avg_cost || 0)), 0);
-  const cost = items.reduce((s, h) => s + (Number(h.qty) * Number(h.avg_cost || 0)), 0);
+  const held = items.filter(h => Number(h.qty) > 0);
+  const value = held.reduce((s, h) => s + (Number(h.qty) * Number(h.last_price || h.avg_cost || 0)), 0);
+  const cost = held.reduce((s, h) => s + (Number(h.qty) * Number(h.avg_cost || 0)), 0);
   const pnl = value - cost;
+  const pnlPct = cost ? (pnl / cost) * 100 : 0;
   const stockNews = news.filter(n => n.category === 'stocks').slice(0, 5);
 
   async function addHolding() {
     if (!form.ticker.trim() || !form.qty) return;
-    await add({
-      ticker: form.ticker.trim().toUpperCase(),
-      qty: Number(form.qty),
-      avg_cost: Number(form.avg_cost) || null,
-      last_price: null, currency: 'USD', source: 'manual',
-    });
+    await add({ ticker: form.ticker.trim().toUpperCase(), qty: Number(form.qty), avg_cost: Number(form.avg_cost) || null, last_price: null, currency: 'USD', source: 'manual' });
     setForm({ ticker: '', qty: '', avg_cost: '' });
   }
+
+  const pctChip = p => (
+    <span className="chip" style={{ color: p >= 0 ? 'var(--green)' : 'var(--red)', borderColor: p >= 0 ? 'var(--green)' : 'var(--red)' }}>
+      {p >= 0 ? '▲' : '▼'} {Math.abs(p).toFixed(2)}%
+    </span>
+  );
 
   return (
     <>
       <div className="spread">
         <h1 className="tab-title">MONEY</h1>
-        <RefreshButton source="investments" onLocalRefresh={refresh} label="Refresh prices" />
+        <span className="flex">
+          <EyeBtn visible={visible} onClick={toggle} />
+          <RefreshButton source="investments" onLocalRefresh={refresh} label="Prices" />
+        </span>
       </div>
-      <p className="tab-sub">US stocks (INDmoney) — snapshot by Cowork, prices kept live.</p>
+      <p className="tab-sub">US stocks (INDmoney) — holdings snapshot + live public prices.</p>
 
       <div className="tile-row">
-        <StatTile label="Portfolio value" value={fmt(value)} color="var(--green)" />
-        <StatTile label="Invested" value={fmt(cost)} color="var(--cyan)" />
-        <StatTile label="P&L" value={fmt(pnl)}
-          note={cost ? `${((pnl / cost) * 100).toFixed(1)}%` : ''}
-          color={pnl >= 0 ? 'var(--green)' : 'var(--red)'} />
-        <StatTile label="Holdings" value={items.length} color="var(--pink)" />
+        <StatTile label="Portfolio value" value={money(value, visible)} note={pctChip(pnlPct)} color="var(--green)" />
+        <StatTile label="Invested" value={money(cost, visible)} color="var(--cyan)" />
+        <StatTile label="Total P&L" value={money(pnl, visible)} note={pctChip(pnlPct)} color={pnl >= 0 ? 'var(--green)' : 'var(--red)'} />
+        <StatTile label="Holdings" value={held.length} color="var(--pink)" />
       </div>
 
       <Card title="Holdings" color="var(--green)">
-        {items.length === 0 && <Empty icon="$" text="No holdings yet — add manually below, or wait for the INDmoney sync." />}
-        {items.length > 0 && (
+        {held.length === 0 && <Empty icon="$" text="No holdings yet — snapshot from INDmoney or add manually below." />}
+        {held.length > 0 && (
           <div className="scroll-x">
             <table className="ptable">
-              <thead><tr><th>Ticker</th><th>Qty</th><th>Avg cost</th><th>Last</th><th>Value</th><th>P&L</th><th /></tr></thead>
+              <thead><tr><th>Ticker</th><th>Qty</th><th>Avg</th><th>Last</th><th>Value</th><th>P&L</th><th /></tr></thead>
               <tbody>
-                {items.map(h => {
+                {held.map(h => {
                   const v = Number(h.qty) * Number(h.last_price || h.avg_cost || 0);
-                  const p = h.avg_cost ? v - Number(h.qty) * Number(h.avg_cost) : null;
+                  const c = Number(h.qty) * Number(h.avg_cost || 0);
+                  const p = h.avg_cost ? v - c : null;
+                  const pp = c ? (p / c) * 100 : 0;
                   return (
                     <tr key={h.id}>
                       <td><b style={{ fontWeight: 'normal', color: 'var(--cyan)' }}>{h.ticker}</b></td>
-                      <td>{h.qty}</td><td>{fmt(h.avg_cost)}</td><td>{fmt(h.last_price)}</td><td>{fmt(v)}</td>
-                      <td style={{ color: p == null ? undefined : p >= 0 ? 'var(--green)' : 'var(--red)' }}>{fmt(p)}</td>
+                      <td>{Number(h.qty).toFixed(4)}</td>
+                      <td>{money(h.avg_cost, visible)}</td>
+                      <td>{h.last_price ? '$' + Number(h.last_price).toFixed(2) : '—'}</td>
+                      <td>{money(v, visible)}</td>
+                      <td style={{ color: p == null ? undefined : p >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                        {money(p, visible)} {h.avg_cost ? <span className="small">({pp >= 0 ? '+' : ''}{pp.toFixed(1)}%)</span> : ''}
+                      </td>
                       <td><button className="btn btn-sm" onClick={() => del(h.id)}>✕</button></td>
                     </tr>
                   );
@@ -88,8 +98,7 @@ export default function Money() {
 
       <Card title="Note on orders" color="var(--yellow)">
         <div className="small" style={{ color: 'var(--ink-2)' }}>
-          INDmoney has no public trading API — orders can't be placed from here safely.
-          Cowork preps the trade idea (ticker, qty, reasoning) in your morning brief; you execute in the app in two taps.
+          Read-only. INDmoney has no trading API — Cowork snapshots your holdings from order history; place trades yourself in the app.
         </div>
       </Card>
     </>

@@ -1,0 +1,27 @@
+name: US stock prices sync
+
+on:
+  schedule:
+    # US market hours are ~13:30–20:00 UTC. Refresh a few times on weekdays + one daily close.
+    - cron: '0 14,17,20 * * 1-5'   # ~intraday (Mon-Fri)
+    - cron: '30 20 * * 1-5'        # after close
+  workflow_dispatch:
+
+concurrency:
+  group: prices-sync
+  cancel-in-progress: true
+
+jobs:
+  prices:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Update prices
+        run: node scripts/prices-sync.mjs
+        env:
+          SUPABASE_URL: https://xroynvkzephebhcztvfo.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
