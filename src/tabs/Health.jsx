@@ -2,17 +2,20 @@ import React, { useMemo, useState } from 'react';
 import { useCollection, todayStr } from '../lib/hooks.js';
 import { Card, Empty, RefreshButton } from '../components/ui.jsx';
 import Sparkline from '../components/Sparkline.jsx';
+import WorkoutLogger from '../components/WorkoutLogger.jsx';
 
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
 
 export default function Health() {
   const { items: metrics, refresh } = useCollection('health_metrics', { order: 'date', asc: true });
-  const { items: workouts, add: addWorkout, del } = useCollection('workouts', { order: 'date' });
+  const { items: workouts, del, refresh: refreshW } = useCollection('workouts', { order: 'date' });
   const { items: mem } = useCollection('memory', { filter: 'key=eq.health_last_sync', order: 'key' });
-  const [w, setW] = useState({ title: '', duration_min: '', date: todayStr() });
+  const { items: prMem, refresh: refreshPR } = useCollection('memory', { filter: 'key=eq.workout_prs', order: 'key' });
+  const [openW, setOpenW] = useState(null);
 
   const lastSync = mem?.[0]?.value?.at;
+  const prs = prMem?.[0]?.value || {};
 
   // series per metric (chronological values)
   const series = useMemo(() => {
@@ -46,15 +49,17 @@ export default function Health() {
     ['steps', 'Steps', '', 'var(--green)', '#2fa848'],
     ['resting_hr', 'Resting HR', ' bpm', 'var(--pink)', '#e84191'],
     ['hrv', 'HRV', ' ms', 'var(--cyan)', '#1f9ecf'],
+    ['heart_rate', 'Heart rate', ' bpm', 'var(--red)', '#e84191'],
     ['active_energy', 'Active kcal', '', 'var(--orange)', '#d96a1f'],
     ['exercise_min', 'Exercise', ' min', 'var(--yellow)', '#b3860a'],
+    ['spo2', 'SpO₂', '%', 'var(--cyan)', '#1f9ecf'],
+    ['resp_rate', 'Respiration', ' bpm', 'var(--purple)', '#9a63e8'],
+    ['distance_km', 'Distance', ' km', 'var(--green)', '#2fa848'],
+    ['vo2max', 'VO₂ max', '', 'var(--orange)', '#d96a1f'],
+    ['weight', 'Weight', ' kg', 'var(--pink)', '#e84191'],
   ];
 
-  async function logWorkout() {
-    if (!w.title.trim()) return;
-    await addWorkout({ title: w.title.trim(), duration_min: Number(w.duration_min) || null, date: w.date, source: 'manual', exercises: [] });
-    setW({ title: '', duration_min: '', date: todayStr() });
-  }
+  const todayHr = latest('heart_rate') || latest('resting_hr');
   const insights = metrics.filter(m => m.metric === 'insight').slice(-3).reverse();
   const thisWeek = workouts.filter(x => x.date >= todayStr(new Date(Date.now() - 6 * 864e5))).length;
 
@@ -110,27 +115,47 @@ export default function Health() {
           : insights.map(m => <div className="row" key={m.id}><span style={{ flex: 1 }}>{m.note || m.value}</span><span className="chip c-purple">{m.date}</span></div>)}
       </Card>
 
-      <Card title="Log workout (manual)" color="var(--yellow)">
-        <div className="flex" style={{ flexWrap: 'wrap' }}>
-          <input style={{ flex: 2, minWidth: 150 }} placeholder="e.g. Push day, 5k run" value={w.title} onChange={e => setW({ ...w, title: e.target.value })} />
-          <input style={{ width: 110 }} type="number" placeholder="Minutes" value={w.duration_min} onChange={e => setW({ ...w, duration_min: e.target.value })} />
-          <input style={{ width: 150 }} type="date" value={w.date} onChange={e => setW({ ...w, date: e.target.value })} />
-          <button className="btn btn-green" onClick={logWorkout}>+ Log</button>
-        </div>
-        <div className="small muted mt">Hevy auto-sync coming next — for now, manual + Apple Health workouts.</div>
-      </Card>
+      <WorkoutLogger prs={prs} todayHr={todayHr} onSaved={() => { refreshW(); refreshPR(); }} />
+
+      {Object.keys(prs).length > 0 && (
+        <Card title="Personal records 🏆" color="var(--yellow)">
+          {Object.entries(prs).sort((a, b) => (b[1].est1rm || 0) - (a[1].est1rm || 0)).slice(0, 10).map(([name, p]) => (
+            <div className="row" key={name}>
+              <span style={{ flex: 1 }}>{name}</span>
+              <span className="chip c-yellow">{p.weight}kg × {p.reps}</span>
+              <span className="chip">~{Math.round(p.est1rm)}kg 1RM</span>
+              <span className="chip c-purple">{p.date}</span>
+            </div>
+          ))}
+        </Card>
+      )}
 
       <Card title={`Workouts (${thisWeek} this week)`} color="var(--cyan)">
-        {workouts.length === 0 && <Empty icon="🏋" text="No workouts yet." />}
-        {workouts.slice(0, 20).map(x => (
-          <div className="row" key={x.id}>
-            <span className="chip c-purple">{x.date}</span>
-            <span style={{ flex: 1 }}>{x.title}</span>
-            {x.duration_min && <span className="chip c-cyan">{x.duration_min} min</span>}
-            <span className="chip">{x.source}</span>
-            <button className="btn btn-sm" onClick={() => del(x.id)}>✕</button>
-          </div>
-        ))}
+        {workouts.length === 0 && <Empty icon="🏋" text="No workouts yet — hit Start workout above." />}
+        {workouts.slice(0, 20).map(x => {
+          const exs = Array.isArray(x.exercises) ? x.exercises : [];
+          return (
+            <div key={x.id} style={{ borderBottom: '2px dashed var(--border)', padding: '8px 0' }}>
+              <div className="row" style={{ borderBottom: 'none' }} onClick={() => setOpenW(openW === x.id ? null : x.id)}>
+                <span className="chip c-purple">{x.date}</span>
+                <span style={{ flex: 1, cursor: exs.length ? 'pointer' : 'default' }}><b style={{ fontWeight: 'normal' }}>{x.title}</b>{exs.length ? <span className="muted small"> · {exs.length} exercises</span> : ''}</span>
+                {x.volume_kg ? <span className="chip c-green">{x.volume_kg.toLocaleString()} kg vol</span> : null}
+                {x.avg_hr ? <span className="chip c-red">{x.avg_hr} bpm</span> : (x.duration_min ? <span className="chip c-cyan">{x.duration_min} min</span> : null)}
+                <span className="chip">{x.source}</span>
+                <button className="btn btn-sm" onClick={e => { e.stopPropagation(); del(x.id); }}>✕</button>
+              </div>
+              {openW === x.id && exs.length > 0 && (
+                <div style={{ paddingLeft: 8, marginTop: 4 }}>
+                  {exs.map((e, i) => (
+                    <div key={i} className="small" style={{ padding: '2px 0' }}>
+                      <span style={{ color: 'var(--cyan)' }}>{e.name}</span>: <span className="muted">{(e.sets || []).map(s => `${s.weight || '–'}×${s.reps}`).join(', ')}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </Card>
     </>
   );
