@@ -50,10 +50,12 @@ export default function College() {
         {subjects.map(s => {
           const pct = Number(s.attendance_pct) || 0;
           return (
-            <div className="row" key={s.id}>
-              <span style={{ flex: 1 }}>{s.name}</span>
-              <div className="pbar" style={{ width: 140 }}><div style={{ width: `${pct}%`, background: pct < 75 ? 'var(--bad)' : 'var(--ok)' }} /></div>
-              <span className={`chip ${pct < 75 ? 'c-red' : 'c-green'}`}>{pct ? pct + '%' : '—'}</span>
+            <div className="att-row" key={s.id}>
+              <span className="att-name">{s.name}</span>
+              <div className="att-meter">
+                <div className="pbar"><div style={{ width: `${pct}%`, background: pct < 75 ? 'var(--bad)' : 'var(--ok)' }} /></div>
+                <span className={`chip ${pct < 75 ? 'c-red' : 'c-green'}`}>{pct ? pct + '%' : '—'}</span>
+              </div>
             </div>
           );
         })}

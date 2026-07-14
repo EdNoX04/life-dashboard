@@ -40,7 +40,7 @@ export default function App() {
     <div className="app crt">
       <BootScreen />
       <nav className="sidebar">
-        <div className="logo">LIFE<span>▮</span>HQ</div>
+        <div className="logo">PLAYER<span>▮</span>ONE</div>
         {TABS.map(([id, label, color]) => (
           <div key={id} className={`nav-item ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>
             <span className="nav-dot" style={{ background: color }} />

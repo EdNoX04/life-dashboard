@@ -205,6 +205,21 @@ label { color: var(--ink-2); font-size: 16px; display: block; margin-bottom: 4px
 .mt { margin-top: 12px; }
 .scroll-x { overflow-x: auto; }
 
+/* attendance row — responsive, no overflow on mobile */
+.att-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; border-bottom: 2px dashed var(--border);
+}
+.att-row:last-child { border-bottom: none; }
+.att-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.att-meter { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.att-meter .pbar { width: 130px; }
+@media (max-width: 760px) {
+  .att-row { flex-wrap: wrap; }
+  .att-meter { width: 100%; }
+  .att-meter .pbar { flex: 1; width: auto; }
+}
+
 table.ptable { width: 100%; border-collapse: collapse; font-size: 17px; }
 .ptable th { font-family: var(--font-pixel); font-size: 8px; color: var(--ink-3); text-align: left; padding: 8px 10px; border-bottom: 3px solid var(--border); text-transform: uppercase; }
 .ptable td { padding: 8px 10px; border-bottom: 2px dashed var(--border); }

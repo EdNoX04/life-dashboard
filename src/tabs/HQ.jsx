@@ -1,7 +1,7 @@
 import React from 'react';
 import { useCollection, todayStr } from '../lib/hooks.js';
 import { Card, Empty, StatTile, AskCowork, useNow, useMoneyVisible, money } from '../components/ui.jsx';
-import { Ticker, PixelClouds } from '../components/arcade.jsx';
+import { Ticker, Sky, useDailySpark } from '../components/arcade.jsx';
 import PortfolioChart from '../components/PortfolioChart.jsx';
 import * as db from '../lib/db.js';
 
@@ -35,11 +35,12 @@ export default function HQ({ go }) {
 
   const hour = now.getHours();
   const greet = hour < 5 ? 'STILL UP?' : hour < 12 ? 'GOOD MORNING' : hour < 17 ? 'GOOD AFTERNOON' : 'GOOD EVENING';
+  const spark = useDailySpark();
 
   return (
     <>
       <div className="hero">
-        <PixelClouds />
+        <Sky hour={now.getHours()} />
         <div className="world">WORLD {now.getMonth() + 1}-{now.getDate()} · {dayName.toUpperCase()}</div>
         <h1 className="tab-title" style={{ marginTop: 8 }}>{greet}, NEEL</h1>
         <p className="tab-sub" style={{ margin: 0 }}>{now.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} · {now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
@@ -106,6 +107,14 @@ export default function HQ({ go }) {
             <span className="chip c-purple">{n.category}</span>
           </div>
         ))}
+      </Card>
+
+      <Card title="Daily spark" color="var(--yellow)">
+        <div className="spark">
+          <span className="mark">“</span>
+          <div className="q">{spark.q}</div>
+          <div className="a">— {spark.a}</div>
+        </div>
       </Card>
 
       <AskCowork />

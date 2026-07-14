@@ -1,6 +1,6 @@
 {
-  "name": "Life HQ",
-  "short_name": "Life HQ",
+  "name": "Player One",
+  "short_name": "Player One",
   "description": "Neel's everything dashboard — powered by Cowork",
   "start_url": "/",
   "display": "standalone",

@@ -13,7 +13,7 @@ export function BootScreen() {
   if (phase === 'off') return null;
   return (
     <div className={`boot ${phase === 'out' ? 'done' : ''}`} onClick={() => { setPhase('off'); sessionStorage.setItem('ldx_booted', '1'); }}>
-      <div className="boot-logo">LIFE HQ</div>
+      <div className="boot-logo">PLAYER ONE</div>
       <div className="boot-bar"><div /></div>
       <div className="boot-hint">LOADING WORLD…</div>
     </div>
@@ -67,15 +67,80 @@ export function Ticker() {
   );
 }
 
-export function PixelClouds() {
+function Cloud({ style, scale = 1, fill = '#e8dcff' }) {
   return (
-    <svg className="pix-clouds" width="90" height="34" viewBox="0 0 45 17" shapeRendering="crispEdges">
-      <g fill="#b7a8cc" opacity=".5">
-        <rect x="4" y="4" width="10" height="3" /><rect x="6" y="2" width="6" height="2" />
-        <rect x="2" y="7" width="14" height="2" />
-        <rect x="28" y="8" width="12" height="3" /><rect x="30" y="6" width="8" height="2" />
-        <rect x="26" y="11" width="16" height="2" />
+    <svg width={46 * scale} height={20 * scale} viewBox="0 0 23 10" shapeRendering="crispEdges" style={style}>
+      <g fill={fill}>
+        <rect x="6" y="2" width="6" height="2" /><rect x="10" y="1" width="5" height="2" />
+        <rect x="3" y="4" width="17" height="2" /><rect x="1" y="6" width="21" height="2" />
       </g>
     </svg>
   );
+}
+
+// Time-reactive animated sky: sunrise / day / sunset / night.
+export function Sky({ hour }) {
+  const phase = hour >= 5 && hour < 8 ? 'sunrise' : hour >= 8 && hour < 16 ? 'day' : hour >= 16 && hour < 19 ? 'sunset' : 'night';
+  const isNight = phase === 'night';
+  // orb position: rises left→high→right through the day; moon centered at night
+  const orbLeft = phase === 'sunrise' ? '16%' : phase === 'day' ? '50%' : phase === 'sunset' ? '82%' : '76%';
+  const orbTop = phase === 'day' ? '14%' : isNight ? '20%' : '46%';
+  const orbColor = isNight ? '#e8e2ff' : phase === 'day' ? '#ffe08a' : '#ffb15c';
+  const cloudFill = isNight ? '#3a2c52' : phase === 'sunset' ? '#c98ab0' : '#e8dcff';
+
+  return (
+    <div className={`sky sky-${phase}`} aria-hidden="true">
+      {isNight && (
+        <div className="stars">
+          {[[12, 20], [28, 40], [45, 18], [62, 55], [78, 30], [88, 60], [20, 62], [70, 15], [55, 35], [38, 68]].map(([l, t], i) => (
+            <span key={i} className="star" style={{ left: l + '%', top: t + '%', animationDelay: (i * 0.4) + 's' }} />
+          ))}
+        </div>
+      )}
+      <div className="orb" style={{ left: orbLeft, top: orbTop, background: orbColor, boxShadow: `0 0 18px ${orbColor}` }}>
+        {isNight && <span className="moon-crater" />}
+      </div>
+      <Cloud style={{ position: 'absolute', top: '22%', animation: 'cloudDrift 46s linear infinite' }} scale={1.4} fill={cloudFill} />
+      <Cloud style={{ position: 'absolute', top: '48%', animation: 'cloudDrift 70s linear infinite', animationDelay: '-20s', opacity: 0.7 }} scale={1} fill={cloudFill} />
+      <Cloud style={{ position: 'absolute', top: '12%', animation: 'cloudDrift 90s linear infinite', animationDelay: '-55s', opacity: 0.55 }} scale={0.8} fill={cloudFill} />
+    </div>
+  );
+}
+
+const SPARKS = [
+  { q: 'The obstacle is the way.', a: 'Marcus Aurelius' },
+  { q: 'What you do every day matters more than what you do once in a while.', a: 'Gretchen Rubin' },
+  { q: 'Discipline is choosing between what you want now and what you want most.', a: 'Augusta F. Kantra' },
+  { q: 'You do not rise to the level of your goals. You fall to the level of your systems.', a: 'James Clear' },
+  { q: 'The best time to plant a tree was 20 years ago. The second best time is now.', a: 'Proverb' },
+  { q: 'Compound interest is the eighth wonder of the world.', a: 'attrib. Einstein' },
+  { q: 'Hard choices, easy life. Easy choices, hard life.', a: 'Jerzy Gregorek' },
+  { q: 'It is not that we have a short time to live, but that we waste a lot of it.', a: 'Seneca' },
+  { q: 'Amateurs sit and wait for inspiration; the rest of us just get up and go to work.', a: 'Chuck Close' },
+  { q: 'Slow is smooth, and smooth is fast.', a: 'Navy SEAL adage' },
+  { q: 'You are what you repeatedly do. Excellence is a habit.', a: 'Will Durant' },
+  { q: 'The man who moves a mountain begins by carrying away small stones.', a: 'Confucius' },
+  { q: 'Motivation gets you going, but discipline keeps you growing.', a: 'John C. Maxwell' },
+  { q: 'If it is important, do it every day. If it is not, do not do it at all.', a: 'Dan Gable' },
+  { q: 'Comparison is the thief of joy.', a: 'Theodore Roosevelt' },
+  { q: 'Fall seven times, stand up eight.', a: 'Japanese Proverb' },
+  { q: 'Do the hard jobs first. The easy jobs will take care of themselves.', a: 'Dale Carnegie' },
+  { q: 'Little by little, one travels far.', a: 'J.R.R. Tolkien' },
+  { q: 'Risk comes from not knowing what you are doing.', a: 'Warren Buffett' },
+  { q: 'The price of anything is the amount of life you exchange for it.', a: 'Thoreau' },
+  { q: 'What gets measured gets managed.', a: 'Peter Drucker' },
+  { q: 'Everything you want is on the other side of consistency.', a: '—' },
+  { q: 'A year from now you may wish you had started today.', a: 'Karen Lamb' },
+  { q: 'Simplicity is the ultimate sophistication.', a: 'da Vinci' },
+  { q: 'Focus on being productive instead of busy.', a: 'Tim Ferriss' },
+  { q: 'The cave you fear to enter holds the treasure you seek.', a: 'Joseph Campbell' },
+  { q: 'Well begun is half done.', a: 'Aristotle' },
+  { q: 'Energy and persistence conquer all things.', a: 'Benjamin Franklin' },
+  { q: 'Make each day your masterpiece.', a: 'John Wooden' },
+  { q: 'Knowing is not enough; we must apply.', a: 'Bruce Lee' },
+];
+
+export function useDailySpark() {
+  const day = Math.floor(Date.now() / 86400000);
+  return SPARKS[day % SPARKS.length];
 }

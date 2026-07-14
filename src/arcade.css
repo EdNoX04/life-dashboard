@@ -137,18 +137,42 @@
 .ticker-inner span { margin: 0 34px; }
 @keyframes scroll { from { transform: translateX(0) } to { transform: translateX(-50%) } }
 
-/* ---- hero banner (HQ) ---- */
+/* ---- hero banner (HQ) with live sky ---- */
 .hero {
   border: 3px solid var(--border-bright); border-radius: 2px; padding: 18px;
-  margin-bottom: 16px; position: relative; overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(185,103,255,.16), rgba(232,65,145,.10) 60%, transparent),
-    var(--panel);
+  margin-bottom: 16px; position: relative; overflow: hidden; min-height: 150px;
   box-shadow: 0 5px 0 rgba(0,0,0,.5), 0 0 24px rgba(185,103,255,.2), inset 0 0 0 2px var(--bg-deep);
 }
-.hero h1 { margin: 0 0 8px; }
-.hero .world { font-family: var(--font-pixel); font-size: 9px; color: var(--cyan); letter-spacing: 1px; }
-.pix-clouds { position: absolute; right: 12px; top: 10px; opacity: .8; image-rendering: pixelated; }
+.hero h1 { margin: 0 0 8px; position: relative; z-index: 2; }
+.hero .world { font-family: var(--font-pixel); font-size: 9px; color: var(--cyan); letter-spacing: 1px; position: relative; z-index: 2; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+.hero .tab-sub, .hero .tab-title { position: relative; z-index: 2; text-shadow: 0 2px 6px rgba(0,0,0,.55); }
+
+/* sky layer */
+.sky { position: absolute; inset: 0; z-index: 0; overflow: hidden; image-rendering: pixelated; }
+.sky::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 40%, rgba(16,10,23,.55) 100%); }
+.sky-sunrise { background: linear-gradient(180deg, #2e2050 0%, #7a3f74 45%, #d9628a 72%, #ff9a6c 100%); }
+.sky-day     { background: linear-gradient(180deg, #3f3172 0%, #6a4aa8 55%, #a877cc 100%); }
+.sky-sunset  { background: linear-gradient(180deg, #241844 0%, #7e3a74 45%, #c8567e 70%, #ff7a4c 100%); }
+.sky-night   { background: linear-gradient(180deg, #0c0716 0%, #160e2a 60%, #241640 100%); }
+
+.orb { position: absolute; width: 26px; height: 26px; border-radius: 50%; transform: translate(-50%,-50%); transition: none; }
+.moon-crater { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: rgba(0,0,0,.12); top: 5px; left: 6px; box-shadow: 8px 6px 0 -2px rgba(0,0,0,.12); }
+
+.stars { position: absolute; inset: 0; }
+.star { position: absolute; width: 2px; height: 2px; background: #fff; opacity: .85; box-shadow: 0 0 3px #fff; animation: twinkle 2.6s steps(2) infinite; }
+@keyframes twinkle { 50% { opacity: .2; } }
+@keyframes cloudDrift { from { left: -60px; } to { left: 108%; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sky svg { animation: none !important; }
+  .star { animation: none; }
+}
+
+/* ---- daily spark ---- */
+.spark { position: relative; padding: 16px 18px; }
+.spark .mark { font-family: var(--font-pixel); font-size: 26px; color: var(--border-bright); position: absolute; top: 4px; left: 10px; opacity: .5; }
+.spark .q { font-size: 21px; color: var(--ink); line-height: 1.4; padding-left: 26px; }
+.spark .a { font-family: var(--font-pixel); font-size: 8px; color: var(--yellow); margin-top: 10px; text-align: right; letter-spacing: 1px; }
 
 /* ---- empty states ---- */
 .empty .pix { animation: pulse 1.6s steps(2) infinite; }
