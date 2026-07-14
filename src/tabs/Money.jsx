@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useCollection } from '../lib/hooks.js';
 import { Card, Empty, StatTile, RefreshButton, EyeBtn, useMoneyVisible, money } from '../components/ui.jsx';
 import StockDetail from '../components/StockDetail.jsx';
+import PortfolioChart from '../components/PortfolioChart.jsx';
 import * as db from '../lib/db.js';
 
 export default function Money() {
@@ -10,11 +11,15 @@ export default function Money() {
   const [form, setForm] = useState({ ticker: '', qty: '', avg_cost: '' });
   const [visible, toggle] = useMoneyVisible();
   const [orders, setOrders] = useState([]);
+  const [snapshots, setSnapshots] = useState([]);
   const [openStock, setOpenStock] = useState(null);
 
   useEffect(() => {
     db.list('memory', { filter: 'key=eq.stock_orders', order: 'key' })
       .then(rows => setOrders(rows?.[0]?.value?.orders || []))
+      .catch(() => {});
+    db.list('portfolio_snapshots', { order: 'date', asc: true })
+      .then(rows => setSnapshots(rows || []))
       .catch(() => {});
   }, []);
 
@@ -54,6 +59,10 @@ export default function Money() {
         <StatTile label="Total P&L" value={money(pnl, visible)} note={pctChip(pnlPct)} color={pnl >= 0 ? 'var(--green)' : 'var(--red)'} />
         <StatTile label="Holdings" value={held.length} color="var(--pink)" />
       </div>
+
+      <Card title="Portfolio over time" color="var(--purple)">
+        <PortfolioChart orders={orders} snapshots={snapshots} currentValue={value} visible={visible} variant="full" />
+      </Card>
 
       <Card title="Holdings" color="var(--green)">
         {held.length === 0 && <Empty icon="$" text="No holdings yet — snapshot from INDmoney or add manually below." />}

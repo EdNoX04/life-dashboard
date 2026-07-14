@@ -2,10 +2,17 @@ import React from 'react';
 import { useCollection, todayStr } from '../lib/hooks.js';
 import { Card, Empty, StatTile, AskCowork, useNow, useMoneyVisible, money } from '../components/ui.jsx';
 import { Ticker, PixelClouds } from '../components/arcade.jsx';
+import PortfolioChart from '../components/PortfolioChart.jsx';
+import * as db from '../lib/db.js';
 
 export default function HQ({ go }) {
   const now = useNow();
   const today = todayStr();
+  const [orders, setOrders] = React.useState([]);
+  React.useEffect(() => {
+    db.list('memory', { filter: 'key=eq.stock_orders', order: 'key' })
+      .then(rows => setOrders(rows?.[0]?.value?.orders || [])).catch(() => {});
+  }, []);
   const { items: briefs } = useCollection('briefs', { order: 'date' });
   const { items: todos } = useCollection('todos');
   const { items: habits } = useCollection('habits');
@@ -80,6 +87,16 @@ export default function HQ({ go }) {
           ))}
         </Card>
       </div>
+
+      {held.length > 0 && (
+        <Card title="Portfolio" color="var(--pink)" right={<button className="btn btn-sm" onClick={() => go('money')}>open →</button>}>
+          <div className="spread" style={{ marginBottom: 6 }}>
+            <span className="stat-value" style={{ fontSize: 16 }} onClick={toggleMoney}>{money(pValue, moneyVis)}</span>
+            <span className="chip" style={{ color: pPct >= 0 ? 'var(--green)' : 'var(--red)', borderColor: pPct >= 0 ? 'var(--green)' : 'var(--red)' }}>{pPct >= 0 ? '▲' : '▼'} {Math.abs(pPct).toFixed(2)}%</span>
+          </div>
+          <PortfolioChart orders={orders} currentValue={pValue} visible={moneyVis} variant="mini" />
+        </Card>
+      )}
 
       <Card title="News brief" color="var(--purple)" right={<button className="btn btn-sm" onClick={() => go('news')}>all →</button>}>
         {news.length === 0 && <Empty icon="※" text="Headlines arrive with the daily run." />}

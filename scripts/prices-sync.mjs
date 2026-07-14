@@ -41,6 +41,20 @@ async function run() {
     const r = await rest(`investments?id=eq.${h.id}`, { method: 'PATCH', body: JSON.stringify({ last_price: prices[h.ticker], updated_at: new Date().toISOString() }) });
     if (r.ok) updated++;
   }
+  // record a daily portfolio value snapshot (for the value-over-time chart)
+  try {
+    const holds = await (await rest('investments?select=qty,avg_cost,last_price&source=eq.indmoney&qty=gt.0')).json();
+    if (Array.isArray(holds) && holds.length) {
+      const val = holds.reduce((s, h) => s + Number(h.qty) * Number(h.last_price || h.avg_cost || 0), 0);
+      const cost = holds.reduce((s, h) => s + Number(h.qty) * Number(h.avg_cost || 0), 0);
+      const today = new Date().toISOString().slice(0, 10);
+      // one row per day: delete today's then insert
+      await rest(`portfolio_snapshots?date=eq.${today}`, { method: 'DELETE' });
+      await rest('portfolio_snapshots', { method: 'POST', headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify([{ date: today, total_value: Math.round(val * 100) / 100, total_cost: Math.round(cost * 100) / 100 }]) });
+    }
+  } catch (e) { console.error('snapshot skip', e.message); }
+
   // stamp a heartbeat
   await rest('memory', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates' },
     body: JSON.stringify([{ key: 'prices_last_sync', value: { at: new Date().toISOString(), updated, tickers: uniq.length }, updated_at: new Date().toISOString() }]) });
