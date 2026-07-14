@@ -8,6 +8,7 @@ import Movies from './tabs/Movies.jsx';
 import College from './tabs/College.jsx';
 import Calendar from './tabs/Calendar.jsx';
 import Subjects from './tabs/Subjects.jsx';
+import DSA from './tabs/DSA.jsx';
 import Money from './tabs/Money.jsx';
 import Health from './tabs/Health.jsx';
 import News from './tabs/News.jsx';
@@ -22,6 +23,7 @@ const TABS = [
   ['habits', 'Habits', 'var(--green)', Habits],
   ['goals', 'Goals', 'var(--purple)', Goals],
   ['college', 'College', 'var(--cyan)', College],
+  ['dsa', 'DSA', 'var(--green)', DSA],
   ['subjects', 'Subjects', 'var(--orange)', Subjects],
   ['money', 'Money', 'var(--green)', Money],
   ['health', 'Health', 'var(--red)', Health],

@@ -102,6 +102,22 @@ export async function remove(table, id) {
   if (!r.ok) throw new Error(`${table}: ${r.status} ${await r.text()}`);
 }
 
+// Upsert a memory row by key (client-side blobs like dsa_solves).
+export async function upsertMemory(key, value) {
+  if (!isRemote()) {
+    const rows = lread('memory').filter(r => r.key !== key);
+    rows.push({ key, value, updated_at: new Date().toISOString() });
+    lwrite('memory', rows);
+    return;
+  }
+  const r = await fetch(`${base('memory')}`, {
+    method: 'POST',
+    headers: { ...headers(), Prefer: 'resolution=merge-duplicates' },
+    body: JSON.stringify([{ key, value, updated_at: new Date().toISOString() }]),
+  });
+  if (!r.ok) throw new Error(`memory upsert: ${r.status} ${await r.text()}`);
+}
+
 // Ask Cowork / manual-refresh plumbing: rows in the `requests` table.
 // Cowork's scheduled cloud runs pick up `pending` rows, do the work,
 // write results back, and mark them `done`.

@@ -24,7 +24,9 @@ export function BootScreen() {
 export function PlayerCard() {
   const { items: todos } = useCollection('todos');
   const { items: logs } = useCollection('habit_logs');
-  const xp = todos.filter(t => t.completed).length * 10 + logs.length * 5;
+  const { items: dsaMem } = useCollection('memory', { filter: 'key=eq.dsa_solves', order: 'key' });
+  const dsaSolves = dsaMem?.[0]?.value?.list?.length || 0;
+  const xp = todos.filter(t => t.completed).length * 10 + logs.length * 5 + dsaSolves * 20;
   const lv = Math.floor(Math.sqrt(xp / 25)) + 1;
   const nextAt = 25 * lv * lv;
   const prevAt = 25 * (lv - 1) * (lv - 1);
