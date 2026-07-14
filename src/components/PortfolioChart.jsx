@@ -6,6 +6,7 @@ import { money } from './ui.jsx';
 // `snapshots` (optional) = [{date, total_value}] adds an actual-value line as it accrues.
 // variant: 'mini' (sparkline for HQ) | 'full' (Money page, axes + markers).
 export default function PortfolioChart({ orders = [], snapshots = [], currentValue = null, visible = true, variant = 'full' }) {
+  const [hover, setHover] = useState(null); // must run every render (before any early return)
   const invested = useMemo(() => {
     const rows = [...orders].filter(o => o.date && o.qty && o.price).sort((a, b) => a.date.localeCompare(b.date));
     let cum = 0; const pts = [];
@@ -49,7 +50,6 @@ export default function PortfolioChart({ orders = [], snapshots = [], currentVal
   };
   const areaPath = pts => stepPath(pts) + ` L ${x(pts[pts.length - 1].t).toFixed(1)} ${(H - padB).toFixed(1)} L ${x(pts[0].t).toFixed(1)} ${(H - padB).toFixed(1)} Z`;
 
-  const [hover, setHover] = useState(null);
   const gridY = variant === 'full' ? [0, 0.5, 1].map(f => ({ v: maxV * f, y: y(maxV * f) })) : [];
 
   return (
