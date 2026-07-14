@@ -18,6 +18,7 @@ export default function Money() {
   const [orders, setOrders] = useState([]);
   const [snapshots, setSnapshots] = useState([]);
   const [openStock, setOpenStock] = useState(null);
+  const [sortBy, setSortBy] = useState('value');
 
   useEffect(() => {
     db.list('memory', { filter: 'key=eq.stock_orders', order: 'key' })
@@ -49,6 +50,37 @@ export default function Money() {
   }, { dayGain: 0, dayBase: 0 });
   const dayPct = dayBase ? (dayGain / dayBase) * 100 : 0;
   const haveLive = dayBase > 0;
+
+  // sortable holdings — default largest position first
+  const SORTS = [
+    ['value', 'Largest'], ['pnl', 'Most profit'], ['pnlpct', 'Best return'],
+    ['day', "Today's gainers"], ['loss', 'Biggest loser'], ['ticker', 'A–Z'],
+  ];
+  const metricsOf = h => {
+    const price = priceOf(h);
+    const v = Number(h.qty) * price;
+    const c = Number(h.qty) * Number(h.avg_cost || 0);
+    const p = h.avg_cost ? v - c : 0;
+    const pp = c ? (p / c) * 100 : 0;
+    const dp = quotes[h.ticker]?.changePct;
+    return { v, p, pp, dp };
+  };
+  const sortedHeld = useMemo(() => {
+    const arr = [...held];
+    const m = new Map(arr.map(h => [h.id, metricsOf(h)]));
+    const g = h => m.get(h.id);
+    arr.sort((a, b) => {
+      switch (sortBy) {
+        case 'pnl': return g(b).p - g(a).p;
+        case 'pnlpct': return g(b).pp - g(a).pp;
+        case 'day': return (g(b).dp ?? -Infinity) - (g(a).dp ?? -Infinity);
+        case 'loss': return g(a).p - g(b).p;
+        case 'ticker': return a.ticker.localeCompare(b.ticker);
+        default: return g(b).v - g(a).v; // value
+      }
+    });
+    return arr;
+  }, [held, sortBy, quotes]); // eslint-disable-line
 
   // news relevant to what you actually own (ticker symbol or company name match)
   const stockNews = useMemo(() => {
@@ -126,14 +158,20 @@ export default function Money() {
         <PortfolioChart orders={orders} snapshots={snapshots} currentValue={value} visible={visible} variant="full" />
       </Card>
 
-      <Card title="Holdings" color="var(--green)">
+      <Card title="Holdings" color="var(--green)" right={held.length > 0 && (
+        <span className="flex" style={{ gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {SORTS.map(([k, label]) => (
+            <button key={k} className={`tf-btn${sortBy === k ? ' on' : ''}`} onClick={() => setSortBy(k)}>{label}</button>
+          ))}
+        </span>
+      )}>
         {held.length === 0 && <Empty icon="$" text="No holdings yet — snapshot from INDmoney or add manually below." />}
         {held.length > 0 && (
           <div className="scroll-x">
             <table className="ptable">
               <thead><tr><th>Ticker</th><th>Qty</th><th>Avg</th><th>Last</th><th>Day</th><th>Value</th><th>P&L</th><th /></tr></thead>
               <tbody>
-                {held.map(h => {
+                {sortedHeld.map(h => {
                   const q = quotes[h.ticker];
                   const price = priceOf(h);
                   const v = Number(h.qty) * price;
