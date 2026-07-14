@@ -3,6 +3,7 @@ import { useCollection, todayStr } from '../lib/hooks.js';
 import { Card, Empty, StatTile, AskCowork, EyeBtn, useNow, useMoneyVisible, money } from '../components/ui.jsx';
 import { Ticker, Sky, useDailySpark } from '../components/arcade.jsx';
 import PortfolioChart from '../components/PortfolioChart.jsx';
+import { useLiveQuotes } from '../lib/live.js';
 import * as db from '../lib/db.js';
 
 export default function HQ({ go }) {
@@ -29,7 +30,8 @@ export default function HQ({ go }) {
   const classes = timetable.filter(t => t.day === dayName);
   const [moneyVis, toggleMoney] = useMoneyVisible();
   const held = investments.filter(h => Number(h.qty) > 0);
-  const pValue = held.reduce((s, h) => s + Number(h.qty) * Number(h.last_price || h.avg_cost || 0), 0);
+  const { quotes } = useLiveQuotes(held.map(h => h.ticker));
+  const pValue = held.reduce((s, h) => s + Number(h.qty) * Number(quotes[h.ticker]?.price ?? h.last_price ?? h.avg_cost ?? 0), 0);
   const pCost = held.reduce((s, h) => s + Number(h.qty) * Number(h.avg_cost || 0), 0);
   const pPct = pCost ? ((pValue - pCost) / pCost) * 100 : 0;
 

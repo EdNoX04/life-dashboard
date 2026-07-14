@@ -34,6 +34,20 @@ export default function Settings() {
         </div>
       </Card>
 
+      <Card title="Live market data (free keys)" color="var(--pink)">
+        <div className="small muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>
+          Powers real-time prices, today's 1D P&L and the retro charts. Both free — sign up with email, paste the key, Save, reload.
+        </div>
+        <label>Finnhub API key — live prices + 1D P&L (<a href="https://finnhub.io/register" target="_blank" rel="noreferrer" style={{ color: 'var(--cyan)' }}>finnhub.io/register</a>)</label>
+        <input placeholder="paste Finnhub key" defaultValue={cfg.finnhubKey || ''} onChange={upd('finnhubKey')} />
+        <label className="mt">Twelve Data API key — retro candlestick charts (<a href="https://twelvedata.com/pricing" target="_blank" rel="noreferrer" style={{ color: 'var(--cyan)' }}>twelvedata.com</a>, Basic/free)</label>
+        <input placeholder="paste Twelve Data key" defaultValue={cfg.twelveKey || ''} onChange={upd('twelveKey')} />
+        <div className="flex mt">
+          <button className="btn btn-green" onClick={save}>{saved ? 'Saved ✓' : 'Save'}</button>
+          <span className="small muted">Live prices stream only while the US market is open (9:30–16:00 ET).</span>
+        </div>
+      </Card>
+
       <Card title="Request queue (Cowork inbox)" color="var(--purple)">
         {requests.length === 0 && <div className="muted small">No requests yet. Refresh buttons and Ask-Cowork land here.</div>}
         {requests.slice(0, 10).map(r => (
