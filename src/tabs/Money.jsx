@@ -1,12 +1,22 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useCollection } from '../lib/hooks.js';
 import { Card, Empty, StatTile, RefreshButton, EyeBtn, useMoneyVisible, money } from '../components/ui.jsx';
+import StockDetail from '../components/StockDetail.jsx';
+import * as db from '../lib/db.js';
 
 export default function Money() {
   const { items, add, patch, del, refresh } = useCollection('investments', { order: 'ticker', asc: true });
   const { items: news } = useCollection('news', { order: 'published_at' });
   const [form, setForm] = useState({ ticker: '', qty: '', avg_cost: '' });
   const [visible, toggle] = useMoneyVisible();
+  const [orders, setOrders] = useState([]);
+  const [openStock, setOpenStock] = useState(null);
+
+  useEffect(() => {
+    db.list('memory', { filter: 'key=eq.stock_orders', order: 'key' })
+      .then(rows => setOrders(rows?.[0]?.value?.orders || []))
+      .catch(() => {});
+  }, []);
 
   const held = items.filter(h => Number(h.qty) > 0);
   const value = held.reduce((s, h) => s + (Number(h.qty) * Number(h.last_price || h.avg_cost || 0)), 0);
@@ -58,8 +68,8 @@ export default function Money() {
                   const p = h.avg_cost ? v - c : null;
                   const pp = c ? (p / c) * 100 : 0;
                   return (
-                    <tr key={h.id}>
-                      <td><b style={{ fontWeight: 'normal', color: 'var(--cyan)' }}>{h.ticker}</b></td>
+                    <tr key={h.id} style={{ cursor: 'pointer' }} onClick={() => setOpenStock(h)}>
+                      <td><b style={{ fontWeight: 'normal', color: 'var(--cyan)' }}>{h.ticker} ›</b></td>
                       <td>{Number(h.qty).toFixed(4)}</td>
                       <td>{money(h.avg_cost, visible)}</td>
                       <td>{h.last_price ? '$' + Number(h.last_price).toFixed(2) : '—'}</td>
@@ -67,7 +77,7 @@ export default function Money() {
                       <td style={{ color: p == null ? undefined : p >= 0 ? 'var(--green)' : 'var(--red)' }}>
                         {money(p, visible)} {h.avg_cost ? <span className="small">({pp >= 0 ? '+' : ''}{pp.toFixed(1)}%)</span> : ''}
                       </td>
-                      <td><button className="btn btn-sm" onClick={() => del(h.id)}>✕</button></td>
+                      <td><button className="btn btn-sm" onClick={e => { e.stopPropagation(); del(h.id); }}>✕</button></td>
                     </tr>
                   );
                 })}
@@ -101,6 +111,8 @@ export default function Money() {
           Read-only. INDmoney has no trading API — Cowork snapshots your holdings from order history; place trades yourself in the app.
         </div>
       </Card>
+
+      <StockDetail holding={openStock} orders={orders} visible={visible} onClose={() => setOpenStock(null)} />
     </>
   );
 }
