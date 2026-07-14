@@ -6,6 +6,7 @@ import Goals from './tabs/Goals.jsx';
 import Journal from './tabs/Journal.jsx';
 import Movies from './tabs/Movies.jsx';
 import College from './tabs/College.jsx';
+import Calendar from './tabs/Calendar.jsx';
 import Subjects from './tabs/Subjects.jsx';
 import Money from './tabs/Money.jsx';
 import Health from './tabs/Health.jsx';
@@ -16,6 +17,7 @@ import { BootScreen, PlayerCard } from './components/arcade.jsx';
 
 const TABS = [
   ['hq', 'HQ', 'var(--pink)', HQ],
+  ['calendar', 'Calendar', 'var(--cyan)', Calendar],
   ['todos', 'Todo', 'var(--yellow)', Todos],
   ['habits', 'Habits', 'var(--green)', Habits],
   ['goals', 'Goals', 'var(--purple)', Goals],
