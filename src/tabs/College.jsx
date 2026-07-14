@@ -3,6 +3,8 @@ import { useCollection } from '../lib/hooks.js';
 import { Card, Empty, StatTile, RefreshButton } from '../components/ui.jsx';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+// Amizone stores attendance as a fraction (0.81) OR a percent (81); normalize to %.
+const attPct = raw => { const n = Number(raw) || 0; return n > 0 && n <= 1 ? Math.round(n * 1000) / 10 : n; };
 
 export default function College() {
   const { items: timetable, refresh: rT } = useCollection('timetable', { order: 'start_time', asc: true });
@@ -10,10 +12,10 @@ export default function College() {
   const { items: annc, refresh: rA } = useCollection('announcements', { order: 'date' });
 
   const todayName = DAYS[(new Date().getDay() + 6) % 7] || 'Monday';
-  const avgAtt = subjects.length
-    ? Math.round(subjects.reduce((s, x) => s + (Number(x.attendance_pct) || 0), 0) / subjects.length)
-    : null;
-  const lowAtt = subjects.filter(s => Number(s.attendance_pct) > 0 && Number(s.attendance_pct) < 75);
+  // average only over subjects that actually have attendance data (skip unsynced 0s)
+  const rated = subjects.map(s => attPct(s.attendance_pct)).filter(p => p > 0);
+  const avgAtt = rated.length ? Math.round(rated.reduce((a, b) => a + b, 0) / rated.length) : null;
+  const lowAtt = subjects.filter(s => { const p = attPct(s.attendance_pct); return p > 0 && p < 75; });
 
   return (
     <>
@@ -36,11 +38,13 @@ export default function College() {
           <Empty icon="☺" text={timetable.length ? `No classes on ${todayName} — free roam. Your classes: ${[...new Set(timetable.map(t => t.day))].join(', ')}.` : 'No classes synced yet — ask Cowork to sync your college.'} />
         )}
         {timetable.filter(t => t.day === todayName).map(t => (
-          <div className="row" key={t.id}>
-            <span className="chip c-cyan">{t.start_time}–{t.end_time}</span>
-            <span style={{ flex: 1 }}>{t.subject}</span>
-            {t.room && <span className="chip">{t.room}</span>}
-            {t.faculty && <span className="chip c-purple">{t.faculty}</span>}
+          <div className="tt-item" key={t.id}>
+            <span className="chip c-cyan tt-time">{t.start_time}–{t.end_time}</span>
+            <span className="tt-subj">{t.subject}</span>
+            <span className="tt-meta">
+              {t.room && <span className="chip">{t.room}</span>}
+              {t.faculty && <span className="chip c-purple">{t.faculty}</span>}
+            </span>
           </div>
         ))}
       </Card>
@@ -48,12 +52,12 @@ export default function College() {
       <Card title="Attendance by subject" color="var(--green)">
         {subjects.length === 0 && <Empty icon="%" text="Synced from Amizone once connected — or add subjects in the Subjects tab." />}
         {subjects.map(s => {
-          const pct = Number(s.attendance_pct) || 0;
+          const pct = attPct(s.attendance_pct);
           return (
             <div className="att-row" key={s.id}>
               <span className="att-name">{s.name}</span>
               <div className="att-meter">
-                <div className="pbar"><div style={{ width: `${pct}%`, background: pct < 75 ? 'var(--bad)' : 'var(--ok)' }} /></div>
+                <div className="pbar"><div style={{ width: `${Math.min(100, pct)}%`, background: pct < 75 ? 'var(--bad)' : 'var(--ok)' }} /></div>
                 <span className={`chip ${pct < 75 ? 'c-red' : 'c-green'}`}>{pct ? pct + '%' : '—'}</span>
               </div>
             </div>
