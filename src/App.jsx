@@ -15,6 +15,7 @@ import News from './tabs/News.jsx';
 import Builds from './tabs/Builds.jsx';
 import Settings from './tabs/Settings.jsx';
 import { BootScreen, PlayerCard } from './components/arcade.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 
 const TABS = [
   ['hq', 'HQ', 'var(--pink)', HQ],
@@ -52,7 +53,9 @@ export default function App() {
         <PlayerCard />
       </nav>
       <main className="main">
-        <Active go={setTab} />
+        <ErrorBoundary key={tab}>
+          <Active go={setTab} />
+        </ErrorBoundary>
       </main>
     </div>
   );
