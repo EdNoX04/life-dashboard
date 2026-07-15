@@ -27,6 +27,36 @@ export function isRemote() {
   return Boolean(c.supabaseUrl && c.supabaseKey);
 }
 
+// ---- cross-device config sync ----
+// The Supabase URL/key are baked in and stay per-device, but user-added keys
+// (market data, TMDB, LeetCode) sync through the shared `memory` table so you
+// set them once on any device and every device picks them up.
+const SYNC_KEYS = ['finnhubKey', 'twelveKey', 'tmdbKey', 'leetcodeUser'];
+
+export async function syncPushConfig() {
+  if (!isRemote()) return;
+  const c = getConfig();
+  const payload = {};
+  for (const k of SYNC_KEYS) if (c[k]) payload[k] = c[k];
+  await upsertMemory('app_config', payload);
+}
+
+// Pull synced keys from Supabase into this device's config. Remote non-empty
+// values win (that's the whole point — the device that set them is source of truth).
+// Returns true if anything changed locally.
+export async function syncPullConfig() {
+  if (!isRemote()) return false;
+  try {
+    const rows = await list('memory', { filter: 'key=eq.app_config', order: 'key' });
+    const remote = rows?.[0]?.value || {};
+    const cur = getConfig();
+    const patch = {};
+    for (const k of SYNC_KEYS) if (remote[k] && remote[k] !== cur[k]) patch[k] = remote[k];
+    if (Object.keys(patch).length) { setConfig(patch); return true; }
+  } catch { /* offline / not set up yet */ }
+  return false;
+}
+
 function headers() {
   const c = getConfig();
   return {

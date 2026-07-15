@@ -128,6 +128,10 @@ let clock = null;
 function ensureClock() {
   if (clock) return;
   clock = setInterval(() => { if (Object.keys(store.refs).length) refreshEngine(); }, 60000);
+  // when keys sync in from another device, re-evaluate immediately (no reload needed)
+  if (typeof window !== 'undefined') {
+    window.addEventListener('ldx-config-synced', () => { if (Object.keys(store.refs).length) refreshEngine(); });
+  }
 }
 
 export function subscribe(tickers, cb) {

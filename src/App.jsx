@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { syncPullConfig } from './lib/db.js';
 import HQ from './tabs/HQ.jsx';
 import Todos from './tabs/Todos.jsx';
 import Habits from './tabs/Habits.jsx';
@@ -38,6 +39,11 @@ const TABS = [
 export default function App() {
   const [tab, setTab] = useState('hq');
   const Active = TABS.find(t => t[0] === tab)?.[3] || HQ;
+
+  // on load, pull synced keys (market data etc.) set on any other device
+  useEffect(() => {
+    syncPullConfig().then(changed => { if (changed) window.dispatchEvent(new Event('ldx-config-synced')); });
+  }, []);
 
   return (
     <div className="app crt">

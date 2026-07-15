@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card } from '../components/ui.jsx';
-import { getConfig, setConfig, isRemote } from '../lib/db.js';
+import { getConfig, setConfig, isRemote, syncPushConfig } from '../lib/db.js';
 import { useCollection } from '../lib/hooks.js';
 
 export default function Settings() {
@@ -10,6 +10,9 @@ export default function Settings() {
 
   function save() {
     setConfig(cfg);
+    // sync market/TMDB/LeetCode keys to your other devices, then nudge the live engine
+    syncPushConfig().catch(() => {});
+    window.dispatchEvent(new Event('ldx-config-synced'));
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
   }
