@@ -1,0 +1,26 @@
+name: Daily brief + news
+
+on:
+  schedule:
+    - cron: '5 1 * * *'    # ~06:35 IST daily
+  workflow_dispatch:
+
+concurrency:
+  group: daily-brief
+  cancel-in-progress: true
+
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build morning brief + news
+        run: node scripts/daily-brief.mjs
+        env:
+          SUPABASE_URL: https://xroynvkzephebhcztvfo.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
