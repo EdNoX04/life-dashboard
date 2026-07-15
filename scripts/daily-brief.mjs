@@ -20,17 +20,32 @@ const weekday = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday
 const istDateOf = iso => { try { const d = new Date(new Date(iso).getTime() + 5.5 * 3600 * 1000); return `${d.getUTCFullYear()}-${z(d.getUTCMonth() + 1)}-${z(d.getUTCDate())}`; } catch { return ''; } };
 const money = n => '$' + Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
-async function fetchNews() {
+const ETF = new Set(['QQQ', 'QQQM', 'SCHD', 'SPMO', 'VOO', 'SPY', 'VTI', 'GLD']);
+
+async function fetchNews(tickers = []) {
   const items = [];
-  // Preferred: Finnhub (targeted, has summaries) if a key is available
+  // Preferred: Finnhub COMPANY news for the stocks you actually own (most relevant)
   if (FINNHUB_KEY) {
+    const from = `${new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10)}`;
+    const to = new Date().toISOString().slice(0, 10);
+    for (const t of tickers.filter(x => !ETF.has(x)).slice(0, 10)) {
+      try {
+        const r = await fetch(`https://finnhub.io/api/v1/company-news?symbol=${encodeURIComponent(t.replace('-', '.'))}&from=${from}&to=${to}&token=${FINNHUB_KEY}`);
+        if (!r.ok) continue;
+        const arr = await r.json();
+        for (const n of (Array.isArray(arr) ? arr : []).slice(0, 2)) {
+          if (n.headline && n.url) items.push({ title: `[${t}] ${n.headline}`, url: n.url, source: n.source || 'Finnhub', category: 'stocks', summary: (n.summary || '').slice(0, 220), published_at: new Date((n.datetime || 0) * 1000 || Date.now()).toISOString() });
+        }
+      } catch (e) { console.error('company-news', t, e.message); }
+    }
+    // a little general market context too
     try {
       const r = await fetch(`https://finnhub.io/api/v1/news?category=general&token=${FINNHUB_KEY}`);
       const arr = await r.json();
-      for (const n of (Array.isArray(arr) ? arr : []).slice(0, 8)) {
+      for (const n of (Array.isArray(arr) ? arr : []).slice(0, 3)) {
         items.push({ title: n.headline, url: n.url, source: n.source || 'Finnhub', category: 'stocks', summary: (n.summary || '').slice(0, 240), published_at: new Date((n.datetime || 0) * 1000 || Date.now()).toISOString() });
       }
-    } catch (e) { console.error('finnhub news', e.message); }
+    } catch (e) { console.error('finnhub general', e.message); }
   }
   // Keyless fallback / supplement: Google News RSS (works from Actions, no key)
   const rss = async (q, category) => {
@@ -65,7 +80,8 @@ async function run() {
     getJSON('memory?key=eq.calendar_events'),
   ]);
   const calEvents = calMem?.[0]?.value?.events || [];
-  const news = await fetchNews();
+  const heldTickers = investments.filter(h => Number(h.qty) > 0).map(h => h.ticker);
+  const news = await fetchNews(heldTickers);
 
   // ---- compose sections ----
   const sections = [];

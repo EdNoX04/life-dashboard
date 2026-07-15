@@ -4,6 +4,7 @@ import { Card, Empty, StatTile, RefreshButton, EyeBtn, useMoneyVisible, money } 
 import StockDetail from '../components/StockDetail.jsx';
 import PortfolioChart from '../components/PortfolioChart.jsx';
 import { useLiveQuotes, usMarketState } from '../lib/live.js';
+import { fetchHoldingsNews } from '../lib/news.js';
 import * as db from '../lib/db.js';
 
 const STOP = new Set(['inc', 'inc.', 'corp', 'corp.', 'corporation', 'ltd', 'ltd.', 'co', 'co.', 'company', 'holdings', 'group', 'the', 'and', 'plc', 'etf', 'trust', 'index', 'fund', 'class', 'common', 'stock', 'nv', 'sa', 'ag']);
@@ -19,6 +20,7 @@ export default function Money() {
   const [snapshots, setSnapshots] = useState([]);
   const [openStock, setOpenStock] = useState(null);
   const [sortBy, setSortBy] = useState('value');
+  const [liveNews, setLiveNews] = useState([]);
 
   useEffect(() => {
     db.list('memory', { filter: 'key=eq.stock_orders', order: 'key' })
@@ -96,6 +98,17 @@ export default function Money() {
     const base = rel.length ? rel : news.filter(n => n.category === 'stocks');
     return base.slice(0, 6);
   }, [news, held]);
+
+  // live per-holding headlines (Finnhub company-news) — inherently about what you own
+  const heldTickers = held.map(h => h.ticker).join(',');
+  useEffect(() => {
+    let dead = false;
+    const load = () => fetchHoldingsNews(heldTickers ? heldTickers.split(',') : []).then(n => { if (!dead && n.length) setLiveNews(n); }).catch(() => {});
+    load();
+    const id = setInterval(load, 15 * 60000); // keep fresh through the day
+    return () => { dead = true; clearInterval(id); };
+  }, [heldTickers, status]);
+  const shownNews = liveNews.length ? liveNews : stockNews;
 
   async function addHolding() {
     if (!form.ticker.trim() || !form.qty) return;
@@ -207,14 +220,19 @@ export default function Money() {
       </Card>
 
       <Card title="Your stocks in the news" color="var(--pink)">
-        {stockNews.length === 0 && <Empty icon="※" text="Cowork drops headlines about your holdings here." />}
-        {stockNews.map(n => (
+        {shownNews.length === 0 && (
+          <Empty icon="※" text={status === 'nokey'
+            ? 'Add a free Finnhub key in Settings — headlines about your holdings load here live.'
+            : 'Loading headlines for your holdings…'} />
+        )}
+        {shownNews.map(n => (
           <div className="row" key={n.id} style={{ alignItems: 'flex-start' }}>
+            {n.ticker && <span className="chip c-pink" style={{ minWidth: 52, textAlign: 'center' }}>{n.ticker}</span>}
             <span style={{ flex: 1 }}>
               <a href={n.url} target="_blank" rel="noreferrer" style={{ color: 'var(--ink)' }}>{n.title}</a>
               {n.summary && <div className="small muted">{n.summary}</div>}
             </span>
-            <span className="chip c-cyan">{n.source}</span>
+            {n.source && <span className="chip c-cyan">{n.source}</span>}
           </div>
         ))}
       </Card>
