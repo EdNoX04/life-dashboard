@@ -233,6 +233,79 @@ export const QUESTIONS = [
   Q('ver', 'Voice', 'Passive of "They are building a house.":', ['A house is being built by them', 'A house is built by them', 'A house was being built by them', 'A house has been built by them'], 0, 'Present-continuous passive: is being + built.'),
   Q('ver', 'Sentence Completion', 'Scarcely had she left ___ the phone rang.', ['than', 'when', 'then', 'that'], 1, '"Scarcely … when".'),
   Q('ver', 'Articles', 'He is ___ honest man.', ['a', 'an', 'the', 'no article'], 1, '"honest" starts with a vowel sound → an.'),
+  // ---------- BATCH 5 ----------
+  Q('num', 'Percentages', '15% of 15% of 1000 = ?', ['22.5', '225', '2.25', '150'], 0, '0.15×0.15×1000 = 22.5.'),
+  Q('num', 'Percentages', 'If 30% of a number is 90, then 45% of it is:', ['120', '135', '150', '105'], 1, 'Number = 300; 45% = 135.'),
+  Q('num', 'Percentages', "A's income is 25% more than B's. B's is what % less than A's?", ['20%', '25%', '16⅔%', '15%'], 0, '25/(125)×100 = 20%.'),
+  Q('num', 'Profit & Loss', 'A man buys 12 apples for ₹10 and sells 10 for ₹12. Profit%:', ['40%', '44%', '20%', '25%'], 1, 'CP/apple ≈ 0.833, SP/apple = 1.2 → (1.2−0.833)/0.833 ≈ 44%.'),
+  Q('num', 'Profit & Loss', 'Marked price ₹800 with successive discounts 20% then 10%. Selling price:', ['₹560', '₹576', '₹600', '₹580'], 1, '800×0.8×0.9 = 576.'),
+  Q('num', 'Profit & Loss', 'A 25% discount still gives 12.5% gain. If cost is ₹800, the marked price is:', ['₹1200', '₹1150', '₹1000', '₹1250'], 0, 'SP = 800×1.125 = 900; MP = 900/0.75 = 1200.'),
+  Q('num', 'Ratio & Proportion', 'If a:b = 3:4 and b:c = 8:9, then a:c =', ['2:3', '3:4', '1:2', '4:9'], 0, 'a:b = 6:8, b:c = 8:9 → a:c = 6:9 = 2:3.'),
+  Q('num', 'Ratio & Proportion', 'A = ½B, B = ½C. If C = 800, the total A+B+C is:', ['₹1400', '₹1200', '₹1600', '₹1000'], 0, 'C=800, B=400, A=200 → 1400.'),
+  Q('num', 'Averages', 'Average of 11 results is 50; first 6 average 49, last 6 average 52. The 6th result is:', ['54', '56', '58', '50'], 1, '6×49 + 6×52 − 11×50 = 294+312−550 = 56.'),
+  Q('num', 'Averages', 'A batsman averages 40 in 10 innings. To raise his average to 44, he must score:', ['80', '84', '88', '90'], 1, '11×44 − 10×40 = 484 − 400 = 84.'),
+  Q('num', 'Time-Speed-Distance', 'Two people start from the same point in opposite directions at 4 and 5 km/h. Distance apart after 3 h:', ['27 km', '9 km', '15 km', '3 km'], 0, '(4+5)×3 = 27 km.'),
+  Q('num', 'Time-Speed-Distance', 'A 240 m train crosses a 360 m platform in 30 s. Its speed (km/h):', ['60', '72', '80', '66'], 1, '600/30 = 20 m/s = 72 km/h.'),
+  Q('num', 'Time-Speed-Distance', 'Increasing speed by 10 km/h covers 200 km in 1 h less. Original speed:', ['40 km/h', '50 km/h', '45 km/h', '30 km/h'], 0, '200/v − 200/(v+10) = 1 → v² +10v −2000 = 0 → v = 40.'),
+  Q('num', 'Number System', 'Two numbers sum to 25 and multiply to 144. The numbers are:', ['9 and 16', '12 and 13', '8 and 18', '10 and 15'], 0, '9+16=25, 9×16=144.'),
+  Q('num', 'Number System', 'If x + 1/x = 3, then x² + 1/x² =', ['7', '9', '11', '5'], 0, '(x+1/x)² − 2 = 9 − 2 = 7.'),
+  Q('num', 'LCM & HCF', 'HCF of 24, 36 and 48:', ['6', '12', '24', '4'], 1, 'Greatest common factor = 12.'),
+  Q('num', 'Number System', 'A number leaves remainder 3 on division by 5. Remainder when twice the number is divided by 5:', ['1', '2', '3', '0'], 0, '2×3 = 6 → remainder 1.'),
+  Q('num', 'Simple Interest', 'In how many years does ₹1000 become ₹1200 at 5% SI?', ['3', '4', '5', '2'], 1, '200 = 1000×5×t/100 → t = 4.'),
+  Q('num', 'Simple Interest', 'A sum triples in 8 years at SI. The rate p.a. is:', ['20%', '25%', '30%', '12.5%'], 1, 'Interest = 2P → 2 = R×8/100 → R = 25%.'),
+  Q('num', 'Time & Work', '6 men OR 8 women finish a job in 10 days. 3 men and 4 women finish it in:', ['10 days', '12 days', '8 days', '15 days'], 0, 'W = ¾M; 4W = 3M → 3M+4W = 6M → same as 6 men → 10 days.'),
+  Q('num', 'Pipes & Cistern', 'Two pipes fill a tank in 12 and 15 min. Both open together fill it in:', ['6⅔ min', '7 min', '6 min', '5 min'], 0, '1/12 + 1/15 = 9/60 → 60/9 = 6⅔ min.'),
+  Q('num', 'Mensuration', 'Circumference of a circle of radius 14 (π = 22/7):', ['88', '44', '176', '66'], 0, '2×22/7×14 = 88.'),
+  Q('num', 'Mensuration', 'Area of a rectangle 12 × 8:', ['96', '40', '20', '48'], 0, '12×8 = 96.'),
+  Q('num', 'Mensuration', 'Diagonal of a square of side 10:', ['10√2', '20', '10', '14'], 0, 'Diagonal = side×√2 = 10√2.'),
+  Q('num', 'Geometry', 'Sum of the interior angles of a pentagon:', ['540°', '360°', '720°', '450°'], 0, '(5−2)×180 = 540°.'),
+  Q('num', 'Probability', 'Two dice are thrown. P(sum = 7):', ['1/6', '1/12', '5/36', '1/9'], 0, '6 favourable of 36 → 1/6.'),
+  Q('num', 'Perm & Comb', 'How many 3-digit numbers can be formed from 1,2,3,4,5 without repetition?', ['60', '125', '120', '25'], 0, '5×4×3 = 60.'),
+  Q('num', 'Progressions', 'Sum of the first 10 terms of the AP 2, 5, 8, …:', ['155', '145', '165', '150'], 0, 'n/2[2a+(n−1)d] = 5[4+27] = 155.'),
+  Q('num', 'Data Interpretation', 'In a survey of 400, 55% like tea, 30% coffee, 15% both. Number who like ONLY tea:', ['160', '220', '120', '100'], 0, 'Only tea = 55−15 = 40% of 400 = 160.'),
+  Q('num', 'Simplification', '12.5% of 80 + 20% of 50 = ?', ['20', '18', '22', '15'], 0, '10 + 10 = 20.'),
+  Q('rea', 'Coding-Decoding', 'If CAT = 3-1-20, then DOG =', ['4-15-7', '4-14-7', '3-15-7', '4-15-8'], 0, 'Letter positions: D=4, O=15, G=7.'),
+  Q('rea', 'Coding-Decoding', 'Using A=1…Z=26, the value of the word BAD is:', ['7', '8', '6', '9'], 0, 'B2+A1+D4 = 7.'),
+  Q('rea', 'Coding-Decoding', 'If STOP is written as POTS, then SPOT is written as:', ['TOPS', 'POST', 'OPTS', 'STOP'], 0, 'Reverse the letters: S-P-O-T → T-O-P-S.'),
+  Q('rea', 'Coding-Decoding', 'If PALE = 2134 and EARTH = 41590, then PEARL =', ['24153', '21453', '24135', '25413'], 0, 'P2,E4,A1,R5,L3 → 24153.'),
+  Q('rea', 'Number Series', '1, 4, 9, 16, ?, 36', ['20', '25', '24', '30'], 1, 'Perfect squares → 5² = 25.'),
+  Q('rea', 'Number Series', '121, 144, 169, 196, ?', ['225', '216', '200', '220'], 0, 'Squares of 11–15 → 15² = 225.'),
+  Q('rea', 'Number Series', '0, 1, 1, 2, 4, 7, 13, ?', ['24', '20', '26', '22'], 0, 'Each = sum of previous three → 4+7+13 = 24.'),
+  Q('rea', 'Letter Series', 'B, D, G, K, ?', ['P', 'O', 'Q', 'N'], 0, 'Gaps +2,+3,+4,+5 → K+5 = P.'),
+  Q('rea', 'Number Analogy', '5 : 24 :: 8 : ?', ['63', '64', '62', '80'], 0, 'n²−1: 5²−1=24, 8²−1=63.'),
+  Q('rea', 'Blood Relations', 'A is B\'s father. C is B\'s sister. D is C\'s mother. How is D related to A?', ['Wife', 'Sister', 'Mother', 'Daughter'], 0, "D is the mother of A's child → A's wife."),
+  Q('rea', 'Blood Relations', 'A woman says, "His mother is the only daughter of my mother." How is she related to the man?', ['Mother', 'Sister', 'Aunt', 'Grandmother'], 0, 'Only daughter of my mother = herself → she is his mother.'),
+  Q('rea', 'Direction', 'A man walks 4 km East then 3 km North. Distance from start:', ['5 km', '7 km', '1 km', '25 km'], 0, '√(16+9) = 5 km.'),
+  Q('rea', 'Direction', 'Facing North, you turn 90° clockwise, then 180°. You now face:', ['East', 'West', 'North', 'South'], 1, 'N → E (90° CW) → W (180°).'),
+  Q('rea', 'Odd One Out', 'Odd one: 3, 5, 9, 11', ['3', '5', '9', '11'], 2, '9 is the only non-prime.'),
+  Q('rea', 'Odd One Out', 'Odd one: January, March, June, July', ['January', 'March', 'June', 'July'], 2, 'June has 30 days; the others have 31.'),
+  Q('rea', 'Analogy', 'Book : Author :: Painting : ?', ['Painter', 'Canvas', 'Museum', 'Brush'], 0, 'An author creates a book; a painter creates a painting.'),
+  Q('rea', 'Analogy', 'Fish : Water :: Bird : ?', ['Air', 'Nest', 'Tree', 'Wing'], 0, 'A fish lives in water; a bird moves through air.'),
+  Q('rea', 'Ranking', 'In a queue Ram is 10th from the front and 15th from the back. Total people:', ['24', '25', '23', '26'], 0, '10 + 15 − 1 = 24.'),
+  Q('rea', 'Clocks', 'In 12 hours, the hands of a clock coincide:', ['11 times', '12 times', '22 times', '24 times'], 0, 'They overlap 11 times in 12 hours.'),
+  Q('rea', 'Calendar', '1 Jan 2020 (leap year) was a Wednesday. 1 Jan 2021 was a:', ['Thursday', 'Friday', 'Saturday', 'Wednesday'], 1, '366 mod 7 = 2 → Wed + 2 = Friday.'),
+  Q('rea', 'Cubes', 'A painted cube is cut into 27 equal cubes. How many have exactly TWO faces painted?', ['8', '12', '6', '1'], 1, 'The edge cubes → 12.'),
+  Q('rea', 'Data Sufficiency', 'Is x > y? (A) x + y = 10 (B) x − y = 2', ['A alone', 'B alone', 'Both together', 'Either alone', 'Even both not enough'], 1, 'x−y = 2 > 0 → x > y. B alone suffices.'),
+  Q('ver', 'Error Spotting', 'Spot the error: "He is one of the (A)/ best player (B)/ in the team (C)/ no error (D)"', ['A', 'B', 'C', 'D'], 1, '"one of the …" needs a plural noun → "players".'),
+  Q('ver', 'Error Spotting', 'Spot the error: "Neither he nor his friends (A)/ was present (B)/ at the party (C)/ no error (D)"', ['A', 'B', 'C', 'D'], 1, 'Verb agrees with the nearer subject "friends" → "were".'),
+  Q('ver', 'Prepositions', 'She is fond ___ music.', ['with', 'of', 'in', 'to'], 1, 'fond OF.'),
+  Q('ver', 'Prepositions', 'He was accused ___ theft.', ['for', 'of', 'with', 'by'], 1, 'accused OF.'),
+  Q('ver', 'Tenses', 'The sun ___ in the east.', ['rise', 'rises', 'rose', 'rising'], 1, 'Universal truth → simple present "rises".'),
+  Q('ver', 'Tenses', 'By next year, she ___ her degree.', ['completes', 'will complete', 'will have completed', 'completed'], 2, 'Future perfect for an action finished before a future time.'),
+  Q('ver', 'Synonyms', 'Synonym of METICULOUS:', ['careless', 'careful', 'lazy', 'quick'], 1, 'Meticulous = very careful, precise.'),
+  Q('ver', 'Synonyms', 'Synonym of OBSOLETE:', ['modern', 'outdated', 'useful', 'new'], 1, 'Obsolete = outdated, no longer used.'),
+  Q('ver', 'Antonyms', 'Antonym of GENEROUS:', ['kind', 'stingy', 'rich', 'giving'], 1, 'Generous ↔ stingy.'),
+  Q('ver', 'Antonyms', 'Antonym of VICTORY:', ['win', 'defeat', 'success', 'triumph'], 1, 'Victory ↔ defeat.'),
+  Q('ver', 'One Word', 'A place where money is coined:', ['bank', 'mint', 'treasury', 'vault'], 1, 'A mint.'),
+  Q('ver', 'One Word', 'That which cannot be corrected:', ['incurable', 'incorrigible', 'illegible', 'invisible'], 1, 'incorrigible.'),
+  Q('ver', 'Idioms', '"To let the cat out of the bag" means:', ['to buy a pet', 'to reveal a secret', 'to make noise', 'to escape'], 1, 'Accidentally reveal a secret.'),
+  Q('ver', 'Idioms', '"To hit the nail on the head" means:', ['to hurt someone', 'to be exactly right', 'to build something', 'to fail'], 1, 'To be precisely correct.'),
+  Q('ver', 'Spelling', 'Choose the correctly spelt word:', ['Neccessary', 'Necessary', 'Necesary', 'Neccesary'], 1, 'Necessary — one c, two s.'),
+  Q('ver', 'Voice', 'Active of "The letter was written by him.":', ['He wrote the letter', 'He has written the letter', 'He writes the letter', 'He is writing the letter'], 0, 'Simple-past active: He wrote the letter.'),
+  Q('ver', 'Sentence Completion', 'No sooner had I reached the station ___ the train left.', ['than', 'then', 'when', 'that'], 0, '"No sooner … than".'),
+  Q('ver', 'Articles', '___ honesty is the best policy.', ['A', 'An', 'The', 'No article'], 3, 'Abstract noun used in a general sense takes no article.'),
+  Q('ver', 'Sentence Improvement', 'Choose the correctly worded sentence:', ['I to school go daily', 'Daily I go to school', 'I go to school daily', 'Go I daily to school'], 2, 'Standard order: Subject–Verb–Object–Adverb.'),
+  Q('ver', 'Reading Comp', 'Passage: "Bees are vital pollinators; without them many crops would fail, threatening our food supply." The main idea is:', ['Bees are dangerous', 'Bees are vital for food crops', 'Crops do not need bees', 'Bees only make honey'], 1, 'The passage stresses bees\' role in pollinating food crops.'),
 ];
 
 // ---- coding problems (advanced section prep) ----
@@ -297,5 +370,93 @@ for ch in s:
         print(ch); break
 else:
     print("_")`,
+  },
+  {
+    title: 'Longest substring without repeating characters', diff: 'Hard',
+    statement: 'Given a string, print the length of the longest substring that contains no repeated character.',
+    approach: 'Sliding window: keep the last index of each char in a map; move the left edge past any repeat; track max window length.',
+    code: `s = input()
+last = {}; left = 0; best = 0
+for i, ch in enumerate(s):
+    if ch in last and last[ch] >= left:
+        left = last[ch] + 1
+    last[ch] = i
+    best = max(best, i - left + 1)
+print(best)`,
+  },
+  {
+    title: 'Balanced parentheses', diff: 'Medium',
+    statement: 'Given a string of brackets ()[]{}, print "YES" if every bracket is correctly matched and nested, else "NO".',
+    approach: 'Push opening brackets on a stack; on a closing bracket, the top must be its matching pair. Stack must be empty at the end.',
+    code: `s = input().strip()
+pairs = {')':'(', ']':'[', '}':'{'}
+st = []
+ok = True
+for ch in s:
+    if ch in '([{':
+        st.append(ch)
+    elif ch in pairs:
+        if not st or st.pop() != pairs[ch]:
+            ok = False; break
+print("YES" if ok and not st else "NO")`,
+  },
+  {
+    title: 'Rotate an array by k', diff: 'Medium',
+    statement: 'Read N, then N integers, then k. Print the array rotated left by k positions.',
+    approach: 'k %= N to avoid overshoot, then print a[k:] + a[:k]. O(N).',
+    code: `n = int(input()); a = list(map(int, input().split())); k = int(input())
+k %= n if n else 1
+print(*(a[k:] + a[:k]))`,
+  },
+  {
+    title: 'FizzBuzz', diff: 'Easy',
+    statement: 'For 1..N print "Fizz" for multiples of 3, "Buzz" for 5, "FizzBuzz" for both, else the number.',
+    approach: 'Check %15 first, then %3, then %5.',
+    code: `n = int(input())
+for i in range(1, n+1):
+    if i % 15 == 0: print("FizzBuzz")
+    elif i % 3 == 0: print("Fizz")
+    elif i % 5 == 0: print("Buzz")
+    else: print(i)`,
+  },
+  {
+    title: 'Check prime', diff: 'Easy',
+    statement: 'Read an integer N; print "YES" if it is prime, else "NO".',
+    approach: 'Handle N<2. Trial-divide only up to √N — no factor beyond that.',
+    code: `n = int(input())
+if n < 2:
+    print("NO")
+else:
+    p = True
+    i = 2
+    while i*i <= n:
+        if n % i == 0: p = False; break
+        i += 1
+    print("YES" if p else "NO")`,
+  },
+  {
+    title: 'GCD of two numbers', diff: 'Easy',
+    statement: 'Read two integers and print their greatest common divisor.',
+    approach: "Euclid's algorithm: gcd(a,b) = gcd(b, a mod b) until b = 0.",
+    code: `a, b = map(int, input().split())
+while b:
+    a, b = b, a % b
+print(a)`,
+  },
+  {
+    title: 'Anagram check', diff: 'Medium',
+    statement: 'Given two strings, print "YES" if one is an anagram of the other (same letters, any order), else "NO".',
+    approach: 'Sort both (or compare character counts). Consider case/spaces per the spec.',
+    code: `a = input().strip(); b = input().strip()
+print("YES" if sorted(a) == sorted(b) else "NO")`,
+  },
+  {
+    title: 'Digital root (repeated digit sum)', diff: 'Medium',
+    statement: 'Read a non-negative integer; repeatedly sum its digits until a single digit remains, and print it.',
+    approach: 'Loop: while n has >1 digit, replace n with the sum of its digits. (Shortcut: 1 + (n−1)%9 for n>0.)',
+    code: `n = int(input())
+while n >= 10:
+    n = sum(int(d) for d in str(n))
+print(n)`,
   },
 ];

@@ -98,17 +98,39 @@ function Quiz({ sec, prog, onExit, onSaved }) {
   );
 }
 
-function buildMock() {
-  const pick = (sec, n) => [...QUESTIONS.filter(q => q.sec === sec)].sort(() => Math.random() - 0.5).slice(0, n);
-  return [...pick('num', 8), ...pick('rea', 6), ...pick('ver', 6)].sort(() => Math.random() - 0.5);
-}
+const rnd = () => Math.random() - 0.5;
+const sample = (sec, n) => [...QUESTIONS.filter(q => q.sec === sec)].sort(rnd).slice(0, n);
+const MOCKS = [
+  { key: 'full', label: 'Full mixed', desc: '8 Num · 6 Rea · 6 Ver · 20 min', min: 20, build: () => [...sample('num', 8), ...sample('rea', 6), ...sample('ver', 6)].sort(rnd) },
+  { key: 'num', label: 'Numerical section', desc: '20 questions · 25 min', min: 25, build: () => sample('num', 20) },
+  { key: 'ver', label: 'Verbal section', desc: '25 questions · 25 min', min: 25, build: () => sample('ver', 25) },
+  { key: 'rea', label: 'Reasoning section', desc: '20 questions · 25 min', min: 25, build: () => sample('rea', 20) },
+];
 const SECNAME = { num: 'Numerical', rea: 'Reasoning', ver: 'Verbal' };
 
-function Mock({ prog, onSaved, onExit }) {
-  const [quiz] = useState(buildMock);
+function MockMenu({ prog, onPick }) {
+  const m = prog.mock || {};
+  return (
+    <Card title="Choose a mock" color="var(--pink)">
+      <div className="grid2">
+        {MOCKS.map(c => (
+          <button key={c.key} className="sec-card" style={{ borderColor: 'var(--pink)' }} onClick={() => onPick(c)}>
+            <div className="sec-name" style={{ color: 'var(--pink)' }}>{c.label}</div>
+            <div className="small muted">{c.desc}</div>
+            <div className="small mt">{m[c.key]?.best != null ? `best ${m[c.key].best}% · ${m[c.key].attempts}×` : 'not attempted'}</div>
+          </button>
+        ))}
+      </div>
+      <div className="small muted mt">Timed, with a question palette and a full review at the end — mirrors the real iON sections.</div>
+    </Card>
+  );
+}
+
+function Mock({ cfg, prog, onSaved, onExit }) {
+  const [quiz] = useState(cfg.build);
   const [ans, setAns] = useState(() => Array(quiz.length).fill(null));
   const [cur, setCur] = useState(0);
-  const [left, setLeft] = useState(20 * 60);
+  const [left, setLeft] = useState(cfg.min * 60);
   const [submitted, setSubmitted] = useState(false);
   const savedRef = useRef(false);
   const q = quiz[cur];
@@ -119,8 +141,9 @@ function Mock({ prog, onSaved, onExit }) {
     if (savedRef.current) return; savedRef.current = true;
     const correct = quiz.reduce((s, qq, i) => s + (ans[i] === qq.ans ? 1 : 0), 0);
     const pct = Math.round((correct / quiz.length) * 100);
-    const prev = prog.mock || {};
-    const nv = { ...prog, mock: { best: Math.max(prev.best || 0, pct), last: pct, attempts: (prev.attempts || 0) + 1 }, xpTotal: (prog.xpTotal || 0) + correct * 10 };
+    const prevAll = prog.mock || {};
+    const prev = prevAll[cfg.key] || {};
+    const nv = { ...prog, mock: { ...prevAll, [cfg.key]: { best: Math.max(prev.best || 0, pct), last: pct, attempts: (prev.attempts || 0) + 1 } }, xpTotal: (prog.xpTotal || 0) + correct * 10 };
     try { await db.upsertMemory('tcs_progress', nv); onSaved?.(); } catch {}
   }
 
@@ -139,7 +162,7 @@ function Mock({ prog, onSaved, onExit }) {
     const wrong = quiz.map((qq, i) => ({ qq, i })).filter(x => ans[x.i] !== x.qq.ans);
     return (
       <>
-        <Card title="Mock result" color={band[1]}>
+        <Card title={`Result · ${cfg.label}`} color={band[1]}>
           <div className="tile-row" style={{ marginBottom: 8 }}>
             <StatTile label="Score" value={`${correct}/${quiz.length}`} note={`${pct}%`} color={band[1]} />
             <StatTile label="Est. band" value={band[0]} color={band[1]} />
@@ -171,7 +194,7 @@ function Mock({ prog, onSaved, onExit }) {
   }
 
   return (
-    <Card title="Mock test · 20 Q" color="var(--pink)"
+    <Card title={`${cfg.label} · ${quiz.length} Q`} color="var(--pink)"
       right={<span className={`chip ${left <= 60 ? 'c-red' : 'c-yellow'}`}>⏱ {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}</span>}>
       <div className="q-pal">
         {quiz.map((_, i) => <button key={i} className={`q-pal-btn${i === cur ? ' cur' : ''}${ans[i] != null ? ' done' : ''}`} onClick={() => setCur(i)}>{i + 1}</button>)}
@@ -248,6 +271,7 @@ export default function Placement({ go }) {
   const [view, setView] = useState('plan');
   const [quizSec, setQuizSec] = useState(null);
   const [mockKey, setMockKey] = useState(0);
+  const [mockCfg, setMockCfg] = useState(null);
   const [openCode, setOpenCode] = useState(null);
   const { items: mem, refresh } = useCollection('memory', { filter: 'key=eq.tcs_progress', order: 'key' });
   const prog = mem?.[0]?.value || {};
@@ -266,7 +290,7 @@ export default function Placement({ go }) {
       <p className="tab-sub">Foundation + Advanced + 3 coding · 83 Qs · 190 min · no negative marking.</p>
 
       <div className="tf-row" style={{ marginBottom: 12 }}>
-        {VIEWS.map(([k, l]) => <button key={k} className={`tf-btn${view === k ? ' on' : ''}`} onClick={() => { setView(k); setQuizSec(null); }}>{l}</button>)}
+        {VIEWS.map(([k, l]) => <button key={k} className={`tf-btn${view === k ? ' on' : ''}`} onClick={() => { setView(k); setQuizSec(null); setMockCfg(null); }}>{l}</button>)}
       </div>
 
       {view === 'plan' && (
@@ -317,7 +341,9 @@ export default function Placement({ go }) {
           </>
         ))}
 
-      {view === 'mock' && <Mock key={mockKey} prog={prog} onSaved={refresh} onExit={again => { if (again) setMockKey(k => k + 1); else setView('practice'); }} />}
+      {view === 'mock' && (mockCfg
+        ? <Mock key={mockKey} cfg={mockCfg} prog={prog} onSaved={refresh} onExit={again => { if (again) setMockKey(k => k + 1); else setMockCfg(null); }} />
+        : <MockMenu prog={prog} onPick={c => { setMockCfg(c); setMockKey(k => k + 1); }} />)}
 
       {view === 'browse' && <Browse />}
 
