@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Card, Empty } from '../components/ui.jsx';
+import { useCollection } from '../lib/hooks.js';
+import * as amb from '../lib/ambient.js';
 
-// Cozy "Virtual Cottage" study room — pomodoro + ambience + lofi + your materials.
-// SCAFFOLD: pomodoro is fully functional; ambience/lofi are wired as UI, audio sources
-// get hooked up in the deep-build pass.
+// Cozy study room: functional pomodoro, procedural ambience, a lofi radio (audio only),
+// and your subject notes pulled in to revise while a timer runs.
 const AMBIENT = [
   { key: 'rain', label: 'Rain', icon: '🌧' },
   { key: 'fire', label: 'Fireplace', icon: '🔥' },
@@ -17,14 +18,91 @@ const AMBIENT = [
 const DUR = { focus: 25 * 60, short: 5 * 60, long: 15 * 60 };
 const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
+// lofi radio stations (YouTube 24/7 live streams — audio only, video is hidden)
+const STATIONS = [
+  { id: 'jfKfPfyJRdk', label: 'Lofi — study' },
+  { id: '4xDzrJKXOOY', label: 'Lofi — sleep' },
+  { id: 'S_MOd40zlYU', label: 'Synthwave' },
+];
+
+let ytPromise;
+function loadYT() {
+  if (window.YT && window.YT.Player) return Promise.resolve(window.YT);
+  if (!ytPromise) ytPromise = new Promise(res => {
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => { if (prev) try { prev(); } catch {} res(window.YT); };
+    const tag = document.createElement('script'); tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+  });
+  return ytPromise;
+}
+
+function LofiPlayer() {
+  const elRef = useRef(null);
+  const player = useRef(null);
+  const [ready, setReady] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [station, setStation] = useState(STATIONS[0].id);
+  const [vol, setVol] = useState(55);
+
+  useEffect(() => {
+    let dead = false;
+    loadYT().then(YT => {
+      if (dead || !elRef.current) return;
+      player.current = new YT.Player(elRef.current, {
+        videoId: station,
+        playerVars: { autoplay: 0, controls: 0, disablekb: 1, modestbranding: 1, playsinline: 1 },
+        events: {
+          onReady: e => { e.target.setVolume(vol); setReady(true); },
+          onStateChange: e => setPlaying(e.data === 1),
+        },
+      });
+    });
+    return () => { dead = true; try { player.current?.destroy(); } catch {} };
+  }, []); // eslint-disable-line
+
+  const toggle = () => { const p = player.current; if (!p) return; playing ? p.pauseVideo() : p.playVideo(); };
+  const pick = id => { setStation(id); try { player.current?.loadVideoById(id); } catch {} };
+  const setVolume = v => { setVol(v); try { player.current?.setVolume(v); } catch {} };
+
+  return (
+    <div className="flex" style={{ gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      <div className="lofi-art">
+        <div className="lofi-yt"><div ref={elRef} /></div>
+        <div className={`lofi-cover${playing ? ' playing' : ''}`}>
+          <div className="lofi-viz">{[...Array(5)].map((_, i) => <span key={i} />)}</div>
+          <span className="lofi-note">♪</span>
+        </div>
+      </div>
+      <div style={{ flex: 1, minWidth: 190 }}>
+        <div className="flex" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+          {STATIONS.map(s => <button key={s.id} className={`btn btn-sm ${station === s.id ? 'btn-purple' : ''}`} onClick={() => pick(s.id)}>{s.label}</button>)}
+        </div>
+        <div className="flex" style={{ gap: 10, alignItems: 'center' }}>
+          <button className="btn btn-pink" style={{ minWidth: 54 }} disabled={!ready} onClick={toggle}>{playing ? '❚❚' : '▶'}</button>
+          <span className="small muted">VOL</span>
+          <input type="range" min="0" max="100" value={vol} onChange={e => setVolume(+e.target.value)} style={{ flex: 1 }} />
+        </div>
+        <div className="small muted mt">{ready ? (playing ? 'Now playing — video hidden, just the beats.' : 'Paused. Hit play for lofi.') : 'Loading station…'}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function Study({ go }) {
-  const [mode, setMode] = useState('focus'); // focus | short | long
+  const [mode, setMode] = useState('focus');
   const [secs, setSecs] = useState(DUR.focus);
   const [running, setRunning] = useState(false);
   const [rounds, setRounds] = useState(0);
-  const [ambient, setAmbient] = useState({}); // {key:true}
+  const [ambient, setAmbient] = useState({});
   const [vol, setVol] = useState(60);
   const tick = useRef(null);
+
+  const { items: subjects } = useCollection('subjects', { order: 'name', asc: true });
+  const withNotes = subjects.filter(s => s.notes_url);
+  const [openNotes, setOpenNotes] = useState(null);
+
+  useEffect(() => () => amb.stopAll(), []); // stop sounds when leaving the tab
 
   useEffect(() => {
     if (!running) { clearInterval(tick.current); return; }
@@ -42,7 +120,8 @@ export default function Study({ go }) {
   const setM = m => { setMode(m); setSecs(DUR[m]); setRunning(false); };
   const pct = 100 - Math.round((secs / DUR[mode]) * 100);
   const ringColor = mode === 'focus' ? 'var(--pink)' : 'var(--green)';
-  const toggleAmb = k => setAmbient(a => ({ ...a, [k]: !a[k] }));
+  const toggleAmb = k => { const on = amb.toggle(k); setAmbient(a => ({ ...a, [k]: on })); };
+  const setVolume = v => { setVol(v); amb.setMasterVolume(v / 100); };
 
   return (
     <>
@@ -82,22 +161,34 @@ export default function Study({ go }) {
           </div>
           <div className="flex mt" style={{ gap: 8, alignItems: 'center' }}>
             <span className="small muted">VOL</span>
-            <input type="range" min="0" max="100" value={vol} onChange={e => setVol(+e.target.value)} style={{ flex: 1 }} />
+            <input type="range" min="0" max="100" value={vol} onChange={e => setVolume(+e.target.value)} style={{ flex: 1 }} />
             <span className="small">{vol}</span>
           </div>
-          <div className="small muted mt">Mix as many as you like. (Audio loops get wired in the deep build.)</div>
+          <div className="small muted mt">Mix as many as you like — all synthesized live, so it works offline.</div>
         </Card>
       </div>
 
-      <Card title="Lofi beats" color="var(--purple)">
-        <Empty icon="♪" text="A lofi stream (music only — think lofi-girl radio) plays here. Play/skip controls + a tiny pixel visualizer coming in the build pass." />
+      <Card title="Lofi radio" color="var(--purple)">
+        <LofiPlayer />
       </Card>
 
       <Card title="Your study material" color="var(--yellow)" right={<button className="btn btn-sm" onClick={() => go('subjects')}>Subjects →</button>}>
-        <div className="small" style={{ color: 'var(--ink-2)', lineHeight: 1.5 }}>
-          Pull a subject's generated HTML notes right into this room so you can revise while a timer runs.
-          This links to your Subjects tab (where uploads → notes already live).
-        </div>
+        {withNotes.length === 0
+          ? <Empty icon="✎" text="Generate HTML notes for a subject in the Subjects tab and they'll show up here to revise while your timer runs." />
+          : (
+            <>
+              <div className="flex" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                {withNotes.map(s => (
+                  <button key={s.id} className={`btn btn-sm ${openNotes === s.id ? 'btn-yellow' : ''}`} onClick={() => setOpenNotes(openNotes === s.id ? null : s.id)}>{s.name}</button>
+                ))}
+              </div>
+              {openNotes && (
+                <div className="notes-frame">
+                  <iframe title="notes" src={withNotes.find(s => s.id === openNotes)?.notes_url} style={{ width: '100%', height: 460, border: 'none', background: '#fff' }} loading="lazy" />
+                </div>
+              )}
+            </>
+          )}
       </Card>
     </>
   );

@@ -355,6 +355,22 @@
 .bio-num { font-family: var(--font-pixel); font-size: 24px; color: var(--cyan); text-shadow: 0 0 10px currentColor; }
 .bio-lbl { font-family: var(--font-pixel); font-size: 6.5px; color: var(--ink-2); margin-top: 6px; letter-spacing: 1px; }
 
+/* ---- Study: lofi radio (video hidden, audio only) ---- */
+.lofi-art { position: relative; width: 118px; height: 118px; flex-shrink: 0; border: 3px solid var(--border-bright); overflow: hidden; box-shadow: 0 0 16px rgba(154,99,232,.35); }
+.lofi-yt { position: absolute; inset: 0; }
+.lofi-yt iframe, .lofi-yt > div { width: 100%; height: 100%; }
+.lofi-cover { position: absolute; inset: 0; z-index: 2; background: linear-gradient(135deg, #2a1a44, #12091b); display: flex; align-items: center; justify-content: center; }
+.lofi-note { font-size: 34px; color: var(--purple); text-shadow: 0 0 14px rgba(154,99,232,.7); }
+.lofi-viz { position: absolute; bottom: 10px; left: 0; right: 0; display: flex; gap: 4px; justify-content: center; align-items: flex-end; height: 26px; }
+.lofi-viz span { width: 5px; height: 5px; background: var(--pink); box-shadow: 0 0 6px var(--pink); }
+.lofi-cover.playing .lofi-viz span { animation: viz 0.9s steps(4) infinite; }
+.lofi-cover.playing .lofi-viz span:nth-child(2) { animation-delay: .15s; }
+.lofi-cover.playing .lofi-viz span:nth-child(3) { animation-delay: .3s; }
+.lofi-cover.playing .lofi-viz span:nth-child(4) { animation-delay: .45s; }
+.lofi-cover.playing .lofi-viz span:nth-child(5) { animation-delay: .6s; }
+@keyframes viz { 0%, 100% { height: 5px; } 50% { height: 24px; } }
+.notes-frame { border: 3px solid var(--border-bright); border-radius: 2px; overflow: hidden; box-shadow: 0 0 14px rgba(122,85,176,.2); }
+
 /* ---- Music player ---- */
 .player { display: flex; gap: 14px; align-items: center; }
 .player-art { width: 76px; height: 76px; flex-shrink: 0; border: 3px solid var(--border-bright); background: linear-gradient(135deg, var(--panel-2), var(--bg-deep)); display: flex; align-items: center; justify-content: center; font-size: 30px; color: var(--pink); box-shadow: 0 0 14px rgba(255,95,162,.3); }

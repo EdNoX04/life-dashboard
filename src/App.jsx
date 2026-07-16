@@ -11,6 +11,7 @@ import Calendar from './tabs/Calendar.jsx';
 import Subjects from './tabs/Subjects.jsx';
 import DSA from './tabs/DSA.jsx';
 import Study from './tabs/Study.jsx';
+import Placement, { PLACEMENT_EXPIRY } from './tabs/Placement.jsx';
 import Money from './tabs/Money.jsx';
 import Health from './tabs/Health.jsx';
 import Nutrition from './tabs/Nutrition.jsx';
@@ -28,6 +29,7 @@ const TABS = [
   ['habits', 'Habits', 'var(--green)', Habits],
   ['goals', 'Goals', 'var(--purple)', Goals],
   ['college', 'College', 'var(--cyan)', College],
+  ['placement', 'Placement', 'var(--yellow)', Placement],
   ['dsa', 'DSA', 'var(--green)', DSA],
   ['study', 'Study', 'var(--yellow)', Study],
   ['subjects', 'Subjects', 'var(--orange)', Subjects],
@@ -44,7 +46,9 @@ const TABS = [
 
 export default function App() {
   const [tab, setTab] = useState('hq');
-  const Active = TABS.find(t => t[0] === tab)?.[3] || HQ;
+  // Placement is a temporary tab — drop it automatically once the season's over.
+  const tabs = TABS.filter(t => t[0] !== 'placement' || new Date() < PLACEMENT_EXPIRY);
+  const Active = tabs.find(t => t[0] === tab)?.[3] || HQ;
 
   // on load, pull synced keys (market data etc.) set on any other device
   useEffect(() => {
@@ -56,7 +60,7 @@ export default function App() {
       <BootScreen />
       <nav className="sidebar">
         <div className="logo">PLAYER<span>▮</span>ONE</div>
-        {TABS.map(([id, label, color]) => (
+        {tabs.map(([id, label, color]) => (
           <div key={id} className={`nav-item ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>
             <span className="nav-dot" style={{ background: color }} />
             {label}
