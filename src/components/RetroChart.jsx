@@ -86,6 +86,7 @@ export default function RetroChart({ ticker, live = null, marketOpen = false, de
 
   const priceTicks = view ? [0, 0.25, 0.5, 0.75, 1].map(f => view.lo + (view.hi - view.lo) * f) : [];
   const xTickIdx = view ? Array.from({ length: Math.min(6, view.n) }, (_, k) => Math.round(k * (view.n - 1) / (Math.min(6, view.n) - 1 || 1))) : [];
+  const linePath = view ? data.map((c, i) => `${i ? 'L' : 'M'} ${view.x(i).toFixed(1)} ${view.y(c.c).toFixed(1)}`).join(' ') : '';
 
   return (
     <div className="rchart">
@@ -99,11 +100,8 @@ export default function RetroChart({ ticker, live = null, marketOpen = false, de
         <span className="rc-oclc">
           <b style={{ color: up ? UP : DN }}>{ticker}</b>
           <span className="muted"> {tf} · </span>
-          O<span style={{ color: AXIS }}>{fmtNum(hc?.o)}</span>
-          H<span style={{ color: UP }}>{fmtNum(hc?.h)}</span>
-          L<span style={{ color: DN }}>{fmtNum(hc?.l)}</span>
-          C<span style={{ color: up ? UP : DN }}>{fmtNum(hc?.c)}</span>
-          <span style={{ color: chg >= 0 ? UP : DN }}> {chg >= 0 ? '+' : ''}{fmtNum(chg)} ({chgPct >= 0 ? '+' : ''}{chgPct.toFixed(2)}%)</span>
+          <span style={{ color: up ? UP : DN, fontSize: 17 }}>{fmtNum(hc?.c)}</span>
+          <span style={{ color: chg >= 0 ? UP : DN }}> {chg >= 0 ? '▲' : '▼'} {chg >= 0 ? '+' : ''}{fmtNum(chg)} ({chgPct >= 0 ? '+' : ''}{chgPct.toFixed(2)}%)</span>
         </span>
         {marketOpen && isIntraday(tf) && <span className="rc-live"><span className="rc-dot" />LIVE</span>}
       </div>
@@ -137,18 +135,15 @@ export default function RetroChart({ ticker, live = null, marketOpen = false, de
               <rect key={'v' + i} x={view.x(i) - view.cw / 2} y={view.vy(c.v || 0)} width={view.cw} height={Math.max(0, volBot - view.vy(c.v || 0))}
                 fill={c.c >= c.o ? UP : DN} opacity="0.28" />
             ))}
-            {/* candles */}
-            {data.map((c, i) => {
-              const col = c.c >= c.o ? UP : DN;
-              const yO = view.y(c.o), yC = view.y(c.c);
-              const top = Math.min(yO, yC), bh = Math.max(1.5, Math.abs(yC - yO));
-              return (
-                <g key={i}>
-                  <line x1={view.x(i)} y1={view.y(c.h)} x2={view.x(i)} y2={view.y(c.l)} stroke={col} strokeWidth="1.2" />
-                  <rect x={view.x(i) - view.cw / 2} y={top} width={view.cw} height={bh} fill={col} shapeRendering="crispEdges" />
-                </g>
-              );
-            })}
+            {/* retro glowing line + area fill (candles live on the TradingView tab) */}
+            <defs>
+              <linearGradient id={`rcArea-${ticker}-${up ? 'u' : 'd'}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={up ? UP : DN} stopOpacity="0.34" />
+                <stop offset="100%" stopColor={up ? UP : DN} stopOpacity="0.02" />
+              </linearGradient>
+            </defs>
+            <path d={`${linePath} L ${view.x(view.n - 1).toFixed(1)} ${priceBot} L ${view.x(0).toFixed(1)} ${priceBot} Z`} fill={`url(#rcArea-${ticker}-${up ? 'u' : 'd'})`} />
+            <path d={linePath} fill="none" stroke={up ? UP : DN} strokeWidth="2" strokeLinejoin="round" style={{ filter: `drop-shadow(0 0 5px ${up ? 'rgba(47,208,107,.7)' : 'rgba(232,65,145,.7)'})` }} />
             {/* last price marker line */}
             {last && (
               <g>
@@ -157,9 +152,12 @@ export default function RetroChart({ ticker, live = null, marketOpen = false, de
                 <text x={w - padR + 5} y={view.y(last.c) + 4} fontSize="11" fill="#12091b" fontFamily="VT323, monospace" fontWeight="bold">{fmtNum(last.c)}</text>
               </g>
             )}
-            {/* crosshair */}
+            {/* crosshair + glowing dot on the line */}
             {hover != null && data[hover] && (
-              <line x1={view.x(hover)} y1={priceTop} x2={view.x(hover)} y2={volBot} stroke="#7a55b0" strokeWidth="1" strokeDasharray="2 3" />
+              <g>
+                <line x1={view.x(hover)} y1={priceTop} x2={view.x(hover)} y2={volBot} stroke="#7a55b0" strokeWidth="1" strokeDasharray="2 3" />
+                <circle cx={view.x(hover)} cy={view.y(data[hover].c)} r="3.5" fill={up ? UP : DN} style={{ filter: `drop-shadow(0 0 5px ${up ? UP : DN})` }} />
+              </g>
             )}
           </svg>
         )}
