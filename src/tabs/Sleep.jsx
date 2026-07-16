@@ -10,12 +10,8 @@ const SLEEP_STATIONS = [
   { id: 'jfKfPfyJRdk', label: 'Chill study' },
   { id: '4xDzrJKXOOY', label: 'Synthwave' },
 ];
-const CALM = [
-  { key: 'rain', label: 'Rain', icon: '🌧' },
-  { key: 'waves', label: 'Ocean', icon: '🌊' },
-  { key: 'night', label: 'Night', icon: '🌙' },
-  { key: 'fire', label: 'Fireplace', icon: '🔥' },
-];
+const CALM = ['rain', 'thunder', 'waves', 'river', 'wind', 'fire', 'night']
+  .map(k => ({ key: k, ...amb.SOUNDS[k] }));
 const TIMERS = [15, 30, 45, 60];
 const fmt = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 

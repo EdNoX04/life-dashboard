@@ -6,16 +6,8 @@ import * as amb from '../lib/ambient.js';
 
 // Cozy study room: functional pomodoro, procedural ambience, a lofi radio (audio only),
 // and your subject notes pulled in to revise while a timer runs.
-const AMBIENT = [
-  { key: 'rain', label: 'Rain', icon: '🌧' },
-  { key: 'fire', label: 'Fireplace', icon: '🔥' },
-  { key: 'snow', label: 'Snowfall', icon: '❄' },
-  { key: 'noise', label: 'White noise', icon: '📻' },
-  { key: 'forest', label: 'Forest', icon: '🌲' },
-  { key: 'cafe', label: 'Café', icon: '☕' },
-  { key: 'waves', label: 'Ocean', icon: '🌊' },
-  { key: 'night', label: 'Night', icon: '🦗' },
-];
+const AMBIENT = ['rain', 'thunder', 'fire', 'wind', 'forest', 'waves', 'river', 'cafe', 'night', 'birds', 'noise']
+  .map(k => ({ key: k, ...amb.SOUNDS[k] }));
 const STUDY_STATIONS = [
   { id: 'jfKfPfyJRdk', label: 'Study' },
   { id: '7NOSDKb0HlU', label: 'Relax' },

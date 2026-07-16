@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, Empty, StatTile } from '../components/ui.jsx';
 import { useCollection } from '../lib/hooks.js';
 import * as db from '../lib/db.js';
@@ -98,15 +98,118 @@ function Quiz({ sec, prog, onExit, onSaved }) {
   );
 }
 
+function buildMock() {
+  const pick = (sec, n) => [...QUESTIONS.filter(q => q.sec === sec)].sort(() => Math.random() - 0.5).slice(0, n);
+  return [...pick('num', 8), ...pick('rea', 6), ...pick('ver', 6)].sort(() => Math.random() - 0.5);
+}
+const SECNAME = { num: 'Numerical', rea: 'Reasoning', ver: 'Verbal' };
+
+function Mock({ prog, onSaved, onExit }) {
+  const [quiz] = useState(buildMock);
+  const [ans, setAns] = useState(() => Array(quiz.length).fill(null));
+  const [cur, setCur] = useState(0);
+  const [left, setLeft] = useState(20 * 60);
+  const [submitted, setSubmitted] = useState(false);
+  const savedRef = useRef(false);
+  const q = quiz[cur];
+  const answered = ans.filter(x => x != null).length;
+
+  async function finish() {
+    setSubmitted(true);
+    if (savedRef.current) return; savedRef.current = true;
+    const correct = quiz.reduce((s, qq, i) => s + (ans[i] === qq.ans ? 1 : 0), 0);
+    const pct = Math.round((correct / quiz.length) * 100);
+    const prev = prog.mock || {};
+    const nv = { ...prog, mock: { best: Math.max(prev.best || 0, pct), last: pct, attempts: (prev.attempts || 0) + 1 }, xpTotal: (prog.xpTotal || 0) + correct * 10 };
+    try { await db.upsertMemory('tcs_progress', nv); onSaved?.(); } catch {}
+  }
+
+  useEffect(() => {
+    if (submitted) return;
+    if (left <= 0) { finish(); return; }
+    const t = setTimeout(() => setLeft(l => l - 1), 1000);
+    return () => clearTimeout(t);
+  }, [left, submitted]); // eslint-disable-line
+
+  if (submitted) {
+    const correct = quiz.reduce((s, qq, i) => s + (ans[i] === qq.ans ? 1 : 0), 0);
+    const pct = Math.round((correct / quiz.length) * 100);
+    const bySec = {}; quiz.forEach((qq, i) => { const b = bySec[qq.sec] || { c: 0, t: 0 }; b.t++; if (ans[i] === qq.ans) b.c++; bySec[qq.sec] = b; });
+    const band = pct >= 83 ? ['PRIME', 'var(--pink)'] : pct >= 63 ? ['DIGITAL', 'var(--yellow)'] : pct >= 50 ? ['NINJA', 'var(--cyan)'] : ['BELOW CUTOFF', 'var(--red)'];
+    const wrong = quiz.map((qq, i) => ({ qq, i })).filter(x => ans[x.i] !== x.qq.ans);
+    return (
+      <>
+        <Card title="Mock result" color={band[1]}>
+          <div className="tile-row" style={{ marginBottom: 8 }}>
+            <StatTile label="Score" value={`${correct}/${quiz.length}`} note={`${pct}%`} color={band[1]} />
+            <StatTile label="Est. band" value={band[0]} color={band[1]} />
+            <StatTile label="Answered" value={`${answered}/${quiz.length}`} color="var(--cyan)" />
+          </div>
+          <div className="flex" style={{ gap: 8, flexWrap: 'wrap' }}>
+            {Object.entries(bySec).map(([s, b]) => <span key={s} className="chip">{SECNAME[s]}: {b.c}/{b.t}</span>)}
+          </div>
+          <div className="small muted mt">Estimate only — the real band also weighs Advanced Coding heavily. {pct >= 63 ? 'Strong! Lock in coding + weak sections.' : 'Drill any section below 70% and run it again.'}</div>
+          <div className="flex mt" style={{ gap: 8 }}>
+            <button className="btn btn-green" onClick={() => onExit(true)}>↻ New mock</button>
+            <button className="btn" onClick={() => onExit(false)}>Back</button>
+          </div>
+        </Card>
+        {wrong.length > 0 && (
+          <Card title={`Review — ${wrong.length} to fix`} color="var(--red)">
+            {wrong.map(({ qq, i }) => (
+              <div key={i} className="mock-rev">
+                <div className="small"><b style={{ fontWeight: 'normal' }}>{qq.q}</b></div>
+                <div className="small" style={{ color: 'var(--green)' }}>✓ {qq.opts[qq.ans]}</div>
+                {ans[i] != null && <div className="small" style={{ color: 'var(--red)' }}>You: {qq.opts[ans[i]]}</div>}
+                <div className="small muted">{qq.sol}</div>
+              </div>
+            ))}
+          </Card>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <Card title="Mock test · 20 Q" color="var(--pink)"
+      right={<span className={`chip ${left <= 60 ? 'c-red' : 'c-yellow'}`}>⏱ {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}</span>}>
+      <div className="q-pal">
+        {quiz.map((_, i) => <button key={i} className={`q-pal-btn${i === cur ? ' cur' : ''}${ans[i] != null ? ' done' : ''}`} onClick={() => setCur(i)}>{i + 1}</button>)}
+      </div>
+      <div className="flex" style={{ gap: 8, margin: '10px 0 6px' }}>
+        <span className="chip c-purple">{SECNAME[q.sec]}</span>
+        <span className="chip">{q.topic}</span>
+        <span className="chip c-cyan">Q {cur + 1}/{quiz.length}</span>
+      </div>
+      <div className="quiz-q">{q.q}</div>
+      <div className="quiz-opts">
+        {q.opts.map((o, idx) => (
+          <button key={idx} className={`quiz-opt${ans[cur] === idx ? ' sel' : ''}`} onClick={() => setAns(a => a.map((x, k) => (k === cur ? idx : x)))}>
+            <span className="quiz-key">{String.fromCharCode(65 + idx)}</span>{o}
+          </button>
+        ))}
+      </div>
+      <div className="spread mt">
+        <span className="flex" style={{ gap: 6 }}>
+          <button className="btn btn-sm" disabled={cur === 0} onClick={() => setCur(c => c - 1)}>← Prev</button>
+          <button className="btn btn-sm" disabled={cur === quiz.length - 1} onClick={() => setCur(c => c + 1)}>Next →</button>
+        </span>
+        <button className="btn btn-green" onClick={finish}>Submit ({answered}/{quiz.length})</button>
+      </div>
+    </Card>
+  );
+}
+
 export default function Placement({ go }) {
   const daysLeft = Math.max(0, Math.ceil((PLACEMENT_EXPIRY - new Date()) / 864e5));
   const [view, setView] = useState('plan');
   const [quizSec, setQuizSec] = useState(null);
+  const [mockKey, setMockKey] = useState(0);
   const [openCode, setOpenCode] = useState(null);
   const { items: mem, refresh } = useCollection('memory', { filter: 'key=eq.tcs_progress', order: 'key' });
   const prog = mem?.[0]?.value || {};
 
-  const VIEWS = [['plan', '📋 Plan'], ['practice', '🎮 Practice'], ['coding', '💻 Coding'], ['cheat', '📝 Cheatsheet'], ['roadmap', '💰 Roadmap']];
+  const VIEWS = [['plan', '📋 Plan'], ['practice', '🎮 Practice'], ['mock', '🧪 Mock'], ['coding', '💻 Coding'], ['cheat', '📝 Cheatsheet'], ['roadmap', '💰 Roadmap']];
 
   return (
     <>
@@ -170,6 +273,8 @@ export default function Placement({ go }) {
             </Card>
           </>
         ))}
+
+      {view === 'mock' && <Mock key={mockKey} prog={prog} onSaved={refresh} onExit={again => { if (again) setMockKey(k => k + 1); else setView('practice'); }} />}
 
       {view === 'coding' && (
         <>

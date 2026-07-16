@@ -367,6 +367,14 @@
 .quiz-opt:hover:not(:disabled) { border-color: var(--border-bright); box-shadow: 0 0 10px rgba(185,103,255,.25); }
 .quiz-opt.correct { border-color: var(--green); background: linear-gradient(90deg, rgba(47,208,107,.16), var(--bg-deep)); color: var(--green); }
 .quiz-opt.wrong { border-color: var(--red); background: linear-gradient(90deg, rgba(232,65,145,.16), var(--bg-deep)); color: var(--red); }
+.quiz-opt.sel { border-color: var(--purple); background: linear-gradient(90deg, rgba(154,99,232,.18), var(--bg-deep)); color: var(--ink); }
+.q-pal { display: flex; flex-wrap: wrap; gap: 5px; }
+.q-pal-btn { width: 30px; height: 30px; border: 2px solid var(--border); background: var(--bg-deep); color: var(--ink-2); border-radius: 2px; cursor: pointer; font-family: 'VT323', monospace; font-size: 15px; }
+.q-pal-btn.done { border-color: var(--green); color: var(--green); box-shadow: 0 0 6px rgba(47,208,107,.4); }
+.q-pal-btn.cur { border-color: var(--pink); color: var(--pink); box-shadow: 0 0 8px rgba(232,65,145,.5); }
+.mock-rev { border-bottom: 2px dashed var(--border); padding: 8px 0; }
+.mock-rev:last-child { border-bottom: none; }
+.mock-rev .small { margin: 2px 0; line-height: 1.4; }
 .quiz-key { display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; margin-right: 10px; border: 2px solid var(--border); border-radius: 2px; font-family: var(--font-pixel); font-size: 8px; }
 .quiz-sol { margin-top: 12px; padding: 10px 12px; border-left: 4px solid var(--purple); background: rgba(122,85,176,.1); border-radius: 2px; }
 .code-item { border-bottom: 2px dashed var(--border); padding: 10px 0; }

@@ -159,6 +159,19 @@ export const QUESTIONS = [
   Q('ver', 'Voice', 'Passive of "She writes a letter.":', ['A letter is written by her', 'A letter was written by her', 'A letter is being written by her', 'A letter has written by her'], 0, 'Simple-present passive: is + written.'),
   Q('ver', 'Idioms', '"To burn the midnight oil" means:', ['to waste money', 'to work late at night', 'to sleep early', 'to cause trouble'], 1, 'To study/work late into the night.'),
   Q('ver', 'Para-jumble', 'Order the parts: P. and then went home  Q. He finished his work  R. in the evening', ['QRP', 'QPR', 'RQP', 'PQR'], 0, '"He finished his work / in the evening / and then went home." → Q R P.'),
+  // ---------- BATCH 3 ----------
+  Q('num', 'Data Interpretation', 'A shop sells 200 items: 25% pens, 40% books, the rest notebooks. Number of notebooks:', ['70', '80', '60', '50'], 0, 'Notebooks = 100 − 25 − 40 = 35% of 200 = 70.'),
+  Q('num', 'Averages', 'Average of 6 numbers is 30. Two numbers averaging 20 are removed. New average:', ['33', '35', '34', '36'], 1, 'Sum 180 − 40 = 140 over 4 → 35.'),
+  Q('num', 'Simple Interest', 'A sum doubles in 5 years at simple interest. The rate p.a. is:', ['15%', '20%', '25%', '10%'], 1, 'Interest = principal → 100 = R·5 → R = 20%.'),
+  Q('num', 'Time & Work', '12 men complete a job in 10 days. 8 men complete the same job in:', ['15 days', '12 days', '18 days', '20 days'], 0, 'Men·days constant: 12·10 = 8·d → d = 15.'),
+  Q('rea', 'Statement-Conclusion', 'Statement: "Smoking is injurious to health." I. One should not smoke. II. Health is wealth.', ['Only I', 'Only II', 'Both', 'Neither'], 0, 'I directly follows; II is unrelated general saying.'),
+  Q('rea', 'Letter Series', 'Z, X, V, T, ?', ['R', 'S', 'Q', 'U'], 0, 'Each −2 letters → T−2 = R.'),
+  Q('rea', 'Blood Relations', 'Q is the son of P. P is the sister of R. How is R related to Q?', ['Uncle/Aunt', 'Father', 'Brother', 'Grandfather'], 0, "R is a sibling of Q's parent → uncle or aunt."),
+  Q('rea', 'Number Series', '7, 14, 28, 56, ?', ['112', '110', '108', '96'], 0, 'Each ×2 → 56·2 = 112.'),
+  Q('ver', 'Synonyms', 'Synonym of DILIGENT:', ['lazy', 'hardworking', 'careless', 'slow'], 1, 'Diligent = hardworking, industrious.'),
+  Q('ver', 'Antonyms', 'Antonym of SCARCE:', ['rare', 'abundant', 'few', 'limited'], 1, 'Scarce ↔ abundant.'),
+  Q('ver', 'Grammar', 'If I ___ rich, I would travel the world.', ['am', 'was', 'were', 'be'], 2, 'Second conditional uses "were" for all subjects.'),
+  Q('ver', 'Reading Comp', 'Passage: "Regular exercise strengthens the heart, improves mood, and boosts energy — its benefits go well beyond weight loss." Best conclusion:', ['Exercise only helps weight loss', 'Exercise has broad benefits', 'Exercise worsens mood', 'Exercise weakens the heart'], 1, 'The passage stresses benefits beyond weight loss.'),
 ];
 
 // ---- coding problems (advanced section prep) ----
