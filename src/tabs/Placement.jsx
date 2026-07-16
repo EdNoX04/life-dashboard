@@ -200,6 +200,49 @@ function Mock({ prog, onSaved, onExit }) {
   );
 }
 
+function Browse() {
+  const [sec, setSec] = useState('all');
+  const [topic, setTopic] = useState('all');
+  const [open, setOpen] = useState({});
+  const pool = QUESTIONS.filter(q => sec === 'all' || q.sec === sec);
+  const topics = ['all', ...Array.from(new Set(pool.map(q => q.topic)))];
+  const shown = pool.filter(q => topic === 'all' || q.topic === topic);
+  return (
+    <Card title={`Question bank · ${shown.length}`} color="var(--cyan)">
+      <div className="flex" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+        <select className="sel" value={sec} onChange={e => { setSec(e.target.value); setTopic('all'); }}>
+          <option value="all">All sections</option>
+          <option value="num">Numerical</option>
+          <option value="rea">Reasoning</option>
+          <option value="ver">Verbal</option>
+        </select>
+        <select className="sel" value={topic} onChange={e => setTopic(e.target.value)}>
+          {topics.map(t => <option key={t} value={t}>{t === 'all' ? 'All topics' : t}</option>)}
+        </select>
+      </div>
+      {shown.map(q => (
+        <div key={q.q} className="brow-item">
+          <div className="spread" style={{ cursor: 'pointer', gap: 8 }} onClick={() => setOpen(o => ({ ...o, [q.q]: !o[q.q] }))}>
+            <span style={{ flex: 1 }}>{q.q}</span>
+            <span className="flex" style={{ gap: 6 }}>
+              <span className="chip">{q.tag === 'PYQ' ? 'PYQ' : 'Exp'}</span>
+              <span className="chip c-purple" style={{ minWidth: 56, textAlign: 'center' }}>{open[q.q] ? '▲ hide' : '▾ answer'}</span>
+            </span>
+          </div>
+          {open[q.q] && (
+            <div className="brow-ans">
+              {q.opts.map((o, idx) => (
+                <div key={idx} className={idx === q.ans ? 'brow-correct' : 'brow-opt'}>{String.fromCharCode(65 + idx)}. {o}{idx === q.ans ? '  ✓' : ''}</div>
+              ))}
+              <div className="small mt" style={{ color: 'var(--cyan)', lineHeight: 1.5 }}>{q.sol}</div>
+            </div>
+          )}
+        </div>
+      ))}
+    </Card>
+  );
+}
+
 export default function Placement({ go }) {
   const daysLeft = Math.max(0, Math.ceil((PLACEMENT_EXPIRY - new Date()) / 864e5));
   const [view, setView] = useState('plan');
@@ -209,7 +252,7 @@ export default function Placement({ go }) {
   const { items: mem, refresh } = useCollection('memory', { filter: 'key=eq.tcs_progress', order: 'key' });
   const prog = mem?.[0]?.value || {};
 
-  const VIEWS = [['plan', '📋 Plan'], ['practice', '🎮 Practice'], ['mock', '🧪 Mock'], ['coding', '💻 Coding'], ['cheat', '📝 Cheatsheet'], ['roadmap', '💰 Roadmap']];
+  const VIEWS = [['plan', '📋 Plan'], ['practice', '🎮 Practice'], ['mock', '🧪 Mock'], ['browse', '📖 Bank'], ['coding', '💻 Coding'], ['cheat', '📝 Cheatsheet'], ['roadmap', '💰 Roadmap']];
 
   return (
     <>
@@ -275,6 +318,8 @@ export default function Placement({ go }) {
         ))}
 
       {view === 'mock' && <Mock key={mockKey} prog={prog} onSaved={refresh} onExit={again => { if (again) setMockKey(k => k + 1); else setView('practice'); }} />}
+
+      {view === 'browse' && <Browse />}
 
       {view === 'coding' && (
         <>
