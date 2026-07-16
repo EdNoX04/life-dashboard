@@ -355,6 +355,24 @@
 .bio-num { font-family: var(--font-pixel); font-size: 24px; color: var(--cyan); text-shadow: 0 0 10px currentColor; }
 .bio-lbl { font-family: var(--font-pixel); font-size: 6.5px; color: var(--ink-2); margin-top: 6px; letter-spacing: 1px; }
 
+/* ---- Placement: quiz engine ---- */
+.plan-list { margin: 6px 0 0; padding-left: 18px; }
+.plan-list li { margin: 4px 0; line-height: 1.45; }
+.sec-card { text-align: left; padding: 14px; border: 2px solid var(--border); background: var(--bg-deep); border-radius: 3px; cursor: pointer; }
+.sec-card:hover { box-shadow: 0 0 12px rgba(185,103,255,.3); }
+.sec-name { font-family: var(--font-pixel); font-size: 12px; }
+.quiz-q { font-size: 16px; line-height: 1.5; margin: 6px 0 12px; }
+.quiz-opts { display: flex; flex-direction: column; gap: 8px; }
+.quiz-opt { text-align: left; padding: 11px 12px; border: 2px solid var(--border); background: var(--bg-deep); color: var(--ink); border-radius: 3px; cursor: pointer; font-family: inherit; font-size: 14px; }
+.quiz-opt:hover:not(:disabled) { border-color: var(--border-bright); box-shadow: 0 0 10px rgba(185,103,255,.25); }
+.quiz-opt.correct { border-color: var(--green); background: linear-gradient(90deg, rgba(47,208,107,.16), var(--bg-deep)); color: var(--green); }
+.quiz-opt.wrong { border-color: var(--red); background: linear-gradient(90deg, rgba(232,65,145,.16), var(--bg-deep)); color: var(--red); }
+.quiz-key { display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; margin-right: 10px; border: 2px solid var(--border); border-radius: 2px; font-family: var(--font-pixel); font-size: 8px; }
+.quiz-sol { margin-top: 12px; padding: 10px 12px; border-left: 4px solid var(--purple); background: rgba(122,85,176,.1); border-radius: 2px; }
+.code-item { border-bottom: 2px dashed var(--border); padding: 10px 0; }
+.code-item:last-child { border-bottom: none; }
+.code-block { background: var(--bg-deep); border: 2px solid var(--border); border-radius: 3px; padding: 10px; margin-top: 8px; overflow-x: auto; font-family: 'VT323', monospace; font-size: 14px; line-height: 1.4; color: var(--green); white-space: pre; }
+
 /* ---- Study: lofi radio (video hidden, audio only) ---- */
 .lofi-art { position: relative; width: 118px; height: 118px; flex-shrink: 0; border: 3px solid var(--border-bright); overflow: hidden; box-shadow: 0 0 16px rgba(154,99,232,.35); }
 .lofi-yt { position: absolute; inset: 0; }
