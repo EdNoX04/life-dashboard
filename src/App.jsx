@@ -10,8 +10,11 @@ import College from './tabs/College.jsx';
 import Calendar from './tabs/Calendar.jsx';
 import Subjects from './tabs/Subjects.jsx';
 import DSA from './tabs/DSA.jsx';
+import Study from './tabs/Study.jsx';
 import Money from './tabs/Money.jsx';
 import Health from './tabs/Health.jsx';
+import Nutrition from './tabs/Nutrition.jsx';
+import Music from './tabs/Music.jsx';
 import News from './tabs/News.jsx';
 import Builds from './tabs/Builds.jsx';
 import Settings from './tabs/Settings.jsx';
@@ -26,10 +29,13 @@ const TABS = [
   ['goals', 'Goals', 'var(--purple)', Goals],
   ['college', 'College', 'var(--cyan)', College],
   ['dsa', 'DSA', 'var(--green)', DSA],
+  ['study', 'Study', 'var(--yellow)', Study],
   ['subjects', 'Subjects', 'var(--orange)', Subjects],
   ['money', 'Money', 'var(--green)', Money],
   ['health', 'Health', 'var(--red)', Health],
+  ['nutrition', 'Body', 'var(--cyan)', Nutrition],
   ['journal', 'Journal', 'var(--pink)', Journal],
+  ['music', 'Music', 'var(--pink)', Music],
   ['movies', 'Media', 'var(--purple)', Movies],
   ['news', 'News', 'var(--cyan)', News],
   ['builds', 'Builds', 'var(--yellow)', Builds],

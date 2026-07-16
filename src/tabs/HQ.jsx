@@ -75,6 +75,12 @@ export default function HQ({ go }) {
         ))}
       </Card>
 
+      {hour >= 18 && (
+        <Card title="Night summary" color="var(--purple)">
+          <Empty icon="☾" text="Your end-of-day wrap lands here: health, portfolio move, study-session time, what you shipped, builds status and listening time — a quick look back so tomorrow starts sharper." />
+        </Card>
+      )}
+
       <div className="grid2">
         <Card title="Priorities" color="var(--yellow)" right={<button className="btn btn-sm" onClick={() => go('todos')}>open →</button>}>
           {openTodos.length === 0 && <Empty icon="✓" text="Nothing due. Legend." />}
