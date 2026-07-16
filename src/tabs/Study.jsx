@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Card, Empty } from '../components/ui.jsx';
 import { useCollection } from '../lib/hooks.js';
+import LofiRadio from '../components/LofiRadio.jsx';
 import * as amb from '../lib/ambient.js';
 
 // Cozy study room: functional pomodoro, procedural ambience, a lofi radio (audio only),
@@ -15,79 +16,13 @@ const AMBIENT = [
   { key: 'waves', label: 'Ocean', icon: '🌊' },
   { key: 'night', label: 'Night', icon: '🦗' },
 ];
+const STUDY_STATIONS = [
+  { id: 'jfKfPfyJRdk', label: 'Study' },
+  { id: '7NOSDKb0HlU', label: 'Relax' },
+  { id: '4xDzrJKXOOY', label: 'Synthwave' },
+];
 const DUR = { focus: 25 * 60, short: 5 * 60, long: 15 * 60 };
 const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-
-// lofi radio stations (YouTube 24/7 live streams — audio only, video is hidden)
-const STATIONS = [
-  { id: 'jfKfPfyJRdk', label: 'Lofi — study' },
-  { id: '4xDzrJKXOOY', label: 'Lofi — sleep' },
-  { id: 'S_MOd40zlYU', label: 'Synthwave' },
-];
-
-let ytPromise;
-function loadYT() {
-  if (window.YT && window.YT.Player) return Promise.resolve(window.YT);
-  if (!ytPromise) ytPromise = new Promise(res => {
-    const prev = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => { if (prev) try { prev(); } catch {} res(window.YT); };
-    const tag = document.createElement('script'); tag.src = 'https://www.youtube.com/iframe_api';
-    document.head.appendChild(tag);
-  });
-  return ytPromise;
-}
-
-function LofiPlayer() {
-  const elRef = useRef(null);
-  const player = useRef(null);
-  const [ready, setReady] = useState(false);
-  const [playing, setPlaying] = useState(false);
-  const [station, setStation] = useState(STATIONS[0].id);
-  const [vol, setVol] = useState(55);
-
-  useEffect(() => {
-    let dead = false;
-    loadYT().then(YT => {
-      if (dead || !elRef.current) return;
-      player.current = new YT.Player(elRef.current, {
-        videoId: station,
-        playerVars: { autoplay: 0, controls: 0, disablekb: 1, modestbranding: 1, playsinline: 1 },
-        events: {
-          onReady: e => { e.target.setVolume(vol); setReady(true); },
-          onStateChange: e => setPlaying(e.data === 1),
-        },
-      });
-    });
-    return () => { dead = true; try { player.current?.destroy(); } catch {} };
-  }, []); // eslint-disable-line
-
-  const toggle = () => { const p = player.current; if (!p) return; playing ? p.pauseVideo() : p.playVideo(); };
-  const pick = id => { setStation(id); try { player.current?.loadVideoById(id); } catch {} };
-  const setVolume = v => { setVol(v); try { player.current?.setVolume(v); } catch {} };
-
-  return (
-    <div className="flex" style={{ gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-      <div className="lofi-art">
-        <div className="lofi-yt"><div ref={elRef} /></div>
-        <div className={`lofi-cover${playing ? ' playing' : ''}`}>
-          <div className="lofi-viz">{[...Array(5)].map((_, i) => <span key={i} />)}</div>
-          <span className="lofi-note">♪</span>
-        </div>
-      </div>
-      <div style={{ flex: 1, minWidth: 190 }}>
-        <div className="flex" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-          {STATIONS.map(s => <button key={s.id} className={`btn btn-sm ${station === s.id ? 'btn-purple' : ''}`} onClick={() => pick(s.id)}>{s.label}</button>)}
-        </div>
-        <div className="flex" style={{ gap: 10, alignItems: 'center' }}>
-          <button className="btn btn-pink" style={{ minWidth: 54 }} disabled={!ready} onClick={toggle}>{playing ? '❚❚' : '▶'}</button>
-          <span className="small muted">VOL</span>
-          <input type="range" min="0" max="100" value={vol} onChange={e => setVolume(+e.target.value)} style={{ flex: 1 }} />
-        </div>
-        <div className="small muted mt">{ready ? (playing ? 'Now playing — video hidden, just the beats.' : 'Paused. Hit play for lofi.') : 'Loading station…'}</div>
-      </div>
-    </div>
-  );
-}
 
 export default function Study({ go }) {
   const [mode, setMode] = useState('focus');
@@ -102,7 +37,7 @@ export default function Study({ go }) {
   const withNotes = subjects.filter(s => s.notes_url);
   const [openNotes, setOpenNotes] = useState(null);
 
-  useEffect(() => () => amb.stopAll(), []); // stop sounds when leaving the tab
+  useEffect(() => () => amb.stopAll(), []);
 
   useEffect(() => {
     if (!running) { clearInterval(tick.current); return; }
@@ -169,7 +104,7 @@ export default function Study({ go }) {
       </div>
 
       <Card title="Lofi radio" color="var(--purple)">
-        <LofiPlayer />
+        <LofiRadio stations={STUDY_STATIONS} />
       </Card>
 
       <Card title="Your study material" color="var(--yellow)" right={<button className="btn btn-sm" onClick={() => go('subjects')}>Subjects →</button>}>

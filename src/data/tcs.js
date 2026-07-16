@@ -110,6 +110,55 @@ export const QUESTIONS = [
   Q('ver', 'Synonyms', 'Synonym of ABUNDANT:', ['scarce', 'plentiful', 'dull', 'rare'], 1, 'Abundant = plentiful.'),
   Q('ver', 'Antonyms', 'Antonym of TRANSPARENT:', ['clear', 'opaque', 'visible', 'bright'], 1, 'Opposite of transparent = opaque.'),
   Q('ver', 'Reading Comp', 'Passage: "Renewable energy sources like solar and wind are inexhaustible and clean, unlike fossil fuels which pollute and run out." — Which is TRUE?', ['Solar runs out quickly', 'Fossil fuels are clean', 'Wind energy is inexhaustible', 'Fossil fuels never pollute'], 2, 'The passage states renewables (incl. wind) are inexhaustible.'),
+  // ---------- NUMERICAL (batch 2) ----------
+  Q('num', 'Time & Work', 'A finishes a job in 10 days, B in 15. Working together they finish in:', ['5 days', '6 days', '7 days', '8 days'], 1, '1/10 + 1/15 = 1/6 → 6 days.'),
+  Q('num', 'Time & Work', 'A and B together finish in 12 days; A alone in 20. B alone takes:', ['24 days', '30 days', '36 days', '40 days'], 1, '1/12 − 1/20 = (5−3)/60 = 1/30 → 30 days.'),
+  Q('num', 'Pipes & Cistern', 'A pipe fills a tank in 6 h; a leak empties it in 8 h. Together the tank fills in:', ['20 h', '24 h', '18 h', '30 h'], 1, '1/6 − 1/8 = 1/24 → 24 h.'),
+  Q('num', 'Simple Interest', 'SI on ₹5000 at 8% p.a. for 3 years:', ['₹1000', '₹1200', '₹1400', '₹1500'], 1, '5000·8·3/100 = 1200.'),
+  Q('num', 'Compound Interest', 'CI on ₹10000 at 10% p.a. for 2 years:', ['₹2000', '₹2100', '₹1000', '₹2200'], 1, '10000·1.1² − 10000 = 2100.'),
+  Q('num', 'Ages', 'A father is 3× his son. In 12 years he will be twice as old. Son\'s present age:', ['10', '12', '14', '15'], 1, '3S+12 = 2(S+12) → S = 12.'),
+  Q('num', 'Mixtures', 'In what ratio mix 30%-milk and 60%-milk solutions to get 40% milk?', ['2:1', '1:2', '3:2', '1:1'], 0, 'Alligation: (60−40):(40−30) = 20:10 = 2:1.'),
+  Q('num', 'Partnership', 'A invests ₹3000, B ₹4000; profit ₹1400. B\'s share:', ['₹600', '₹700', '₹800', '₹750'], 2, 'Ratio 3:4 → B = 1400·4/7 = 800.'),
+  Q('num', 'Percentages', 'Winner gets 60% of votes and wins by 200 (2 candidates). Total votes:', ['800', '1000', '1200', '900'], 1, '60−40 = 20% = 200 → total 1000.'),
+  Q('num', 'Simplification', '√144 + √169 = ?', ['24', '25', '26', '23'], 1, '12 + 13 = 25.'),
+  Q('num', 'Number System', 'Sum of the first 20 natural numbers:', ['200', '210', '220', '190'], 1, '20·21/2 = 210.'),
+  Q('num', 'Averages', 'Average of the first 5 even numbers (2,4,6,8,10):', ['5', '6', '7', '8'], 1, '30/5 = 6.'),
+  Q('num', 'Progressions', '10th term of the AP 3, 7, 11, …:', ['37', '39', '41', '43'], 1, 'a=3, d=4 → 3 + 9·4 = 39.'),
+  Q('num', 'Profit & Loss', 'A shopkeeper marks 40% above cost and gives 10% discount. Profit%:', ['25%', '26%', '30%', '24%'], 1, '1.4·0.9 = 1.26 → 26%.'),
+  Q('num', 'Boats & Streams', 'Boat 10 km/h in still water, stream 2 km/h. Downstream speed:', ['8', '12', '10', '14'], 1, '10 + 2 = 12 km/h.'),
+  Q('num', 'Boats & Streams', 'Upstream 6 km/h, downstream 10 km/h. Speed of the stream:', ['1', '2', '3', '4'], 1, '(10−6)/2 = 2 km/h.'),
+  Q('num', 'Perm & Comb', 'In how many ways can 5 people sit in a row?', ['24', '60', '120', '20'], 2, '5! = 120.'),
+  Q('num', 'Perm & Comb', 'Number of ways to choose 2 people from 5:', ['10', '20', '5', '15'], 0, 'C(5,2) = 10.'),
+  Q('num', 'Probability', 'A die is rolled once. P(even number):', ['1/2', '1/3', '1/6', '2/3'], 0, '{2,4,6}/6 = 1/2.'),
+  Q('num', 'Probability', 'Two fair coins are tossed. P(both heads):', ['1/2', '1/4', '1/3', '3/4'], 1, '½·½ = 1/4.'),
+  Q('num', 'Logarithms', 'log₂ 8 = ?', ['2', '3', '4', '8'], 1, '2³ = 8 → 3.'),
+  // ---------- REASONING (batch 2) ----------
+  Q('rea', 'Coding-Decoding', 'If FRIEND = GSJFOE (each +1), then MOTHER =', ['NPUIFS', 'NPUIGS', 'MPUIFS', 'NQUIFS'], 0, 'Each letter +1: M→N,O→P,T→U,H→I,E→F,R→S.'),
+  Q('rea', 'Coding-Decoding', 'If BOOK = DQQM (each +2), then WORD =', ['YQTF', 'YQTG', 'XQTF', 'YRTF'], 0, 'W→Y, O→Q, R→T, D→F.'),
+  Q('rea', 'Syllogism', 'Some pens are books. All books are papers. I. Some pens are papers II. Some papers are pens', ['Only I', 'Only II', 'Both I and II', 'Neither'], 2, 'Those pens that are books are papers → I; converse → II.'),
+  Q('rea', 'Blood Relations', "'A + B' = A is father of B; 'A − B' = A is wife of B. In P + Q − R, P is R's:", ['Father-in-law', 'Father', 'Brother', 'Uncle'], 0, 'P father of Q; Q wife of R → P is R\'s father-in-law.'),
+  Q('rea', 'Number Series', '5, 11, 23, 47, ?', ['95', '94', '96', '93'], 0, 'Each ×2 + 1 → 47·2+1 = 95.'),
+  Q('rea', 'Number Series', '1, 1, 2, 3, 5, 8, ?', ['11', '12', '13', '14'], 2, 'Fibonacci → 5 + 8 = 13.'),
+  Q('rea', 'Odd One Out', 'Find the odd one: Rose, Lotus, Lily, Mango', ['Rose', 'Lotus', 'Lily', 'Mango'], 3, 'Mango is a fruit; the rest are flowers.'),
+  Q('rea', 'Analogy', 'Cat : Kitten :: Dog : ?', ['Cub', 'Puppy', 'Calf', 'Foal'], 1, 'Young of a dog is a puppy.'),
+  Q('rea', 'Analogy', 'Doctor : Hospital :: Teacher : ?', ['School', 'Class', 'Book', 'Student'], 0, 'A teacher works in a school.'),
+  Q('rea', 'Ranking', 'Ravi is 7th from the top and 26th from the bottom. Total students:', ['31', '32', '33', '34'], 1, '7 + 26 − 1 = 32.'),
+  Q('rea', 'Direction', "At sunrise a man's shadow falls towards him. He is facing:", ['East', 'West', 'North', 'South'], 1, 'Sun in the east → shadow to the west; shadow in front → faces west.'),
+  Q('rea', 'Seating', '6 people sit around a circle facing centre. If A is exactly opposite D, people between them on each side:', ['1', '2', '3', '0'], 1, '6/2 − 1 = 2 on each side.'),
+  // ---------- VERBAL (batch 2) ----------
+  Q('ver', 'Error Spotting', 'Spot the error: "The number of students (A)/ in the class (B)/ are fifty (C)/ no error (D)"', ['A', 'B', 'C', 'D'], 2, '"The number of …" takes a singular verb → "is fifty".'),
+  Q('ver', 'Error Spotting', 'Spot the error: "He did not (A)/ went (B)/ to school (C)/ yesterday (D)"', ['A', 'B', 'C', 'D'], 1, 'After "did not" use the base verb → "go".'),
+  Q('ver', 'Sentence Completion', 'Hardly had he arrived ___ it started to rain.', ['than', 'when', 'then', 'that'], 1, '"Hardly … when" is the fixed pair.'),
+  Q('ver', 'Sentence Completion', 'She has been living here ___ 2010.', ['for', 'since', 'from', 'by'], 1, '"since" + a point in time.'),
+  Q('ver', 'Prepositions', 'He is married ___ a doctor.', ['with', 'to', 'by', 'of'], 1, 'married TO.'),
+  Q('ver', 'Synonyms', 'Synonym of BENEVOLENT:', ['cruel', 'kind', 'weak', 'proud'], 1, 'Benevolent = kind, generous.'),
+  Q('ver', 'Antonyms', 'Antonym of OPTIMIST:', ['dreamer', 'pessimist', 'realist', 'idealist'], 1, 'Opposite of optimist = pessimist.'),
+  Q('ver', 'Antonyms', 'Antonym of CONDEMN:', ['blame', 'praise', 'punish', 'judge'], 1, 'Condemn (blame) ↔ praise.'),
+  Q('ver', 'One Word', 'One who cannot read or write:', ['ignorant', 'illiterate', 'innocent', 'novice'], 1, 'illiterate.'),
+  Q('ver', 'Spelling', 'Choose the correctly spelt word:', ['Occurrence', 'Occurence', 'Ocurrence', 'Occurrance'], 0, 'Occurrence — double c, double r.'),
+  Q('ver', 'Voice', 'Passive of "She writes a letter.":', ['A letter is written by her', 'A letter was written by her', 'A letter is being written by her', 'A letter has written by her'], 0, 'Simple-present passive: is + written.'),
+  Q('ver', 'Idioms', '"To burn the midnight oil" means:', ['to waste money', 'to work late at night', 'to sleep early', 'to cause trouble'], 1, 'To study/work late into the night.'),
+  Q('ver', 'Para-jumble', 'Order the parts: P. and then went home  Q. He finished his work  R. in the evening', ['QRP', 'QPR', 'RQP', 'PQR'], 0, '"He finished his work / in the evening / and then went home." → Q R P.'),
 ];
 
 // ---- coding problems (advanced section prep) ----
@@ -154,5 +203,25 @@ for x in a:
     cnt += seen[k - x]
     seen[x] += 1
 print(cnt)`,
+  },
+  {
+    title: 'Palindrome check', diff: 'Easy',
+    statement: 'Read a string; print "YES" if it reads the same forwards and backwards (ignore case), else "NO".',
+    approach: 'Lowercase the string and compare it with its reverse.',
+    code: `s = input().strip().lower()
+print("YES" if s == s[::-1] else "NO")`,
+  },
+  {
+    title: 'First non-repeating character', diff: 'Medium',
+    statement: 'Given a string, print the first character that appears exactly once. If none exists, print "_".',
+    approach: 'Count all characters (Counter), then scan left→right for the first with count 1.',
+    code: `from collections import Counter
+s = input()
+c = Counter(s)
+for ch in s:
+    if c[ch] == 1:
+        print(ch); break
+else:
+    print("_")`,
   },
 ];

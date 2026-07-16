@@ -15,6 +15,7 @@ import Placement, { PLACEMENT_EXPIRY } from './tabs/Placement.jsx';
 import Money from './tabs/Money.jsx';
 import Health from './tabs/Health.jsx';
 import Nutrition from './tabs/Nutrition.jsx';
+import Sleep from './tabs/Sleep.jsx';
 import Music from './tabs/Music.jsx';
 import News from './tabs/News.jsx';
 import Builds from './tabs/Builds.jsx';
@@ -36,6 +37,7 @@ const TABS = [
   ['money', 'Money', 'var(--green)', Money],
   ['health', 'Health', 'var(--red)', Health],
   ['nutrition', 'Body', 'var(--cyan)', Nutrition],
+  ['sleep', 'Sleep', 'var(--purple)', Sleep],
   ['journal', 'Journal', 'var(--pink)', Journal],
   ['music', 'Music', 'var(--pink)', Music],
   ['movies', 'Media', 'var(--purple)', Movies],
