@@ -64,6 +64,17 @@ function localDate(offsetDays = 0) {
 }
 const uid = () => (globalThis.crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
 
+// Amizone diary datetimes look like "2026/08/15 12:00:00 AM" (slashes + AM/PM).
+// Return { iso:'2026-08-15', hm:'00:00' } in 24h, or null.
+function parseAmzDT(s) {
+  const m = String(s || '').match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s+(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);
+  if (!m) return null;
+  let [, y, mo, d, hh, mm, ap] = m;
+  hh = parseInt(hh, 10);
+  if (ap) { const p = ap.toUpperCase(); if (p === 'PM' && hh !== 12) hh += 12; if (p === 'AM' && hh === 12) hh = 0; }
+  return { iso: `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`, hm: `${String(hh).padStart(2, '0')}:${mm}` };
+}
+
 // ---- everything that must run with the Amizone session cookie happens in the page ----
 async function scrapeInPage(page, startDate, endDate) {
   return await page.evaluate(async ({ startDate, endDate }) => {
@@ -208,13 +219,19 @@ async function main() {
   const seen = new Set();
   const ttRows = [];
   for (const e of data.events) {
-    if (e.sType && e.sType !== 'C') continue;                 // C = class/lecture only
-    const st = (e.start || '').match(/T?(\d{2}:\d{2})/)?.[1] || (e.start || '').slice(11, 16);
-    const et = (e.end || '').match(/T?(\d{2}:\d{2})/)?.[1] || (e.end || '').slice(11, 16);
-    const iso = (e.start || '').slice(0, 10);
+    // Keep timetable entries (lectures + Sat training + labs etc). Skip only the
+    // things that clearly aren't a class slot: holidays (H), exams (E), and all-day
+    // markers. We do NOT require sType==='C' because training sessions may carry a
+    // different tag — anything with a real time slot on a school day counts.
+    const t = String(e.sType || '').toUpperCase();
+    if (t === 'H' || t === 'E' || e.allDay === true) continue;
+    const sdt = parseAmzDT(e.start), edt = parseAmzDT(e.end);
+    const st = sdt?.hm, et = edt?.hm || '';
+    const iso = sdt?.iso;
     const day = iso ? dayFromIso(iso) : '';
     const subject = (e.title || e.code || '').trim();
-    if (!day || !st || !subject) continue;
+    // must be a real intraday slot with a subject (drops stray all-day/no-time rows)
+    if (!day || !st || st === '00:00' || !subject) continue;
     const k = `${day}|${st}|${et}|${subject}`;
     if (seen.has(k)) continue; seen.add(k);
     ttRows.push({ id: uid(), created_at: new Date().toISOString(), day, start_time: st, end_time: et, subject, room: e.room || '', faculty: e.faculty || '' });
