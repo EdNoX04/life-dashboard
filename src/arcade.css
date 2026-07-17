@@ -427,6 +427,12 @@
 .player-bar { height: 8px; border: 2px solid var(--border); background: var(--bg-deep); margin: 8px 0 4px; }
 .player-bar > div { height: 100%; background: linear-gradient(90deg, var(--pink), var(--purple)); box-shadow: 0 0 8px rgba(255,95,162,.5); }
 
+/* ---- Books / Notes / Decision ---- */
+.book-text { width: 100%; min-height: 160px; resize: vertical; padding: 10px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'VT323', monospace; font-size: 16px; line-height: 1.5; }
+.note-canvas { width: 100%; height: auto; aspect-ratio: 900/420; background: #12091b; border: 2px solid var(--border-bright); border-radius: 3px; touch-action: none; cursor: crosshair; display: block; }
+.dec-item { border-bottom: 2px dashed var(--border); padding: 10px 0; }
+.dec-item:last-child { border-bottom: none; }
+
 /* ---- reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
   .ticker-inner, .boot-logo, .nav-item.active .nav-dot, .empty .pix, .rc-dot, .live-tick, .bottle-wave { animation: none; }

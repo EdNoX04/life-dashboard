@@ -31,7 +31,7 @@ export function isRemote() {
 // The Supabase URL/key are baked in and stay per-device, but user-added keys
 // (market data, TMDB, LeetCode) sync through the shared `memory` table so you
 // set them once on any device and every device picks them up.
-const SYNC_KEYS = ['finnhubKey', 'twelveKey', 'tmdbKey', 'leetcodeUser'];
+const SYNC_KEYS = ['finnhubKey', 'twelveKey', 'tmdbKey', 'leetcodeUser', 'claudeKey', 'openaiKey', 'geminiKey'];
 
 export async function syncPushConfig() {
   if (!isRemote()) return;

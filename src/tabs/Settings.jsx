@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card } from '../components/ui.jsx';
+import { Card, StatTile } from '../components/ui.jsx';
 import { getConfig, setConfig, isRemote, syncPushConfig } from '../lib/db.js';
 import { useCollection } from '../lib/hooks.js';
 
@@ -7,6 +7,8 @@ export default function Settings() {
   const [cfg, setCfg] = useState(getConfig());
   const [saved, setSaved] = useState(false);
   const { items: requests } = useCollection('requests');
+  const { items: usageMem } = useCollection('memory', { filter: 'key=eq.ai_usage', order: 'key' });
+  const usage = usageMem?.[0]?.value || {};
 
   function save() {
     setConfig(cfg);
@@ -49,6 +51,31 @@ export default function Settings() {
           <button className="btn btn-green" onClick={save}>{saved ? 'Saved ✓' : 'Save'}</button>
           <span className="small muted">Live prices stream only while the US market is open (9:30–16:00 ET).</span>
         </div>
+      </Card>
+
+      <Card title="AI providers (any key works)" color="var(--purple)">
+        <div className="small muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>
+          Add a key for whichever provider you use — the AI features (summaries, notes, decision engine) pick up whichever is set. Keys stay in this browser and sync to your devices.
+        </div>
+        <label>Anthropic (Claude) key</label>
+        <input placeholder="sk-ant-…" defaultValue={cfg.claudeKey || ''} onChange={upd('claudeKey')} />
+        <label className="mt">OpenAI (ChatGPT) key</label>
+        <input placeholder="sk-…" defaultValue={cfg.openaiKey || ''} onChange={upd('openaiKey')} />
+        <label className="mt">Google (Gemini) key</label>
+        <input placeholder="AIza…" defaultValue={cfg.geminiKey || ''} onChange={upd('geminiKey')} />
+        <div className="flex mt">
+          <button className="btn btn-green" onClick={save}>{saved ? 'Saved ✓' : 'Save'}</button>
+          <span className="small muted">Preferred provider auto-selects from whichever key is present.</span>
+        </div>
+      </Card>
+
+      <Card title="AI usage & estimated cost" color="var(--yellow)">
+        <div className="tile-row" style={{ marginBottom: 0 }}>
+          <StatTile label="Calls" value={usage.calls || 0} note="this month" color="var(--cyan)" />
+          <StatTile label="Tokens" value={(usage.tokens || 0).toLocaleString()} color="var(--purple)" />
+          <StatTile label="Est. cost" value={'$' + (usage.cost || 0).toFixed(3)} note="live estimate" color="var(--green)" />
+        </div>
+        <div className="small muted mt">Every AI call logs its tokens × the provider's per-token price, updating this running monthly estimate live. Activates once the AI features start making calls.</div>
       </Card>
 
       <Card title="Request queue (Cowork inbox)" color="var(--purple)">

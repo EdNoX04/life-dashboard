@@ -12,6 +12,9 @@ import Subjects from './tabs/Subjects.jsx';
 import DSA from './tabs/DSA.jsx';
 import Study from './tabs/Study.jsx';
 import Placement, { PLACEMENT_EXPIRY } from './tabs/Placement.jsx';
+import Books from './tabs/Books.jsx';
+import Notes from './tabs/Notes.jsx';
+import Decision from './tabs/Decision.jsx';
 import Money from './tabs/Money.jsx';
 import Health from './tabs/Health.jsx';
 import Nutrition from './tabs/Nutrition.jsx';
@@ -34,6 +37,9 @@ const TABS = [
   ['dsa', 'DSA', 'var(--green)', DSA],
   ['study', 'Study', 'var(--yellow)', Study],
   ['subjects', 'Subjects', 'var(--orange)', Subjects],
+  ['notes', 'Notes', 'var(--cyan)', Notes],
+  ['books', 'Books', 'var(--pink)', Books],
+  ['decision', 'Decision', 'var(--purple)', Decision],
   ['money', 'Money', 'var(--green)', Money],
   ['health', 'Health', 'var(--red)', Health],
   ['nutrition', 'Body', 'var(--cyan)', Nutrition],
