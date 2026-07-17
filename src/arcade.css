@@ -264,6 +264,23 @@
   .cal-dot { width: 5px; height: 5px; }
 }
 
+/* ---- day-wise attendance log ---- */
+.att-legend { display: flex; gap: 14px; margin-bottom: 10px; align-items: center; flex-wrap: wrap; }
+.att-legend > span { display: inline-flex; align-items: center; gap: 5px; }
+.att-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.att-dot.present { background: var(--green); box-shadow: 0 0 5px var(--green); }
+.att-dot.absent { background: var(--red); box-shadow: 0 0 5px var(--red); }
+.att-dot.partial { background: var(--yellow); box-shadow: 0 0 5px var(--yellow); }
+.attlog-course { border-bottom: 2px dashed var(--border); padding: 10px 0; }
+.attlog-course:last-child { border-bottom: none; }
+.att-days { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.att-day { width: 40px; height: 42px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px solid var(--border); border-radius: 3px; background: var(--bg-deep); cursor: default; }
+.att-day.present { border-color: var(--green); box-shadow: inset 0 0 12px rgba(47,208,107,.25); }
+.att-day.absent { border-color: var(--red); box-shadow: inset 0 0 12px rgba(232,65,145,.28); }
+.att-day.partial { border-color: var(--yellow); box-shadow: inset 0 0 12px rgba(255,210,63,.22); }
+.att-dnum { font-size: 14px; line-height: 1; }
+.att-dow { font-family: var(--font-pixel); font-size: 6px; color: var(--ink-3); margin-top: 3px; letter-spacing: .5px; }
+
 /* ---- college timetable rows (responsive, no mobile overflow) ---- */
 .tt-item { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 9px 0; border-bottom: 2px dashed var(--border); }
 .tt-item:last-child { border-bottom: none; }

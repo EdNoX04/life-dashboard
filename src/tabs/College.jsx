@@ -10,6 +10,8 @@ export default function College() {
   const { items: timetable, refresh: rT } = useCollection('timetable', { order: 'start_time', asc: true });
   const { items: subjects, refresh: rS } = useCollection('subjects', { order: 'name', asc: true });
   const { items: annc, refresh: rA } = useCollection('announcements', { order: 'date' });
+  const { items: logMem, refresh: rL } = useCollection('memory', { filter: 'key=eq.attendance_log', order: 'key' });
+  const attLog = logMem?.[0]?.value;
 
   const todayName = DAYS[(new Date().getDay() + 6) % 7] || 'Monday';
   // average only over subjects that actually have attendance data (skip unsynced 0s)
@@ -21,7 +23,7 @@ export default function College() {
     <>
       <div className="spread">
         <h1 className="tab-title">COLLEGE</h1>
-        <RefreshButton source="amizone" onLocalRefresh={async () => { await rT(); await rS(); await rA(); }} label="Sync Amizone" />
+        <RefreshButton source="amizone" onLocalRefresh={async () => { await rT(); await rS(); await rA(); await rL(); }} label="Sync Amizone" />
       </div>
       <p className="tab-sub">Timetable, attendance & announcements — scraped from Amizone by Cowork.</p>
 
@@ -64,6 +66,36 @@ export default function College() {
           );
         })}
       </Card>
+
+      {attLog?.courses?.length > 0 && (
+        <Card title="Attendance log — day-wise" color="var(--cyan)"
+          right={<span className="small muted">as of {new Date(attLog.updated).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>}>
+          <div className="att-legend small muted">
+            <span><span className="att-dot present" /> present</span>
+            <span><span className="att-dot absent" /> absent</span>
+            <span><span className="att-dot partial" /> partial</span>
+          </div>
+          {attLog.courses.map(c => (
+            <div className="attlog-course" key={c.code}>
+              <div className="spread" style={{ gap: 8, flexWrap: 'wrap' }}>
+                <b style={{ fontWeight: 'normal' }}>{c.code} · <span className="muted small">{c.name}</span></b>
+                <span className="flex" style={{ gap: 6 }}>
+                  <span className="chip">{c.present}/{c.total} classes</span>
+                  <span className={`chip ${c.pct < 75 ? 'c-red' : 'c-green'}`}>{c.pct}%</span>
+                </span>
+              </div>
+              <div className="att-days">
+                {c.records.map((r, i) => (
+                  <span key={i} className={`att-day ${r.status}`} title={`${r.day} ${r.date} · ${r.status.toUpperCase()} · ${r.present}P / ${r.absent}A`}>
+                    <span className="att-dnum">{r.date.slice(8)}</span>
+                    <span className="att-dow">{r.day.slice(0, 3).toUpperCase()}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </Card>
+      )}
 
       <Card title="Announcements" color="var(--pink)">
         {annc.length === 0 && <Empty icon="!" text="Nothing yet." />}
