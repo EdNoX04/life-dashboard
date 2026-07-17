@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useCollection, todayStr } from '../lib/hooks.js';
 import { Card, RefreshButton } from '../components/ui.jsx';
 import * as db from '../lib/db.js';
+import { buildICS, downloadICS } from '../lib/ics.js';
 
 const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DOW_S = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -13,6 +14,7 @@ const fmtTime = iso => { try { return new Date(iso).toLocaleTimeString('en-IN', 
 export default function Calendar() {
   const { items: mem, refresh: rMem } = useCollection('memory', { filter: 'key=eq.calendar_events', order: 'key' });
   const { items: timetable } = useCollection('timetable', { order: 'start_time', asc: true });
+  const { items: todos } = useCollection('todos');
   const today = new Date();
   const todayK = dayKey(today);
   const [cursor, setCursor] = useState({ y: today.getFullYear(), m: today.getMonth() });
@@ -81,9 +83,20 @@ export default function Calendar() {
     <>
       <div className="spread">
         <h1 className="tab-title">CALENDAR</h1>
-        <RefreshButton source="calendar" onLocalRefresh={rMem} label="Sync GCal" />
+        <span className="flex" style={{ gap: 6 }}>
+          <button className="btn btn-sm btn-green"
+            onClick={() => downloadICS(buildICS({ timetable, events: gEvents, todos }), 'player-one.ics')}
+            title="Download all classes, events & due tasks as a calendar file">↧ Export .ics</button>
+          <RefreshButton source="calendar" onLocalRefresh={rMem} label="Sync GCal" />
+        </span>
       </div>
       <p className="tab-sub">Google Calendar + college classes, merged. {lastSync ? `Synced ${new Date(lastSync).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : 'Not synced yet — hit Sync GCal.'}</p>
+
+      <Card title="Sync to your phone calendar" color="var(--green)">
+        <div className="small" style={{ color: 'var(--ink-2)', lineHeight: 1.5 }}>
+          Hit <b>Export .ics</b> to download your whole schedule — weekly classes (repeating), college events and due tasks — as one calendar file. Open it on your iPhone/Mac to drop everything into Apple or Google Calendar in one tap. Re-export whenever the timetable changes and it updates. Adding an event below still pushes to Google Calendar on the next sync.
+        </div>
+      </Card>
 
       <Card color="var(--purple)">
         <div className="cal-head">

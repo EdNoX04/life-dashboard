@@ -2,6 +2,7 @@ import React from 'react';
 import { useCollection, todayStr } from '../lib/hooks.js';
 import { Card, Empty, StatTile, AskCowork, EyeBtn, useNow, useMoneyVisible, money } from '../components/ui.jsx';
 import { Ticker, Sky, useDailySpark } from '../components/arcade.jsx';
+import { dailyMeta } from './Daily.jsx';
 import PortfolioChart from '../components/PortfolioChart.jsx';
 import { useLiveQuotes } from '../lib/live.js';
 import * as db from '../lib/db.js';
@@ -65,21 +66,10 @@ export default function HQ({ go }) {
           color="var(--pink)" />
       </div>
 
-      <Card title={`Morning brief — ${brief?.date || today}`} color="var(--pink)">
-        {!brief && <Empty icon="☀" text="The brief lands here every morning once Cowork's daily run is connected. Meanwhile, everything below is live." />}
-        {brief && (brief.sections || []).map((s, i) => (
-          <div key={i} style={{ marginBottom: 12 }}>
-            <div className="card-title"><span className="sq" style={{ background: 'var(--purple)' }} />{s.title}</div>
-            <div style={{ whiteSpace: 'pre-wrap' }}>{s.body}</div>
-          </div>
-        ))}
+      <Card title={dailyMeta(hour).label === 'Brief' ? "Today's brief" : dailyMeta(hour).label === 'News' ? 'Evening — news' : 'Night — wind down'} color={dailyMeta(hour).color}
+        right={<button className="btn btn-sm" onClick={() => go('daily')}>open {dailyMeta(hour).icon} →</button>}>
+        <Empty icon={dailyMeta(hour).icon} text={hour < 17 ? 'Your live brief — classes, tasks, markets — lives in the Brief tab and changes through the day into News, then Night.' : hour < 21 ? 'Evening News is live: your stocks, college and headlines. Open the News tab.' : 'Night wind-down is up — portfolio and recovery. Open the Night tab.'} />
       </Card>
-
-      {hour >= 18 && (
-        <Card title="Night summary" color="var(--purple)">
-          <Empty icon="☾" text="Your end-of-day wrap lands here: health, portfolio move, study-session time, what you shipped, builds status and listening time — a quick look back so tomorrow starts sharper." />
-        </Card>
-      )}
 
       <div className="grid2">
         <Card title="Priorities" color="var(--yellow)" right={<button className="btn btn-sm" onClick={() => go('todos')}>open →</button>}>
