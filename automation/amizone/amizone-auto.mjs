@@ -1,0 +1,245 @@
+#!/usr/bin/env node
+// ─────────────────────────────────────────────────────────────────────────────
+// PLAYER ONE · Amizone auto-sync (Windows, standalone)
+// Runs on the laptop itself on a schedule. No Claude session, no manual buttons.
+//
+//   node amizone-auto.mjs          → normal run: scrape + push to Supabase
+//   node amizone-auto.mjs --login  → one-time SETUP: opens a window so YOU log in
+//                                     once, then saves the profile forever.
+//
+// After the one-time --login, the Amizone session cookie lives in the profile
+// folder, so daily runs go straight to your courses with NO login and NO
+// Cloudflare challenge. If the cookie ever expires, this script tries to log in
+// again using amizone.config.json; if that fails it flags "needs login" in the
+// dashboard and you just run `--login` once more.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { chromium } from 'playwright';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const PROFILE_DIR = path.join(HERE, '.amizone-profile');   // persistent login lives here
+const CFG_PATH = path.join(HERE, 'amizone.config.json');
+const LOGIN_MODE = process.argv.includes('--login');
+
+// ---- config (creds are read from YOUR local file; this script never sends them anywhere but Amizone) ----
+const cfg = JSON.parse(fs.readFileSync(CFG_PATH, 'utf8'));
+const SUPA_URL = cfg.supabaseUrl.replace(/\/$/, '');
+const SUPA_KEY = cfg.supabaseKey;
+const AMIZONE = 'https://s.amizone.net';
+
+const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
+
+function supaHeaders(extra = {}) {
+  return { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}`, 'Content-Type': 'application/json', ...extra };
+}
+async function supa(pathq, opts = {}) {
+  const r = await fetch(`${SUPA_URL}/rest/v1/${pathq}`, { ...opts, headers: supaHeaders(opts.headers) });
+  if (!r.ok) throw new Error(`Supabase ${pathq}: ${r.status} ${await r.text()}`);
+  return r.status === 204 ? null : r.json().catch(() => null);
+}
+async function upsertMemory(key, value) {
+  await supa('memory', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates' },
+    body: JSON.stringify([{ key, value, updated_at: new Date().toISOString() }]),
+  });
+}
+
+// dd/mm/yyyy -> yyyy-mm-dd
+function isoFromDMY(s) {
+  const m = String(s).trim().match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if (!m) return null;
+  const [, d, mo, y] = m;
+  const yr = y.length === 2 ? '20' + y : y;
+  return `${yr}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+}
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+function dayFromIso(iso) { const dt = new Date(iso + 'T00:00:00'); return DAYS[dt.getDay()] || ''; }
+function localDate(offsetDays = 0) {
+  const d = new Date(); d.setDate(d.getDate() + offsetDays);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+const uid = () => (globalThis.crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+
+// ---- everything that must run with the Amizone session cookie happens in the page ----
+async function scrapeInPage(page, startDate, endDate) {
+  return await page.evaluate(async ({ startDate, endDate }) => {
+    const txt = async (u) => (await fetch(u, { credentials: 'include' })).text();
+
+    // 1) MyCourses -> [{code,name,pct,attId}]
+    const html = await txt('/Academics/MyCourses');
+    if (/name=['"]?_?UserName/i.test(html) || /login/i.test(html.slice(0, 400))) {
+      return { needLogin: true };
+    }
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const courses = [];
+    for (const tr of doc.querySelectorAll('tr')) {
+      const btn = tr.querySelector('[onclick*="FnAttendance"]');
+      if (!btn) continue;
+      const attId = (btn.getAttribute('onclick').match(/FnAttendance\(\s*['"]?(\d+)/) || [])[1];
+      const cells = [...tr.querySelectorAll('td')].map(td => td.textContent.replace(/\s+/g, ' ').trim());
+      const rowText = cells.join(' | ');
+      const pctM = rowText.match(/\(\s*([\d.]+)\s*\)/);          // "4/6 (66.67)"
+      const pct = pctM ? Math.round(parseFloat(pctM[1])) : null;
+      const code = (cells.find(c => /^[A-Z]{2,4}\d{2,4}$/.test(c)) || '').trim();
+      // course name = the longest alphabetic-ish cell that isn't the code
+      const name = cells
+        .filter(c => c !== code && /[A-Za-z]{4,}/.test(c) && !/\d\/\d/.test(c) && !/present|absent|attendance/i.test(c))
+        .sort((a, b) => b.length - a.length)[0] || code;
+      if (attId || code) courses.push({ code, name, pct, attId });
+    }
+
+    // 2) per-course day-wise detail
+    for (const c of courses) {
+      c.records = [];
+      if (!c.attId) continue;
+      try {
+        const dhtml = await txt(`/Academics/MyCourses/_Attendance?id=${c.attId}`);
+        const d = new DOMParser().parseFromString(dhtml, 'text/html');
+        for (const tr of d.querySelectorAll('tr')) {
+          const td = [...tr.querySelectorAll('td')].map(x => x.textContent.replace(/\s+/g, ' ').trim());
+          if (td.length < 4) continue;
+          const dateCell = td.find(x => /\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/.test(x));
+          if (!dateCell) continue;                                  // skips header + Total
+          const nums = td.filter(x => /^\d+$/.test(x)).map(Number);
+          // Present / Absent are the two single-digit-ish counts after the date+timings
+          const present = nums.length >= 2 ? nums[nums.length - 2] : (nums[0] ?? 0);
+          const absent = nums.length >= 2 ? nums[nums.length - 1] : (nums[1] ?? 0);
+          const timings = (td.find(x => /\d{1,2}:\d{2}/.test(x)) || '').trim();
+          c.records.push({ dateRaw: dateCell, timings, present, absent });
+        }
+      } catch (e) { c.recErr = String(e); }
+    }
+
+    // 3) diary events (timetable) for the window
+    let events = [];
+    try {
+      const j = await (await fetch(`/Calendar/home/GetDiaryEvents?start=${startDate}&end=${endDate}`, { credentials: 'include' })).json();
+      events = (Array.isArray(j) ? j : []).map(e => ({
+        title: e.title, start: e.start, end: e.end, code: e.CourseCode,
+        faculty: e.FacultyName, room: e.RoomNo, sType: e.sType,
+      }));
+    } catch (e) { events = []; }
+
+    return { needLogin: false, courses, events };
+  }, { startDate, endDate });
+}
+
+async function tryLogin(page) {
+  // best-effort auto re-login using stored creds; Cloudflare usually auto-passes
+  // in a warmed persistent profile. Returns true if we end up logged in.
+  if (!cfg.amizoneUser || !cfg.amizonePass) return false;
+  log('session expired — attempting auto re-login…');
+  await page.goto(AMIZONE + '/', { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.waitForTimeout(4000); // let Turnstile settle
+  const userSel = ['input[name="_UserName"]', 'input#_UserName', 'input[name="UserName"]', 'input[type="text"]'];
+  const passSel = ['input[name="_Password"]', 'input#_Password', 'input[name="Password"]', 'input[type="password"]'];
+  const fill = async (sels, val) => { for (const s of sels) { const el = await page.$(s); if (el) { await el.fill(val); return true; } } return false; };
+  const okU = await fill(userSel, cfg.amizoneUser);
+  const okP = await fill(passSel, cfg.amizonePass);
+  if (!okU || !okP) { log('login fields not found'); return false; }
+  await page.waitForTimeout(5000); // give Turnstile time to produce a token
+  const btn = await page.$('button[type="submit"], input[type="submit"], .btn-login, button:has-text("Login")');
+  if (btn) await btn.click().catch(() => {});
+  await page.waitForTimeout(6000);
+  const u = page.url();
+  return !/login/i.test(u) && !!(await page.$('a[href*="Logout"], [onclick*="FnAttendance"]').catch(() => null)) ? true : !/login/i.test(u);
+}
+
+async function main() {
+  fs.mkdirSync(PROFILE_DIR, { recursive: true });
+  const ctx = await chromium.launchPersistentContext(PROFILE_DIR, {
+    headless: false,          // headful passes Cloudflare far more reliably
+    channel: 'chrome',        // use the real Chrome you already have installed
+    viewport: { width: 1280, height: 820 },
+    args: ['--start-minimized'],
+  }).catch(async () => chromium.launchPersistentContext(PROFILE_DIR, { headless: false, viewport: { width: 1280, height: 820 } }));
+
+  const page = ctx.pages()[0] || await ctx.newPage();
+
+  if (LOGIN_MODE) {
+    log('SETUP MODE — a Chrome window will open. Log into Amizone, then leave it.');
+    await page.goto(AMIZONE + '/', { waitUntil: 'domcontentloaded' });
+    log('Waiting up to 3 minutes for you to reach your dashboard…');
+    await page.waitForSelector('[onclick*="FnAttendance"], a[href*="Logout"]', { timeout: 180000 }).catch(() => {});
+    log('Login captured (profile saved). You can close this. Daily runs are now hands-off.');
+    await page.waitForTimeout(1500);
+    await ctx.close();
+    return;
+  }
+
+  // normal run
+  await page.goto(AMIZONE + '/Academics/MyCourses', { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.waitForTimeout(2500);
+
+  const start = localDate(-10), end = localDate(14);
+  let data = await scrapeInPage(page, start, end);
+
+  if (data.needLogin || !data.courses?.length) {
+    const ok = await tryLogin(page);
+    if (ok) { await page.waitForTimeout(1500); data = await scrapeInPage(page, start, end); }
+  }
+
+  if (data.needLogin || !data.courses?.length) {
+    log('NOT logged in and could not auto-login. Run:  node amizone-auto.mjs --login');
+    await upsertMemory('amizone_last_sync', { at: new Date().toISOString(), ok: false, reason: 'needs manual login' });
+    await ctx.close();
+    process.exitCode = 2;
+    return;
+  }
+
+  // ---- shape the data ----
+  const courses = data.courses.filter(c => c.code || c.attId);
+  // day-wise attendance_log
+  const logCourses = courses.map(c => {
+    const records = (c.records || []).map(r => {
+      const iso = isoFromDMY(r.dateRaw);
+      const status = r.present === 0 ? 'absent' : r.absent === 0 ? 'present' : 'partial';
+      return iso ? { date: iso, day: dayFromIso(iso), timings: r.timings, present: r.present, absent: r.absent, status } : null;
+    }).filter(Boolean).sort((a, b) => a.date < b.date ? -1 : 1);
+    const present = records.reduce((s, r) => s + (r.status !== 'absent' ? 1 : 0), 0);
+    return { code: c.code, name: c.name, present, absent: records.length - present, total: records.length, pct: c.pct ?? 0, records };
+  });
+
+  // weekly timetable rebuilt from the diary window (dedup identical slots)
+  const seen = new Set();
+  const ttRows = [];
+  for (const e of data.events) {
+    if (e.sType && e.sType !== 'C') continue;                 // C = class/lecture only
+    const st = (e.start || '').match(/T?(\d{2}:\d{2})/)?.[1] || (e.start || '').slice(11, 16);
+    const et = (e.end || '').match(/T?(\d{2}:\d{2})/)?.[1] || (e.end || '').slice(11, 16);
+    const iso = (e.start || '').slice(0, 10);
+    const day = iso ? dayFromIso(iso) : '';
+    const subject = (e.title || e.code || '').trim();
+    if (!day || !st || !subject) continue;
+    const k = `${day}|${st}|${et}|${subject}`;
+    if (seen.has(k)) continue; seen.add(k);
+    ttRows.push({ id: uid(), created_at: new Date().toISOString(), day, start_time: st, end_time: et, subject, room: e.room || '', faculty: e.faculty || '' });
+  }
+
+  // ---- push everything to Supabase ----
+  // 1) per-subject attendance %
+  for (const c of courses) {
+    if (!c.code || c.pct == null) continue;
+    await supa(`subjects?code=eq.${encodeURIComponent(c.code)}`, { method: 'PATCH', body: JSON.stringify({ attendance_pct: c.pct }) })
+      .catch(e => log('subject patch', c.code, String(e)));
+  }
+  // 2) rebuild timetable (delete-all then insert) — captures added/removed classes
+  if (ttRows.length) {
+    await supa('timetable?id=not.is.null', { method: 'DELETE' }).catch(() => {});
+    await supa('timetable', { method: 'POST', body: JSON.stringify(ttRows) }).catch(e => log('timetable insert', String(e)));
+  }
+  // 3) day-wise attendance log
+  await upsertMemory('attendance_log', { updated: new Date().toISOString(), courses: logCourses });
+  // 4) heartbeat
+  await upsertMemory('amizone_last_sync', { at: new Date().toISOString(), ok: true, subjects: courses.length, classes: ttRows.length });
+
+  log(`DONE · ${courses.length} subjects, ${ttRows.length} class slots, day-wise for ${logCourses.filter(c => c.records.length).length} courses`);
+  courses.forEach(c => log(`   ${c.code || '—'}  ${c.pct ?? '—'}%  (${(c.records || []).length} days)`));
+  await ctx.close();
+}
+
+main().catch(async (e) => { console.error('FATAL', e); process.exitCode = 1; });

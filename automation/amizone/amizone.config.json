@@ -1,0 +1,6 @@
+{
+  "amizoneUser": "PUT_YOUR_AMIZONE_ENROLLMENT_OR_USERNAME_HERE",
+  "amizonePass": "PUT_YOUR_AMIZONE_PASSWORD_HERE",
+  "supabaseUrl": "https://xroynvkzephebhcztvfo.supabase.co",
+  "supabaseKey": "sb_publishable_OVCd6KhOHNVYz1a9vCisbg_OsIF0uhy"
+}

@@ -1,0 +1,6 @@
+# local login profile (holds the saved Amizone session — never commit)
+.amizone-profile/
+# run logs
+amizone.log
+# node deps installed on the laptop
+node_modules/
