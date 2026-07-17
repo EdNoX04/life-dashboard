@@ -162,12 +162,26 @@ async function tryLogin(page) {
 
 async function main() {
   fs.mkdirSync(PROFILE_DIR, { recursive: true });
-  const ctx = await chromium.launchPersistentContext(PROFILE_DIR, {
-    headless: false,          // headful passes Cloudflare far more reliably
-    channel: 'chrome',        // use the real Chrome you already have installed
-    viewport: { width: 1280, height: 820 },
-    args: ['--start-minimized'],
-  }).catch(async () => chromium.launchPersistentContext(PROFILE_DIR, { headless: false, viewport: { width: 1280, height: 820 } }));
+  // Anti-automation: Cloudflare Turnstile fails "automated" browsers. These flags
+  // strip the automation fingerprint so it's treated as an ordinary Chrome.
+  const antiBotArgs = [
+    '--disable-blink-features=AutomationControlled',
+    '--no-first-run',
+    '--no-default-browser-check',
+    '--disable-features=IsolateOrigins,site-per-process',
+  ];
+  if (!LOGIN_MODE) antiBotArgs.push('--start-minimized');
+  const opts = {
+    headless: false,                       // headful passes Cloudflare far more reliably
+    viewport: null,                        // use the real window size (looks human)
+    args: antiBotArgs,
+    ignoreDefaultArgs: ['--enable-automation'],
+  };
+  const ctx = await chromium.launchPersistentContext(PROFILE_DIR, { channel: 'chrome', ...opts })
+    .catch(async () => chromium.launchPersistentContext(PROFILE_DIR, opts));
+
+  // extra insurance: hide the webdriver flag Cloudflare checks
+  await ctx.addInitScript(() => { try { Object.defineProperty(navigator, 'webdriver', { get: () => undefined }); } catch (e) {} });
 
   const page = ctx.pages()[0] || await ctx.newPage();
 
