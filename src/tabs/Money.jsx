@@ -5,6 +5,7 @@ import StockDetail from '../components/StockDetail.jsx';
 import PortfolioChart from '../components/PortfolioChart.jsx';
 import { useLiveQuotes, usMarketState } from '../lib/live.js';
 import { fetchHoldingsNews } from '../lib/news.js';
+import { buildDailySeries, buildIntradaySeries, loadPriceHistory, refreshPriceHistory } from '../lib/portfolioHistory.js';
 import * as db from '../lib/db.js';
 
 const STOP = new Set(['inc', 'inc.', 'corp', 'corp.', 'corporation', 'ltd', 'ltd.', 'co', 'co.', 'company', 'holdings', 'group', 'the', 'and', 'plc', 'etf', 'trust', 'index', 'fund', 'class', 'common', 'stock', 'nv', 'sa', 'ag']);
@@ -21,6 +22,10 @@ export default function Money() {
   const [openStock, setOpenStock] = useState(null);
   const [sortBy, setSortBy] = useState('value');
   const [liveNews, setLiveNews] = useState([]);
+  const [priceHist, setPriceHist] = useState({ data: {} });
+  const [intraday, setIntraday] = useState([]);
+  const [histState, setHistState] = useState('idle'); // idle | loading | ready | nokey
+  const histTried = React.useRef(false);
 
   useEffect(() => {
     db.list('memory', { filter: 'key=eq.stock_orders', order: 'key' })
@@ -52,6 +57,43 @@ export default function Money() {
   }, { dayGain: 0, dayBase: 0 });
   const dayPct = dayBase ? (dayGain / dayBase) * 100 : 0;
   const haveLive = dayBase > 0;
+
+  // ---- reconstructed value-over-time (orders × historical prices) ----
+  const tickerKey = held.map(h => h.ticker).join(',');
+  const histTickers = useMemo(() => held.map(h => String(h.ticker || '').toUpperCase()).filter(Boolean), [tickerKey]);
+  const livePrices = useMemo(() => {
+    const m = {}; held.forEach(h => { m[String(h.ticker).toUpperCase()] = priceOf(h); }); return m;
+  }, [tickerKey, quotes]);
+  const { invested: invSeries, value: valSeries } = useMemo(
+    () => buildDailySeries(orders, histTickers, priceHist.data || {}, livePrices),
+    [orders, histTickers, priceHist, livePrices]
+  );
+
+  // load cached daily closes; fetch missing/stale tickers in the background
+  useEffect(() => {
+    if (!orders.length || !histTickers.length || histTried.current) return;
+    histTried.current = true;
+    (async () => {
+      const cache = await loadPriceHistory();
+      setPriceHist(cache);
+      const today = new Date().toISOString().slice(0, 10);
+      const missing = histTickers.filter(t => !cache.data?.[t]);
+      const stale = !cache.updated || cache.updated.slice(0, 10) !== today;
+      if (missing.length || stale) {
+        setHistState('loading');
+        try { const fresh = await refreshPriceHistory(histTickers); setPriceHist(fresh); setHistState('ready'); }
+        catch (e) { setHistState(String(e).includes('NO_KEY') ? 'nokey' : 'idle'); }
+      } else setHistState('ready');
+    })();
+  }, [orders, histTickers]);
+
+  // intraday (1D) value line — a few 5-min candle fetches, cached
+  useEffect(() => {
+    if (!histTickers.length) return;
+    let alive = true;
+    buildIntradaySeries(held).then(s => { if (alive) setIntraday(s); }).catch(() => {});
+    return () => { alive = false; };
+  }, [tickerKey]);
 
   // sortable holdings — default largest position first
   const SORTS = [
@@ -167,8 +209,9 @@ export default function Money() {
         )}
       </div>
 
-      <Card title="Portfolio over time" color="var(--purple)">
-        <PortfolioChart orders={orders} snapshots={snapshots} currentValue={value} visible={visible} variant="full" />
+      <Card title="Portfolio over time" color="var(--purple)"
+        right={histState === 'loading' ? <span className="chip c-yellow">building line…</span> : histState === 'nokey' ? <span className="chip c-yellow">add Twelve Data key</span> : null}>
+        <PortfolioChart orders={orders} invested={invSeries} value={valSeries} intraday={intraday} currentValue={value} visible={visible} variant="full" />
       </Card>
 
       <Card title="Holdings" color="var(--green)" right={held.length > 0 && (

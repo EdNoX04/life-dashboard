@@ -2,7 +2,9 @@ import React from 'react';
 import { useCollection, todayStr } from '../lib/hooks.js';
 import { Card, Empty, StatTile, AskCowork, EyeBtn, useNow, useMoneyVisible, money } from '../components/ui.jsx';
 import { Ticker, Sky, useDailySpark } from '../components/arcade.jsx';
-import { dailyMeta } from './Daily.jsx';
+
+// time-of-day brief phase (local time = IST): morning → evening → night
+function briefPhase(h) { return h < 17 ? 'morning' : h < 21 ? 'evening' : 'night'; }
 import PortfolioChart from '../components/PortfolioChart.jsx';
 import { useLiveQuotes } from '../lib/live.js';
 import * as db from '../lib/db.js';
@@ -66,10 +68,56 @@ export default function HQ({ go }) {
           color="var(--pink)" />
       </div>
 
-      <Card title={dailyMeta(hour).label === 'Brief' ? "Today's brief" : dailyMeta(hour).label === 'News' ? 'Evening — news' : 'Night — wind down'} color={dailyMeta(hour).color}
-        right={<button className="btn btn-sm" onClick={() => go('daily')}>open {dailyMeta(hour).icon} →</button>}>
-        <Empty icon={dailyMeta(hour).icon} text={hour < 17 ? 'Your live brief — classes, tasks, markets — lives in the Brief tab and changes through the day into News, then Night.' : hour < 21 ? 'Evening News is live: your stocks, college and headlines. Open the News tab.' : 'Night wind-down is up — portfolio and recovery. Open the Night tab.'} />
-      </Card>
+      {(() => {
+        const phase = briefPhase(hour);
+        const first = classes[0];
+        const nextDay = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][(now.getDay() + 1) % 7];
+        const tmrwClasses = timetable.filter(t => t.day === nextDay).length;
+        const doneToday = todos.filter(t => t.completed).length;
+        const meta = phase === 'morning' ? { t: "Today's brief", c: 'var(--yellow)', i: '☀' }
+          : phase === 'evening' ? { t: 'This evening', c: 'var(--cyan)' }
+            : { t: 'Tonight', c: 'var(--purple)' };
+        return (
+          <Card title={meta.t} color={meta.c}>
+            {phase === 'morning' && (
+              <>
+                <div style={{ lineHeight: 1.6 }}>
+                  {classes.length ? `${classes.length} class${classes.length > 1 ? 'es' : ''} today${first ? ` — first is ${first.subject} at ${first.start_time}` : ''}. ` : 'No classes on the timetable today. '}
+                  {openTodos.length ? `${openTodos.length} task${openTodos.length > 1 ? 's' : ''} due, ` : 'Nothing due, '}
+                  habits {habitsDone}/{liveHabits.length} done.
+                  {held.length ? ` Portfolio ${pPct >= 0 ? 'up' : 'down'} ${Math.abs(pPct).toFixed(1)}%.` : ''}
+                </div>
+                {brief && (brief.sections || []).length > 0 && (brief.sections || []).map((s, i) => (
+                  <div key={i} style={{ marginTop: 12 }}>
+                    <div className="card-title"><span className="sq" style={{ background: 'var(--purple)' }} />{s.title}</div>
+                    <div style={{ whiteSpace: 'pre-wrap' }}>{s.body}</div>
+                  </div>
+                ))}
+              </>
+            )}
+            {phase === 'evening' && (
+              <>
+                <div style={{ lineHeight: 1.6, marginBottom: news.length ? 10 : 0 }}>
+                  {held.length ? `Markets: your portfolio is ${pPct >= 0 ? 'up' : 'down'} ${Math.abs(pPct).toFixed(1)}%. ` : ''}
+                  {openTodos.length ? `${openTodos.length} task${openTodos.length > 1 ? 's' : ''} still open. ` : 'Tasks clear. '}
+                  Tomorrow ({nextDay}): {tmrwClasses} class{tmrwClasses !== 1 ? 'es' : ''}.
+                </div>
+                {news.slice(0, 3).map(n => (
+                  <div className="row" key={n.id}><span style={{ flex: 1 }}><a href={n.url} target="_blank" rel="noreferrer" style={{ color: 'var(--ink)' }}>{n.title}</a></span><span className="chip c-purple">{n.category}</span></div>
+                ))}
+              </>
+            )}
+            {phase === 'night' && (
+              <div style={{ lineHeight: 1.6 }}>
+                {doneToday} task{doneToday !== 1 ? 's' : ''} done, habits {habitsDone}/{liveHabits.length}.
+                {held.length ? ` Portfolio closed ${pPct >= 0 ? 'up' : 'down'} ${Math.abs(pPct).toFixed(1)}%.` : ''}
+                {' '}Tomorrow ({nextDay}): {tmrwClasses} class{tmrwClasses !== 1 ? 'es' : ''} — {openTodos.length ? `${openTodos.length} carried over.` : 'clean slate.'}
+                <div className="small muted mt">Full recovery panel — sleep, macros, biological age — lands with the Health build.</div>
+              </div>
+            )}
+          </Card>
+        );
+      })()}
 
       <div className="grid2">
         <Card title="Priorities" color="var(--yellow)" right={<button className="btn btn-sm" onClick={() => go('todos')}>open →</button>}>

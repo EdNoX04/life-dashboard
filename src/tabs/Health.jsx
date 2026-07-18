@@ -69,11 +69,11 @@ export default function Health() {
         <h1 className="tab-title">HEALTH</h1>
         <RefreshButton source="health" onLocalRefresh={refresh} label="Sync" />
       </div>
-      <p className="tab-sub">Bevel-style insights · Apple Health via Health Auto Export{lastSync ? ` · synced ${new Date(lastSync).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</p>
+      <p className="tab-sub">Bevel-style insights · Apple Health via an iOS Shortcut automation{lastSync ? ` · synced ${new Date(lastSync).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</p>
 
       {!has && (
-        <Card color="var(--red)">
-          <Empty icon="♥" text="No health data yet. Set up Health Auto Export on your iPhone (steps below) and it flows in automatically — no Mac needed." />
+        <Card title="Set up hands-free health sync" color="var(--red)">
+          <Empty icon="♥" text="No health data yet. Skip the flaky export app — build the 'Sync Health' iOS Shortcut (in automation/health/HEALTH-SYNC-SHORTCUT.md) and set a daily automation. It reads Apple Health (including sleep) and posts here on its own, no refresh button." />
         </Card>
       )}
 

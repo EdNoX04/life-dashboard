@@ -83,28 +83,20 @@
 }
 @keyframes blink-in { 0% { opacity: 0 } }
 
-/* retro pixel icon frame (replaces the plain colour dot) */
+/* retro line-icon glyph — no box, glows in its tab colour */
 .nav-ico {
-  flex-shrink: 0;
-  width: 22px; height: 22px;
+  flex-shrink: 0; width: 19px; height: 18px;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 12px; line-height: 1;
-  border: 2px solid currentColor; border-radius: 2px;
-  background: var(--bg-deep);
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,.5);
-  image-rendering: pixelated;
 }
-.nav-item:hover .nav-ico { box-shadow: inset 0 0 0 1px rgba(0,0,0,.5), 0 0 8px currentColor; }
-.nav-item.active .nav-ico {
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,.5), 0 0 12px currentColor;
-  animation: icoPulse 1.5s steps(2) infinite;
-}
-@keyframes icoPulse { 50% { transform: translateY(-1px); box-shadow: inset 0 0 0 1px rgba(0,0,0,.5), 0 0 16px currentColor; } }
-/* click press: quick squash on the tab you tapped */
+.nav-svg { display: block; filter: drop-shadow(0 0 2px currentColor); }
+.nav-item:hover .nav-svg { filter: drop-shadow(0 0 6px currentColor); }
+.nav-item.active .nav-svg { filter: drop-shadow(0 0 7px currentColor); animation: icoPulse 1.6s ease-in-out infinite; }
+@keyframes icoPulse { 50% { transform: translateY(-1.5px); filter: drop-shadow(0 0 11px currentColor); } }
+/* click press: quick squash on the tab you tapped + icon pop */
 .nav-item.clicked { animation: navPress .26s steps(4) both; }
-.nav-item.clicked .nav-ico { animation: icoPop .26s steps(4) both; }
+.nav-item.clicked .nav-svg { animation: icoPop .28s ease-out both; }
 @keyframes navPress { 0% { transform: scale(.94); } 40% { transform: scale(1.02); } 100% { transform: scale(1); } }
-@keyframes icoPop { 0% { transform: scale(.7) rotate(-8deg); } 55% { transform: scale(1.18) rotate(4deg); } 100% { transform: scale(1) rotate(0); } }
+@keyframes icoPop { 0% { transform: scale(.6) rotate(-10deg); } 55% { transform: scale(1.22) rotate(5deg); } 100% { transform: scale(1) rotate(0); } }
 
 /* ---- AI chat ---- */
 .chat-log {
@@ -476,5 +468,5 @@
 
 /* ---- reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
-  .ticker-inner, .boot-logo, .nav-item.active .nav-ico, .nav-item.clicked, .nav-item.clicked .nav-ico, .empty .pix, .rc-dot, .live-tick, .bottle-wave { animation: none; }
+  .ticker-inner, .boot-logo, .nav-item.active .nav-svg, .nav-item.clicked, .nav-item.clicked .nav-svg, .empty .pix, .rc-dot, .live-tick, .bottle-wave { animation: none; }
 }
