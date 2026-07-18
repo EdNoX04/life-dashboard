@@ -5,6 +5,7 @@ import StockDetail from '../components/StockDetail.jsx';
 import PortfolioChart from '../components/PortfolioChart.jsx';
 import CryptoHoldings from '../components/CryptoHoldings.jsx';
 import { PortfolioAdvisor, NextBuyDesk } from '../components/MoneyAI.jsx';
+import FeesCard from '../components/FeesCard.jsx';
 import { useLiveQuotes, usMarketState } from '../lib/live.js';
 import { fetchHoldingsNews } from '../lib/news.js';
 import { buildDailySeries, buildIntradaySeries, loadPriceHistory, refreshPriceHistory } from '../lib/portfolioHistory.js';
@@ -376,6 +377,8 @@ export default function Money() {
           </div>
         )}
       </Card>
+
+      <FeesCard orders={orders} investedUsd={cost} fx={fx} visible={visible} cur={cur} />
 
       <PortfolioAdvisor held={held} priceOf={priceOf} quotes={quotes} />
       </>}
