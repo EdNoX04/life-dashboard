@@ -159,10 +159,17 @@ export function useMoneyVisible() {
   return [visible, toggle];
 }
 
+// Retro eye toggle — pure symbol, no words. Open eye = amounts shown;
+// slashed eye = hidden.
 export function EyeBtn({ visible, onClick }) {
   return (
-    <button className="btn btn-sm" onClick={onClick} title={visible ? 'Hide amounts' : 'Show amounts'} aria-label="toggle amounts">
-      {visible ? '🙈 hide' : '👁 show'}
+    <button className="btn btn-sm btn-eye" onClick={onClick} title={visible ? 'Hide amounts' : 'Show amounts'} aria-label="toggle amounts">
+      <svg viewBox="0 0 20 14" width="19" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="square" aria-hidden="true">
+        <path d="M1.5 7 Q10 -1.5 18.5 7 Q10 15.5 1.5 7 Z" />
+        <circle cx="10" cy="7" r="3.1" />
+        <circle cx="11.1" cy="5.9" r="0.9" fill="currentColor" stroke="none" />
+        {!visible && <path d="M3 13 L17 1" strokeWidth="2.1" />}
+      </svg>
     </button>
   );
 }

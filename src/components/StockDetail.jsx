@@ -1,7 +1,30 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { money } from './ui.jsx';
 import RetroChart from './RetroChart.jsx';
 import { useLiveQuotes, usMarketState } from '../lib/live.js';
+import { pickProvider } from '../lib/ai.js';
+import { fetchRecommendations, aiStockNote, memGet } from '../lib/advisor.js';
+
+// Wall Street analyst consensus as a 3-part retro bar: BUY / HOLD / SELL
+function StreetBar({ rec }) {
+  if (!rec) return null;
+  const pct = n => Math.round((n / rec.total) * 100);
+  const segs = [
+    ['BUY', rec.buy, 'var(--green)'], ['HOLD', rec.hold, 'var(--yellow)'], ['SELL', rec.sell, 'var(--red)'],
+  ].filter(s => s[1] > 0);
+  return (
+    <div>
+      <div className="street-bar">
+        {segs.map(([k, n, c]) => (
+          <div key={k} className="street-seg" style={{ width: pct(n) + '%', '--sc': c }} title={`${k}: ${n} analysts`}>
+            {pct(n) >= 14 && <span>{k} {pct(n)}%</span>}
+          </div>
+        ))}
+      </div>
+      <div className="small muted" style={{ marginTop: 4 }}>{rec.total} Wall Street analysts · {rec.period}</div>
+    </div>
+  );
+}
 
 // TradingView symbol quirks
 function tvSymbol(ticker) {
@@ -15,6 +38,33 @@ function tvSymbol(ticker) {
 export default function StockDetail({ holding, orders, visible, onClose }) {
   const [mode, setMode] = useState('retro'); // default retro; toggle to tradingview
   const { quotes } = useLiveQuotes(holding ? [holding.ticker] : []);
+  const [rec, setRec] = useState(null);
+  const [note, setNote] = useState(null);
+  const [noteBusy, setNoteBusy] = useState(false);
+  const [noteErr, setNoteErr] = useState('');
+  const provider = pickProvider();
+  const ticker = holding?.ticker;
+
+  // Street consensus + cached AI note load on open; AI auto-refreshes if stale (24h)
+  useEffect(() => {
+    if (!ticker) return;
+    let dead = false;
+    setRec(null); setNote(null); setNoteErr('');
+    fetchRecommendations(ticker).then(r => { if (!dead) setRec(r); });
+    memGet('ai_stock_notes').then(all => { if (!dead && all?.[ticker]) setNote(all[ticker]); });
+    return () => { dead = true; };
+  }, [ticker]);
+
+  async function runNote(force) {
+    if (!holding || !provider) return;
+    setNoteBusy(true); setNoteErr('');
+    try {
+      const px = Number(quotes[holding.ticker]?.price ?? holding.last_price ?? holding.avg_cost ?? 0);
+      setNote(await aiStockNote(holding, px, quotes[holding.ticker]?.changePct, { force }));
+    } catch (e) { setNoteErr(String(e.message || e)); }
+    setNoteBusy(false);
+  }
+
   if (!holding) return null;
 
   const q = quotes[holding.ticker];
@@ -68,7 +118,7 @@ export default function StockDetail({ holding, orders, visible, onClose }) {
         <div className="spread" style={{ marginBottom: 8 }}>
           <div className="card-title" style={{ margin: 0 }}><span className="sq" style={{ background: 'var(--purple)' }} />Chart</div>
           <div className="seg">
-            <button className={`seg-btn${mode === 'retro' ? ' on' : ''}`} onClick={() => setMode('retro')}>◲ Retro</button>
+            <button className={`seg-btn${mode === 'retro' ? ' on' : ''}`} onClick={() => setMode('retro')}>Retro</button>
             <button className={`seg-btn${mode === 'tradingview' ? ' on' : ''}`} onClick={() => setMode('tradingview')}>TradingView</button>
           </div>
         </div>
@@ -80,6 +130,32 @@ export default function StockDetail({ holding, orders, visible, onClose }) {
               <iframe title={`${holding.ticker} chart`} src={tv} style={{ width: '100%', height: 340, border: 'none' }} loading="lazy" />
             </div>
           )}
+
+        {/* Street + AI verdict */}
+        <div className="card-title mt"><span className="sq" style={{ background: 'var(--yellow)' }} />Street & AI verdict</div>
+        {rec
+          ? <StreetBar rec={rec} />
+          : <div className="small muted">Wall Street consensus loads with a Finnhub key… (or none published for this ticker)</div>}
+
+        <div className="ai-note mt">
+          {!provider && <div className="small muted">Add an AI key in Config → the AI verdict + quick analysis appears here.</div>}
+          {provider && !note && !noteBusy && (
+            <button className="btn btn-sm btn-pink" onClick={() => runNote(false)}>✦ AI analysis</button>
+          )}
+          {noteBusy && <div className="small muted">AI reading {holding.ticker}…</div>}
+          {noteErr && <div className="small" style={{ color: 'var(--red)' }}>{noteErr}</div>}
+          {note && (
+            <>
+              <div className="flex" style={{ gap: 8, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}>
+                <span className={`chip ${note.verdict === 'BUY' ? 'c-green' : note.verdict === 'SELL' ? 'c-red' : 'c-yellow'}`} style={{ fontSize: 13 }}>AI: {note.verdict}</span>
+                {note.confidence != null && <span className="chip">{note.confidence}% sure</span>}
+                <button className="btn btn-sm" onClick={() => runNote(true)} disabled={noteBusy}>↻</button>
+              </div>
+              <div style={{ lineHeight: 1.55 }}>{note.analysis}</div>
+              {note.risk && <div className="small mt" style={{ color: 'var(--orange)' }}>⚠ {note.risk}</div>}
+            </>
+          )}
+        </div>
 
         <div className="card-title mt"><span className="sq" style={{ background: 'var(--purple)' }} />
           Order history · {mine.length} orders ({buys.length} buys{sells.length ? `, ${sells.length} sells` : ''})

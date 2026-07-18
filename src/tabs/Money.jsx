@@ -1,16 +1,41 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useCollection } from '../lib/hooks.js';
-import { Card, Empty, StatTile, RefreshButton, EyeBtn, useMoneyVisible, money } from '../components/ui.jsx';
+import { Card, Empty, StatTile, EyeBtn, useMoneyVisible, money } from '../components/ui.jsx';
 import StockDetail from '../components/StockDetail.jsx';
 import PortfolioChart from '../components/PortfolioChart.jsx';
+import CryptoHoldings from '../components/CryptoHoldings.jsx';
+import { PortfolioAdvisor, NextBuyDesk } from '../components/MoneyAI.jsx';
 import { useLiveQuotes, usMarketState } from '../lib/live.js';
 import { fetchHoldingsNews } from '../lib/news.js';
 import { buildDailySeries, buildIntradaySeries, loadPriceHistory, refreshPriceHistory } from '../lib/portfolioHistory.js';
+import { aiNewsSummary, memGet } from '../lib/advisor.js';
+import { pickProvider } from '../lib/ai.js';
 import * as db from '../lib/db.js';
 
 const STOP = new Set(['inc', 'inc.', 'corp', 'corp.', 'corporation', 'ltd', 'ltd.', 'co', 'co.', 'company', 'holdings', 'group', 'the', 'and', 'plc', 'etf', 'trust', 'index', 'fund', 'class', 'common', 'stock', 'nv', 'sa', 'ag']);
 // company-name keywords used to match news to a holding
 const nameKeys = name => String(name || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 3 && !STOP.has(w));
+
+// Retro P&L backdrop: a jagged market line scrolling on the card's right edge,
+// tinted red (falling) or green (rising), fading into the panel on the left.
+function DayFx({ up }) {
+  // tileable jagged path (starts/ends same y) drawn twice for a seamless loop
+  const seg = up
+    ? 'M0 44 L20 36 L34 41 L52 26 L66 33 L84 18 L102 27 L118 12 L134 21 L152 8 L170 16 L188 6 L200 44'
+    : 'M0 12 L20 20 L34 15 L52 30 L66 23 L84 38 L102 29 L118 44 L134 35 L152 48 L170 40 L188 50 L200 12';
+  const d = `${seg.replace(/L200 \d+$/, '')}`;
+  const line = up
+    ? 'M0 44 L20 36 L34 41 L52 26 L66 33 L84 18 L102 27 L118 12 L134 21 L152 8 L170 16 L200 12 L220 20 L234 15 L252 30 L266 23 L284 38 L302 29 L318 44 L334 35 L352 48 L370 40 L400 44'
+    : 'M0 12 L20 20 L34 15 L52 30 L66 23 L84 38 L102 29 L118 44 L134 35 L152 48 L170 40 L200 44 L220 36 L234 41 L252 26 L266 33 L284 18 L302 27 L318 12 L334 21 L352 8 L370 16 L400 12';
+  return (
+    <div className={`daypl-fx ${up ? 'up' : 'down'}`} aria-hidden="true">
+      <svg viewBox="0 0 400 56" preserveAspectRatio="none">
+        <path className="daypl-line" d={line} fill="none" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
+        <path className="daypl-line dim" d={line} fill="none" strokeWidth="2.5" vectorEffect="non-scaling-stroke" transform="translate(400 0)" />
+      </svg>
+    </div>
+  );
+}
 
 export default function Money() {
   const { items, add, patch, del, refresh } = useCollection('investments', { order: 'ticker', asc: true });
@@ -22,6 +47,9 @@ export default function Money() {
   const [openStock, setOpenStock] = useState(null);
   const [sortBy, setSortBy] = useState('value');
   const [liveNews, setLiveNews] = useState([]);
+  const [view, setView] = useState('portfolio'); // portfolio | nextbuy
+  const [newsSum, setNewsSum] = useState(null);
+  const [sumBusy, setSumBusy] = useState(false);
   const [priceHist, setPriceHist] = useState({ data: {} });
   const [intraday, setIntraday] = useState([]);
   const [histState, setHistState] = useState('idle'); // idle | loading | ready | nokey
@@ -152,6 +180,15 @@ export default function Money() {
   }, [heldTickers, status]);
   const shownNews = liveNews.length ? liveNews : stockNews;
 
+  // cached AI news digest loads with the tab; regenerate on demand
+  useEffect(() => { memGet('ai_news_summary').then(v => v && setNewsSum(v)); }, []);
+  async function summarize() {
+    if (!shownNews.length) return;
+    setSumBusy(true);
+    try { setNewsSum(await aiNewsSummary(shownNews, held.map(h => h.ticker))); } catch {}
+    setSumBusy(false);
+  }
+
   async function addHolding() {
     if (!form.ticker.trim() || !form.qty) return;
     await add({ ticker: form.ticker.trim().toUpperCase(), qty: Number(form.qty), avg_cost: Number(form.avg_cost) || null, last_price: null, currency: 'USD', source: 'manual' });
@@ -174,13 +211,19 @@ export default function Money() {
     <>
       <div className="spread">
         <h1 className="tab-title">MONEY</h1>
-        <span className="flex">
+        <span className="flex" style={{ gap: 8 }}>
+          <span className="seg">
+            <button className={`seg-btn${view === 'portfolio' ? ' on' : ''}`} onClick={() => setView('portfolio')}>Portfolio</button>
+            <button className={`seg-btn${view === 'nextbuy' ? ' on' : ''}`} onClick={() => setView('nextbuy')}>✦ Next buy</button>
+          </span>
           <EyeBtn visible={visible} onClick={toggle} />
-          <RefreshButton source="investments" onLocalRefresh={refresh} label="Prices" />
         </span>
       </div>
-      <p className="tab-sub">US stocks (INDmoney) — holdings with live public prices. {liveTag}</p>
+      <p className="tab-sub">US stocks (INDmoney) + crypto — live prices, auto-refreshing. {liveTag}</p>
 
+      {view === 'nextbuy' && <NextBuyDesk held={held} priceOf={priceOf} quotes={quotes} />}
+
+      {view === 'portfolio' && <>
       <div className="tile-row">
         <StatTile label="Portfolio value" value={money(value, visible)} note={pctChip(pnlPct)} color="var(--green)" />
         <StatTile label="Invested" value={money(cost, visible)} color="var(--cyan)" />
@@ -190,6 +233,7 @@ export default function Money() {
 
       {/* Today's 1D gain / loss */}
       <div className={`px daypl ${dayGain >= 0 ? 'up' : 'down'}`}>
+        {haveLive && <DayFx up={dayGain >= 0} />}
         <div className="flex" style={{ gap: 10, alignItems: 'baseline' }}>
           <span className="daypl-label">TODAY'S P&L <span className="muted">(1D)</span></span>
           {marketOpen && status === 'live' && <span className="rc-live"><span className="rc-dot" />LIVE</span>}
@@ -214,7 +258,7 @@ export default function Money() {
         <PortfolioChart orders={orders} invested={invSeries} value={valSeries} intraday={intraday} currentValue={value} visible={visible} variant="full" />
       </Card>
 
-      <Card title="Holdings" color="var(--green)" right={held.length > 0 && (
+      <Card title="Holdings — stocks" color="var(--green)" right={held.length > 0 && (
         <span className="flex" style={{ gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {SORTS.map(([k, label]) => (
             <button key={k} className={`tf-btn${sortBy === k ? ' on' : ''}`} onClick={() => setSortBy(k)}>{label}</button>
@@ -262,7 +306,12 @@ export default function Money() {
         </div>
       </Card>
 
-      <Card title="Your stocks in the news" color="var(--pink)">
+      <CryptoHoldings visible={visible} />
+
+      <Card title="Your stocks in the news" color="var(--pink)"
+        right={pickProvider() && shownNews.length > 0 && (
+          <button className="btn btn-sm btn-pink" onClick={summarize} disabled={sumBusy}>{sumBusy ? '…' : newsSum ? '↻ AI summary' : '✦ AI summary'}</button>
+        )}>
         {shownNews.length === 0 && (
           <Empty icon="※" text={status === 'nokey'
             ? 'Add a free Finnhub key in Settings — headlines about your holdings load here live.'
@@ -278,13 +327,19 @@ export default function Money() {
             {n.source && <span className="chip c-cyan">{n.source}</span>}
           </div>
         ))}
+        {newsSum && (
+          <div className="ai-note mt">
+            <div className="flex" style={{ gap: 8, marginBottom: 4 }}>
+              <span className="chip c-purple">✦ AI summary</span>
+              <span className="small muted">{new Date(newsSum.at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+            <div style={{ lineHeight: 1.55 }}>{newsSum.text}</div>
+          </div>
+        )}
       </Card>
 
-      <Card title="Note on orders" color="var(--yellow)">
-        <div className="small" style={{ color: 'var(--ink-2)' }}>
-          Read-only. INDmoney has no trading API — Cowork snapshots your holdings from order history; place trades yourself in the app.
-        </div>
-      </Card>
+      <PortfolioAdvisor held={held} priceOf={priceOf} quotes={quotes} />
+      </>}
 
       <StockDetail holding={openStock} orders={orders} visible={visible} onClose={() => setOpenStock(null)} />
     </>

@@ -59,12 +59,16 @@ export default function PortfolioChart({ orders = [], invested: investedProp, va
   const H = mini ? 76 : 240;
   const padL = mini ? 4 : 52, padR = mini ? 8 : 12, padT = 12, padB = mini ? 10 : 28;
 
+  // invested (cost basis) right now — flat reference line in 1D view
+  const investedNow = invested.length ? invested[invested.length - 1].v : null;
+
   let dInv, dVal, xOf, t0, t1, maxV, minV;
   if (is1D) {
     dVal = intraday; dInv = [];
     const n = dVal.length;
-    minV = Math.min(...dVal.map(p => p.v));
-    maxV = Math.max(...dVal.map(p => p.v));
+    const vals = dVal.map(p => p.v).concat(investedNow != null ? [investedNow] : []);
+    minV = Math.min(...vals);
+    maxV = Math.max(...vals);
     const span = Math.max(1, maxV - minV);
     minV -= span * 0.08; maxV += span * 0.08;
     xOf = (_, i) => padL + (i / Math.max(1, n - 1)) * (W - padL - padR);
@@ -131,6 +135,11 @@ export default function PortfolioChart({ orders = [], invested: investedProp, va
         {is1D ? (
           <>
             <path d={areaPath(dVal)} fill={`url(#pcA${variant})`} />
+            {investedNow != null && (
+              <line x1={padL} y1={y(investedNow)} x2={W - padR} y2={y(investedNow)}
+                stroke="#9a63e8" strokeWidth="2" strokeDasharray="6 5" vectorEffect="non-scaling-stroke"
+                style={{ filter: 'drop-shadow(0 0 3px rgba(154,99,232,.6))' }} />
+            )}
             <path d={linePath(dVal)} fill="none" stroke={valColor} strokeWidth="2.5" vectorEffect="non-scaling-stroke" style={{ filter: `drop-shadow(0 0 4px ${valColor}99)` }} />
           </>
         ) : (
@@ -145,7 +154,7 @@ export default function PortfolioChart({ orders = [], invested: investedProp, va
       {!mini && (
         <div className="spread small" style={{ marginTop: 6 }}>
           <span className="flex" style={{ gap: 12 }}>
-            {is1D ? <span style={{ color: valColor }}>▬ Value (today)</span>
+            {is1D ? <><span style={{ color: valColor }}>▬ Value (today)</span>{investedNow != null && <span style={{ color: '#9a63e8' }}>╌ Invested</span>}</>
               : <><span style={{ color: '#9a63e8' }}>▬ Invested</span>{dVal.length > 1 && <span style={{ color: '#e84191' }}>▬ Value</span>}</>}
           </span>
           <span className="muted">

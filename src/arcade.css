@@ -98,6 +98,67 @@
 @keyframes navPress { 0% { transform: scale(.94); } 40% { transform: scale(1.02); } 100% { transform: scale(1); } }
 @keyframes icoPop { 0% { transform: scale(.6) rotate(-10deg); } 55% { transform: scale(1.22) rotate(5deg); } 100% { transform: scale(1) rotate(0); } }
 
+/* ---- Money: eye toggle ---- */
+.btn-eye { padding: 5px 9px; line-height: 0; }
+.btn-eye svg { display: block; }
+
+/* ---- Money: Today's P&L retro backdrop ---- */
+.daypl { position: relative; overflow: hidden; }
+.daypl > .flex { position: relative; z-index: 1; }
+.daypl-fx {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 62%;
+  pointer-events: none; z-index: 0;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 55%);
+  mask-image: linear-gradient(90deg, transparent, #000 55%);
+}
+.daypl-fx.down { background: linear-gradient(90deg, rgba(154,99,232,.10), rgba(232,65,65,.20)); }
+.daypl-fx.up { background: linear-gradient(90deg, rgba(154,99,232,.10), rgba(110,231,110,.16)); }
+.daypl-fx svg { width: 200%; height: 100%; animation: dayflow 9s linear infinite; }
+.daypl-fx.down .daypl-line { stroke: #e84141; filter: drop-shadow(0 0 4px rgba(232,65,65,.7)); }
+.daypl-fx.up .daypl-line { stroke: #6ee76e; filter: drop-shadow(0 0 4px rgba(110,231,110,.7)); }
+.daypl-line.dim { opacity: .9; }
+@keyframes dayflow { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* ---- Street consensus bar (BUY / HOLD / SELL) ---- */
+.street-bar {
+  display: flex; height: 26px; border: 3px solid var(--border-bright);
+  background: var(--bg-deep); border-radius: 2px; overflow: hidden;
+}
+.street-seg {
+  background: color-mix(in srgb, var(--sc) 34%, var(--bg-deep));
+  border-right: 2px solid var(--bg-deep);
+  display: flex; align-items: center; justify-content: center;
+  min-width: 4px; transition: none;
+}
+.street-seg:last-child { border-right: none; }
+.street-seg span { font-family: var(--font-pixel); font-size: 7px; color: var(--sc); text-shadow: 0 0 6px var(--sc); white-space: nowrap; }
+
+/* ---- AI note / summary blocks ---- */
+.ai-note {
+  border: 2px dashed var(--border-bright); border-radius: 2px;
+  padding: 10px 12px; background: rgba(154,99,232,.05);
+}
+
+/* ---- risk meter ---- */
+.riskmeter { display: inline-flex; align-items: center; gap: 3px; }
+.risk-seg {
+  width: 16px; height: 12px; border: 2px solid var(--border-bright);
+  background: var(--bg-deep); border-radius: 1px; display: inline-block;
+}
+.risk-seg.on { background: var(--rc); box-shadow: 0 0 7px var(--rc); border-color: var(--rc); }
+.risk-seg.pick { cursor: pointer; }
+.risk-seg.pick:hover { border-color: var(--ink); }
+
+/* ---- portfolio score ---- */
+.pscore {
+  width: 74px; height: 74px; border: 4px solid var(--pc); border-radius: 2px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: var(--bg-deep); box-shadow: 0 0 16px color-mix(in srgb, var(--pc) 45%, transparent), inset 0 0 10px rgba(0,0,0,.5);
+  flex-shrink: 0;
+}
+.pscore-n { font-family: var(--font-pixel); font-size: 20px; color: var(--pc); text-shadow: 0 0 10px var(--pc); }
+.pscore-l { font-family: var(--font-pixel); font-size: 6px; color: var(--ink-3); margin-top: 4px; }
+
 /* ---- live "what am I doing" status chip ---- */
 .live-status {
   display: inline-flex; align-items: center; gap: 8px;
