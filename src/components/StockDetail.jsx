@@ -21,7 +21,9 @@ function StreetBar({ rec }) {
           </div>
         ))}
       </div>
-      <div className="small muted" style={{ marginTop: 4 }}>{rec.total} Wall Street analysts · {rec.period}</div>
+      <div className="small muted" style={{ marginTop: 4 }}>
+        {rec.total} Wall Street analysts · {rec.period ? new Date(rec.period + 'T00:00:00').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }) + ' consensus (updates monthly)' : 'latest consensus'}
+      </div>
     </div>
   );
 }
@@ -45,15 +47,23 @@ export default function StockDetail({ holding, orders, visible, onClose }) {
   const provider = pickProvider();
   const ticker = holding?.ticker;
 
-  // Street consensus + cached AI note load on open; AI auto-refreshes if stale (24h)
+  // Street consensus + AI note on open. Cached note shows instantly; if it's
+  // missing or older than 24h the AI re-analyzes automatically (no button needed).
+  const autoRan = React.useRef('');
   useEffect(() => {
     if (!ticker) return;
     let dead = false;
-    setRec(null); setNote(null); setNoteErr('');
-    fetchRecommendations(ticker).then(r => { if (!dead) setRec(r); });
-    memGet('ai_stock_notes').then(all => { if (!dead && all?.[ticker]) setNote(all[ticker]); });
+    setRec(undefined); setNote(null); setNoteErr('');
+    fetchRecommendations(ticker).then(r => { if (!dead) setRec(r); }).catch(() => { if (!dead) setRec(null); });
+    memGet('ai_stock_notes').then(all => {
+      if (dead) return;
+      const hit = all?.[ticker];
+      if (hit) setNote(hit);
+      const stale = !hit?.at || Date.now() - new Date(hit.at).getTime() > 24 * 3600e3;
+      if (provider && stale && autoRan.current !== ticker) { autoRan.current = ticker; runNote(true); }
+    });
     return () => { dead = true; };
-  }, [ticker]);
+  }, [ticker]); // eslint-disable-line
 
   async function runNote(force) {
     if (!holding || !provider) return;
@@ -133,9 +143,9 @@ export default function StockDetail({ holding, orders, visible, onClose }) {
 
         {/* Street + AI verdict */}
         <div className="card-title mt"><span className="sq" style={{ background: 'var(--yellow)' }} />Street & AI verdict</div>
-        {rec
-          ? <StreetBar rec={rec} />
-          : <div className="small muted">Wall Street consensus loads with a Finnhub key… (or none published for this ticker)</div>}
+        {rec === undefined && <div className="small muted">Loading Wall Street consensus…</div>}
+        {rec === null && <div className="small muted">No analyst coverage for {holding.ticker} — normal for ETFs/index funds (analysts rate companies, not funds).</div>}
+        {rec && <StreetBar rec={rec} />}
 
         <div className="ai-note mt">
           {!provider && <div className="small muted">Add an AI key in Config → the AI verdict + quick analysis appears here.</div>}
@@ -162,7 +172,7 @@ export default function StockDetail({ holding, orders, visible, onClose }) {
         </div>
         <div className="scroll-x" style={{ maxHeight: 260, overflowY: 'auto' }}>
           <table className="ptable">
-            <thead><tr><th>Date</th><th>Side</th><th>Qty</th><th>Price</th><th>Value</th></tr></thead>
+            <thead><tr><th>Date</th><th>Side</th><th>Qty</th><th>Price</th><th>Value</th><th>Fees</th></tr></thead>
             <tbody>
               {mine.map((o, i) => (
                 <tr key={i}>
@@ -171,9 +181,10 @@ export default function StockDetail({ holding, orders, visible, onClose }) {
                   <td>{Number(o.qty).toFixed(4)}</td>
                   <td>${Number(o.price).toFixed(2)}</td>
                   <td>{money(o.value, visible)}</td>
+                  <td className="muted">{o.fee != null ? '$' + Number(o.fee).toFixed(2) : '$0.00'}</td>
                 </tr>
               ))}
-              {mine.length === 0 && <tr><td colSpan={5} className="muted">No stored orders for this ticker.</td></tr>}
+              {mine.length === 0 && <tr><td colSpan={6} className="muted">No stored orders for this ticker.</td></tr>}
             </tbody>
           </table>
         </div>

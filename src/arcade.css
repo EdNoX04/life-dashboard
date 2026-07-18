@@ -113,11 +113,23 @@
 }
 .daypl-fx.down { background: linear-gradient(90deg, rgba(154,99,232,.10), rgba(232,65,65,.20)); }
 .daypl-fx.up { background: linear-gradient(90deg, rgba(154,99,232,.10), rgba(110,231,110,.16)); }
-.daypl-fx svg { width: 200%; height: 100%; animation: dayflow 9s linear infinite; }
-.daypl-fx.down .daypl-line { stroke: #e84141; filter: drop-shadow(0 0 4px rgba(232,65,65,.7)); }
-.daypl-fx.up .daypl-line { stroke: #6ee76e; filter: drop-shadow(0 0 4px rgba(110,231,110,.7)); }
-.daypl-line.dim { opacity: .9; }
-@keyframes dayflow { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.daypl-fx svg { width: 100%; height: 100%; }
+.daypl-line {
+  stroke-width: 4; stroke-dasharray: 100 100;
+  animation: dayDraw 4.2s steps(24) infinite;
+}
+.daypl-fx.down .daypl-line { stroke: #e84141; filter: drop-shadow(0 0 5px rgba(232,65,65,.8)); }
+.daypl-fx.up .daypl-line { stroke: #6ee76e; filter: drop-shadow(0 0 5px rgba(110,231,110,.8)); }
+/* draw the line → hold → blink out → redraw */
+@keyframes dayDraw {
+  0%   { stroke-dashoffset: 100; opacity: 1; }
+  55%  { stroke-dashoffset: 0;   opacity: 1; }
+  86%  { stroke-dashoffset: 0;   opacity: 1; }
+  90%  { stroke-dashoffset: 0;   opacity: 0; }
+  94%  { stroke-dashoffset: 0;   opacity: 1; }
+  97%  { stroke-dashoffset: 0;   opacity: 0; }
+  100% { stroke-dashoffset: 100; opacity: 0; }
+}
 
 /* ---- Street consensus bar (BUY / HOLD / SELL) ---- */
 .street-bar {

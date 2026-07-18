@@ -5,7 +5,9 @@ import { money } from './ui.jsx';
 // Money (full) passes reconstructed `invested`/`value` daily series (from orders
 // × historical prices) + an `intraday` series for 1D. HQ (mini) passes `orders`
 // + `currentValue` and just shows the invested area.
-const RANGES = { '1M': 30, '3M': 91, '6M': 182, '1Y': 365, 'ALL': Infinity };
+const RANGES = { '1W': 7, '1M': 30, '3M': 91, '6M': 182, '1Y': 365, 'ALL': Infinity };
+const INV_C = '#9a63e8';   // invested — purple
+const VAL_C = '#ff5fa2';   // value — bright pink (clearly distinct from purple)
 
 export default function PortfolioChart({ orders = [], invested: investedProp, value: valueProp, intraday = [], currentValue = null, visible = true, variant = 'full' }) {
   const wrapRef = useRef(null);
@@ -99,7 +101,7 @@ export default function PortfolioChart({ orders = [], invested: investedProp, va
 
   const gridY = mini ? [] : [0, 0.5, 1].map(f => ({ v: minV + (maxV - minV) * f, y: y(minV + (maxV - minV) * f) }));
   const dayUp = is1D && dVal.length > 1 ? dVal[dVal.length - 1].v >= dVal[0].v : true;
-  const valColor = is1D ? (dayUp ? '#6ee76e' : '#e84141') : '#e84191';
+  const valColor = is1D ? (dayUp ? '#6ee76e' : '#e84141') : VAL_C;
 
   return (
     <div ref={wrapRef} style={{ width: '100%' }}>
@@ -137,7 +139,7 @@ export default function PortfolioChart({ orders = [], invested: investedProp, va
             <path d={areaPath(dVal)} fill={`url(#pcA${variant})`} />
             {investedNow != null && (
               <line x1={padL} y1={y(investedNow)} x2={W - padR} y2={y(investedNow)}
-                stroke="#9a63e8" strokeWidth="2" strokeDasharray="6 5" vectorEffect="non-scaling-stroke"
+                stroke={INV_C} strokeWidth="2" strokeDasharray="6 5" vectorEffect="non-scaling-stroke"
                 style={{ filter: 'drop-shadow(0 0 3px rgba(154,99,232,.6))' }} />
             )}
             <path d={linePath(dVal)} fill="none" stroke={valColor} strokeWidth="2.5" vectorEffect="non-scaling-stroke" style={{ filter: `drop-shadow(0 0 4px ${valColor}99)` }} />
@@ -145,22 +147,29 @@ export default function PortfolioChart({ orders = [], invested: investedProp, va
         ) : (
           <>
             <path d={areaPath(dInv)} fill={`url(#pcA${variant})`} />
-            <path d={stepPath(dInv)} fill="none" stroke="#9a63e8" strokeWidth={mini ? 2 : 2.5} vectorEffect="non-scaling-stroke" style={{ filter: 'drop-shadow(0 0 4px rgba(154,99,232,.6))' }} />
-            {dVal.length > 1 && <path d={stepPath(dVal)} fill="none" stroke="#e84191" strokeWidth={mini ? 2 : 2.5} vectorEffect="non-scaling-stroke" style={{ filter: 'drop-shadow(0 0 4px rgba(232,65,145,.6))' }} />}
+            <path d={stepPath(dInv)} fill="none" stroke={INV_C} strokeWidth={mini ? 2 : 2.5} strokeDasharray={mini ? undefined : '1 0'} vectorEffect="non-scaling-stroke" style={{ filter: 'drop-shadow(0 0 4px rgba(154,99,232,.6))' }} />
+            {dVal.length > 1 && <path d={stepPath(dVal)} fill="none" stroke={VAL_C} strokeWidth={mini ? 2 : 3} vectorEffect="non-scaling-stroke" style={{ filter: 'drop-shadow(0 0 5px rgba(255,95,162,.75))' }} />}
           </>
         )}
-        {hover && !mini && (<g><line x1={x(hover.t, hover.i)} y1={padT} x2={x(hover.t, hover.i)} y2={H - padB} stroke="#7a55b0" strokeWidth="1" vectorEffect="non-scaling-stroke" /><rect x={x(hover.t, hover.i) - 3} y={y(hover.v) - 3} width="6" height="6" fill={is1D ? valColor : '#9a63e8'} vectorEffect="non-scaling-stroke" /></g>)}
+        {hover && !mini && (
+          <g className="pc-hover" style={{ transform: `translateX(${x(hover.t, hover.i).toFixed(1)}px)`, transition: 'transform 90ms linear' }}>
+            <line x1="0" y1={padT} x2="0" y2={H - padB} stroke="#7a55b0" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            <rect x="-3.5" y={y(hover.v) - 3.5} width="7" height="7" fill={is1D ? valColor : INV_C} vectorEffect="non-scaling-stroke" />
+            {!is1D && hover.val != null && <rect x="-3.5" y={y(hover.val) - 3.5} width="7" height="7" fill={VAL_C} vectorEffect="non-scaling-stroke" />}
+          </g>
+        )}
       </svg>
       {!mini && (
         <div className="spread small" style={{ marginTop: 6 }}>
           <span className="flex" style={{ gap: 12 }}>
-            {is1D ? <><span style={{ color: valColor }}>▬ Value (today)</span>{investedNow != null && <span style={{ color: '#9a63e8' }}>╌ Invested</span>}</>
-              : <><span style={{ color: '#9a63e8' }}>▬ Invested</span>{dVal.length > 1 && <span style={{ color: '#e84191' }}>▬ Value</span>}</>}
+            {is1D ? <><span style={{ color: valColor }}>▬ Value (today)</span>{investedNow != null && <span style={{ color: INV_C }}>╌ Invested</span>}</>
+              : <><span style={{ color: INV_C }}>▬ Invested</span>{dVal.length > 1 && <span style={{ color: VAL_C }}>▬ Value</span>}</>}
           </span>
           <span className="muted">
             {hover
-              ? (is1D ? `${new Date(hover.t).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}: ${money(hover.v, visible)}`
-                : `${hover.t}: ${money(hover.v, visible)} inv${hover.val != null ? ` · ${money(hover.val, visible)} val` : ''}`)
+              ? (is1D
+                ? `${new Date(hover.t).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}: ${money(hover.v, visible)}${investedNow != null ? ` · inv ${money(investedNow, visible)}` : ''}`
+                : <>{hover.t} · <span style={{ color: INV_C }}>inv {money(hover.v, visible)}</span>{hover.val != null && <> · <span style={{ color: VAL_C }}>val {money(hover.val, visible)}</span></>}</>)
               : (is1D ? 'Today · intraday' : `${dInv[0].t} → ${dInv[dInv.length - 1].t}`)}
           </span>
         </div>

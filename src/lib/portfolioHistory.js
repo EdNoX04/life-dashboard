@@ -116,25 +116,41 @@ async function fetchDaily(ticker) {
   return out;
 }
 
-// ---- 1D intraday value line: Σ qty × 5-min close for today, per held ticker ----
-export async function buildIntradaySeries(held) {
+// ---- 1D intraday value line: Σ qty × 5-min close, timestamp-aligned ----
+// Fixes the old index-aligned version (different tickers return different candle
+// counts → summed mismatched times → a line nowhere near the real total).
+// Rules: latest trading day only; per timestamp use each ticker's most recent
+// close ≤ t (forward-fill); tickers with no candles at all contribute at their
+// static price so the LEVEL always matches the real portfolio worth.
+export async function buildIntradaySeries(held, livePrices = {}) {
   const tks = held.filter(h => Number(h.qty) > 0);
   if (!tks.length) return [];
-  const perTicker = await Promise.all(tks.map(async h => {
-    try { const c = await fetchCandles(h.ticker, '5m'); return { qty: Number(h.qty), candles: c }; }
-    catch { return null; }
+  const per = await Promise.all(tks.map(async h => {
+    const qty = Number(h.qty);
+    const staticPx = Number(livePrices[String(h.ticker).toUpperCase()] ?? h.last_price ?? h.avg_cost ?? 0);
+    try { const c = await fetchCandles(h.ticker, '5m'); return { qty, staticPx, candles: c || [] }; }
+    catch { return { qty, staticPx, candles: [] }; }
   }));
-  const good = perTicker.filter(Boolean);
-  if (!good.length) return [];
-  // align on the shortest common tail of timestamps (they share market hours)
-  const times = good[0].candles.map(c => c.t);
-  const series = [];
-  for (let i = 0; i < times.length; i++) {
-    let v = 0, ok = true;
-    for (const g of good) { const c = g.candles[i]; if (!c) { ok = false; break; } v += g.qty * c.c; }
-    if (ok) series.push({ t: times[i], v: Math.round(v) });
-  }
-  return series;
+  const withC = per.filter(p => p.candles.length);
+  if (!withC.length) return [];
+
+  // latest trading day = the max date across all tickers' last candles
+  const day = withC.map(p => String(p.candles[p.candles.length - 1].t).slice(0, 10)).sort().pop();
+  // time axis = union of that day's timestamps, sorted
+  const axis = [...new Set(withC.flatMap(p => p.candles.filter(c => String(c.t).startsWith(day)).map(c => String(c.t))))].sort();
+  if (axis.length < 2) return [];
+
+  // per ticker: forward-fill closes along the axis (start from last close before the day)
+  const filled = per.map(p => {
+    const before = p.candles.filter(c => String(c.t) < day + ' ');
+    let last = before.length ? before[before.length - 1].c : null;
+    const m = new Map(p.candles.filter(c => String(c.t).startsWith(day)).map(c => [String(c.t), c.c]));
+    const row = new Map();
+    for (const t of axis) { if (m.has(t)) last = m.get(t); row.set(t, last ?? p.staticPx); }
+    return { qty: p.qty, row };
+  });
+
+  return axis.map(t => ({ t, v: Math.round(filled.reduce((s, f) => s + f.qty * (f.row.get(t) || 0), 0)) }));
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));

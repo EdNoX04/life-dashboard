@@ -8,30 +8,33 @@ import { PortfolioAdvisor, NextBuyDesk } from '../components/MoneyAI.jsx';
 import { useLiveQuotes, usMarketState } from '../lib/live.js';
 import { fetchHoldingsNews } from '../lib/news.js';
 import { buildDailySeries, buildIntradaySeries, loadPriceHistory, refreshPriceHistory } from '../lib/portfolioHistory.js';
-import { aiNewsSummary, memGet } from '../lib/advisor.js';
+import MarketCalendar from '../components/MarketCalendar.jsx';
+import { aiNewsSummary, memGet, memSet } from '../lib/advisor.js';
 import { pickProvider } from '../lib/ai.js';
 import * as db from '../lib/db.js';
+
+// live USD→INR (keyless, CORS-ok; frankfurter with er-api fallback)
+async function fetchUsdInr() {
+  try { const j = await (await fetch('https://api.frankfurter.app/latest?from=USD&to=INR')).json(); if (j?.rates?.INR) return j.rates.INR; } catch {}
+  try { const j = await (await fetch('https://open.er-api.com/v6/latest/USD')).json(); if (j?.rates?.INR) return j.rates.INR; } catch {}
+  return null;
+}
 
 const STOP = new Set(['inc', 'inc.', 'corp', 'corp.', 'corporation', 'ltd', 'ltd.', 'co', 'co.', 'company', 'holdings', 'group', 'the', 'and', 'plc', 'etf', 'trust', 'index', 'fund', 'class', 'common', 'stock', 'nv', 'sa', 'ag']);
 // company-name keywords used to match news to a holding
 const nameKeys = name => String(name || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 3 && !STOP.has(w));
 
-// Retro P&L backdrop: a jagged market line scrolling on the card's right edge,
-// tinted red (falling) or green (rising), fading into the panel on the left.
+// Retro P&L backdrop: ONE thick pixel-staircase line that draws itself falling
+// (loss) or climbing (gain), holds for a beat, then redraws. Red / green tint
+// fading into the panel on the left.
 function DayFx({ up }) {
-  // tileable jagged path (starts/ends same y) drawn twice for a seamless loop
-  const seg = up
-    ? 'M0 44 L20 36 L34 41 L52 26 L66 33 L84 18 L102 27 L118 12 L134 21 L152 8 L170 16 L188 6 L200 44'
-    : 'M0 12 L20 20 L34 15 L52 30 L66 23 L84 38 L102 29 L118 44 L134 35 L152 48 L170 40 L188 50 L200 12';
-  const d = `${seg.replace(/L200 \d+$/, '')}`;
-  const line = up
-    ? 'M0 44 L20 36 L34 41 L52 26 L66 33 L84 18 L102 27 L118 12 L134 21 L152 8 L170 16 L200 12 L220 20 L234 15 L252 30 L266 23 L284 38 L302 29 L318 44 L334 35 L352 48 L370 40 L400 44'
-    : 'M0 12 L20 20 L34 15 L52 30 L66 23 L84 38 L102 29 L118 44 L134 35 L152 48 L170 40 L200 44 L220 36 L234 41 L252 26 L266 33 L284 18 L302 27 L318 12 L334 21 L352 8 L370 16 L400 12';
+  const d = up
+    ? 'M6 48 H30 V40 H52 V44 H74 V32 H98 V36 H120 V22 H144 V26 H166 V14 H190 V8'
+    : 'M6 8 H30 V16 H52 V12 H74 V24 H98 V20 H120 V34 H144 V30 H166 V42 H190 V48';
   return (
     <div className={`daypl-fx ${up ? 'up' : 'down'}`} aria-hidden="true">
-      <svg viewBox="0 0 400 56" preserveAspectRatio="none">
-        <path className="daypl-line" d={line} fill="none" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
-        <path className="daypl-line dim" d={line} fill="none" strokeWidth="2.5" vectorEffect="non-scaling-stroke" transform="translate(400 0)" />
+      <svg viewBox="0 0 200 56" preserveAspectRatio="none">
+        <path className="daypl-line" d={d} pathLength="100" fill="none" vectorEffect="non-scaling-stroke" />
       </svg>
     </div>
   );
@@ -47,9 +50,22 @@ export default function Money() {
   const [openStock, setOpenStock] = useState(null);
   const [sortBy, setSortBy] = useState('value');
   const [liveNews, setLiveNews] = useState([]);
-  const [view, setView] = useState('portfolio'); // portfolio | nextbuy
+  const [view, setView] = useState('portfolio'); // portfolio | nextbuy | calendar
   const [newsSum, setNewsSum] = useState(null);
   const [sumBusy, setSumBusy] = useState(false);
+  const [fx, setFx] = useState(null);            // USD → INR
+  const [cur, setCur] = useState('usd');         // display currency ($ default)
+  const [manualFees, setManualFees] = useState({});
+
+  useEffect(() => {
+    fetchUsdInr().then(setFx);
+    const t = setInterval(() => fetchUsdInr().then(r => r && setFx(r)), 6 * 3600e3);
+    memGet('stock_fees').then(v => v?.manual && setManualFees(v.manual));
+    return () => clearInterval(t);
+  }, []);
+
+  const inr = cur === 'inr' && fx;
+  const disp = n => money(inr ? n * fx : n, visible, inr ? '₹' : '$');
   const [priceHist, setPriceHist] = useState({ data: {} });
   const [intraday, setIntraday] = useState([]);
   const [histState, setHistState] = useState('idle'); // idle | loading | ready | nokey
@@ -115,12 +131,13 @@ export default function Money() {
     })();
   }, [orders, histTickers]);
 
-  // intraday (1D) value line — a few 5-min candle fetches, cached
+  // intraday (1D) value line — timestamp-aligned 5-min candles, refreshed with quotes
   useEffect(() => {
     if (!histTickers.length) return;
     let alive = true;
-    buildIntradaySeries(held).then(s => { if (alive) setIntraday(s); }).catch(() => {});
-    return () => { alive = false; };
+    buildIntradaySeries(held, livePrices).then(s => { if (alive) setIntraday(s); }).catch(() => {});
+    const t = setInterval(() => buildIntradaySeries(held, livePrices).then(s => { if (alive) setIntraday(s); }).catch(() => {}), 5 * 60000);
+    return () => { alive = false; clearInterval(t); };
   }, [tickerKey]);
 
   // sortable holdings — default largest position first
@@ -191,9 +208,19 @@ export default function Money() {
 
   async function addHolding() {
     if (!form.ticker.trim() || !form.qty) return;
-    await add({ ticker: form.ticker.trim().toUpperCase(), qty: Number(form.qty), avg_cost: Number(form.avg_cost) || null, last_price: null, currency: 'USD', source: 'manual' });
-    setForm({ ticker: '', qty: '', avg_cost: '' });
+    const T = form.ticker.trim().toUpperCase();
+    await add({ ticker: T, qty: Number(form.qty), avg_cost: Number(form.avg_cost) || null, last_price: null, currency: 'USD', source: 'manual' });
+    if (Number(form.fees) > 0) {
+      const next = { ...manualFees, [T]: (manualFees[T] || 0) + Number(form.fees) };
+      setManualFees(next);
+      memSet('stock_fees', { manual: next, updated: new Date().toISOString() });
+    }
+    setForm({ ticker: '', qty: '', avg_cost: '', fees: '' });
   }
+
+  // total fees: per-order fees from the ledger (buys) + manual entries
+  const orderFees = orders.reduce((s, o) => s + (o.side !== 'S' ? Number(o.fee || 0) : 0), 0);
+  const totalFees = orderFees + Object.values(manualFees).reduce((s, f) => s + Number(f || 0), 0);
 
   const pctChip = p => (
     <span className="chip" style={{ color: p >= 0 ? 'var(--green)' : 'var(--red)', borderColor: p >= 0 ? 'var(--green)' : 'var(--red)' }}>
@@ -215,6 +242,11 @@ export default function Money() {
           <span className="seg">
             <button className={`seg-btn${view === 'portfolio' ? ' on' : ''}`} onClick={() => setView('portfolio')}>Portfolio</button>
             <button className={`seg-btn${view === 'nextbuy' ? ' on' : ''}`} onClick={() => setView('nextbuy')}>✦ Next buy</button>
+            <button className={`seg-btn${view === 'calendar' ? ' on' : ''}`} onClick={() => setView('calendar')}>Calendar</button>
+          </span>
+          <span className="seg">
+            <button className={`seg-btn${cur === 'usd' ? ' on' : ''}`} onClick={() => setCur('usd')}>$</button>
+            <button className={`seg-btn${cur === 'inr' ? ' on' : ''}`} onClick={() => setCur('inr')} disabled={!fx} title={fx ? '' : 'FX loading…'}>₹</button>
           </span>
           <EyeBtn visible={visible} onClick={toggle} />
         </span>
@@ -222,13 +254,15 @@ export default function Money() {
       <p className="tab-sub">US stocks (INDmoney) + crypto — live prices, auto-refreshing. {liveTag}</p>
 
       {view === 'nextbuy' && <NextBuyDesk held={held} priceOf={priceOf} quotes={quotes} />}
+      {view === 'calendar' && <MarketCalendar held={held} />}
 
       {view === 'portfolio' && <>
       <div className="tile-row">
-        <StatTile label="Portfolio value" value={money(value, visible)} note={pctChip(pnlPct)} color="var(--green)" />
-        <StatTile label="Invested" value={money(cost, visible)} color="var(--cyan)" />
-        <StatTile label="Total P&L" value={money(pnl, visible)} note={pctChip(pnlPct)} color={pnl >= 0 ? 'var(--green)' : 'var(--red)'} />
+        <StatTile label="Portfolio value" value={disp(value)} note={pctChip(pnlPct)} color="var(--green)" />
+        <StatTile label="Invested" value={disp(cost)} color="var(--cyan)" />
+        <StatTile label="Total P&L" value={disp(pnl)} note={pctChip(pnlPct)} color={pnl >= 0 ? 'var(--green)' : 'var(--red)'} />
         <StatTile label="Holdings" value={held.length} color="var(--pink)" />
+        <StatTile label="USD → INR" value={fx ? '₹' + fx.toFixed(2) : '…'} note="live FX" color="var(--orange)" />
       </div>
 
       {/* Today's 1D gain / loss */}
@@ -241,7 +275,7 @@ export default function Money() {
         {haveLive ? (
           <div className="flex" style={{ gap: 14, alignItems: 'baseline', flexWrap: 'wrap' }}>
             <span className="daypl-val" style={{ color: dayGain >= 0 ? 'var(--green)' : 'var(--red)' }}>
-              {dayGain >= 0 ? '+' : '−'}{money(Math.abs(dayGain), visible)}
+              {dayGain >= 0 ? '+' : '−'}{disp(Math.abs(dayGain))}
             </span>
             <span className="chip" style={{ color: dayGain >= 0 ? 'var(--green)' : 'var(--red)', borderColor: dayGain >= 0 ? 'var(--green)' : 'var(--red)' }}>
               {dayPct >= 0 ? '▲' : '▼'} {Math.abs(dayPct).toFixed(2)}%
@@ -302,7 +336,12 @@ export default function Money() {
           <input style={{ width: 110 }} placeholder="Ticker" value={form.ticker} onChange={e => setForm({ ...form, ticker: e.target.value })} />
           <input style={{ width: 90 }} type="number" placeholder="Qty" value={form.qty} onChange={e => setForm({ ...form, qty: e.target.value })} />
           <input style={{ width: 110 }} type="number" placeholder="Avg cost" value={form.avg_cost} onChange={e => setForm({ ...form, avg_cost: e.target.value })} />
+          <input style={{ width: 110 }} type="number" placeholder="Fees $" value={form.fees || ''} onChange={e => setForm({ ...form, fees: e.target.value })} />
           <button className="btn btn-sm btn-green" onClick={addHolding}>+ Add</button>
+        </div>
+        <div className="mt" style={{ textAlign: 'right' }}>
+          <span className="small muted">Total fees (all buys): </span>
+          <span className="chip c-yellow">{disp(totalFees)}</span>
         </div>
       </Card>
 
