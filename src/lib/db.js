@@ -97,6 +97,21 @@ export async function list(table, { order = 'created_at', asc = false, filter = 
   return r.json();
 }
 
+// Fetch ALL rows, paging past PostgREST's 1000-row cap (health history is huge).
+export async function listAll(table, { order = 'created_at', asc = false, filter = '' } = {}) {
+  if (!isRemote()) return list(table, { order, asc, filter });
+  const page = 1000; const out = [];
+  for (let from = 0; ; from += page) {
+    const q = `${base(table)}?select=*${filter ? '&' + filter : ''}&order=${order}.${asc ? 'asc' : 'desc'}`;
+    const r = await fetch(q, { headers: { ...headers(), Range: `${from}-${from + page - 1}`, 'Range-Unit': 'items' } });
+    if (!r.ok) throw new Error(`${table}: ${r.status} ${await r.text()}`);
+    const rows = await r.json();
+    out.push(...rows);
+    if (rows.length < page) break;
+  }
+  return out;
+}
+
 export async function insert(table, row) {
   const withMeta = { id: uid(), created_at: new Date().toISOString(), ...row };
   if (!isRemote()) {

@@ -1,9 +1,19 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useCollection, todayStr } from '../lib/hooks.js';
 import { Card, Empty, RefreshButton } from '../components/ui.jsx';
 import Sparkline from '../components/Sparkline.jsx';
 import WorkoutLogger from '../components/WorkoutLogger.jsx';
 import LiveStatus from '../components/LiveStatus.jsx';
+import * as db from '../lib/db.js';
+
+// health_metrics can be thousands of rows (full Apple Health history) — page past
+// the 1000-row cap so every day is available to the date scrubber.
+function useAllHealth() {
+  const [metrics, setMetrics] = useState([]);
+  const refresh = useCallback(async () => { try { setMetrics(await db.listAll('health_metrics', { order: 'date', asc: true })); } catch { /* offline */ } }, []);
+  useEffect(() => { refresh(); const t = setInterval(refresh, 60000); return () => clearInterval(t); }, [refresh]);
+  return { metrics, refresh };
+}
 
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
@@ -11,7 +21,7 @@ const addDays = (iso, n) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d
 const WD = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export default function Health() {
-  const { items: metrics, refresh } = useCollection('health_metrics', { order: 'date', asc: true });
+  const { metrics, refresh } = useAllHealth();
   const { items: workouts, del, refresh: refreshW } = useCollection('workouts', { order: 'date' });
   const { items: mem } = useCollection('memory', { filter: 'key=eq.health_last_sync', order: 'key' });
   const { items: prMem, refresh: refreshPR } = useCollection('memory', { filter: 'key=eq.workout_prs', order: 'key' });
