@@ -98,6 +98,24 @@
 @keyframes navPress { 0% { transform: scale(.94); } 40% { transform: scale(1.02); } 100% { transform: scale(1); } }
 @keyframes icoPop { 0% { transform: scale(.6) rotate(-10deg); } 55% { transform: scale(1.22) rotate(5deg); } 100% { transform: scale(1) rotate(0); } }
 
+/* ---- live "what am I doing" status chip ---- */
+.live-status {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px; border: 3px solid var(--c); border-radius: 2px;
+  background: var(--bg-deep); color: var(--ink);
+  font-family: var(--font-pixel); font-size: 8px; letter-spacing: .5px;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--c) 40%, transparent);
+}
+.live-status.hero-live { margin-top: 10px; }
+.health-live { margin-bottom: 14px; }
+.ls-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); animation: lsPulse 1.4s ease-in-out infinite; }
+.live-status.stale .ls-dot { animation: none; }
+@keyframes lsPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(.7); } }
+.ls-ico { font-size: 13px; }
+.ls-label { color: var(--c); }
+.ls-hr { color: var(--ink-2); }
+.ls-age { color: var(--ink-3); margin-left: 2px; }
+
 /* ---- health day scrubber ---- */
 .day-nav-card { padding: 10px 12px; }
 .day-nav { display: flex; align-items: center; gap: 10px; }

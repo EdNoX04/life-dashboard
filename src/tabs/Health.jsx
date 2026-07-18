@@ -3,6 +3,7 @@ import { useCollection, todayStr } from '../lib/hooks.js';
 import { Card, Empty, RefreshButton } from '../components/ui.jsx';
 import Sparkline from '../components/Sparkline.jsx';
 import WorkoutLogger from '../components/WorkoutLogger.jsx';
+import LiveStatus from '../components/LiveStatus.jsx';
 
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
@@ -63,13 +64,28 @@ export default function Health() {
     ['resting_hr', 'Resting HR', ' bpm', 'var(--pink)', '#e84191'],
     ['hrv', 'HRV', ' ms', 'var(--cyan)', '#1f9ecf'],
     ['heart_rate', 'Heart rate', ' bpm', 'var(--red)', '#e84191'],
+    ['walking_hr', 'Walking HR', ' bpm', 'var(--pink)', '#e84191'],
     ['active_energy', 'Active kcal', '', 'var(--orange)', '#d96a1f'],
+    ['basal_energy', 'Resting kcal', '', 'var(--orange)', '#d96a1f'],
     ['exercise_min', 'Exercise', ' min', 'var(--yellow)', '#b3860a'],
+    ['stand_hours', 'Stand', ' h', 'var(--cyan)', '#1f9ecf'],
     ['spo2', 'SpO₂', '%', 'var(--cyan)', '#1f9ecf'],
     ['resp_rate', 'Respiration', ' bpm', 'var(--purple)', '#9a63e8'],
+    ['wrist_temp', 'Wrist temp', '°C', 'var(--orange)', '#d96a1f'],
     ['distance_km', 'Distance', ' km', 'var(--green)', '#2fa848'],
+    ['cycling_km', 'Cycling', ' km', 'var(--green)', '#2fa848'],
+    ['flights', 'Flights', '', 'var(--yellow)', '#b3860a'],
     ['vo2max', 'VO₂ max', '', 'var(--orange)', '#d96a1f'],
     ['weight', 'Weight', ' kg', 'var(--pink)', '#e84191'],
+    ['body_fat', 'Body fat', '%', 'var(--pink)', '#e84191'],
+    ['lean_mass', 'Lean mass', ' kg', 'var(--cyan)', '#1f9ecf'],
+    ['bmi', 'BMI', '', 'var(--purple)', '#9a63e8'],
+    ['water_ml', 'Water', ' ml', 'var(--cyan)', '#1f9ecf'],
+    ['dietary_energy', 'Calories in', '', 'var(--orange)', '#d96a1f'],
+    ['mindful_min', 'Mindful', ' min', 'var(--purple)', '#9a63e8'],
+    ['blood_glucose', 'Glucose', ' mg/dL', 'var(--red)', '#e84191'],
+    ['walking_speed', 'Walk speed', ' km/h', 'var(--green)', '#2fa848'],
+    ['step_length', 'Step length', ' cm', 'var(--green)', '#2fa848'],
   ];
 
   const todayHr = dayVal('heart_rate') || dayVal('resting_hr');
@@ -85,6 +101,8 @@ export default function Health() {
         <RefreshButton source="health" onLocalRefresh={refresh} label="Sync" />
       </div>
       <p className="tab-sub">Apple Health via an iOS Shortcut automation{lastSync ? ` · synced ${new Date(lastSync).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</p>
+
+      <LiveStatus className="health-live" />
 
       {!has && (
         <Card title="Set up hands-free health sync" color="var(--red)">

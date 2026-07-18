@@ -2,6 +2,7 @@ import React from 'react';
 import { useCollection, todayStr } from '../lib/hooks.js';
 import { Card, Empty, StatTile, AskCowork, EyeBtn, useNow, useMoneyVisible, money } from '../components/ui.jsx';
 import { Ticker, Sky, useDailySpark } from '../components/arcade.jsx';
+import LiveStatus from '../components/LiveStatus.jsx';
 
 // time-of-day brief phase (local time = IST): morning → evening → night
 function briefPhase(h) { return h < 17 ? 'morning' : h < 21 ? 'evening' : 'night'; }
@@ -56,6 +57,7 @@ export default function HQ({ go }) {
           <span className="hs-q">“{spark.q}”</span>
           <span className="hs-a">— {spark.a}</span>
         </div>
+        <LiveStatus className="hero-live" />
       </div>
       <Ticker />
 
