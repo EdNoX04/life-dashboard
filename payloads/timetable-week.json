@@ -1,0 +1,35 @@
+{
+  "note": "Provisional 7CSE IOT1 timetable from Neel's photo (week of 2026-07-20). Linux excluded (not in Neel's specialization). Times in 24h. Full-replace, same as the Amizone sync does — the next Amizone run will overwrite with live data.",
+  "ops": [
+    { "table": "timetable", "method": "delete", "match": "id=neq.00000000-0000-0000-0000-000000000000" },
+    { "table": "timetable", "method": "insert", "rows": [
+      { "day": "Monday",    "start_time": "09:15", "end_time": "11:10", "subject": "ANS X&Y Lab",          "room": "C-108 Lab 2",  "faculty": null },
+      { "day": "Monday",    "start_time": "13:15", "end_time": "15:10", "subject": "SKE401",               "room": "E1-1LA4",      "faculty": null },
+      { "day": "Monday",    "start_time": "15:15", "end_time": "17:10", "subject": "Blockchain X Lab",     "room": "C-108 Lab 1",  "faculty": "Chintan" },
+
+      { "day": "Tuesday",   "start_time": "09:15", "end_time": "10:10", "subject": "Blockchain1",          "room": "E3-318",       "faculty": "Chintan" },
+      { "day": "Tuesday",   "start_time": "10:15", "end_time": "11:10", "subject": "ANS (Lecture)",        "room": "E3-318",       "faculty": "Shilpi" },
+      { "day": "Tuesday",   "start_time": "13:15", "end_time": "14:10", "subject": "IoT & System1 X Lab",  "room": "C-Block Lab 2","faculty": null },
+      { "day": "Tuesday",   "start_time": "14:15", "end_time": "16:10", "subject": "Blockchain Y Lab",     "room": "C-108 Lab 2",  "faculty": "Chintan" },
+
+      { "day": "Wednesday", "start_time": "09:15", "end_time": "10:10", "subject": "IoT1 System",          "room": "E3-318",       "faculty": "Krati" },
+      { "day": "Wednesday", "start_time": "10:15", "end_time": "11:10", "subject": "ANS (Lecture)",        "room": "E3-318",       "faculty": "Shilpi" },
+      { "day": "Wednesday", "start_time": "15:15", "end_time": "17:10", "subject": "FBL",                  "room": null,           "faculty": null },
+
+      { "day": "Thursday",  "start_time": "09:15", "end_time": "10:10", "subject": "ANS (Lecture)",        "room": "E3-318",       "faculty": "Shilpi" },
+      { "day": "Thursday",  "start_time": "11:15", "end_time": "12:10", "subject": "IoT1 System",          "room": "E3-318",       "faculty": "Krati" },
+      { "day": "Thursday",  "start_time": "13:15", "end_time": "14:10", "subject": "Blockchain1",          "room": "E3-318",       "faculty": "Chintan" },
+
+      { "day": "Friday",    "start_time": "11:15", "end_time": "13:10", "subject": "IoT & System1 Y Lab",  "room": "C-Block Lab 2","faculty": null },
+      { "day": "Friday",    "start_time": "13:15", "end_time": "14:10", "subject": "IoT1 System",          "room": "E3-318",       "faculty": "Krati" },
+      { "day": "Friday",    "start_time": "14:15", "end_time": "15:10", "subject": "FBL",                  "room": null,           "faculty": null }
+    ] },
+    { "table": "subjects", "method": "insert", "rows": [
+      { "name": "ANS",         "code": null,     "syllabus": "" },
+      { "name": "Blockchain",  "code": null,     "syllabus": "" },
+      { "name": "IoT System",  "code": null,     "syllabus": "" },
+      { "name": "SKE401",      "code": "SKE401", "syllabus": "" },
+      { "name": "FBL",         "code": null,     "syllabus": "" }
+    ] }
+  ]
+}

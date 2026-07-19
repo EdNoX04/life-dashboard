@@ -609,19 +609,21 @@
 .dec-item { border-bottom: 2px dashed var(--border); padding: 10px 0; }
 .dec-item:last-child { border-bottom: none; }
 
-/* ---- Retro LED clock (hero) ---- */
-.rclock { display: inline-flex; align-items: flex-end; gap: 10px; margin-top: 12px; position: relative; z-index: 2;
-  padding: 5px 13px 4px; border: 2px solid var(--border-bright); border-radius: 3px;
-  background: rgba(10,6,18,.62); box-shadow: inset 0 0 16px rgba(0,0,0,.7), 0 0 12px rgba(79,209,255,.18); }
-.rclock-digits { font-family: 'VT323', monospace; font-size: 42px; line-height: .9; letter-spacing: 3px;
-  color: var(--cyan); text-shadow: 0 0 6px rgba(79,209,255,.75), 0 0 18px rgba(79,209,255,.35);
-  font-variant-numeric: tabular-nums; }
-.rclock-sec { color: var(--pink); text-shadow: 0 0 6px rgba(255,95,162,.75), 0 0 18px rgba(255,95,162,.35); }
-.rclock-colon { transition: opacity .1s linear; }
-.rclock-colon.off { opacity: .18; }
-.rclock-tz { font-family: var(--font-pixel); font-size: 7px; letter-spacing: 1px; color: var(--ink-2); margin-bottom: 6px; }
-@media (max-width: 760px) { .rclock-digits { font-size: 34px; } .rclock { padding: 4px 10px; } }
-@media (prefers-reduced-motion: reduce) { .rclock-colon.off { opacity: 1; } }
+/* ---- Retro analogue clock (hero) ---- */
+.rclk { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; margin-top: 12px; position: relative; z-index: 2; }
+.rclk-face { width: 96px; height: 96px; }
+.rclk-glow { fill: none; stroke: var(--cyan); stroke-width: 2; opacity: .25; filter: blur(3px); }
+.rclk-rim { fill: none; stroke: var(--border-bright); stroke-width: 3; }
+.rclk-inner { fill: rgba(9,5,17,.82); stroke: rgba(79,209,255,.22); stroke-width: 1; }
+.rclk-tick { stroke: var(--ink-2); stroke-width: 1.4; }
+.rclk-tick.major { stroke: var(--cyan); stroke-width: 2.6; filter: drop-shadow(0 0 3px var(--cyan)); }
+.rclk-hand { stroke-linecap: round; }
+.rclk-hr { stroke: var(--cyan); stroke-width: 4.2; filter: drop-shadow(0 0 4px rgba(79,209,255,.7)); }
+.rclk-min { stroke: var(--ink); stroke-width: 3; filter: drop-shadow(0 0 3px rgba(255,255,255,.35)); }
+.rclk-sec { stroke: var(--pink); stroke-width: 1.6; filter: drop-shadow(0 0 4px rgba(255,95,162,.85)); }
+.rclk-pin { fill: var(--pink); stroke: var(--bg-deep); stroke-width: .6; }
+.rclk-tz { font-family: var(--font-pixel); font-size: 6.5px; letter-spacing: 1px; color: var(--ink-2); }
+@media (max-width: 760px) { .rclk-face { width: 82px; height: 82px; } }
 
 /* ---- Meetings (dashboard hub) ---- */
 .spread { display: flex; justify-content: space-between; align-items: center; }
