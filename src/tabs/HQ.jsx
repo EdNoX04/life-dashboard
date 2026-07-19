@@ -4,6 +4,7 @@ import { Card, Empty, StatTile, AskCowork, useNow, useMoneyVisible, money } from
 import { Ticker, Sky, useDailySpark } from '../components/arcade.jsx';
 import LiveStatus from '../components/LiveStatus.jsx';
 import MiniCalendar from '../components/MiniCalendar.jsx';
+import NextMeeting from '../components/NextMeeting.jsx';
 import { useLiveQuotes } from '../lib/live.js';
 
 const WD = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -155,6 +156,8 @@ export default function HQ({ go }) {
         </div>
 
         <div className="dash-col">
+          <NextMeeting />
+
           <Card title="Reminders" color="var(--red)">
             {reminders.length === 0 && <Empty icon="✓" text="All clear — nothing needs your attention." />}
             {reminders.slice(0, 7).map((r, i) => (
