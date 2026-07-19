@@ -1,17 +1,32 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCollection, todayStr } from '../lib/hooks.js';
 import { Card, Empty, StatTile, AskCowork, useNow, useMoneyVisible, money } from '../components/ui.jsx';
 import { Ticker, Sky, useDailySpark } from '../components/arcade.jsx';
 import LiveStatus from '../components/LiveStatus.jsx';
+import RetroClock from '../components/RetroClock.jsx';
 import MiniCalendar from '../components/MiniCalendar.jsx';
 import NextMeeting from '../components/NextMeeting.jsx';
 import { useLiveQuotes } from '../lib/live.js';
 
 const WD = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const briefPhase = h => (h < 17 ? 'morning' : h < 21 ? 'evening' : 'night');
+
+// Column count by width: 3 on wide desktop, 2 on iPad (unchanged), 1 on phone.
+const colsFor = w => (w >= 1500 ? 3 : w >= 901 ? 2 : 1);
+function useDashCols() {
+  const [n, setN] = useState(() => (typeof window === 'undefined' ? 2 : colsFor(window.innerWidth)));
+  useEffect(() => {
+    const on = () => setN(colsFor(window.innerWidth));
+    on();
+    window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, []);
+  return n;
+}
 const attPct = raw => { const n = Number(raw) || 0; return n > 0 && n <= 1 ? Math.round(n * 1000) / 10 : n; };
 
 export default function HQ({ go }) {
+  const cols = useDashCols();
   const now = useNow();
   const today = todayStr();
   const plus7 = todayStr(new Date(Date.now() + 7 * 864e5));
@@ -68,7 +83,7 @@ export default function HQ({ go }) {
     : phase === 'evening' ? { t: 'This evening', c: 'var(--cyan)' } : { t: 'Tonight', c: 'var(--purple)' };
 
   const BriefCard = (
-    <Card title={briefMeta.t} color={briefMeta.c}>
+    <Card key="brief" title={briefMeta.t} color={briefMeta.c}>
       {phase === 'morning' && (
         <>
           <div style={{ lineHeight: 1.6 }}>
@@ -107,6 +122,59 @@ export default function HQ({ go }) {
     </Card>
   );
 
+  const MeetingsCard = <NextMeeting key="meetings" />;
+  const CalendarCard = <MiniCalendar key="calendar" go={go} />;
+  const RemindersCard = (
+    <Card key="reminders" title="Reminders" color="var(--red)">
+      {reminders.length === 0 && <Empty icon="✓" text="All clear — nothing needs your attention." />}
+      {reminders.slice(0, 7).map((r, i) => (
+        <div className="row" key={i} style={{ cursor: 'pointer' }} onClick={() => go(r.go)}>
+          <span className="rem-ico" style={{ color: r.c }}>{r.icon}</span>
+          <span style={{ flex: 1 }} className="small">{r.text}</span>
+          <span className="chip" style={{ color: r.c, borderColor: r.c }}>{r.chip}</span>
+        </div>
+      ))}
+    </Card>
+  );
+  const PrioritiesCard = (
+    <Card key="priorities" title="Priorities" color="var(--yellow)" right={<button className="btn btn-sm" onClick={() => go('todos')}>open →</button>}>
+      {openTodos.length === 0 && <Empty icon="✓" text="Nothing due. Legend." />}
+      {openTodos.slice(0, 6).map(t => (
+        <div className="row" key={t.id}><span style={{ flex: 1 }}>{t.title}</span><span className="chip c-yellow">{t.due_date}</span></div>
+      ))}
+    </Card>
+  );
+  const NewsCard = (
+    <Card key="news" title="News brief" color="var(--purple)" right={<button className="btn btn-sm" onClick={() => go('news')}>all →</button>}>
+      {news.length === 0 && <Empty icon="※" text="Headlines arrive with the daily run." />}
+      {news.slice(0, 5).map(n => (
+        <div className="row" key={n.id}><span style={{ flex: 1 }}><a href={n.url} target="_blank" rel="noreferrer" style={{ color: 'var(--ink)' }}>{n.title}</a></span><span className="chip c-purple">{n.category}</span></div>
+      ))}
+    </Card>
+  );
+  const ClassesCard = isSchoolDay ? (
+    <Card key="classes" title="Today's classes" color="var(--cyan)" right={<button className="btn btn-sm" onClick={() => go('college')}>open →</button>}>
+      {classes.length === 0 && <Empty icon="☺" text="No classes today — free roam." />}
+      {classes.slice(0, 8).map(t => (
+        <div className="row" key={t.id}>
+          <span className="chip c-cyan">{t.start_time}</span>
+          <span style={{ flex: 1 }}>{t.subject}</span>
+          {t.room && <span className="chip c-purple">{t.room}</span>}
+        </div>
+      ))}
+    </Card>
+  ) : null;
+
+  // Same cards, grouped by column count. 2-col grouping is the original iPad layout.
+  const cardMap = { brief: BriefCard, meetings: MeetingsCard, reminders: RemindersCard, priorities: PrioritiesCard, calendar: CalendarCard, news: NewsCard, classes: ClassesCard };
+  const LAYOUTS = {
+    1: [['brief', 'meetings', 'reminders', 'priorities', 'calendar', 'news', 'classes']],
+    2: [['brief', 'priorities', 'news'], ['meetings', 'reminders', 'calendar', 'classes']],
+    3: [['brief', 'news'], ['meetings', 'priorities'], ['reminders', 'calendar', 'classes']],
+  };
+  const layout = LAYOUTS[cols] || LAYOUTS[2];
+  const gtc = cols === 3 ? '1.15fr 1fr 1fr' : cols === 2 ? '1.35fr 1fr' : '1fr';
+
   return (
     <>
       <div className="hero-wrap">
@@ -114,7 +182,8 @@ export default function HQ({ go }) {
           <Sky hour={now.getHours()} />
           <div className="world">WORLD {now.getMonth() + 1}-{now.getDate()} · {dayName.toUpperCase()}</div>
           <h1 className="tab-title" style={{ marginTop: 8 }}>{greet}, NEEL</h1>
-          <p className="tab-sub" style={{ margin: 0 }}>{now.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} · {now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+          <p className="tab-sub" style={{ margin: 0 }}>{now.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} · {now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })}</p>
+          <RetroClock />
         </div>
         <div className="hero-spark">
           <span className="hs-label">✦ DAILY SPARK</span>
@@ -136,50 +205,12 @@ export default function HQ({ go }) {
           color="var(--pink)" />
       </div>
 
-      <div className="dash-cols">
-        {BriefCard}
-
-        <NextMeeting />
-
-        <Card title="Reminders" color="var(--red)">
-          {reminders.length === 0 && <Empty icon="✓" text="All clear — nothing needs your attention." />}
-          {reminders.slice(0, 7).map((r, i) => (
-            <div className="row" key={i} style={{ cursor: 'pointer' }} onClick={() => go(r.go)}>
-              <span className="rem-ico" style={{ color: r.c }}>{r.icon}</span>
-              <span style={{ flex: 1 }} className="small">{r.text}</span>
-              <span className="chip" style={{ color: r.c, borderColor: r.c }}>{r.chip}</span>
-            </div>
-          ))}
-        </Card>
-
-        <Card title="Priorities" color="var(--yellow)" right={<button className="btn btn-sm" onClick={() => go('todos')}>open →</button>}>
-          {openTodos.length === 0 && <Empty icon="✓" text="Nothing due. Legend." />}
-          {openTodos.slice(0, 6).map(t => (
-            <div className="row" key={t.id}><span style={{ flex: 1 }}>{t.title}</span><span className="chip c-yellow">{t.due_date}</span></div>
-          ))}
-        </Card>
-
-        <MiniCalendar go={go} />
-
-        <Card title="News brief" color="var(--purple)" right={<button className="btn btn-sm" onClick={() => go('news')}>all →</button>}>
-          {news.length === 0 && <Empty icon="※" text="Headlines arrive with the daily run." />}
-          {news.slice(0, 5).map(n => (
-            <div className="row" key={n.id}><span style={{ flex: 1 }}><a href={n.url} target="_blank" rel="noreferrer" style={{ color: 'var(--ink)' }}>{n.title}</a></span><span className="chip c-purple">{n.category}</span></div>
-          ))}
-        </Card>
-
-        {isSchoolDay && (
-          <Card title="Today's classes" color="var(--cyan)" right={<button className="btn btn-sm" onClick={() => go('college')}>open →</button>}>
-            {classes.length === 0 && <Empty icon="☺" text="No classes today — free roam." />}
-            {classes.slice(0, 8).map(t => (
-              <div className="row" key={t.id}>
-                <span className="chip c-cyan">{t.start_time}</span>
-                <span style={{ flex: 1 }}>{t.subject}</span>
-                {t.room && <span className="chip c-purple">{t.room}</span>}
-              </div>
-            ))}
-          </Card>
-        )}
+      <div className="dash-cols" style={{ gridTemplateColumns: gtc }}>
+        {layout.map((col, i) => (
+          <div className="dash-col" key={i}>
+            {col.map(k => cardMap[k]).filter(Boolean)}
+          </div>
+        ))}
       </div>
 
       <AskCowork />
