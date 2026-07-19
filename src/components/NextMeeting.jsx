@@ -42,7 +42,8 @@ export default function NextMeeting() {
     const end = isoLocal(new Date(new Date(start).getTime() + Number(form.dur) * 60000));
     const m = { id: uid(), title: form.title.trim(), start, end, meet: '', gcal_id: '', wantMeet: form.meet, status: 'pending', created: new Date().toISOString() };
     await save([m, ...list]);
-    db.sendRequest('meeting_add', { id: m.id, title: m.title, start, end, meet: form.meet }).catch(() => {});
+    const tz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return 'Asia/Kolkata'; } })();
+    db.sendRequest('meeting_add', { id: m.id, title: m.title, start, end, meet: form.meet, tz }).catch(() => {});
     setForm({ title: '', date: today, time: '15:00', dur: 30, meet: true });
     setOpen(false);
   }

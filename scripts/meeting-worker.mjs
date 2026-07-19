@@ -1,0 +1,133 @@
+// Meetings worker — runs on GitHub Actions (full network), no Mac / no Cowork chat.
+//
+// Flow (the webapp drives it, this closes the loop):
+//   1. In the app you add a meeting → NextMeeting.jsx saves it to memory.meetings
+//      (status "pending") AND drops a row into `requests` (kind = "meeting_add").
+//   2. This worker polls that queue, creates the real Google Calendar event with a
+//      Google Meet link, writes the link + event id back into memory.meetings, and
+//      marks the request done. The dashboard card then shows a live, joinable link.
+//
+// Apple Calendar: there is no clean server API to push a Meet link into iCloud.
+// The right way is to add your Google account to iPhone Settings → Calendar once —
+// then every event this worker creates shows up in Apple Calendar automatically,
+// Meet link included. (See MEETINGS-SETUP.md.)
+//
+// Env (GitHub Secrets):
+//   SUPABASE_URL, SUPABASE_SERVICE_KEY
+//   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN
+//   GOOGLE_CALENDAR_ID   (optional, defaults to "primary")
+
+const {
+  SUPABASE_URL, SUPABASE_SERVICE_KEY,
+  GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN,
+  GOOGLE_CALENDAR_ID = 'primary',
+} = process.env;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) { console.error('Missing Supabase env'); process.exit(1); }
+if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REFRESH_TOKEN) {
+  console.error('Missing Google OAuth env (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN).');
+  process.exit(1);
+}
+
+const DEFAULT_TZ = 'Asia/Kolkata';
+
+// ---- Supabase REST ----
+const SB = SUPABASE_URL.replace(/\/$/, '');
+const H = { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`, 'Content-Type': 'application/json' };
+const rest = (p, init = {}) => fetch(`${SB}/rest/v1/${p}`, { ...init, headers: { ...H, ...(init.headers || {}) } });
+
+async function sbJson(p, init) {
+  const r = await rest(p, init);
+  if (!r.ok) throw new Error(`Supabase ${init?.method || 'GET'} ${p}: ${r.status} ${await r.text()}`);
+  const t = await r.text();
+  return t ? JSON.parse(t) : null;
+}
+
+// ---- Google OAuth: refresh token -> access token ----
+async function accessToken() {
+  const body = new URLSearchParams({
+    client_id: GOOGLE_CLIENT_ID, client_secret: GOOGLE_CLIENT_SECRET,
+    refresh_token: GOOGLE_REFRESH_TOKEN, grant_type: 'refresh_token',
+  });
+  const r = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body,
+  });
+  if (!r.ok) throw new Error(`Google token: ${r.status} ${await r.text()}`);
+  return (await r.json()).access_token;
+}
+
+// ---- Create a Google Calendar event (+ Meet link if wanted) ----
+async function createEvent(token, m) {
+  const tz = m.tz || DEFAULT_TZ;
+  const wantMeet = m.meet === undefined ? true : !!m.meet;
+  const ev = {
+    summary: m.title || 'Meeting',
+    description: (m.description || '') + '\n\nAdded from PLAYER ONE dashboard.',
+    start: { dateTime: m.start, timeZone: tz },
+    end: { dateTime: m.end || m.start, timeZone: tz },
+  };
+  if (Array.isArray(m.attendees) && m.attendees.length) ev.attendees = m.attendees.map(e => ({ email: e }));
+  if (wantMeet) {
+    ev.conferenceData = { createRequest: { requestId: `po-${m.id}`, conferenceSolutionKey: { type: 'hangoutsMeet' } } };
+  }
+  const qs = new URLSearchParams({ conferenceDataVersion: '1', sendUpdates: ev.attendees ? 'all' : 'none' });
+  const r = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events?${qs}`,
+    { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(ev) },
+  );
+  if (!r.ok) throw new Error(`Calendar insert: ${r.status} ${await r.text()}`);
+  const j = await r.json();
+  const meet = j.hangoutLink || j.conferenceData?.entryPoints?.find(e => e.entryPointType === 'video')?.uri || '';
+  return { gcal_id: j.id, htmlLink: j.htmlLink, meet };
+}
+
+// ---- write the created link back into memory.meetings ----
+async function patchMemoryMeeting(id, patch) {
+  const rows = await sbJson('memory?key=eq.meetings&select=value');
+  const value = rows?.[0]?.value || { list: [] };
+  const list = Array.isArray(value.list) ? value.list : [];
+  const idx = list.findIndex(x => x.id === id);
+  if (idx === -1) { list.unshift({ id, ...patch }); } else { list[idx] = { ...list[idx], ...patch }; }
+  const next = { ...value, list, updated: new Date().toISOString() };
+  await sbJson('memory?on_conflict=key', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates' },
+    body: JSON.stringify([{ key: 'meetings', value: next, updated_at: new Date().toISOString() }]),
+  });
+}
+
+async function resolveRequest(id, status, response) {
+  await rest(`requests?id=eq.${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, response: response?.slice(0, 500) || null, resolved_at: new Date().toISOString() }),
+  });
+}
+
+async function run() {
+  const pending = await sbJson('requests?kind=eq.meeting_add&status=eq.pending&select=id,payload&order=created_at.asc');
+  if (!Array.isArray(pending) || !pending.length) { console.log('No pending meetings.'); return; }
+  console.log(`${pending.length} pending meeting(s).`);
+
+  let token;
+  try { token = await accessToken(); }
+  catch (e) { console.error('Auth failed:', e.message); process.exit(1); }
+
+  for (const req of pending) {
+    const m = req.payload || {};
+    if (!m.id || !m.start) { await resolveRequest(req.id, 'failed', 'missing id/start'); console.error('  skip bad payload', req.id); continue; }
+    await rest(`requests?id=eq.${req.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'working' }) });
+    try {
+      const { gcal_id, meet, htmlLink } = await createEvent(token, m);
+      await patchMemoryMeeting(m.id, { gcal_id, meet, htmlLink, status: 'confirmed' });
+      await resolveRequest(req.id, 'done', meet || htmlLink);
+      console.log(`  ✓ ${m.title} → ${meet || '(no meet link)'} `);
+    } catch (e) {
+      await resolveRequest(req.id, 'failed', e.message);
+      await patchMemoryMeeting(m.id, { status: 'error' }).catch(() => {});
+      console.error(`  ✗ ${m.title}: ${e.message}`);
+      process.exitCode = 1;
+    }
+  }
+}
+
+run().catch(e => { console.error(e); process.exit(1); });
