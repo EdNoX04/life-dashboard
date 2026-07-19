@@ -137,53 +137,49 @@ export default function HQ({ go }) {
       </div>
 
       <div className="dash-cols">
-        <div className="dash-col">
-          {BriefCard}
+        {BriefCard}
 
-          <Card title="Priorities" color="var(--yellow)" right={<button className="btn btn-sm" onClick={() => go('todos')}>open →</button>}>
-            {openTodos.length === 0 && <Empty icon="✓" text="Nothing due. Legend." />}
-            {openTodos.slice(0, 6).map(t => (
-              <div className="row" key={t.id}><span style={{ flex: 1 }}>{t.title}</span><span className="chip c-yellow">{t.due_date}</span></div>
-            ))}
-          </Card>
+        <NextMeeting />
 
-          <Card title="News brief" color="var(--purple)" right={<button className="btn btn-sm" onClick={() => go('news')}>all →</button>}>
-            {news.length === 0 && <Empty icon="※" text="Headlines arrive with the daily run." />}
-            {news.slice(0, 5).map(n => (
-              <div className="row" key={n.id}><span style={{ flex: 1 }}><a href={n.url} target="_blank" rel="noreferrer" style={{ color: 'var(--ink)' }}>{n.title}</a></span><span className="chip c-purple">{n.category}</span></div>
-            ))}
-          </Card>
-        </div>
+        <Card title="Reminders" color="var(--red)">
+          {reminders.length === 0 && <Empty icon="✓" text="All clear — nothing needs your attention." />}
+          {reminders.slice(0, 7).map((r, i) => (
+            <div className="row" key={i} style={{ cursor: 'pointer' }} onClick={() => go(r.go)}>
+              <span className="rem-ico" style={{ color: r.c }}>{r.icon}</span>
+              <span style={{ flex: 1 }} className="small">{r.text}</span>
+              <span className="chip" style={{ color: r.c, borderColor: r.c }}>{r.chip}</span>
+            </div>
+          ))}
+        </Card>
 
-        <div className="dash-col">
-          <NextMeeting />
+        <Card title="Priorities" color="var(--yellow)" right={<button className="btn btn-sm" onClick={() => go('todos')}>open →</button>}>
+          {openTodos.length === 0 && <Empty icon="✓" text="Nothing due. Legend." />}
+          {openTodos.slice(0, 6).map(t => (
+            <div className="row" key={t.id}><span style={{ flex: 1 }}>{t.title}</span><span className="chip c-yellow">{t.due_date}</span></div>
+          ))}
+        </Card>
 
-          <Card title="Reminders" color="var(--red)">
-            {reminders.length === 0 && <Empty icon="✓" text="All clear — nothing needs your attention." />}
-            {reminders.slice(0, 7).map((r, i) => (
-              <div className="row" key={i} style={{ cursor: 'pointer' }} onClick={() => go(r.go)}>
-                <span className="rem-ico" style={{ color: r.c }}>{r.icon}</span>
-                <span style={{ flex: 1 }} className="small">{r.text}</span>
-                <span className="chip" style={{ color: r.c, borderColor: r.c }}>{r.chip}</span>
+        <MiniCalendar go={go} />
+
+        <Card title="News brief" color="var(--purple)" right={<button className="btn btn-sm" onClick={() => go('news')}>all →</button>}>
+          {news.length === 0 && <Empty icon="※" text="Headlines arrive with the daily run." />}
+          {news.slice(0, 5).map(n => (
+            <div className="row" key={n.id}><span style={{ flex: 1 }}><a href={n.url} target="_blank" rel="noreferrer" style={{ color: 'var(--ink)' }}>{n.title}</a></span><span className="chip c-purple">{n.category}</span></div>
+          ))}
+        </Card>
+
+        {isSchoolDay && (
+          <Card title="Today's classes" color="var(--cyan)" right={<button className="btn btn-sm" onClick={() => go('college')}>open →</button>}>
+            {classes.length === 0 && <Empty icon="☺" text="No classes today — free roam." />}
+            {classes.slice(0, 8).map(t => (
+              <div className="row" key={t.id}>
+                <span className="chip c-cyan">{t.start_time}</span>
+                <span style={{ flex: 1 }}>{t.subject}</span>
+                {t.room && <span className="chip c-purple">{t.room}</span>}
               </div>
             ))}
           </Card>
-
-          <MiniCalendar go={go} />
-
-          {isSchoolDay && (
-            <Card title="Today's classes" color="var(--cyan)" right={<button className="btn btn-sm" onClick={() => go('college')}>open →</button>}>
-              {classes.length === 0 && <Empty icon="☺" text="No classes today — free roam." />}
-              {classes.slice(0, 8).map(t => (
-                <div className="row" key={t.id}>
-                  <span className="chip c-cyan">{t.start_time}</span>
-                  <span style={{ flex: 1 }}>{t.subject}</span>
-                  {t.room && <span className="chip c-purple">{t.room}</span>}
-                </div>
-              ))}
-            </Card>
-          )}
-        </div>
+        )}
       </div>
 
       <AskCowork />

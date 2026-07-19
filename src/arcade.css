@@ -110,11 +110,13 @@
 /* retro rupee glyph — force the pixel-era font so ₹ matches the $ styling */
 .rupee { font-family: 'VT323', var(--font-mono, monospace); font-weight: 700; letter-spacing: 0; }
 
-/* ---- dashboard two-column layout ---- */
-.dash-cols { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; align-items: start; }
-.dash-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.dash-cols .card { margin-bottom: 0; }
-@media (max-width: 900px) { .dash-cols { grid-template-columns: 1fr; } }
+/* ---- dashboard masonry: fills the full width — 3 cols wide, 2 on tablet, 1 on phone ---- */
+.dash-cols { column-count: 2; column-gap: 16px; }
+.dash-cols > * { break-inside: avoid; -webkit-column-break-inside: avoid; page-break-inside: avoid; margin: 0 0 16px; display: inline-block; width: 100%; vertical-align: top; }
+.dash-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; } /* legacy, unused */
+@media (min-width: 1500px) { .dash-cols { column-count: 3; } }
+@media (min-width: 2100px) { .dash-cols { column-count: 4; } }
+@media (max-width: 900px) { .dash-cols { column-count: 1; } }
 .rem-ico { flex-shrink: 0; width: 16px; text-align: center; font-weight: bold; }
 
 /* ---- mini calendar ---- */
