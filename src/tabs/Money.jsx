@@ -25,17 +25,20 @@ const STOP = new Set(['inc', 'inc.', 'corp', 'corp.', 'corporation', 'ltd', 'ltd
 // company-name keywords used to match news to a holding
 const nameKeys = name => String(name || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 3 && !STOP.has(w));
 
-// Retro P&L backdrop: ONE thick pixel-staircase line that draws itself falling
-// (loss) or climbing (gain), holds for a beat, then redraws. Red / green tint
-// fading into the panel on the left.
+// Retro P&L backdrop styled after the neon "crash chart": a jagged neon trend
+// line (red falling / green rising) over a dark grid strewn with faint direction
+// arrows, glowing softly. Static line + gentle glow pulse — no crawling.
 function DayFx({ up }) {
-  const d = up
-    ? 'M6 48 H30 V40 H52 V44 H74 V32 H98 V36 H120 V22 H144 V26 H166 V14 H190 V8'
-    : 'M6 8 H30 V16 H52 V12 H74 V24 H98 V20 H120 V34 H144 V30 H166 V42 H190 V48';
+  const line = up
+    ? 'M2 50 L16 44 L28 47 L44 33 L58 37 L74 22 L90 28 L106 13 L122 19 L138 7 L150 5'
+    : 'M2 6 L16 12 L28 9 L44 23 L58 19 L74 34 L90 28 L106 43 L122 37 L138 49 L150 51';
+  const glow = up ? '#6ee76e' : '#e84141';
   return (
     <div className={`daypl-fx ${up ? 'up' : 'down'}`} aria-hidden="true">
-      <svg viewBox="0 0 200 56" preserveAspectRatio="none">
-        <path className="daypl-line" d={d} pathLength="100" fill="none" vectorEffect="non-scaling-stroke" />
+      <div className="daypl-arrows">{Array.from({ length: 24 }).map((_, i) => <span key={i}>{up ? '▲' : '▼'}</span>)}</div>
+      <svg viewBox="0 0 152 56" preserveAspectRatio="none">
+        <path d={line} fill="none" stroke={glow} strokeWidth="6" opacity="0.22" vectorEffect="non-scaling-stroke" style={{ filter: 'blur(3px)' }} />
+        <path className="daypl-line" d={line} fill="none" stroke={glow} strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
       </svg>
     </div>
   );
@@ -247,7 +250,7 @@ export default function Money() {
           </span>
           <span className="seg">
             <button className={`seg-btn${cur === 'usd' ? ' on' : ''}`} onClick={() => setCur('usd')}>$</button>
-            <button className={`seg-btn${cur === 'inr' ? ' on' : ''}`} onClick={() => setCur('inr')} disabled={!fx} title={fx ? '' : 'FX loading…'}>₹</button>
+            <button className={`seg-btn${cur === 'inr' ? ' on' : ''}`} onClick={() => setCur('inr')} disabled={!fx} title={fx ? '' : 'FX loading…'}><span className="rupee">₹</span></button>
           </span>
           <EyeBtn visible={visible} onClick={toggle} />
         </span>
@@ -263,7 +266,7 @@ export default function Money() {
         <StatTile label="Invested" value={disp(cost)} color="var(--cyan)" />
         <StatTile label="Total P&L" value={disp(pnl)} note={pctChip(pnlPct)} color={pnl >= 0 ? 'var(--green)' : 'var(--red)'} />
         <StatTile label="Holdings" value={held.length} color="var(--pink)" />
-        <StatTile label="USD → INR" value={fx ? '₹' + fx.toFixed(2) : '…'} note="live FX" color="var(--orange)" />
+        <StatTile label="USD → INR" value={fx ? <><span className="rupee">₹</span>{fx.toFixed(2)}</> : '…'} note="live FX" color="var(--orange)" />
       </div>
 
       {/* Today's 1D gain / loss */}

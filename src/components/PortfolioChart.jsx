@@ -100,8 +100,7 @@ export default function PortfolioChart({ orders = [], invested: investedProp, va
   const areaPath = pts => (is1D ? linePath(pts) : stepPath(pts)) + ` L ${x(pts[pts.length - 1].t, pts.length - 1).toFixed(1)} ${(H - padB).toFixed(1)} L ${x(pts[0].t, 0).toFixed(1)} ${(H - padB).toFixed(1)} Z`;
 
   const gridY = mini ? [] : [0, 0.5, 1].map(f => ({ v: minV + (maxV - minV) * f, y: y(minV + (maxV - minV) * f) }));
-  const dayUp = is1D && dVal.length > 1 ? dVal[dVal.length - 1].v >= dVal[0].v : true;
-  const valColor = is1D ? (dayUp ? '#6ee76e' : '#e84141') : VAL_C;
+  const valColor = VAL_C; // value line is always pink — consistent across every timeframe incl. 1D
 
   return (
     <div ref={wrapRef} style={{ width: '100%' }}>
