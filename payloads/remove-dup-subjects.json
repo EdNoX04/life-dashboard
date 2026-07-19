@@ -1,0 +1,10 @@
+{
+  "note": "Remove the provisional short-name subjects I inserted — they duplicate Amizone's real ones (ANS = Advanced Network Security…, Blockchain = Blockchain Technologies…, IoT System = IoT System Design…). Deletes only the exact short names, so the real Amizone rows and the open electives (Human Computer Interaction, Spanish) are untouched. Amizone stays the source of subjects.",
+  "ops": [
+    { "table": "subjects", "method": "delete", "match": "name=eq.ANS" },
+    { "table": "subjects", "method": "delete", "match": "name=eq.Blockchain" },
+    { "table": "subjects", "method": "delete", "match": "name=eq.IoT%20System" },
+    { "table": "subjects", "method": "delete", "match": "name=eq.SKE401" },
+    { "table": "subjects", "method": "delete", "match": "name=eq.FBL" }
+  ]
+}

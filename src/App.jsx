@@ -89,7 +89,7 @@ export default function App() {
         </div>
         <PlayerCard />
       </nav>
-      <main className={`main ${tab === 'hq' ? 'wide' : ''}`}>
+      <main className="main">
         <ErrorBoundary key={tab}>
           <Active go={setTab} />
         </ErrorBoundary>

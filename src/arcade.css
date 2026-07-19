@@ -470,6 +470,17 @@
   .tt-meta .chip { white-space: normal; }
 }
 
+/* ---- Weekly timetable: grouped by day, fills width in columns ---- */
+.wtt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 6px 26px; align-items: start; }
+.wtt-day { break-inside: avoid; }
+.wtt-head { display: flex; align-items: center; gap: 8px; padding: 8px 0 6px; border-bottom: 2px solid var(--border-bright); margin-bottom: 2px; }
+.wtt-dot { width: 9px; height: 9px; flex: none; background: var(--purple); box-shadow: 0 0 6px var(--purple); }
+.wtt-day.is-today .wtt-dot { background: var(--cyan); box-shadow: 0 0 7px var(--cyan); }
+.wtt-name { font-family: var(--font-pixel); font-size: 9px; letter-spacing: 1px; color: var(--ink); text-transform: uppercase; }
+.wtt-day.is-today .wtt-name { color: var(--cyan); }
+.wtt-count { margin-left: auto; font-family: 'VT323', monospace; font-size: 15px; color: var(--ink-2); }
+.wtt-day .tt-item { padding: 7px 0; }
+
 /* ---- Today's 1D P&L banner ---- */
 .daypl { padding: 12px 14px; margin-bottom: 14px; border-left-width: 5px; }
 .daypl.up { border-left: 5px solid var(--green); }

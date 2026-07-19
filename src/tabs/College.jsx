@@ -111,16 +111,33 @@ export default function College() {
       </Card>
 
       <Card title="Weekly timetable" color="var(--purple)">
-        <div className="scroll-x">
-          <table className="ptable">
-            <thead><tr><th>Day</th><th>Time</th><th>Subject</th><th>Room</th></tr></thead>
-            <tbody>
-              {timetable.map(t => (
-                <tr key={t.id}><td>{t.day}</td><td>{t.start_time}–{t.end_time}</td><td>{t.subject}</td><td>{t.room || '—'}</td></tr>
-              ))}
-              {timetable.length === 0 && <tr><td colSpan={4} className="muted">Waiting for Amizone sync…</td></tr>}
-            </tbody>
-          </table>
+        {timetable.length === 0 && <Empty icon="◷" text="Waiting for Amizone sync…" />}
+        <div className="wtt-grid">
+          {DAYS.map(day => {
+            const rows = timetable.filter(t => t.day === day)
+              .slice().sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));
+            if (!rows.length) return null;
+            return (
+              <div className={`wtt-day${day === todayName ? ' is-today' : ''}`} key={day}>
+                <div className="wtt-head">
+                  <span className="wtt-dot" />
+                  <span className="wtt-name">{day}</span>
+                  {day === todayName && <span className="chip c-cyan">today</span>}
+                  <span className="wtt-count">{rows.length} class{rows.length > 1 ? 'es' : ''}</span>
+                </div>
+                {rows.map(t => (
+                  <div className="tt-item" key={t.id}>
+                    <span className="chip c-cyan tt-time">{t.start_time}–{t.end_time}</span>
+                    <span className="tt-subj">{t.subject}</span>
+                    <span className="tt-meta">
+                      {t.room && <span className="chip">{t.room}</span>}
+                      {t.faculty && <span className="chip c-purple">{t.faculty}</span>}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
         </div>
       </Card>
     </>
