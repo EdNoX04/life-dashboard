@@ -9,9 +9,9 @@ import * as amb from '../lib/ambient.js';
 const AMBIENT = ['rain', 'thunder', 'fire', 'wind', 'forest', 'waves', 'river', 'cafe', 'night', 'birds', 'noise']
   .map(k => ({ key: k, ...amb.SOUNDS[k] }));
 const STUDY_STATIONS = [
-  { id: 'jfKfPfyJRdk', label: 'Study' },
-  { id: '7NOSDKb0HlU', label: 'Relax' },
-  { id: '4xDzrJKXOOY', label: 'Synthwave' },
+  { url: 'https://ice1.somafm.com/fluid-128-mp3', label: 'Lofi beats' },
+  { url: 'https://ice1.somafm.com/groovesalad-128-mp3', label: 'Groove' },
+  { url: 'https://ice1.somafm.com/beatblender-128-mp3', label: 'Beats' },
 ];
 const DUR = { focus: 25 * 60, short: 5 * 60, long: 15 * 60 };
 const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;

@@ -33,6 +33,36 @@
   --font-body: 'VT323', 'Courier New', monospace;
 }
 
+/* ============ retro color themes (recolor the whole app) ============ */
+:root[data-theme="amber"] {
+  --bg: #180f04; --bg-deep: #0f0902; --panel: #241905; --panel-2: #30220a;
+  --border: #5a4118; --border-bright: #b57f27;
+  --ink: #fff2dc; --ink-2: #d7bd8f; --ink-3: #9c8355;
+  --pink: #ffb347; --purple: #ff8c42; --cyan: #ffd166;
+  --yellow: #ffd166; --green: #b6d94a; --orange: #ff8c42; --red: #ff6a3d;
+}
+:root[data-theme="matrix"] {
+  --bg: #061006; --bg-deep: #030a03; --panel: #0b1a0b; --panel-2: #112611;
+  --border: #1f4d24; --border-bright: #2f8038;
+  --ink: #d6ffe0; --ink-2: #86c99a; --ink-3: #5a8a67;
+  --pink: #39ff14; --purple: #28c76f; --cyan: #8affc1;
+  --yellow: #b8ff5a; --green: #39ff14; --orange: #b8ff5a; --red: #ff6b6b;
+}
+:root[data-theme="ice"] {
+  --bg: #0a1420; --bg-deep: #060d16; --panel: #10203a; --panel-2: #172c4c;
+  --border: #244a78; --border-bright: #3a7ec4;
+  --ink: #eaf6ff; --ink-2: #a6c4e0; --ink-3: #6f8fb0;
+  --pink: #48dbff; --purple: #5b8cff; --cyan: #7defe0;
+  --yellow: #7dd3fc; --green: #5eead4; --orange: #60a5fa; --red: #fb7185;
+}
+:root[data-theme="synth"] {
+  --bg: #180d2e; --bg-deep: #100823; --panel: #241542; --panel-2: #331d5c;
+  --border: #573a90; --border-bright: #8a4fd6;
+  --ink: #f6ecff; --ink-2: #c0a8e0; --ink-3: #8f78b8;
+  --pink: #ff2e97; --purple: #b14bff; --cyan: #2de2e6;
+  --yellow: #ffd23f; --green: #55e6a5; --orange: #ff7a4c; --red: #ff5c8a;
+}
+
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 body {

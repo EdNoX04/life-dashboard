@@ -6,9 +6,9 @@ import * as amb from '../lib/ambient.js';
 // Wind-down room — sleep lofi (Lofi Girl "beats to sleep/chill to"), calming ambience,
 // and a sleep timer that fades everything out so you can drift off.
 const SLEEP_STATIONS = [
-  { id: 'JD-kMIpDfnY', label: 'Sleep' },
-  { id: 'jfKfPfyJRdk', label: 'Chill study' },
-  { id: '4xDzrJKXOOY', label: 'Synthwave' },
+  { url: 'https://ice1.somafm.com/dronezone-128-mp3', label: 'Drone' },
+  { url: 'https://ice1.somafm.com/deepspaceone-128-mp3', label: 'Deep space' },
+  { url: 'https://ice1.somafm.com/groovesalad-128-mp3', label: 'Chill' },
 ];
 const CALM = ['rain', 'thunder', 'waves', 'river', 'wind', 'fire', 'night']
   .map(k => ({ key: k, ...amb.SOUNDS[k] }));

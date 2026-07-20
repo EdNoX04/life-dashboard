@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
 import './theme.css';
 import './arcade.css';
+import { applyTheme, getTheme } from './lib/theme.js';
+
+applyTheme(getTheme()); // set the saved color theme before first paint
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>

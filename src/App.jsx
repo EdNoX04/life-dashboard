@@ -51,7 +51,7 @@ const TABS = [
   ['movies', 'Media', 'var(--purple)', Movies],
   ['news', 'News', 'var(--cyan)', News],
   ['builds', 'Builds', 'var(--yellow)', Builds],
-  ['settings', 'Config', 'var(--ink-3)', Settings],
+  ['settings', 'Settings', 'var(--ink-3)', Settings],
 ];
 
 export default function App() {

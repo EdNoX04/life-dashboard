@@ -103,31 +103,113 @@ async function resolveRequest(id, status, response) {
   });
 }
 
-async function run() {
+// ---- plain calendar event (no Meet link) for the Calendar tab's "Add event" ----
+async function createCalendarEvent(token, p) {
+  const tz = p.timeZone || p.tz || DEFAULT_TZ;
+  const ev = {
+    summary: p.summary || 'Event',
+    location: p.location || undefined,
+    description: (p.description || '') + '\n\nAdded from PLAYER ONE dashboard.',
+    start: { dateTime: p.start, timeZone: tz },
+    end: { dateTime: p.end || p.start, timeZone: tz },
+  };
+  const r = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events`,
+    { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(ev) },
+  );
+  if (!r.ok) throw new Error(`Calendar insert: ${r.status} ${await r.text()}`);
+  return await r.json();
+}
+
+async function deleteCalendarEvent(token, eventId) {
+  const r = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events/${encodeURIComponent(eventId)}`,
+    { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!r.ok && r.status !== 410 && r.status !== 404) throw new Error(`Calendar delete: ${r.status} ${await r.text()}`);
+}
+
+// ---- pull upcoming events from Google Calendar into memory.calendar_events ----
+async function pullEvents(token) {
+  const timeMin = new Date(Date.now() - 2 * 864e5).toISOString();
+  const timeMax = new Date(Date.now() + 90 * 864e5).toISOString();
+  const qs = new URLSearchParams({ timeMin, timeMax, singleEvents: 'true', orderBy: 'startTime', maxResults: '250' });
+  const r = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events?${qs}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!r.ok) throw new Error(`Calendar list: ${r.status} ${await r.text()}`);
+  const j = await r.json();
+  const events = (j.items || []).map(e => ({
+    id: e.id,
+    summary: e.summary || '(no title)',
+    start: e.start?.dateTime || e.start?.date || null,
+    end: e.end?.dateTime || e.end?.date || null,
+    location: e.location || '',
+    allDay: !!e.start?.date,
+    htmlLink: e.htmlLink || '',
+  })).filter(e => e.start);
+  await sbJson('memory?on_conflict=key', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates' },
+    body: JSON.stringify([{ key: 'calendar_events', value: { events, updated: new Date().toISOString() }, updated_at: new Date().toISOString() }]),
+  });
+  console.log(`  pulled ${events.length} calendar event(s) → dashboard`);
+}
+
+async function processMeetings(token) {
   const pending = await sbJson('requests?kind=eq.meeting_add&status=eq.pending&select=id,payload&order=created_at.asc');
-  if (!Array.isArray(pending) || !pending.length) { console.log('No pending meetings.'); return; }
-  console.log(`${pending.length} pending meeting(s).`);
-
-  let token;
-  try { token = await accessToken(); }
-  catch (e) { console.error('Auth failed:', e.message); process.exit(1); }
-
-  for (const req of pending) {
+  for (const req of (pending || [])) {
     const m = req.payload || {};
-    if (!m.id || !m.start) { await resolveRequest(req.id, 'failed', 'missing id/start'); console.error('  skip bad payload', req.id); continue; }
+    if (!m.id || !m.start) { await resolveRequest(req.id, 'failed', 'missing id/start'); continue; }
     await rest(`requests?id=eq.${req.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'working' }) });
     try {
       const { gcal_id, meet, htmlLink } = await createEvent(token, m);
       await patchMemoryMeeting(m.id, { gcal_id, meet, htmlLink, status: 'confirmed' });
       await resolveRequest(req.id, 'done', meet || htmlLink);
-      console.log(`  ✓ ${m.title} → ${meet || '(no meet link)'} `);
+      console.log(`  ✓ meeting: ${m.title} → ${meet || '(no meet link)'}`);
     } catch (e) {
       await resolveRequest(req.id, 'failed', e.message);
       await patchMemoryMeeting(m.id, { status: 'error' }).catch(() => {});
-      console.error(`  ✗ ${m.title}: ${e.message}`);
-      process.exitCode = 1;
+      console.error(`  ✗ meeting ${m.title}: ${e.message}`); process.exitCode = 1;
     }
   }
+}
+
+async function processCalendarAdds(token) {
+  const pending = await sbJson('requests?kind=eq.calendar_add&status=eq.pending&select=id,payload&order=created_at.asc');
+  for (const req of (pending || [])) {
+    const p = req.payload || {};
+    if (!p.start) { await resolveRequest(req.id, 'failed', 'missing start'); continue; }
+    await rest(`requests?id=eq.${req.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'working' }) });
+    try {
+      const ev = await createCalendarEvent(token, p);
+      await resolveRequest(req.id, 'done', ev.htmlLink || ev.id);
+      console.log(`  ✓ event: ${p.summary}`);
+    } catch (e) { await resolveRequest(req.id, 'failed', e.message); console.error(`  ✗ event ${p.summary}: ${e.message}`); process.exitCode = 1; }
+  }
+}
+
+async function processCalendarDeletes(token) {
+  const pending = await sbJson('requests?kind=eq.calendar_delete&status=eq.pending&select=id,payload&order=created_at.asc');
+  for (const req of (pending || [])) {
+    const p = req.payload || {};
+    if (!p.eventId) { await resolveRequest(req.id, 'failed', 'missing eventId'); continue; }
+    await rest(`requests?id=eq.${req.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'working' }) });
+    try { await deleteCalendarEvent(token, p.eventId); await resolveRequest(req.id, 'done', 'deleted'); console.log(`  ✓ deleted: ${p.title || p.eventId}`); }
+    catch (e) { await resolveRequest(req.id, 'failed', e.message); console.error(`  ✗ delete ${p.eventId}: ${e.message}`); process.exitCode = 1; }
+  }
+}
+
+async function run() {
+  let token;
+  try { token = await accessToken(); }
+  catch (e) { console.error('Auth failed:', e.message); process.exit(1); }
+
+  await processCalendarDeletes(token);  // deletes first
+  await processMeetings(token);         // meeting_add → event + Meet link
+  await processCalendarAdds(token);     // calendar_add → plain event
+  await pullEvents(token);              // sync Google → dashboard (always, so events show up)
 }
 
 run().catch(e => { console.error(e); process.exit(1); });

@@ -13,9 +13,10 @@ export default function RetroClock({ className = '' }) {
   const minA = m * 6 + s * 0.1;
   const hrA = (h % 12) * 30 + m * 0.5;
   const ticks = Array.from({ length: 12 }, (_, i) => i);
+  const dayMode = h >= 6 && h < 18; // light face by day, dark at night
 
   return (
-    <div className={`rclk ${className}`} role="timer" aria-label="current time">
+    <div className={`rclk ${dayMode ? 'day' : 'night'} ${className}`} role="timer" aria-label="current time">
       <svg viewBox="0 0 100 100" className="rclk-face">
         <circle className="rclk-glow" cx="50" cy="50" r="47" />
         <circle className="rclk-rim" cx="50" cy="50" r="46" />

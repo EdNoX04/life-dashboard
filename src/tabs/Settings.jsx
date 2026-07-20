@@ -2,10 +2,18 @@ import React, { useState } from 'react';
 import { Card, StatTile } from '../components/ui.jsx';
 import { getConfig, setConfig, isRemote, syncPushConfig } from '../lib/db.js';
 import { useCollection } from '../lib/hooks.js';
+import { THEMES, getTheme, setTheme } from '../lib/theme.js';
 
 export default function Settings() {
   const [cfg, setCfg] = useState(getConfig());
   const [saved, setSaved] = useState(false);
+  const [theme, setThemeState] = useState(getTheme());
+
+  function pickTheme(id) {
+    setTheme(id);            // applies instantly + persists to config
+    setThemeState(id);
+    syncPushConfig().catch(() => {});
+  }
   const { items: requests } = useCollection('requests');
   const { items: usageMem } = useCollection('memory', { filter: 'key=eq.ai_usage', order: 'key' });
   const usage = usageMem?.[0]?.value || {};
@@ -24,7 +32,25 @@ export default function Settings() {
   return (
     <>
       <h1 className="tab-title">SETTINGS</h1>
-      <p className="tab-sub">Connect the brain. Keys live only in this browser.</p>
+      <p className="tab-sub">Theme, keys and how the dashboard stays live.</p>
+
+      <Card title="Theme" color="var(--pink)">
+        <div className="small muted" style={{ marginBottom: 10, lineHeight: 1.5 }}>
+          Recolor the whole app. Tap one — it applies instantly and follows you across devices.
+        </div>
+        <div className="theme-grid">
+          {THEMES.map(t => (
+            <button key={t.id} className={`theme-card${theme === t.id ? ' on' : ''}`} onClick={() => pickTheme(t.id)}>
+              <span className="theme-swatch">
+                {t.swatch.map((c, i) => <i key={i} style={{ background: c }} />)}
+              </span>
+              <span className="theme-name">{t.name}</span>
+              <span className="theme-note">{t.note}</span>
+              {theme === t.id && <span className="theme-on">✓</span>}
+            </button>
+          ))}
+        </div>
+      </Card>
 
       <Card title={`Data mode: ${isRemote() ? 'SUPABASE (live)' : 'LOCAL (this device only)'}`} color={isRemote() ? 'var(--green)' : 'var(--yellow)'}>
         <label>Supabase URL</label>
