@@ -125,16 +125,18 @@ export default function College() {
                   {day === todayName && <span className="chip c-cyan">today</span>}
                   <span className="wtt-count">{rows.length} class{rows.length > 1 ? 'es' : ''}</span>
                 </div>
-                {rows.map(t => (
-                  <div className="tt-item" key={t.id}>
-                    <span className="chip c-cyan tt-time">{t.start_time}–{t.end_time}</span>
-                    <span className="tt-subj">{t.subject}</span>
-                    <span className="tt-meta">
-                      {t.room && <span className="chip">{t.room}</span>}
-                      {t.faculty && <span className="chip c-purple">{t.faculty}</span>}
-                    </span>
-                  </div>
-                ))}
+                <div className="wtt-classes">
+                  {rows.map(t => (
+                    <div className="wtt-class" key={t.id}>
+                      <span className="chip c-cyan wtt-time">{t.start_time}–{t.end_time}</span>
+                      <span className="wtt-subj">{t.subject}</span>
+                      <span className="wtt-cmeta">
+                        {t.room && <span className="chip">{t.room}</span>}
+                        {t.faculty && <span className="chip c-purple">{t.faculty}</span>}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             );
           })}

@@ -1,0 +1,7 @@
+{
+  "note": "Neel is in X batch — remove Y-batch-only labs from the timetable (Tuesday 'Blockchain Y Lab' and Friday 'IoT & System1 Y Lab'). The 'ANS X&Y Lab' stays (applies to both batches).",
+  "ops": [
+    { "table": "timetable", "method": "delete", "match": "subject=eq.Blockchain%20Y%20Lab" },
+    { "table": "timetable", "method": "delete", "match": "subject=eq.IoT%20%26%20System1%20Y%20Lab" }
+  ]
+}

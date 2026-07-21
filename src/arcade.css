@@ -470,16 +470,21 @@
   .tt-meta .chip { white-space: normal; }
 }
 
-/* ---- Weekly timetable: grouped by day, fills width in columns ---- */
-.wtt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 6px 26px; align-items: start; }
-.wtt-day { break-inside: avoid; }
-.wtt-head { display: flex; align-items: center; gap: 8px; padding: 8px 0 6px; border-bottom: 2px solid var(--border-bright); margin-bottom: 2px; }
-.wtt-dot { width: 9px; height: 9px; flex: none; background: var(--purple); box-shadow: 0 0 6px var(--purple); }
+/* ---- Weekly timetable: each day a card, each class a boxed mini-card ---- */
+.wtt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; align-items: start; }
+.wtt-day { break-inside: avoid; border: 2px solid var(--border); border-radius: 5px; background: var(--bg-deep); padding: 10px 11px 12px; }
+.wtt-day.is-today { border-color: var(--cyan); box-shadow: 0 0 14px rgba(79,209,255,.18); }
+.wtt-head { display: flex; align-items: center; gap: 8px; padding: 0 2px 9px; border-bottom: 2px solid var(--border); margin-bottom: 10px; }
+.wtt-dot { width: 9px; height: 9px; flex: none; border-radius: 2px; background: var(--purple); box-shadow: 0 0 6px var(--purple); }
 .wtt-day.is-today .wtt-dot { background: var(--cyan); box-shadow: 0 0 7px var(--cyan); }
 .wtt-name { font-family: var(--font-pixel); font-size: 9px; letter-spacing: 1px; color: var(--ink); text-transform: uppercase; }
 .wtt-day.is-today .wtt-name { color: var(--cyan); }
 .wtt-count { margin-left: auto; font-family: 'VT323', monospace; font-size: 15px; color: var(--ink-2); }
-.wtt-day .tt-item { padding: 7px 0; }
+.wtt-classes { display: flex; flex-direction: column; gap: 8px; }
+.wtt-class { border: 2px solid var(--border-bright); border-radius: 4px; background: var(--panel); padding: 8px 9px; display: flex; flex-direction: column; gap: 6px; }
+.wtt-time { align-self: flex-start; }
+.wtt-subj { font-family: 'VT323', monospace; font-size: 17px; color: var(--ink); line-height: 1.2; }
+.wtt-cmeta { display: flex; gap: 6px; flex-wrap: wrap; }
 
 /* ---- Today's 1D P&L banner ---- */
 .daypl { padding: 12px 14px; margin-bottom: 14px; border-left-width: 5px; }
