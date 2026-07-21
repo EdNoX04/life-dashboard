@@ -62,6 +62,48 @@
   --pink: #ff2e97; --purple: #b14bff; --cyan: #2de2e6;
   --yellow: #ffd23f; --green: #55e6a5; --orange: #ff7a4c; --red: #ff5c8a;
 }
+:root[data-theme="retro70"] {
+  --bg: #1c1208; --bg-deep: #120b04; --panel: #2a1a0c; --panel-2: #382412;
+  --border: #5c3c1e; --border-bright: #a85f24;
+  --ink: #fbe9cf; --ink-2: #d6b489; --ink-3: #9c7a50;
+  --pink: #e76219; --purple: #c21717; --cyan: #fea712;
+  --yellow: #fea712; --green: #b58a2a; --orange: #e76219; --red: #c21717;
+}
+:root[data-theme="vintage"] {
+  --bg: #161310; --bg-deep: #0e0c0a; --panel: #221e18; --panel-2: #2e2820;
+  --border: #463f34; --border-bright: #8a7a58;
+  --ink: #ede4cf; --ink-2: #c3b596; --ink-3: #8f8168;
+  --pink: #dfa05d; --purple: #ac5045; --cyan: #679461;
+  --yellow: #dfa05d; --green: #679461; --orange: #c26a45; --red: #ac5045;
+}
+:root[data-theme="spring"] {
+  --bg: #0f1510; --bg-deep: #0a0f0a; --panel: #18211a; --panel-2: #213024;
+  --border: #2f4a34; --border-bright: #4f8055;
+  --ink: #eaf7e6; --ink-2: #b8d9b4; --ink-3: #7fa07d;
+  --pink: #f2729a; --purple: #c46bd0; --cyan: #7bb765;
+  --yellow: #ffd76a; --green: #7bb765; --orange: #ff9a6c; --red: #ff6a8a;
+}
+:root[data-theme="summer"] {
+  --bg: #0b1618; --bg-deep: #071012; --panel: #122325; --panel-2: #193234;
+  --border: #224a4a; --border-bright: #2f8c86;
+  --ink: #f2fbf2; --ink-2: #a8ccc6; --ink-3: #6f9088;
+  --pink: #f2725b; --purple: #2fbfa8; --cyan: #ffe86a;
+  --yellow: #ffe86a; --green: #3fcf9a; --orange: #ff8a3d; --red: #f2725b;
+}
+:root[data-theme="autumn"] {
+  --bg: #1a1109; --bg-deep: #110b05; --panel: #271a0d; --panel-2: #352614;
+  --border: #573a1c; --border-bright: #9c5f22;
+  --ink: #f5e6cd; --ink-2: #d4b184; --ink-3: #9a7c50;
+  --pink: #d36228; --purple: #b8442e; --cyan: #daa520;
+  --yellow: #daa520; --green: #8a8a3a; --orange: #d36228; --red: #c0392b;
+}
+:root[data-theme="winter"] {
+  --bg: #0b111d; --bg-deep: #070b14; --panel: #111a2c; --panel-2: #18263e;
+  --border: #26405f; --border-bright: #3f6ea8;
+  --ink: #eef4ff; --ink-2: #aebfd8; --ink-3: #7385a0;
+  --pink: #7fb5ff; --purple: #9db4ff; --cyan: #6fe0e0;
+  --yellow: #cfe0ff; --green: #6fe0c0; --orange: #89a7d8; --red: #ff8a9a;
+}
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }

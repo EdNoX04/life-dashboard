@@ -596,20 +596,29 @@
 .code-item:last-child { border-bottom: none; }
 .code-block { background: var(--bg-deep); border: 2px solid var(--border); border-radius: 3px; padding: 10px; margin-top: 8px; overflow-x: auto; font-family: 'VT323', monospace; font-size: 14px; line-height: 1.4; color: var(--green); white-space: pre; }
 
-/* ---- Study: lofi radio (video hidden, audio only) ---- */
-.lofi-art { position: relative; width: 118px; height: 118px; flex-shrink: 0; border: 3px solid var(--border-bright); overflow: hidden; box-shadow: 0 0 16px rgba(154,99,232,.35); }
-.lofi-yt { position: absolute; inset: 0; }
-.lofi-yt iframe, .lofi-yt > div { width: 100%; height: 100%; }
-.lofi-cover { position: absolute; inset: 0; z-index: 2; background: linear-gradient(135deg, #2a1a44, #12091b); display: flex; align-items: center; justify-content: center; }
-.lofi-note { font-size: 34px; color: var(--purple); text-shadow: 0 0 14px rgba(154,99,232,.7); }
-.lofi-viz { position: absolute; bottom: 10px; left: 0; right: 0; display: flex; gap: 4px; justify-content: center; align-items: flex-end; height: 26px; }
-.lofi-viz span { width: 5px; height: 5px; background: var(--pink); box-shadow: 0 0 6px var(--pink); }
-.lofi-cover.playing .lofi-viz span { animation: viz 0.9s steps(4) infinite; }
-.lofi-cover.playing .lofi-viz span:nth-child(2) { animation-delay: .15s; }
-.lofi-cover.playing .lofi-viz span:nth-child(3) { animation-delay: .3s; }
-.lofi-cover.playing .lofi-viz span:nth-child(4) { animation-delay: .45s; }
-.lofi-cover.playing .lofi-viz span:nth-child(5) { animation-delay: .6s; }
-@keyframes viz { 0%, 100% { height: 5px; } 50% { height: 24px; } }
+/* ---- lofi radio: retro vinyl turntable ---- */
+.vinyl-player { position: relative; width: 132px; height: 132px; flex-shrink: 0; border: 3px solid var(--border-bright); border-radius: 4px; overflow: hidden; box-shadow: 0 0 16px rgba(154,99,232,.3); background: radial-gradient(120% 120% at 30% 20%, var(--panel-2), var(--bg-deep)); }
+.vinyl-disc { position: absolute; width: 104px; height: 104px; left: 8px; top: 14px; border-radius: 50%;
+  background:
+    radial-gradient(circle, #1b1b20 0 22%, transparent 22.5%),
+    repeating-radial-gradient(circle at center, #0c0c10 0 1.6px, #050506 1.6px 3.2px),
+    #0a0a0c;
+  box-shadow: 0 0 0 2px #000, 0 4px 12px rgba(0,0,0,.6), inset 0 0 18px rgba(0,0,0,.7);
+  animation: vinylSpin 3.4s linear infinite; animation-play-state: paused; }
+.vinyl-player.playing .vinyl-disc { animation-play-state: running; }
+.vinyl-disc::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,.06) 48%, transparent 56%); }
+.vinyl-label { position: absolute; width: 42px; height: 42px; left: 50%; top: 50%; transform: translate(-50%,-50%); border-radius: 50%; background: radial-gradient(circle at 35% 30%, var(--pink), var(--purple)); display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 2px rgba(0,0,0,.35); }
+.vinyl-label span { font-size: 18px; color: #fff; text-shadow: 0 0 8px rgba(0,0,0,.5); }
+.vinyl-spindle { position: absolute; width: 6px; height: 6px; left: 50%; top: 50%; transform: translate(-50%,-50%); border-radius: 50%; background: #d8d8de; box-shadow: 0 0 3px rgba(255,255,255,.6); z-index: 2; }
+@keyframes vinylSpin { to { transform: rotate(360deg); } }
+/* tonearm: pivots at top-right, lowers onto the disc when playing */
+.vinyl-arm { position: absolute; right: 12px; top: 12px; width: 70px; height: 70px; z-index: 3; transform: rotate(-32deg); transform-origin: 88% 12%; transition: transform .7s cubic-bezier(.5,1.4,.5,1); }
+.vinyl-player.playing .vinyl-arm { transform: rotate(4deg); }
+.vinyl-arm-pivot { position: absolute; right: 2px; top: 2px; width: 15px; height: 15px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #4a3a68, #241636); border: 2px solid var(--border-bright); }
+.vinyl-arm-rod { position: absolute; right: 8px; top: 9px; width: 4px; height: 62px; background: linear-gradient(180deg, #b7a8cc, #7a6a90); border-radius: 3px; transform-origin: top center; box-shadow: 0 0 4px rgba(0,0,0,.5); }
+.vinyl-arm-head { position: absolute; right: 2px; top: 66px; width: 16px; height: 12px; background: linear-gradient(180deg, #d8d0e6, #8474a0); border-radius: 2px; box-shadow: 0 2px 3px rgba(0,0,0,.5); }
+.vinyl-player.playing .vinyl-arm-head { box-shadow: 0 0 8px var(--cyan); }
+@media (prefers-reduced-motion: reduce) { .vinyl-disc { animation: none; } .vinyl-arm { transition: none; } }
 .notes-frame { border: 3px solid var(--border-bright); border-radius: 2px; overflow: hidden; box-shadow: 0 0 14px rgba(122,85,176,.2); }
 
 /* ---- Music player ---- */
@@ -748,6 +757,11 @@
 .theme-name { font-family: var(--font-pixel); font-size: 8px; letter-spacing: .5px; }
 .theme-note { font-size: 13px; color: var(--ink-2); }
 .theme-on { position: absolute; top: 8px; right: 10px; color: var(--pink); font-family: var(--font-pixel); font-size: 9px; }
+.theme-season-h { display: flex; align-items: center; gap: 8px; font-family: var(--font-pixel); font-size: 9px; letter-spacing: 1px; color: var(--cyan); text-transform: uppercase; margin: 16px 0 10px; padding-top: 12px; border-top: 2px dashed var(--border); }
+.theme-season-ico { font-size: 13px; }
+.theme-card.season { background: linear-gradient(160deg, var(--panel), var(--bg-deep)); }
+.theme-card.season.on { border-color: var(--cyan); box-shadow: inset 0 0 0 1px var(--cyan), 0 0 12px rgba(0,0,0,.35); }
+.theme-card.season .theme-on { color: var(--cyan); }
 
 /* ---- clock day mode: light face in the morning, dark at night ---- */
 .rclk.day .rclk-inner { fill: #f3ead9; stroke: rgba(0,0,0,.14); }

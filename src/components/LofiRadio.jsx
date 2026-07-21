@@ -55,10 +55,15 @@ export default function LofiRadio({ stations, stopKey = 0 }) {
         onWaiting={() => setLoading(true)}
         onError={() => { if (playing || loading) setErr('Stream error — tap play to retry.'); setLoading(false); setPlaying(false); }}
       />
-      <div className="lofi-art">
-        <div className={`lofi-cover${playing ? ' playing' : ''}`}>
-          <div className="lofi-viz">{[...Array(5)].map((_, i) => <span key={i} />)}</div>
-          <span className="lofi-note">♪</span>
+      <div className={`vinyl-player${playing ? ' playing' : ''}`} aria-hidden="true">
+        <div className="vinyl-disc">
+          <div className="vinyl-label"><span>♪</span></div>
+          <div className="vinyl-spindle" />
+        </div>
+        <div className="vinyl-arm">
+          <span className="vinyl-arm-rod" />
+          <span className="vinyl-arm-head" />
+          <span className="vinyl-arm-pivot" />
         </div>
       </div>
       <div style={{ flex: 1, minWidth: 190 }}>

@@ -39,11 +39,21 @@ export default function Settings() {
           Recolor the whole app. Tap one — it applies instantly and follows you across devices.
         </div>
         <div className="theme-grid">
-          {THEMES.map(t => (
+          {THEMES.filter(t => t.cat === 'normal').map(t => (
             <button key={t.id} className={`theme-card${theme === t.id ? ' on' : ''}`} onClick={() => pickTheme(t.id)}>
-              <span className="theme-swatch">
-                {t.swatch.map((c, i) => <i key={i} style={{ background: c }} />)}
-              </span>
+              <span className="theme-swatch">{t.swatch.map((c, i) => <i key={i} style={{ background: c }} />)}</span>
+              <span className="theme-name">{t.name}</span>
+              <span className="theme-note">{t.note}</span>
+              {theme === t.id && <span className="theme-on">✓</span>}
+            </button>
+          ))}
+        </div>
+
+        <div className="theme-season-h"><span className="theme-season-ico">❄</span> Seasonal <span className="small muted">— special picks</span></div>
+        <div className="theme-grid">
+          {THEMES.filter(t => t.cat === 'season').map(t => (
+            <button key={t.id} className={`theme-card season${theme === t.id ? ' on' : ''}`} onClick={() => pickTheme(t.id)}>
+              <span className="theme-swatch">{t.swatch.map((c, i) => <i key={i} style={{ background: c }} />)}</span>
               <span className="theme-name">{t.name}</span>
               <span className="theme-note">{t.note}</span>
               {theme === t.id && <span className="theme-on">✓</span>}
