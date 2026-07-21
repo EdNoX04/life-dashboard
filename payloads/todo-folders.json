@@ -1,0 +1,10 @@
+{
+  "note": "Set up TickTick-style folders/lists and move Neel's current tasks into a 'Building Webapp' folder+list. New tasks still default to Inbox.",
+  "ops": [
+    { "table": "memory", "method": "upsert", "rows": [
+      { "key": "todo_lists", "value": { "folders": [{ "id": "f_web", "name": "Building Webapp" }], "lists": [{ "name": "Building Webapp", "folder": "f_web" }] }, "updated_at": "2026-07-21T00:00:00Z" }
+    ] },
+    { "table": "todos", "method": "update", "match": "list=eq.Inbox", "row": { "list": "Building Webapp" } },
+    { "table": "todos", "method": "update", "match": "list=is.null", "row": { "list": "Building Webapp" } }
+  ]
+}
