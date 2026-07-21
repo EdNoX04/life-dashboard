@@ -762,6 +762,34 @@
 .meal-macros .btn { flex: 0 0 auto; align-self: stretch; }
 .meal-row .chip { flex: none; }
 
+/* barcode scanner + food search modal */
+.scan-modal { width: 100%; max-width: 440px; padding: 16px; }
+.scan-view { position: relative; border: 2px solid var(--border-bright); border-radius: 4px; background: #000; overflow: hidden; aspect-ratio: 4/3; }
+.scan-reader { width: 100%; height: 100%; }
+.scan-reader video { width: 100% !important; height: 100% !important; object-fit: cover; }
+.scan-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px; }
+.scan-line { position: absolute; left: 8%; right: 8%; top: 50%; height: 2px; background: var(--red); box-shadow: 0 0 10px var(--red); animation: scanline 2s ease-in-out infinite; }
+@keyframes scanline { 0%,100% { top: 28%; } 50% { top: 72%; } }
+.food-results { margin-top: 10px; max-height: 340px; overflow-y: auto; }
+.food-opt { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; padding: 9px 10px; border: none; border-bottom: 2px dashed var(--border); background: none; color: var(--ink); cursor: pointer; }
+.food-opt:hover { background: var(--panel-2); }
+.food-name { font-family: 'VT323', monospace; font-size: 16px; }
+.food-macro { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-2); }
+
+/* micronutrient panel */
+.micro-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px 16px; }
+.micro-cell { }
+.micro-top { display: flex; justify-content: space-between; font-family: 'VT323', monospace; font-size: 15px; color: var(--ink); }
+.micro-val { color: var(--ink-2); }
+.micro-bar { height: 7px; border: 2px solid var(--border); border-radius: 3px; background: var(--bg-deep); margin: 3px 0; overflow: hidden; }
+.micro-bar span { display: block; height: 100%; border-radius: 2px; }
+.micro-tgt { font-family: 'VT323', monospace; font-size: 12px; color: var(--ink-3); }
+
+/* symptom search dropdown */
+.sym-drop { position: absolute; top: 44px; left: 0; right: 0; z-index: 30; background: var(--panel); border: 2px solid var(--border-bright); border-radius: 3px; max-height: 240px; overflow-y: auto; box-shadow: 0 8px 22px rgba(0,0,0,.5); }
+.sym-opt { display: block; width: 100%; text-align: left; padding: 8px 10px; border: none; border-bottom: 2px dashed var(--border); background: none; color: var(--ink); cursor: pointer; font-family: 'VT323', monospace; font-size: 15px; }
+.sym-opt:hover { background: var(--panel-2); color: var(--pink); }
+
 /* ---- Retro analogue clock (hero) ---- */
 .rclk { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; margin-top: 12px; position: relative; z-index: 2; }
 .rclk-face { width: 96px; height: 96px; }
