@@ -4,6 +4,7 @@ import { Card, Empty, StatTile, EyeBtn, useMoneyVisible, money } from '../compon
 import StockDetail from '../components/StockDetail.jsx';
 import PortfolioChart from '../components/PortfolioChart.jsx';
 import CryptoHoldings from '../components/CryptoHoldings.jsx';
+import SipCard from '../components/SipCard.jsx';
 import { PortfolioAdvisor, NextBuyDesk } from '../components/MoneyAI.jsx';
 import FeesCard from '../components/FeesCard.jsx';
 import { useLiveQuotes, usMarketState } from '../lib/live.js';
@@ -350,6 +351,8 @@ export default function Money() {
       </Card>
 
       <CryptoHoldings visible={visible} />
+
+      <SipCard fx={fx} />
 
       <Card title="Your stocks in the news" color="var(--pink)"
         right={pickProvider() && shownNews.length > 0 && (
