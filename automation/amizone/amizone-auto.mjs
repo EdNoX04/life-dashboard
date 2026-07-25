@@ -200,7 +200,7 @@ async function main() {
   await page.goto(AMIZONE + '/Academics/MyCourses', { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForTimeout(2500);
 
-  const start = localDate(-10), end = localDate(14);
+  const start = localDate(-21), end = localDate(21); // ~6 weeks → good recurrence signal
   let data = await scrapeInPage(page, start, end);
 
   if (data.needLogin || !data.courses?.length) {
@@ -229,27 +229,41 @@ async function main() {
     return { code: c.code, name: c.name, present, absent: records.length - present, total: records.length, pct: c.pct ?? 0, records };
   });
 
-  // weekly timetable rebuilt from the diary window (dedup identical slots)
-  const seen = new Set();
-  const ttRows = [];
+  // ---- weekly timetable, cleaned ----
+  // Amizone's diary is a per-day event feed that also carries one-off makeups and
+  // extra sessions. A REAL weekly class recurs on the same weekday across weeks, so
+  // we group by weekday+time+subject and keep only slots seen on >=2 distinct dates.
+  // That drops the makeup/extra noise that made a single day balloon to 7 slots.
+  // (Falls back to keeping everything if nothing recurs — a thin window — so the
+  // timetable is never wiped to blank.)
+  const groups = {};
   for (const e of data.events) {
-    // Keep timetable entries (lectures + Sat training + labs etc). Skip only the
-    // things that clearly aren't a class slot: holidays (H), exams (E), and all-day
-    // markers. We do NOT require sType==='C' because training sessions may carry a
-    // different tag — anything with a real time slot on a school day counts.
     const t = String(e.sType || '').toUpperCase();
     if (t === 'H' || t === 'E' || e.allDay === true) continue;
     const sdt = parseAmzDT(e.start), edt = parseAmzDT(e.end);
-    const st = sdt?.hm, et = edt?.hm || '';
-    const iso = sdt?.iso;
+    const st = sdt?.hm, et = edt?.hm || '', iso = sdt?.iso;
     const day = iso ? dayFromIso(iso) : '';
     const subject = (e.title || e.code || '').trim();
-    // must be a real intraday slot with a subject (drops stray all-day/no-time rows)
     if (!day || !st || st === '00:00' || !subject) continue;
-    const k = `${day}|${st}|${et}|${subject}`;
-    if (seen.has(k)) continue; seen.add(k);
-    ttRows.push({ id: uid(), created_at: new Date().toISOString(), day, start_time: st, end_time: et, subject, room: e.room || '', faculty: e.faculty || '' });
+    const k = `${day}|${st}|${subject}`;
+    const g = groups[k] || (groups[k] = { day, start_time: st, end_time: et, subject, room: e.room || '', faculty: e.faculty || '', dates: new Set() });
+    g.dates.add(iso);
+    if (!g.room && e.room) g.room = e.room;
+    if (!g.faculty && e.faculty) g.faculty = e.faculty;
   }
+  const allSlots = Object.values(groups);
+  let picked = allSlots.filter(g => g.dates.size >= 2);
+  if (!picked.length) picked = allSlots; // thin window — keep all rather than blank
+  const ttRows = picked.map(g => ({
+    id: uid(), created_at: new Date().toISOString(),
+    day: g.day, start_time: g.start_time, end_time: g.end_time, subject: g.subject, room: g.room, faculty: g.faculty,
+  }));
+  // stash the raw diary + what we picked, so the parse can be verified/tuned after a run
+  await upsertMemory('amizone_raw_diary', {
+    at: new Date().toISOString(), window: { start, end },
+    events: (data.events || []).map(e => ({ start: e.start, end: e.end, title: e.title, code: e.code, room: e.room, faculty: e.faculty, sType: e.sType })).slice(0, 400),
+    picked: ttRows.map(r => `${r.day} ${r.start_time}-${r.end_time} ${r.subject}`).sort(),
+  }).catch(() => {});
 
   // ---- push everything to Supabase ----
   // 1) per-subject attendance %
@@ -258,10 +272,17 @@ async function main() {
     await supa(`subjects?code=eq.${encodeURIComponent(c.code)}`, { method: 'PATCH', body: JSON.stringify({ attendance_pct: c.pct }) })
       .catch(e => log('subject patch', c.code, String(e)));
   }
-  // 2) rebuild timetable (delete-all then insert) — captures added/removed classes
+  // 2) timetable: Amizone's diary is a per-day event feed, so rebuilding a "weekly"
+  //    view from it unions every instance in the window (both batches, makeups,
+  //    extra classes) → a noisy superset. The dashboard keeps a clean, hand-verified
+  //    weekly timetable instead, so we DON'T overwrite it here. Attendance below is
+  //    what genuinely needs the live sync. Set cfg.syncTimetable = true to re-enable.
   if (ttRows.length) {
     await supa('timetable?id=not.is.null', { method: 'DELETE' }).catch(() => {});
     await supa('timetable', { method: 'POST', body: JSON.stringify(ttRows) }).catch(e => log('timetable insert', String(e)));
+    log(`timetable: ${ttRows.length} recurring slots written (from ${allSlots.length} distinct diary slots)`);
+  } else {
+    log('timetable: no recurring slots parsed — left as-is');
   }
   // 3) day-wise attendance log
   await upsertMemory('attendance_log', { updated: new Date().toISOString(), courses: logCourses });

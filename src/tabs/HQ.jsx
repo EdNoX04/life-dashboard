@@ -44,7 +44,7 @@ export default function HQ({ go }) {
 
   const brief = briefs.find(b => b.date === today) || briefs[0];
   const dayName = WD[now.getDay()];
-  const isSchoolDay = now.getDay() !== 0; // classes Mon–Sat, hidden Sunday
+  const isSchoolDay = now.getDay() !== 0 && now.getDay() !== 6; // hidden on weekends (Sat + Sun)
   const openTodos = todos.filter(t => !t.completed && t.due_date && t.due_date <= today);
   const liveHabits = habits.filter(h => !h.archived);
   const habitsDone = liveHabits.filter(h => logs.some(l => l.habit_id === h.id && l.date === today)).length;
@@ -87,7 +87,7 @@ export default function HQ({ go }) {
       {phase === 'morning' && (
         <>
           <div style={{ lineHeight: 1.6 }}>
-            {isSchoolDay && classes.length ? `${classes.length} class${classes.length > 1 ? 'es' : ''} today${first ? ` — first is ${first.subject} at ${first.start_time}` : ''}. ` : isSchoolDay ? 'No classes on the timetable today. ' : 'Sunday — no classes. '}
+            {isSchoolDay && classes.length ? `${classes.length} class${classes.length > 1 ? 'es' : ''} today${first ? ` — first is ${first.subject} at ${first.start_time}` : ''}. ` : isSchoolDay ? 'No classes on the timetable today. ' : 'Weekend — no classes. '}
             {openTodos.length ? `${openTodos.length} task${openTodos.length > 1 ? 's' : ''} due, ` : 'Nothing due, '}
             habits {habitsDone}/{liveHabits.length} done.
             {held.length ? ` Portfolio ${pPct >= 0 ? 'up' : 'down'} ${Math.abs(pPct).toFixed(1)}%.` : ''}

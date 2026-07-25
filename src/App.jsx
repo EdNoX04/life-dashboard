@@ -11,7 +11,7 @@ import Calendar from './tabs/Calendar.jsx';
 import Subjects from './tabs/Subjects.jsx';
 import DSA from './tabs/DSA.jsx';
 import Study from './tabs/Study.jsx';
-import Placement, { PLACEMENT_EXPIRY } from './tabs/Placement.jsx';
+import Placement from './tabs/Placement.jsx';
 import Books from './tabs/Books.jsx';
 import Notes from './tabs/Notes.jsx';
 import Decision from './tabs/Decision.jsx';
@@ -58,7 +58,7 @@ export default function App() {
   const [tab, setTab] = useState('hq');
   const [clickId, setClickId] = useState(null); // drives the click-press animation
   // Placement is a temporary tab — drop it automatically once the season's over.
-  const tabs = TABS.filter(t => t[0] !== 'placement' || new Date() < PLACEMENT_EXPIRY);
+  const tabs = TABS;
   const Active = tabs.find(t => t[0] === tab)?.[3] || HQ;
 
   // on load, pull synced keys (market data etc.) set on any other device
