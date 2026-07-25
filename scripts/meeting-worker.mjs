@@ -20,8 +20,10 @@
 const {
   SUPABASE_URL, SUPABASE_SERVICE_KEY,
   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN,
-  GOOGLE_CALENDAR_ID = 'primary',
 } = process.env;
+// Fall back to "primary" when the secret is unset OR empty (an unset GitHub secret
+// arrives as an empty string, which would 404 the calendar API).
+const GOOGLE_CALENDAR_ID = (process.env.GOOGLE_CALENDAR_ID || '').trim() || 'primary';
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) { console.error('Missing Supabase env'); process.exit(1); }
 if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REFRESH_TOKEN) {
@@ -110,16 +112,9 @@ async function createCalendarEvent(token, p) {
     summary: p.summary || 'Event',
     location: p.location || undefined,
     description: (p.description || '') + '\n\nAdded from PLAYER ONE dashboard.',
+    start: { dateTime: p.start, timeZone: tz },
+    end: { dateTime: p.end || p.start, timeZone: tz },
   };
-  if (p.allDay) {
-    const day = String(p.start).slice(0, 10);
-    const nx = new Date(day + 'T00:00:00Z'); nx.setUTCDate(nx.getUTCDate() + 1);
-    ev.start = { date: day };
-    ev.end = { date: nx.toISOString().slice(0, 10) };
-  } else {
-    ev.start = { dateTime: p.start, timeZone: tz };
-    ev.end = { dateTime: p.end || p.start, timeZone: tz };
-  }
   const r = await fetch(
     `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events`,
     { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(ev) },
