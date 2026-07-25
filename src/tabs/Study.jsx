@@ -8,10 +8,11 @@ import * as amb from '../lib/ambient.js';
 // and your subject notes pulled in to revise while a timer runs.
 const AMBIENT = ['rain', 'thunder', 'fire', 'wind', 'forest', 'waves', 'river', 'cafe', 'night', 'birds', 'noise']
   .map(k => ({ key: k, ...amb.SOUNDS[k] }));
+// Lofi Girl live streams (audio only, played via YouTube IFrame API)
 const STUDY_STATIONS = [
-  { url: 'https://ice1.somafm.com/fluid-128-mp3', label: 'Lofi beats' },
-  { url: 'https://ice1.somafm.com/groovesalad-128-mp3', label: 'Groove' },
-  { url: 'https://ice1.somafm.com/beatblender-128-mp3', label: 'Beats' },
+  { id: 'jfKfPfyJRdk', label: 'Lofi' },
+  { id: '4xDzrJKXOOY', label: 'Synth' },
+  { id: 'E2vONfzoyRI', label: 'Jazz' },
 ];
 const DUR = { focus: 25 * 60, short: 5 * 60, long: 15 * 60 };
 const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
