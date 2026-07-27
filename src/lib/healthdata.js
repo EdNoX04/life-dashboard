@@ -100,3 +100,62 @@ export const INDIAN_MEDS = [
   { name: 'Cobadex CZS', salt: 'Multivitamin + Zinc + Chromium', micros: { zinc: 12, vitc: 75 } },
   { name: 'Ostocalcium', salt: 'Calcium + B12 + D', micros: { calcium: 250, vitb12: 1, vitd: 5 } },
 ];
+
+// ---- supplement shelf ----
+// The eight things people actually keep on a shelf, plus an escape hatch. Each
+// carries a typical serving so one tap logs something real rather than a bare
+// checkbox — the macros move the intake tiles and the micros roll into the
+// micronutrient panel exactly like a scanned food does.
+//
+// These are label-panel typicals, not prescriptions: brands vary a lot, so every
+// field stays editable on the entry after logging.
+export const SUPPLEMENTS = [
+  {
+    key: 'whey', label: 'Protein', icon: 'whey', color: 'var(--red)',
+    serving: '1 scoop (30g)', note: 'Whey concentrate/isolate',
+    macros: { kcal: 120, protein: 24, carbs: 3, fat: 1.5 },
+    micros: { calcium: 120 },
+  },
+  {
+    key: 'creatine', label: 'Creatine', icon: 'creatine', color: 'var(--cyan)',
+    serving: '5 g', note: 'Monohydrate, daily',
+    macros: {}, micros: {},
+  },
+  {
+    key: 'preworkout', label: 'Pre-Workout', icon: 'preworkout', color: 'var(--pink)',
+    serving: '1 scoop', note: 'Caffeine + beta-alanine',
+    macros: { kcal: 10 }, micros: { sodium: 150, magnesium: 50 },
+  },
+  {
+    key: 'vitamins', label: 'Vitamins', icon: 'vitamins', color: 'var(--yellow)',
+    serving: '1 tablet', note: 'Multivitamin',
+    macros: {}, micros: { vitc: 40, vita: 600, vitd: 10, vitb12: 1, zinc: 8, iron: 8, calcium: 50 },
+  },
+  {
+    key: 'omega3', label: 'Omega-3', icon: 'omega3', color: 'var(--orange)',
+    serving: '1 softgel (1000mg)', note: 'Fish oil, EPA/DHA',
+    macros: { kcal: 10, fat: 1 }, micros: {},
+  },
+  {
+    key: 'bcaa', label: 'BCAA', icon: 'bcaa', color: 'var(--green)',
+    serving: '1 scoop', note: 'Branched-chain aminos',
+    macros: { kcal: 20, protein: 5 }, micros: { sodium: 50 },
+  },
+  {
+    key: 'minerals', label: 'Minerals', icon: 'minerals', color: 'var(--purple)',
+    serving: '1 tablet', note: 'Multimineral',
+    macros: {}, micros: { calcium: 250, magnesium: 100, zinc: 10, iron: 5, potassium: 50 },
+  },
+  {
+    key: 'ashwagandha', label: 'Ashwagandha', icon: 'ashwagandha', color: 'var(--green)',
+    serving: '600 mg', note: 'Adaptogen, usually evening',
+    macros: {}, micros: {},
+  },
+  {
+    key: 'other', label: 'Other', icon: 'other', color: 'var(--ink-3)',
+    serving: '1 dose', note: 'Anything else on the shelf',
+    macros: {}, micros: {},
+  },
+];
+
+export const suppByKey = k => SUPPLEMENTS.find(s => s.key === k) || SUPPLEMENTS[SUPPLEMENTS.length - 1];

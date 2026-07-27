@@ -5,6 +5,8 @@ import * as db from '../lib/db.js';
 import { MICROS, INDIAN_MEDS } from '../lib/healthdata.js';
 import { lookupBarcode, searchFood, searchConditions } from '../lib/foodapi.js';
 import BarcodeScanner from '../components/BarcodeScanner.jsx';
+import Supplements from '../components/Supplements.jsx';
+import BodyHistory from '../components/BodyHistory.jsx';
 
 const GLASS = 250, GOAL = 3000;
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.round(performance.now()));
@@ -20,14 +22,17 @@ export default function Nutrition() {
   const { items: mealMem, refresh: rM } = useCollection('memory', { filter: 'key=eq.meals_log', order: 'key' });
   const { items: medMem, refresh: rMed } = useCollection('memory', { filter: 'key=eq.meds_log', order: 'key' });
   const { items: symMem, refresh: rSym } = useCollection('memory', { filter: 'key=eq.symptoms_log', order: 'key' });
+  const { items: suppMem, refresh: rSupp } = useCollection('memory', { filter: 'key=eq.supps_log', order: 'key' });
   const waterLog = waterMem?.[0]?.value || {};
   const mealLog = mealMem?.[0]?.value || {};
   const medLog = medMem?.[0]?.value || {};
   const symLog = symMem?.[0]?.value || { list: [] };
+  const suppLog = suppMem?.[0]?.value || {};
 
   const ml = Number(waterLog[today] || 0);
   const meals = Array.isArray(mealLog[today]) ? mealLog[today] : [];
   const meds = Array.isArray(medLog[today]) ? medLog[today] : [];
+  const supps = Array.isArray(suppLog[today]) ? suppLog[today] : [];
   const symptoms = Array.isArray(symLog.list) ? symLog.list : [];
   const pct = Math.min(100, Math.round((ml / GOAL) * 100));
 
@@ -36,15 +41,19 @@ export default function Nutrition() {
   const [scanning, setScanning] = useState(false);
   const [searching, setSearching] = useState(false);
 
-  const sum = k => meals.reduce((s, m) => s + num(m[k]), 0);
+  // A scoop of whey is food as far as the tiles are concerned, so supplement macros
+  // are counted here alongside meals rather than sitting in their own silo.
+  const sum = k => meals.reduce((s, m) => s + num(m[k]), 0)
+    + supps.reduce((s, x) => s + num(x.macros?.[k]), 0);
   const intake = { kcal: sum('kcal'), protein: sum('protein'), carbs: sum('carbs'), fat: sum('fat') };
-  const logged = meals.length > 0;
+  const logged = meals.length > 0 || supps.length > 0;
 
-  // ---- micronutrient totals: meals + medicines/supplements ----
+  // ---- micronutrient totals: meals + medicines + supplements ----
   const microTotals = {};
   MICROS.forEach(m => (microTotals[m.key] = 0));
   meals.forEach(mm => { const mic = mm.micros || {}; MICROS.forEach(m => { let v = mic[m.key]; if (m.key === 'fiber' && v == null) v = mm.fiber; microTotals[m.key] += num(v); }); });
   meds.forEach(md => { const mic = md.micros || {}; MICROS.forEach(m => { microTotals[m.key] += num(mic[m.key]); }); });
+  supps.forEach(sp => { const mic = sp.micros || {}; MICROS.forEach(m => { microTotals[m.key] += num(mic[m.key]); }); });
   const microsShown = MICROS.filter(m => microTotals[m.key] > 0);
 
   async function save(key, value, refresh) {
@@ -89,6 +98,10 @@ export default function Nutrition() {
     setMedForm({ name: '', salt: '', dose: '', time: nowHM() });
   }
   const delMed = id => save('meds_log', { ...medLog, [today]: meds.filter(m => m.id !== id) }, rMed);
+
+  // ---- supplements ----
+  const addSupp = entry => save('supps_log', { ...suppLog, [today]: [...supps, entry] }, rSupp);
+  const delSupp = id => save('supps_log', { ...suppLog, [today]: supps.filter(s => s.id !== id) }, rSupp);
 
   // ---- symptoms / conditions ----
   const [symQ, setSymQ] = useState('');
@@ -146,7 +159,9 @@ export default function Nutrition() {
             <StatTile label="Carbs" value={logged ? r0(intake.carbs) : '—'} note="g" color="var(--cyan)" />
             <StatTile label="Fat" value={logged ? r0(intake.fat) : '—'} note="g" color="var(--yellow)" />
           </div>
-          <div className="small muted mt">{logged ? `${meals.length} meal${meals.length > 1 ? 's' : ''} logged today.` : 'Scan a barcode or log a meal to fill these.'}</div>
+          <div className="small muted mt">{logged
+            ? [meals.length && `${meals.length} meal${meals.length > 1 ? 's' : ''}`, supps.length && `${supps.length} supplement${supps.length > 1 ? 's' : ''}`].filter(Boolean).join(' + ') + ' logged today.'
+            : 'Scan a barcode, log a meal, or tap a supplement to fill these.'}</div>
         </Card>
       </div>
 
@@ -200,8 +215,10 @@ export default function Nutrition() {
             })}
           </div>
         )}
-        <div className="small muted mt">Rolled up from your logged meals (scanned foods carry full micros) and any supplements in Medication.</div>
+        <div className="small muted mt">Rolled up from your logged meals (scanned foods carry full micros), your supplement shelf, and anything in Medication.</div>
       </Card>
+
+      <Supplements log={supps} onAdd={addSupp} onRemove={delSupp} busy={busy} />
 
       <Card title="Medication" color="var(--pink)"
         right={meds.length ? <span className="chip c-pink">{meds.length} today</span> : null}>
@@ -264,6 +281,9 @@ export default function Nutrition() {
           </div>
         ))}
       </Card>
+
+      <BodyHistory waterLog={waterLog} mealLog={mealLog} medLog={medLog} suppLog={suppLog}
+        goal={GOAL} today={today} />
 
       <Card title="Body review" color="var(--cyan)">
         <div className="flex" style={{ gap: 18, alignItems: 'center', flexWrap: 'wrap' }}>

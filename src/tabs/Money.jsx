@@ -14,6 +14,7 @@ import MarketCalendar from '../components/MarketCalendar.jsx';
 import Benchmark from '../components/money/Benchmark.jsx';
 import DataStatus from '../components/money/DataStatus.jsx';
 import Book from '../components/money/Book.jsx';
+import RiskProfile from '../components/money/RiskProfile.jsx';
 import { defaultBenchmark } from '../lib/india.js';
 import { aiNewsSummary, memGet, memSet } from '../lib/advisor.js';
 import { pickProvider } from '../lib/ai.js';
@@ -59,7 +60,7 @@ export default function Money() {
   const [openStock, setOpenStock] = useState(null);
   const [sortBy, setSortBy] = useState('value');
   const [liveNews, setLiveNews] = useState([]);
-  const [view, setView] = useState('portfolio'); // portfolio | vs | nextbuy | calendar
+  const [view, setView] = useState('portfolio'); // portfolio | book | vs | risk | nextbuy | calendar
   const [newsSum, setNewsSum] = useState(null);
   const [sumBusy, setSumBusy] = useState(false);
   const [fx, setFx] = useState(null);            // USD → INR
@@ -267,6 +268,7 @@ export default function Money() {
             <button className={`seg-btn${view === 'portfolio' ? ' on' : ''}`} onClick={() => setView('portfolio')}>Portfolio</button>
             <button className={`seg-btn${view === 'book' ? ' on' : ''}`} onClick={() => setView('book')}>Book</button>
             <button className={`seg-btn${view === 'vs' ? ' on' : ''}`} onClick={() => setView('vs')}>vs Index</button>
+            <button className={`seg-btn${view === 'risk' ? ' on' : ''}`} onClick={() => setView('risk')}>Risk</button>
             <button className={`seg-btn${view === 'nextbuy' ? ' on' : ''}`} onClick={() => setView('nextbuy')}>✦ Next buy</button>
             <button className={`seg-btn${view === 'calendar' ? ' on' : ''}`} onClick={() => setView('calendar')}>Calendar</button>
           </span>
@@ -291,6 +293,14 @@ export default function Money() {
         />
       )}
       {view === 'vs' && <DataStatus />}
+      {view === 'risk' && (
+        <RiskProfile
+          held={held} priceOf={priceOf} quotes={quotes}
+          series={valSeries} orders={orders} flowsByDay={flowsByDay}
+          currentValue={value} fx={fx} inr={!!inr}
+          defaultKey={defaultBenchmark('US')}
+        />
+      )}
       {view === 'nextbuy' && <NextBuyDesk held={held} priceOf={priceOf} quotes={quotes} />}
       {view === 'calendar' && <MarketCalendar held={held} />}
 

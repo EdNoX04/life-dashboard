@@ -816,6 +816,66 @@
 .sym-opt { display: block; width: 100%; text-align: left; padding: 8px 10px; border: none; border-bottom: 2px dashed var(--border); background: none; color: var(--ink); cursor: pointer; font-family: 'VT323', monospace; font-size: 15px; }
 .sym-opt:hover { background: var(--panel-2); color: var(--pink); }
 
+/* ---- Supplement shelf (Body tab) ---- */
+.supp-shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+.supp-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 6px 8px; background: var(--bg-deep); border: 2px solid var(--border); border-radius: 3px; cursor: pointer; color: var(--ink-2); transition: transform .08s steps(2), border-color .12s linear, background .12s linear; }
+.supp-tile:hover:not(:disabled) { background: var(--panel-2); border-color: var(--border-bright); transform: translateY(-2px); }
+.supp-tile:active:not(:disabled) { transform: translateY(1px); }
+.supp-tile:disabled { cursor: default; opacity: .55; }
+.supp-tile.on { background: var(--panel-2); color: var(--ink); }
+.supp-label { font-family: 'VT323', monospace; font-size: 15px; line-height: 1.1; text-align: center; }
+.supp-serving { font-family: 'VT323', monospace; font-size: 12px; color: var(--ink-3); text-align: center; line-height: 1.1; }
+.supp-count { position: absolute; top: -6px; right: -6px; min-width: 17px; height: 17px; padding: 0 4px; display: flex; align-items: center; justify-content: center; font-family: var(--font-pixel); font-size: 8px; color: #0b0712; border-radius: 2px; box-shadow: 0 0 7px currentColor; }
+
+/* ---- Body history ---- */
+.hist-bars { display: flex; align-items: flex-end; gap: 2px; height: 62px; padding: 6px 0 0; border-bottom: 2px solid var(--border); overflow-x: auto; }
+.hist-bar { position: relative; flex: 1 1 6px; min-width: 5px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; cursor: pointer; opacity: .82; }
+.hist-bar:hover { opacity: 1; }
+.hist-bar-fill { display: block; width: 100%; image-rendering: pixelated; box-shadow: 0 0 5px currentColor; }
+.hist-bar-water { display: block; width: 100%; background: var(--cyan); opacity: .75; margin-top: 1px; }
+.hist-legend { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin: 6px 0 12px; }
+.hist-legend i { display: inline-block; width: 8px; height: 8px; margin-right: 5px; vertical-align: middle; }
+.hist-day { border-bottom: 2px dashed var(--border); }
+.hist-day.open { background: rgba(255,255,255,.02); }
+.hist-head { cursor: pointer; }
+.hist-head:hover { color: var(--purple); }
+.hist-body { padding: 4px 2px 12px; }
+.hist-supps { gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.hist-supp { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; background: var(--bg-deep); border: 2px solid var(--border); border-radius: 3px; color: var(--ink-2); }
+
+/* ---- Risk profile: dial, driver bars, health pips, model ladder ---- */
+.risk-top { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+.risk-dial-wrap { flex: 1 1 230px; min-width: 210px; }
+.risk-dial { width: 100%; max-width: 300px; display: block; margin: 0 auto; }
+.risk-band-label { text-align: center; font-family: var(--font-pixel); font-size: 10px; letter-spacing: 1px; margin: 2px 0 4px; }
+.risk-parts { flex: 1 1 260px; min-width: 240px; }
+.risk-part { padding: 5px 0; border-bottom: 2px dotted var(--border); cursor: pointer; }
+.risk-part:last-of-type { border-bottom: none; }
+.risk-note { padding: 4px 0 2px; line-height: 1.45; }
+.risk-caveat { border-top: 2px dashed var(--border); padding-top: 8px; line-height: 1.5; }
+
+.pxbar { display: flex; gap: 2px; margin-top: 4px; }
+.pxbar i { flex: 1 1 0; height: 8px; background: var(--panel-2); border: 1px solid var(--border); }
+
+.health-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 2px dotted var(--border); }
+.health-row:last-of-type { border-bottom: none; }
+.health-label { flex: 1 1 auto; min-width: 0; color: var(--ink-2); }
+.health-pips { display: inline-flex; gap: 3px; flex: 0 0 auto; }
+.health-pips i { width: 15px; height: 12px; background: var(--bg-deep); border: 1px solid var(--border); display: inline-block; }
+.health-pips i b { display: block; height: 100%; }
+
+.risk-ladder { display: flex; flex-direction: column; gap: 3px; }
+.ladder-row { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-3); }
+.ladder-row.you { color: var(--ink-2); }
+.ladder-label { flex: 0 0 118px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ladder-row.you .ladder-label { font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1px; }
+.ladder-track { flex: 1 1 auto; height: 11px; background: var(--bg-deep); border: 1px solid var(--border); }
+.ladder-bar { display: block; height: 100%; }
+.ladder-score { flex: 0 0 30px; text-align: right; }
+
+.street-bar { display: flex; height: 12px; background: var(--bg-deep); border: 1px solid var(--border); overflow: hidden; }
+.street-bar i { display: block; height: 100%; }
+
 /* ---- Retro analogue clock (hero) ---- */
 .rclk { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; margin-top: 12px; position: relative; z-index: 2; }
 .rclk-face { width: 96px; height: 96px; }
