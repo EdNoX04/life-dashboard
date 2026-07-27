@@ -11,6 +11,10 @@ import { useLiveQuotes, usMarketState } from '../lib/live.js';
 import { fetchHoldingsNews } from '../lib/news.js';
 import { buildDailySeries, buildIntradaySeries, loadPriceHistory, refreshPriceHistory } from '../lib/portfolioHistory.js';
 import MarketCalendar from '../components/MarketCalendar.jsx';
+import Benchmark from '../components/money/Benchmark.jsx';
+import DataStatus from '../components/money/DataStatus.jsx';
+import Book from '../components/money/Book.jsx';
+import { defaultBenchmark } from '../lib/india.js';
 import { aiNewsSummary, memGet, memSet } from '../lib/advisor.js';
 import { pickProvider } from '../lib/ai.js';
 import * as db from '../lib/db.js';
@@ -55,7 +59,7 @@ export default function Money() {
   const [openStock, setOpenStock] = useState(null);
   const [sortBy, setSortBy] = useState('value');
   const [liveNews, setLiveNews] = useState([]);
-  const [view, setView] = useState('portfolio'); // portfolio | nextbuy | calendar
+  const [view, setView] = useState('portfolio'); // portfolio | vs | nextbuy | calendar
   const [newsSum, setNewsSum] = useState(null);
   const [sumBusy, setSumBusy] = useState(false);
   const [fx, setFx] = useState(null);            // USD → INR
@@ -117,6 +121,21 @@ export default function Money() {
     () => buildDailySeries(orders, histTickers, priceHist.data || {}, livePrices),
     [orders, histTickers, priceHist, livePrices]
   );
+
+  // External cash moving in and out, per day. The value line jumps when a buy
+  // settles, and that jump is not performance — analytics subtracts these before
+  // computing any return. Fees are excluded here: they cost money but they don't
+  // add market value, so they belong in the return, not in the flow.
+  const flowsByDay = useMemo(() => {
+    const m = {};
+    for (const o of orders || []) {
+      const d = String(o.date || '').slice(0, 10);
+      const amt = Number(o.qty || 0) * Number(o.price || 0);
+      if (!d || !amt) continue;
+      m[d] = (m[d] || 0) + (o.side === 'S' ? -amt : amt);
+    }
+    return m;
+  }, [orders]);
 
   // load cached daily closes; fetch missing/stale tickers in the background
   useEffect(() => {
@@ -246,6 +265,8 @@ export default function Money() {
         <span className="flex" style={{ gap: 8 }}>
           <span className="seg">
             <button className={`seg-btn${view === 'portfolio' ? ' on' : ''}`} onClick={() => setView('portfolio')}>Portfolio</button>
+            <button className={`seg-btn${view === 'book' ? ' on' : ''}`} onClick={() => setView('book')}>Book</button>
+            <button className={`seg-btn${view === 'vs' ? ' on' : ''}`} onClick={() => setView('vs')}>vs Index</button>
             <button className={`seg-btn${view === 'nextbuy' ? ' on' : ''}`} onClick={() => setView('nextbuy')}>✦ Next buy</button>
             <button className={`seg-btn${view === 'calendar' ? ' on' : ''}`} onClick={() => setView('calendar')}>Calendar</button>
           </span>
@@ -258,6 +279,18 @@ export default function Money() {
       </div>
       <p className="tab-sub">US stocks (INDmoney) + crypto — live prices, auto-refreshing. {liveTag}</p>
 
+      {view === 'book' && (
+        <Book held={held} priceOf={priceOf} quotes={quotes} visible={visible}
+          onOpen={setOpenStock} fx={fx} inr={!!inr} />
+      )}
+      {view === 'vs' && (
+        <Benchmark
+          series={valSeries} orders={orders} flowsByDay={flowsByDay}
+          currentValue={value} cur={inr ? '₹' : '$'} visible={visible}
+          defaultKey={defaultBenchmark('US')}
+        />
+      )}
+      {view === 'vs' && <DataStatus />}
       {view === 'nextbuy' && <NextBuyDesk held={held} priceOf={priceOf} quotes={quotes} />}
       {view === 'calendar' && <MarketCalendar held={held} />}
 
