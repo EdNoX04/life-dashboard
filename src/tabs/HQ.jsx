@@ -7,6 +7,7 @@ import RetroClock from '../components/RetroClock.jsx';
 import MiniCalendar from '../components/MiniCalendar.jsx';
 import NextMeeting from '../components/NextMeeting.jsx';
 import { useLiveQuotes } from '../lib/live.js';
+import { activeDay, ROLLOVER_HOUR } from '../lib/schedule.js';
 
 const WD = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const briefPhase = h => (h < 17 ? 'morning' : h < 21 ? 'evening' : 'night');
@@ -44,11 +45,13 @@ export default function HQ({ go }) {
 
   const brief = briefs.find(b => b.date === today) || briefs[0];
   const dayName = WD[now.getDay()];
-  const isSchoolDay = now.getDay() !== 0 && now.getDay() !== 6; // hidden on weekends (Sat + Sun)
+  // after 9pm (and on Sunday) the timetable looks ahead instead of showing a spent day
+  const viewDay = activeDay(now);
+  const whenWord = viewDay.rolled ? (viewDay.isTomorrow ? 'tomorrow' : viewDay.name) : 'today';
   const openTodos = todos.filter(t => !t.completed && t.due_date && t.due_date <= today);
   const liveHabits = habits.filter(h => !h.archived);
   const habitsDone = liveHabits.filter(h => logs.some(l => l.habit_id === h.id && l.date === today)).length;
-  const classes = timetable.filter(t => t.day === dayName);
+  const classes = timetable.filter(t => t.day === viewDay.name);
   const [moneyVis, toggleMoney] = useMoneyVisible();
   const held = investments.filter(h => Number(h.qty) > 0);
   const { quotes } = useLiveQuotes(held.map(h => h.ticker));
@@ -76,8 +79,12 @@ export default function HQ({ go }) {
   // ---- time-aware brief body ----
   const phase = briefPhase(hour);
   const first = classes[0];
-  const nextDay = WD[(now.getDay() + 1) % 7];
-  const tmrwClasses = timetable.filter(t => t.day === nextDay).length;
+  // "what's next" = the day after this one, unless we've already rolled over, in which
+  // case viewDay IS the next day. Evaluating activeDay at the rollover hour skips Sundays.
+  const lookAhead = viewDay.rolled ? viewDay
+    : activeDay(new Date(now.getFullYear(), now.getMonth(), now.getDate(), ROLLOVER_HOUR));
+  const nextDay = lookAhead.name;
+  const tmrwClasses = viewDay.rolled ? classes.length : timetable.filter(t => t.day === nextDay).length;
   const doneToday = todos.filter(t => t.completed).length;
   const briefMeta = phase === 'morning' ? { t: "Today's brief", c: 'var(--yellow)' }
     : phase === 'evening' ? { t: 'This evening', c: 'var(--cyan)' } : { t: 'Tonight', c: 'var(--purple)' };
@@ -87,7 +94,9 @@ export default function HQ({ go }) {
       {phase === 'morning' && (
         <>
           <div style={{ lineHeight: 1.6 }}>
-            {isSchoolDay && classes.length ? `${classes.length} class${classes.length > 1 ? 'es' : ''} today${first ? ` — first is ${first.subject} at ${first.start_time}` : ''}. ` : isSchoolDay ? 'No classes on the timetable today. ' : 'Weekend — no classes. '}
+            {classes.length
+              ? `${classes.length} class${classes.length > 1 ? 'es' : ''} ${whenWord}${first ? ` — first is ${first.subject} at ${first.start_time}` : ''}. `
+              : `No classes on the timetable ${whenWord}. `}
             {openTodos.length ? `${openTodos.length} task${openTodos.length > 1 ? 's' : ''} due, ` : 'Nothing due, '}
             habits {habitsDone}/{liveHabits.length} done.
             {held.length ? ` Portfolio ${pPct >= 0 ? 'up' : 'down'} ${Math.abs(pPct).toFixed(1)}%.` : ''}
@@ -105,7 +114,7 @@ export default function HQ({ go }) {
           <div style={{ lineHeight: 1.6, marginBottom: news.length ? 10 : 0 }}>
             {held.length ? `Markets: your portfolio is ${pPct >= 0 ? 'up' : 'down'} ${Math.abs(pPct).toFixed(1)}%. ` : ''}
             {openTodos.length ? `${openTodos.length} task${openTodos.length > 1 ? 's' : ''} still open. ` : 'Tasks clear. '}
-            Tomorrow ({nextDay}): {tmrwClasses} class{tmrwClasses !== 1 ? 'es' : ''}.
+            {lookAhead.isTomorrow ? 'Tomorrow' : 'Next up'} ({nextDay}): {tmrwClasses} class{tmrwClasses !== 1 ? 'es' : ''}.
           </div>
           {news.slice(0, 3).map(n => (
             <div className="row" key={n.id}><span style={{ flex: 1 }}><a href={n.url} target="_blank" rel="noreferrer" style={{ color: 'var(--ink)' }}>{n.title}</a></span><span className="chip c-purple">{n.category}</span></div>
@@ -116,7 +125,7 @@ export default function HQ({ go }) {
         <div style={{ lineHeight: 1.6 }}>
           {doneToday} task{doneToday !== 1 ? 's' : ''} done, habits {habitsDone}/{liveHabits.length}.
           {held.length ? ` Portfolio closed ${pPct >= 0 ? 'up' : 'down'} ${Math.abs(pPct).toFixed(1)}%.` : ''}
-          {' '}Tomorrow ({nextDay}): {tmrwClasses} class{tmrwClasses !== 1 ? 'es' : ''} — {openTodos.length ? `${openTodos.length} carried over.` : 'clean slate.'}
+          {' '}{lookAhead.isTomorrow ? 'Tomorrow' : 'Next up'} ({nextDay}): {tmrwClasses} class{tmrwClasses !== 1 ? 'es' : ''} — {openTodos.length ? `${openTodos.length} carried over.` : 'clean slate.'}
         </div>
       )}
     </Card>
@@ -152,9 +161,9 @@ export default function HQ({ go }) {
       ))}
     </Card>
   );
-  const ClassesCard = isSchoolDay ? (
-    <Card key="classes" title="Today's classes" color="var(--cyan)" right={<button className="btn btn-sm" onClick={() => go('college')}>open →</button>}>
-      {classes.length === 0 && <Empty icon="☺" text="No classes today — free roam." />}
+  const ClassesCard = (
+    <Card key="classes" title={viewDay.rolled ? `Classes ${whenWord}` : "Today's classes"} color="var(--cyan)" right={<button className="btn btn-sm" onClick={() => go('college')}>open →</button>}>
+      {classes.length === 0 && <Empty icon="☺" text={`No classes ${whenWord} — free roam.`} />}
       {classes.slice(0, 8).map(t => (
         <div className="row" key={t.id}>
           <span className="chip c-cyan">{t.start_time}</span>
@@ -163,7 +172,7 @@ export default function HQ({ go }) {
         </div>
       ))}
     </Card>
-  ) : null;
+  );
 
   // Same cards, grouped by column count. 2-col grouping is the original iPad layout.
   const cardMap = { brief: BriefCard, meetings: MeetingsCard, reminders: RemindersCard, priorities: PrioritiesCard, calendar: CalendarCard, news: NewsCard, classes: ClassesCard };
@@ -197,9 +206,7 @@ export default function HQ({ go }) {
       <div className="tile-row">
         <StatTile label="Due today" value={openTodos.length} note="tasks" color="var(--yellow)" />
         <StatTile label="Habits" value={`${habitsDone}/${liveHabits.length}`} note="done today" color="var(--green)" />
-        {isSchoolDay
-          ? <StatTile label="Classes" value={classes.length} note="today" color="var(--cyan)" />
-          : <StatTile label="Reminders" value={reminders.length} note="to look at" color="var(--cyan)" />}
+        <StatTile label="Classes" value={classes.length} note={whenWord} color="var(--cyan)" />
         <StatTile label="Portfolio" value={held.length ? money(pValue, moneyVis) : '—'}
           note={held.length ? <span onClick={toggleMoney} style={{ cursor: 'pointer', color: pPct >= 0 ? 'var(--green)' : 'var(--red)' }}>{pPct >= 0 ? '▲' : '▼'} {Math.abs(pPct).toFixed(2)}% · {moneyVis ? 'hide' : 'tap'}</span> : null}
           color="var(--pink)" />

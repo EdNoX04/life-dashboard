@@ -26,6 +26,7 @@ import Settings from './tabs/Settings.jsx';
 import { BootScreen, PlayerCard } from './components/arcade.jsx';
 import NavIcon from './components/NavIcons.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+import MiniPlayer from './components/MiniPlayer.jsx';
 
 // retro glyph per tab (rendered in a pixel frame, replaces the plain colour dot)
 const TABS = [
@@ -87,6 +88,7 @@ export default function App() {
             </div>
           ))}
         </div>
+        <MiniPlayer />
         <PlayerCard />
       </nav>
       <main className="main">

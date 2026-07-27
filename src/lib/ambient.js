@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 // Ambient sound engine — real field-recording loops (Moodist, CC-licensed) streamed
 // from the jsDelivr CDN, decoded via Web Audio for seamless looping + per-sound and
 // master volume. Natural, not synthesized.
@@ -18,19 +20,33 @@ export const SOUNDS = {
 };
 
 let ctx = null, master = null;
+let masterVol = 0.6;       // remembered even before the audio context exists
 const active = new Map();  // key -> { stop() } | 'loading'
 const cache = new Map();   // url -> Promise<AudioBuffer>
+
+// This engine is module-level, so sound survives tab switches. These let the UI
+// (the Study/Sleep grids and the sidebar mini player) read that shared state.
+const subs = new Set();
+const emit = () => { for (const f of [...subs]) f(); };
+export function subscribe(fn) { subs.add(fn); return () => subs.delete(fn); }
+export function activeKeys() { return [...active.keys()]; }
+export function anyOn() { return active.size > 0; }
+export function masterVolume() { return masterVol; }
 
 function ac() {
   if (!ctx) {
     const AC = window.AudioContext || window.webkitAudioContext;
     ctx = new AC();
-    master = ctx.createGain(); master.gain.value = 0.6; master.connect(ctx.destination);
+    master = ctx.createGain(); master.gain.value = masterVol; master.connect(ctx.destination);
   }
   if (ctx.state === 'suspended') ctx.resume();
   return ctx;
 }
-export function setMasterVolume(v) { if (master) master.gain.value = Math.max(0, Math.min(1, v)); }
+export function setMasterVolume(v) {
+  masterVol = Math.max(0, Math.min(1, v));
+  if (master) master.gain.value = masterVol;
+  emit();
+}
 
 function getBuffer(url) {
   if (cache.has(url)) return cache.get(url);
@@ -43,7 +59,7 @@ function getBuffer(url) {
 export async function start(key) {
   if (active.has(key)) return;
   const s = SOUNDS[key]; if (!s) return;
-  active.set(key, 'loading');
+  active.set(key, 'loading'); emit();
   try {
     const c = ac();
     const buf = await getBuffer(s.url);
@@ -52,9 +68,17 @@ export async function start(key) {
     const g = c.createGain(); g.gain.value = 0.9;
     src.connect(g); g.connect(master); src.start();
     active.set(key, { stop() { try { src.stop(); } catch {} try { g.disconnect(); } catch {} } });
-  } catch { active.delete(key); }
+    emit();
+  } catch { active.delete(key); emit(); }
 }
-export function stop(key) { const a = active.get(key); if (a && a.stop) a.stop(); active.delete(key); }
+export function stop(key) { const a = active.get(key); if (a && a.stop) a.stop(); active.delete(key); emit(); }
 export function toggle(key) { if (active.has(key)) { stop(key); return false; } start(key); return true; }
 export function stopAll() { for (const k of [...active.keys()]) stop(k); }
 export function isOn(key) { return active.has(key); }
+
+// React binding — re-renders whenever the shared mix changes.
+export function useAmbient() {
+  const [, bump] = useState(0);
+  useEffect(() => subscribe(() => bump(n => n + 1)), []);
+  return { keys: activeKeys(), vol: masterVol };
+}

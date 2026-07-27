@@ -22,15 +22,14 @@ export default function Study({ go }) {
   const [secs, setSecs] = useState(DUR.focus);
   const [running, setRunning] = useState(false);
   const [rounds, setRounds] = useState(0);
-  const [ambient, setAmbient] = useState({});
-  const [vol, setVol] = useState(60);
+  // ambience state is global (src/lib/ambient.js) so it keeps playing across tabs
+  const { keys: ambKeys, vol: ambVol } = amb.useAmbient();
+  const vol = Math.round(ambVol * 100);
   const tick = useRef(null);
 
   const { items: subjects } = useCollection('subjects', { order: 'name', asc: true });
   const withNotes = subjects.filter(s => s.notes_url);
   const [openNotes, setOpenNotes] = useState(null);
-
-  useEffect(() => () => amb.stopAll(), []);
 
   useEffect(() => {
     if (!running) { clearInterval(tick.current); return; }
@@ -48,8 +47,8 @@ export default function Study({ go }) {
   const setM = m => { setMode(m); setSecs(DUR[m]); setRunning(false); };
   const pct = 100 - Math.round((secs / DUR[mode]) * 100);
   const ringColor = mode === 'focus' ? 'var(--pink)' : 'var(--green)';
-  const toggleAmb = k => { const on = amb.toggle(k); setAmbient(a => ({ ...a, [k]: on })); };
-  const setVolume = v => { setVol(v); amb.setMasterVolume(v / 100); };
+  const toggleAmb = k => amb.toggle(k);
+  const setVolume = v => amb.setMasterVolume(v / 100);
 
   return (
     <>
@@ -81,7 +80,7 @@ export default function Study({ go }) {
         <Card title="Ambience" color="var(--cyan)">
           <div className="amb-grid">
             {AMBIENT.map(a => (
-              <button key={a.key} className={`amb-tile${ambient[a.key] ? ' on' : ''}`} onClick={() => toggleAmb(a.key)}>
+              <button key={a.key} className={`amb-tile${ambKeys.includes(a.key) ? ' on' : ''}`} onClick={() => toggleAmb(a.key)}>
                 <span className="amb-ico">{a.icon}</span>
                 <span className="amb-lbl">{a.label}</span>
               </button>
@@ -92,12 +91,12 @@ export default function Study({ go }) {
             <input type="range" min="0" max="100" value={vol} onChange={e => setVolume(+e.target.value)} style={{ flex: 1 }} />
             <span className="small">{vol}</span>
           </div>
-          <div className="small muted mt">Mix as many as you like — all synthesized live, so it works offline.</div>
+          <div className="small muted mt">Mix as many as you like — they keep playing when you switch tabs, with controls next to your XP bar.</div>
         </Card>
       </div>
 
       <Card title="Lofi radio" color="var(--purple)">
-        <LofiRadio stations={STUDY_STATIONS} />
+        <LofiRadio stations={STUDY_STATIONS} source="study" />
       </Card>
 
       <Card title="Your study material" color="var(--yellow)" right={<button className="btn btn-sm" onClick={() => go('subjects')}>Subjects →</button>}>

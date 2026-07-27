@@ -311,6 +311,13 @@
   will-change: transform; backface-visibility: hidden; transform: translateZ(0);
 }
 .ticker-inner span { flex: none; padding: 0 34px; }
+/* offscreen single copy, used only to measure one pass of the list */
+.ticker-measure {
+  position: absolute; left: -99999px; top: 0; visibility: hidden; pointer-events: none;
+  display: inline-flex; white-space: nowrap; padding: 9px 0;
+  font-family: var(--font-pixel); font-size: 9px;
+}
+.ticker-measure span { flex: none; padding: 0 34px; }
 @keyframes scroll { from { transform: translate3d(0,0,0) } to { transform: translate3d(-50%,0,0) } }
 
 /* ---- hero banner (HQ) with live sky (right-side only, blended left) ---- */
@@ -865,3 +872,47 @@
 .note-transcript { margin-top: 10px; max-height: 200px; overflow-y: auto; border: 2px solid var(--border-bright); border-radius: 3px; background: var(--bg-deep); padding: 10px 12px; font-family: 'VT323', monospace; font-size: 16px; line-height: 1.5; color: var(--ink); white-space: pre-wrap; }
 .note-caret { animation: caretBlink 1s steps(1) infinite; color: var(--pink); }
 @keyframes caretBlink { 50% { opacity: 0; } }
+
+/* ---- mini player (sits just above the XP card; audio keeps running across tabs) ---- */
+.mini-player {
+  margin-top: auto; flex-shrink: 0;
+  border: 3px solid var(--border-bright); background: var(--panel);
+  border-radius: 2px; padding: 7px 8px; margin-bottom: 8px;
+  box-shadow: 0 0 14px rgba(185,103,255,.28);
+  animation: mpIn .2s steps(3) both;
+}
+.mini-player + .player-card { margin-top: 0; }
+@keyframes mpIn { from { opacity: 0; transform: translateY(6px) } }
+.mp-row { display: flex; align-items: center; gap: 8px; }
+.mp-btn {
+  flex: none; width: 28px; height: 28px; padding: 0; cursor: pointer;
+  border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--pink);
+  font-family: var(--font-pixel); font-size: 8px; border-radius: 2px; line-height: 1;
+}
+.mp-btn:hover { background: var(--panel-2); color: var(--yellow); }
+.mp-x { color: var(--ink-3); width: 22px; height: 22px; }
+.mp-meta { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.mp-title {
+  font-family: var(--font-pixel); font-size: 7px; color: var(--cyan);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mp-sub { font-size: 13px; color: var(--ink-3); line-height: 1; white-space: nowrap; overflow: hidden; }
+.mp-vol { width: 100%; margin-top: 7px; }
+
+@media (max-width: 760px) {
+  /* the sidebar turns into a bottom nav bar on phones, so float the transport above it */
+  .mini-player {
+    position: fixed; left: 10px; bottom: 74px; z-index: 45;
+    width: 168px; margin: 0;
+    background: var(--bg-deep);
+    box-shadow: 0 0 0 3px var(--bg-deep), 0 0 18px rgba(0,0,0,.6);
+  }
+}
+
+/* ---- subjects: syllabus upload row ---- */
+.syl-drop {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  border: 2px dashed var(--border-bright); border-radius: 3px;
+  background: var(--panel-2); padding: 10px; margin-bottom: 4px;
+}
+.syl-drop .small { flex: 1; min-width: 180px; }

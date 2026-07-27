@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { Card } from '../components/ui.jsx';
 import LofiRadio from '../components/LofiRadio.jsx';
 import * as amb from '../lib/ambient.js';
+import * as radio from '../lib/radio.js';
 
 // Wind-down room — sleep lofi (Lofi Girl "beats to sleep/chill to"), calming ambience,
 // and a sleep timer that fades everything out so you can drift off.
@@ -17,27 +18,17 @@ const TIMERS = [15, 30, 45, 60];
 const fmt = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 export default function Sleep() {
-  const [ambient, setAmbient] = useState({});
-  const [vol, setVol] = useState(50);
-  const [left, setLeft] = useState(0);   // seconds remaining on sleep timer
-  const [stopKey, setStopKey] = useState(0);
-  const iv = useRef(null);
+  // ambience state is global (src/lib/ambient.js) so it keeps playing across tabs
+  const { keys: ambKeys, vol: ambVol } = amb.useAmbient();
+  const vol = Math.round(ambVol * 100);
+  // the sleep timer lives in the radio module so it survives leaving this tab
+  radio.useRadio();
+  const left = radio.sleepLeft();
 
-  useEffect(() => () => amb.stopAll(), []);
-
-  useEffect(() => {
-    if (left <= 0) { clearInterval(iv.current); return; }
-    iv.current = setInterval(() => setLeft(l => {
-      if (l <= 1) { amb.stopAll(); setAmbient({}); setStopKey(k => k + 1); return 0; }
-      return l - 1;
-    }), 1000);
-    return () => clearInterval(iv.current);
-  }, [left > 0]); // eslint-disable-line
-
-  const toggleAmb = k => { const on = amb.toggle(k); setAmbient(a => ({ ...a, [k]: on })); };
-  const setVolume = v => { setVol(v); amb.setMasterVolume(v / 100); };
-  const setTimer = m => setLeft(m * 60);
-  const cancelTimer = () => { setLeft(0); };
+  const toggleAmb = k => amb.toggle(k);
+  const setVolume = v => amb.setMasterVolume(v / 100);
+  const setTimer = m => radio.setSleep(m);
+  const cancelTimer = () => radio.cancelSleep();
 
   return (
     <>
@@ -45,14 +36,14 @@ export default function Sleep() {
       <p className="tab-sub">Dim the day down — soft beats, gentle rain, and a timer that tucks everything in. 🌙</p>
 
       <Card title="Sleep radio" color="var(--purple)">
-        <LofiRadio stations={SLEEP_STATIONS} stopKey={stopKey} />
+        <LofiRadio stations={SLEEP_STATIONS} source="sleep" />
       </Card>
 
       <div className="grid2">
         <Card title="Calm ambience" color="var(--cyan)">
           <div className="amb-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
             {CALM.map(a => (
-              <button key={a.key} className={`amb-tile${ambient[a.key] ? ' on' : ''}`} onClick={() => toggleAmb(a.key)}>
+              <button key={a.key} className={`amb-tile${ambKeys.includes(a.key) ? ' on' : ''}`} onClick={() => toggleAmb(a.key)}>
                 <span className="amb-ico">{a.icon}</span>
                 <span className="amb-lbl">{a.label}</span>
               </button>

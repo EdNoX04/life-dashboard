@@ -1,5 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useCollection, todayStr } from '../lib/hooks.js';
+
+// Trim to a length without slicing a word in half (the old ticker cut mid-word,
+// which read as text being chopped off).
+function clip(s, n) {
+  if (s.length <= n) return s;
+  const cut = s.slice(0, n);
+  const sp = cut.lastIndexOf(' ');
+  return (sp > n * 0.6 ? cut.slice(0, sp) : cut).replace(/[\s—–-]+$/, '') + '…';
+}
 
 // One-time boot screen per session (kept short; skippable by tap)
 export function BootScreen() {
@@ -40,7 +49,12 @@ export function PlayerCard() {
   );
 }
 
-// Scrolling HUD ticker for HQ
+// Scrolling HUD ticker for HQ.
+// The loop works by rendering two identical halves and sliding exactly -50%, so the
+// second half lands where the first began. That only looks seamless if a half is at
+// least as wide as the rail — otherwise the content runs out mid-rail and items look
+// like they've been blacked out. So we measure one copy of the list and repeat it
+// enough times to cover the rail before duplicating.
 export function Ticker() {
   const today = todayStr();
   const { items: todos } = useCollection('todos');
@@ -54,16 +68,49 @@ export function Ticker() {
     const bits = [
       due > 0 ? `⚠ ${due} QUEST${due > 1 ? 'S' : ''} DUE TODAY` : '✓ NO QUESTS DUE — FREE ROAM',
       `♥ HABITS ${habitsDone}/${habits.filter(h => !h.archived).length || 0}`,
-      ...news.slice(0, 3).map(n => `※ ${String(n.title || '').toUpperCase().slice(0, 70)}`),
+      ...news.slice(0, 3).map(n => `※ ${clip(String(n.title || '').toUpperCase(), 70)}`),
       'PRESS ANY TAB TO CONTINUE',
     ];
     return bits;
   }, [todos, habits, logs, news, today]);
 
+  const railRef = useRef(null);
+  const baseRef = useRef(null);
+  const [{ reps, unit }, setFit] = useState({ reps: 1, unit: 0 });
+
+  useLayoutEffect(() => {
+    const rail = railRef.current, base = baseRef.current;
+    if (!rail || !base) return;
+    const calc = () => {
+      const railW = rail.clientWidth || 0;
+      const baseW = base.scrollWidth || 0;
+      if (!railW || !baseW) return;
+      const r = Math.max(1, Math.ceil(railW / baseW));
+      setFit(p => (p.reps === r && p.unit === baseW * r ? p : { reps: r, unit: baseW * r }));
+    };
+    calc();
+    const ro = new ResizeObserver(calc);
+    ro.observe(rail); ro.observe(base);
+    return () => ro.disconnect();
+  }, [items]);
+
+  const half = useMemo(() => {
+    const out = [];
+    for (let r = 0; r < reps; r++) out.push(...items);
+    return out;
+  }, [items, reps]);
+
+  // constant reading speed regardless of how much content there is
+  const dur = Math.max(18, Math.round(unit / 55)) || 36;
+
   return (
-    <div className="ticker">
-      <div className="ticker-inner">
-        {[...items, ...items].map((x, i) => <span key={i}>{x}</span>)}
+    <div className="ticker" ref={railRef}>
+      {/* hidden single copy, used only to measure one pass of the list */}
+      <div className="ticker-measure" ref={baseRef} aria-hidden="true">
+        {items.map((x, i) => <span key={i}>{x}</span>)}
+      </div>
+      <div className="ticker-inner" style={{ animationDuration: `${dur}s` }}>
+        {[...half, ...half].map((x, i) => <span key={i}>{x}</span>)}
       </div>
     </div>
   );
