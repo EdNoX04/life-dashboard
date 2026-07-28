@@ -976,3 +976,489 @@
   background: var(--panel-2); padding: 10px; margin-bottom: 4px;
 }
 .syl-drop .small { flex: 1; min-width: 180px; }
+
+/* ---- Planner: assumptions grid, snowball, source split, goals ---- */
+.plan-grid {
+  display: grid; gap: 9px;
+  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+}
+.plan-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.plan-flabel {
+  font-family: var(--font-pixel); font-size: 7px; letter-spacing: 1px;
+  color: var(--ink-2); text-transform: uppercase;
+}
+.plan-fin {
+  display: flex; align-items: center; gap: 4px;
+  border: 2px solid var(--border-bright); background: var(--bg-deep);
+  border-radius: 2px; padding: 0 7px 0 0;
+}
+.plan-fin:focus-within { border-color: var(--cyan); box-shadow: 0 0 10px rgba(79,209,255,.25); }
+.plan-fin input {
+  flex: 1 1 auto; min-width: 0; width: 100%;
+  border: none; background: transparent; color: var(--ink);
+  font-family: 'VT323', monospace; font-size: 17px; padding: 5px 8px;
+}
+.plan-fin input:focus { outline: none; }
+.plan-fsuffix { flex: none; font-size: 12px; color: var(--ink-3); }
+.plan-fhint { font-size: 12px; color: var(--ink-3); line-height: 1.25; }
+
+.plan-tip {
+  position: absolute; top: 4px; right: 8px; pointer-events: none;
+  background: rgba(0,0,0,.88); border: 1px solid var(--border-bright);
+  padding: 5px 8px; line-height: 1.35;
+}
+
+.plan-split {
+  display: flex; height: 16px; margin-top: 4px;
+  border: 2px solid var(--border-bright); background: var(--bg-deep); overflow: hidden;
+}
+.plan-split-seg { height: 100%; box-shadow: inset 0 0 8px rgba(0,0,0,.35); }
+
+.plan-goal { border-top: 2px dotted var(--border); padding-top: 7px; }
+.plan-goal-bar {
+  height: 12px; margin: 5px 0 3px;
+  border: 2px solid var(--border-bright); background: var(--bg-deep);
+}
+.plan-goal-fill { height: 100%; box-shadow: 0 0 8px currentColor; }
+
+/* ---- Dividend desk: bars tooltip, calendar grid, coverage, editor ---- */
+
+/* The pixel field from the planner also has to hold <select>s here. */
+.plan-fin select {
+  flex: 1 1 auto; min-width: 0; width: 100%;
+  border: none; background: transparent; color: var(--ink);
+  font-family: 'VT323', monospace; font-size: 17px; padding: 5px 8px;
+  appearance: none; -webkit-appearance: none; cursor: pointer;
+}
+.plan-fin select:focus { outline: none; }
+.plan-fin select option { background: var(--panel); color: var(--ink); }
+
+.div-tip {
+  position: absolute; top: 4px; right: 8px; pointer-events: none;
+  background: rgba(0,0,0,.88); border: 1px solid var(--border-bright);
+  padding: 5px 8px; line-height: 1.35; min-width: 120px;
+}
+
+.div-cover {
+  border: 2px dashed var(--orange); background: rgba(255,159,67,.07);
+  color: var(--ink-2); padding: 8px 10px; margin: 0 0 10px;
+  font-size: 13px; line-height: 1.4;
+}
+.div-cover b { color: var(--orange); }
+.div-cover i { color: var(--ink); font-style: normal; text-decoration: underline dotted; }
+
+/* Legend. The whole screen leans on solid-vs-dashed, so the key gets to be
+   literal: a filled block, a dashed outline, and the ex-date marker. */
+.div-legend { display: flex; flex-wrap: wrap; gap: 12px; color: var(--ink-3); }
+.div-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.div-key {
+  width: 12px; height: 10px; display: inline-block; flex: none;
+  image-rendering: pixelated;
+}
+.div-key.solid { background: var(--green); box-shadow: 0 0 5px var(--green); }
+.div-key.est { border: 1px dashed var(--cyan); background: rgba(79,209,255,.2); }
+.div-key.ex { border: 1px dotted var(--pink); background: transparent; }
+
+.div-year {
+  display: grid; gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+}
+
+.div-month {
+  border: 2px solid var(--border); background: var(--bg-deep);
+  padding: 6px 6px 7px; min-width: 0;
+}
+.div-month-name {
+  font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1px;
+  color: var(--cyan); text-transform: uppercase; margin-bottom: 4px;
+}
+.div-dow, .div-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.div-dow span {
+  font-size: 10px; text-align: center; color: var(--ink-3);
+  font-family: var(--font-pixel); letter-spacing: 0;
+}
+.div-day {
+  min-height: 18px; border: 1px solid transparent; padding: 1px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 1px;
+}
+.div-day b { font-size: 11px; color: var(--ink-3); font-weight: normal; line-height: 1; }
+.div-day.empty { border-color: transparent; }
+.div-day.has { border-color: var(--border-bright); background: rgba(255,255,255,.03); }
+.div-day.has b { color: var(--ink); }
+
+.div-chip {
+  display: block; font-style: normal; font-size: 10px; line-height: 1.15;
+  padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.div-chip.solid {
+  background: var(--green); color: #04180c;
+  box-shadow: 0 0 4px var(--green);
+}
+.div-chip.est {
+  border: 1px dashed var(--cyan); color: var(--cyan);
+  background: rgba(79,209,255,.08);
+}
+.div-chip.ex { border: 1px dotted var(--pink); color: var(--pink); background: transparent; }
+
+/* The year view has twelve grids on screen at once, so the chips lose their
+   labels and become pure colour — the shape of the income year is the point. */
+.div-month.mini { padding: 5px; }
+.div-month.mini .div-day { min-height: 14px; }
+.div-month.mini .div-day b { font-size: 9px; }
+.div-month.mini .div-chip { height: 3px; padding: 0; }
+
+.div-next { display: flex; flex-direction: column; gap: 4px; }
+.div-next-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  border-left: 3px solid var(--cyan); padding: 4px 6px;
+  background: rgba(255,255,255,.02);
+}
+.div-next-row.declared { border-left-color: var(--green); }
+.div-next-row.estimated { border-left-style: dashed; }
+.div-next-date {
+  font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1px;
+  color: var(--ink-3); flex: none; min-width: 44px;
+}
+
+.div-editor {
+  border-top: 2px dotted var(--border); border-bottom: 2px dotted var(--border);
+  background: rgba(0,0,0,.25); padding: 10px;
+}
+.div-unknown td { opacity: .62; }
+
+/* ---- Holdings table: weight bars, DRIP pip, dimmed partial rows ---- */
+.hold-table th { user-select: none; white-space: nowrap; }
+.hold-caret { color: var(--cyan); margin-left: 3px; font-size: 9px; }
+
+/* A dimmed row is a claim: "this position is real, but part of it is unknown."
+   It must not read as disabled, so the market value column stays full strength. */
+.hold-partial td { opacity: .6; }
+.hold-partial td:nth-child(8) { opacity: 1; }
+
+.hold-wt {
+  position: relative; display: inline-block; min-width: 52px;
+  border: 1px solid var(--border); background: var(--bg-deep); padding: 0 4px;
+  text-align: right; overflow: hidden;
+}
+.hold-wt i {
+  position: absolute; left: 0; top: 0; bottom: 0; display: block;
+  background: linear-gradient(90deg, rgba(79,209,255,.45), rgba(79,209,255,.12));
+  border-right: 1px solid var(--cyan);
+}
+.hold-wt b { position: relative; font-weight: normal; color: var(--ink); }
+
+.hold-drip {
+  border: none; background: transparent; cursor: pointer; padding: 0 3px;
+  color: var(--ink-3); font-size: 14px; line-height: 1;
+}
+.hold-drip.on { color: var(--green); filter: drop-shadow(0 0 4px var(--green)); }
+.hold-drip:hover { color: var(--cyan); }
+
+.hold-div { color: var(--green); font-size: 10px; margin-left: 3px; opacity: .8; }
+
+/* ---- Expenses: category cards, budget markers, in/out legend ---- */
+.exp-cats {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+.exp-cat {
+  border: 2px solid var(--border);
+  background: var(--bg-deep);
+  padding: 7px 8px 8px;
+  min-width: 0;
+}
+/* Over budget is a state, not an error — the card gets a warning edge, but the
+   numbers inside stay exactly as legible as every other card's. */
+.exp-cat.over {
+  border-color: var(--red);
+  border-style: dashed;
+  background: rgba(255,77,109,.06);
+}
+.exp-cat-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+  min-width: 0;
+}
+.exp-cat-top b {
+  font-weight: normal;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.exp-icon {
+  display: inline-block;
+  font-size: 14px;
+  line-height: 1;
+  flex: none;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+.exp-cat-amt {
+  margin-left: auto;
+  flex: none;
+  color: var(--ink);
+  font-size: 15px;
+}
+.exp-bar {
+  position: relative;
+  height: 9px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  overflow: hidden;
+  margin-bottom: 4px;
+  image-rendering: pixelated;
+}
+.exp-bar i {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  display: block;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+/* The budget cap, drawn as a post the fill runs past rather than as a second
+   bar — one bar and a line, so the eye reads "how far" and "how far allowed"
+   in the same glance. */
+.exp-bar u {
+  position: absolute;
+  top: -2px; bottom: -2px;
+  width: 2px;
+  background: var(--ink);
+  box-shadow: 0 0 4px var(--ink);
+  text-decoration: none;
+}
+.exp-key {
+  width: 12px;
+  height: 10px;
+  display: inline-block;
+  flex: none;
+  image-rendering: pixelated;
+}
+.exp-key.out { background: var(--red); box-shadow: 0 0 5px var(--red); }
+.exp-key.part { border: 1px dashed var(--red); background: rgba(255,77,109,.14); }
+
+/* ---- Stock research: estimates legend, valuation grid, peer table ---- */
+
+/* The research legend borrows .div-key's box so the two screens read the same,
+   and adds the two states only this chart has: a reported quarter that missed,
+   and a quarter nobody has reported yet. */
+.res-key {
+  width: 12px; height: 10px; display: inline-block; flex: none;
+  image-rendering: pixelated;
+}
+.res-key.miss { background: var(--red); box-shadow: 0 0 5px var(--red); }
+.res-key.wait {
+  border: 1px dashed var(--cyan);
+  background: repeating-linear-gradient(45deg,
+    rgba(79,209,255,.45) 0 1px, transparent 1px 3px);
+}
+
+/* An estimated or short fiscal year is dimmed rather than hidden. It is real
+   information — it is just not a fact yet, and the row should not carry the
+   same weight as the years the company has actually reported. */
+.res-est td { color: var(--ink-3); }
+.res-est td:first-child { border-left: 2px dashed var(--cyan); padding-left: 6px; }
+
+/* Your own row in the peer table. The comparison is meaningless if you have to
+   hunt for which line is yours. */
+.res-self td { background: rgba(255,214,79,.07); }
+.res-self td:first-child { border-left: 2px solid var(--yellow); padding-left: 6px; }
+
+.res-range { margin-top: 6px; }
+.res-track {
+  position: relative; height: 10px; margin-bottom: 3px;
+  border: 1px solid var(--border);
+  background: linear-gradient(90deg, rgba(255,77,109,.28), rgba(255,159,67,.22), rgba(57,255,20,.28));
+  image-rendering: pixelated;
+}
+/* The marker is a post, not a fill: the question a 52-week bar answers is
+   "where in the year am I standing", and a filled bar answers "how much",
+   which is a different question. */
+.res-track i {
+  position: absolute; top: -3px; bottom: -3px; width: 3px; margin-left: -1px;
+  background: var(--ink); box-shadow: 0 0 6px var(--ink);
+}
+
+.res-metrics {
+  display: grid; gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+.res-metric {
+  border: 2px solid var(--border); background: var(--bg-deep);
+  padding: 7px 8px 8px; min-width: 0;
+}
+.res-mlabel {
+  font-family: var(--font-pixel); font-size: 8px; letter-spacing: .06em;
+  color: var(--ink-3); text-transform: uppercase; margin-bottom: 3px;
+}
+.res-mval {
+  font-size: 21px; line-height: 1; color: var(--cyan);
+  filter: drop-shadow(0 0 4px var(--cyan)); margin-bottom: 4px;
+}
+
+/* ---- Market leaders: index strip, heat map key, table ---- */
+
+.lb-strip {
+  display: grid; gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+.lb-idx {
+  border: 2px solid var(--border); background: var(--bg-deep);
+  padding: 6px 8px 7px; min-width: 0;
+}
+.lb-idx-name {
+  font-family: var(--font-pixel); font-size: 8px; letter-spacing: .06em;
+  color: var(--ink-3); text-transform: uppercase;
+}
+.lb-idx-px { font-size: 19px; line-height: 1.15; color: var(--ink); }
+.lb-idx-chg { font-size: 14px; line-height: 1.2; }
+/* The instrument, spelled out under the index name. A strip that says only
+   "S&P 500" invites the reader to think they are watching the index itself. */
+.lb-idx-note { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+
+.lb-key {
+  width: 12px; height: 10px; display: inline-block; flex: none;
+  image-rendering: pixelated;
+}
+.lb-key.up { background: rgba(57,255,20,.55); box-shadow: 0 0 5px var(--green); }
+.lb-key.down { background: rgba(255,77,109,.55); box-shadow: 0 0 5px var(--red); }
+/* Grey is a real state on this map, not an absence of styling — it means the
+   move is unknown, and it gets a swatch in the key like everything else. */
+.lb-key.none { background: rgba(140,140,160,.32); border: 1px solid rgba(180,180,200,.4); }
+
+.lb-table th { user-select: none; }
+.lb-table th:hover { color: var(--cyan); }
+.lb-table td { vertical-align: middle; }
+
+/* ---- Head to head: the picker, the grid, the two states a row can be in ---- */
+.cmp-picker { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.cmp-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: 2px solid var(--border); background: var(--bg-deep);
+  padding: 3px 5px 3px 7px; font-size: 15px; line-height: 1;
+}
+.cmp-x {
+  background: none; border: 0; cursor: pointer; padding: 0 2px;
+  color: var(--ink-3); font-size: 15px; line-height: 1;
+}
+.cmp-x:hover { color: var(--red); }
+.cmp-in { width: 92px; text-align: center; text-transform: uppercase; }
+
+/* A row not every company reports is dimmed rather than dropped. The numbers in
+   it are real — they are just not a fair fight, so they lose their weight
+   instead of losing their place. */
+.cmp-thin td { color: var(--ink-3); }
+.cmp-thin td:first-child { border-left: 2px dashed var(--border-bright); padding-left: 6px; }
+.cmp-note { color: var(--ink-3); font-size: 11px; }
+.cmp-win { background: rgba(57,255,20,.09); }
+.cmp-lose { background: rgba(255,77,109,.06); }
+.cmp-table td, .cmp-table th { white-space: nowrap; }
+.cmp-key {
+  width: 12px; height: 10px; display: inline-block; flex: none;
+  image-rendering: pixelated;
+}
+.cmp-key.thin {
+  border: 1px dashed var(--border-bright);
+  background: repeating-linear-gradient(45deg,
+    rgba(140,140,160,.35) 0 1px, transparent 1px 3px);
+}
+
+/* ---- Chart reading: legend, verdict table, swing levels ---- */
+.tech-legend {
+  display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px;
+  font-size: 12px; color: var(--ink-2);
+}
+.tech-table td { vertical-align: top; }
+/* A reading the series was too short to compute keeps its row — the absence is
+   information, and hiding it makes a thin chart look like a complete one. */
+.tech-na td { color: var(--ink-3); }
+.tech-na td:first-child { border-left: 2px dashed var(--border-bright); padding-left: 6px; }
+.tech-lean {
+  width: 8px; height: 8px; display: inline-block; margin-right: 6px;
+  image-rendering: pixelated; vertical-align: middle;
+}
+.tech-levels { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+
+/* ---- Rebalancing: the target editor, the drift bar, the two plans ---- */
+.rb-targets { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
+.rb-trow {
+  display: flex; align-items: center; gap: 6px;
+  border: 2px solid var(--border); background: var(--bg-deep); padding: 4px 7px;
+}
+.rb-tlabel { flex: 1; font-size: 14px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-tin {
+  width: 58px; text-align: right; background: var(--panel-2); color: var(--ink);
+  border: 2px solid var(--border-bright); font-family: 'VT323', monospace; font-size: 16px; padding: 1px 4px;
+}
+.rb-tpct { color: var(--ink-3); font-size: 13px; }
+.rb-table td, .rb-table th { white-space: nowrap; }
+/* A sleeve with no target is dimmed, never hidden. Hiding it is how a book ends
+   up with a third of its value in something the plan does not mention. */
+.rb-untg td { color: var(--ink-3); }
+.rb-untg td:first-child { border-left: 2px dashed var(--border-bright); padding-left: 6px; }
+.rb-act td:first-child { border-left: 2px solid var(--orange); padding-left: 6px; }
+.rb-bar {
+  position: relative; height: 10px; background: var(--bg-deep);
+  border: 2px solid var(--border); image-rendering: pixelated;
+}
+.rb-bar-fill { height: 100%; image-rendering: pixelated; }
+/* The target is a mark on the track rather than a second bar, so the eye reads
+   "how far past the line" instead of comparing two lengths. */
+.rb-bar-mark {
+  position: absolute; top: -3px; bottom: -3px; width: 0;
+  border-left: 2px dashed var(--yellow);
+  filter: drop-shadow(0 0 3px var(--yellow));
+}
+.rb-picker { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.rb-warn {
+  border: 2px dashed var(--orange); color: var(--orange);
+  background: rgba(255,159,28,.07); padding: 5px 8px;
+}
+
+/* ---- Tax desk: the rate editor, the buckets, the harvest flags ---- */
+.tx-rates { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px; }
+.tx-rrow { display: flex; align-items: center; gap: 6px;
+  border: 2px solid var(--border); background: var(--bg-deep); padding: 4px 7px; }
+.tx-rlabel { flex: 1; font-size: 14px; color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tx-rin { width: 74px; text-align: right; background: var(--panel-2); color: var(--ink);
+  border: 2px solid var(--border-bright); font-family: 'VT323', monospace; font-size: 16px; padding: 1px 4px; }
+.tx-table td, .tx-table th { white-space: nowrap; }
+/* A bucket with nothing in it is dimmed rather than dropped: seeing that foreign
+   long-term is empty is itself information about how the year was traded. */
+.tx-zero td { color: var(--ink-3); }
+.tx-total td { border-top: 2px solid var(--border-bright); }
+/* The wash flag marks the row, not just the cell, because the whole line is the
+   thing you have to think twice about. */
+.tx-wash td:first-child { border-left: 2px solid var(--yellow); padding-left: 6px; }
+.tx-warn { border: 2px dashed var(--orange); color: var(--orange);
+  background: rgba(255,159,28,.07); padding: 5px 8px; }
+.tx-effect { border: 2px solid var(--border-bright); background: var(--bg-deep); padding: 7px; }
+.tx-caveats { border-left: 2px dashed var(--border-bright); padding-left: 8px; }
+.tx-caveat + .tx-caveat { margin-top: 4px; }
+
+/* ---- Estimates: reported vs forecast, and the wall between them ---- */
+.est-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; color: var(--ink-3); }
+.est-legend span { display: flex; align-items: center; gap: 5px; }
+.est-key { width: 13px; height: 9px; display: inline-block; border: 2px solid var(--green); }
+.est-key-actual { background: var(--green); }
+/* The forecast key is hollow for the same reason its bars are: you can see the
+   background through it, which is the correct impression of a forecast. */
+.est-key-est { background: transparent; border: 2px dashed var(--purple); }
+.est-key-prior { background: transparent; border: none; border-top: 2px dashed var(--cyan); height: 0; }
+.est-tip {
+  position: absolute; top: 8px; right: 10px; pointer-events: none;
+  background: var(--panel-2); border: 2px solid var(--border-bright);
+  padding: 4px 8px; font-family: 'VT323', monospace; font-size: 15px;
+  color: var(--ink); line-height: 1.35; max-width: 62%;
+}
+.est-table td, .est-table th { white-space: nowrap; }
+/* A forecast row is tinted along its whole length, not just in the EPS cell —
+   the year is a forecast, not one number in it. */
+.est-row-est td { background: rgba(178,132,255,.07); }
+.est-row-est td:first-child { border-left: 2px solid var(--purple); padding-left: 6px; }
+.est-warn {
+  border: 2px dashed var(--orange); color: var(--orange);
+  background: rgba(255,159,28,.07); padding: 5px 8px; margin-top: 6px;
+}

@@ -4,6 +4,9 @@ import RetroChart from './RetroChart.jsx';
 import { useLiveQuotes, usMarketState } from '../lib/live.js';
 import { pickProvider } from '../lib/ai.js';
 import { fetchRecommendations, aiStockNote, memGet } from '../lib/advisor.js';
+import StockResearch from './money/StockResearch.jsx';
+import Technicals from './money/Technicals.jsx';
+import Estimates from './money/Estimates.jsx';
 
 // Wall Street analyst consensus as a 3-part retro bar: BUY / HOLD / SELL
 function StreetBar({ rec }) {
@@ -39,6 +42,12 @@ function tvSymbol(ticker) {
 
 export default function StockDetail({ holding, orders, visible, onClose }) {
   const [mode, setMode] = useState('retro'); // default retro; toggle to tradingview
+  // The reference stock page splits its evidence across tabs. So does this one, for
+  // a reason beyond imitation: stacked, these three sections make a modal you have to
+  // scroll for half a minute to reach the bottom of, and a fact you have to hunt for
+  // is a fact you stop reading. Research leads because it is the slowest-moving and
+  // most durable of the three.
+  const [pane, setPane] = useState('research');
   const { quotes } = useLiveQuotes(holding ? [holding.ticker] : []);
   const [rec, setRec] = useState(null);
   const [note, setNote] = useState(null);
@@ -166,6 +175,31 @@ export default function StockDetail({ holding, orders, visible, onClose }) {
             </>
           )}
         </div>
+
+        {/* Ratios, peers, forward estimates and the chart reading. All below the
+            verdict on purpose: the opinions are quick to read, the evidence takes
+            longer, and the order history stays last.
+
+            The pane order is itself an argument. Research first, because what a
+            company earns and what it costs relative to its own history is the
+            slowest-moving fact here. Estimates second, because a forecast is a
+            fact about analysts rather than about the company. Technicals last,
+            because what the price has been doing this week is the noisiest thing
+            on this screen and putting it first would be the wrong invitation. */}
+        <div className="spread mt" style={{ marginBottom: 8 }}>
+          <div className="card-title" style={{ margin: 0 }}>
+            <span className="sq" style={{ background: 'var(--green)' }} />Evidence
+          </div>
+          <div className="seg">
+            <button className={`seg-btn${pane === 'research' ? ' on' : ''}`} onClick={() => setPane('research')}>Research</button>
+            <button className={`seg-btn${pane === 'estimates' ? ' on' : ''}`} onClick={() => setPane('estimates')}>Estimates</button>
+            <button className={`seg-btn${pane === 'technicals' ? ' on' : ''}`} onClick={() => setPane('technicals')}>Technicals</button>
+          </div>
+        </div>
+
+        {pane === 'research' && <StockResearch ticker={holding.ticker} price={px} orders={orders || []} />}
+        {pane === 'estimates' && <Estimates ticker={holding.ticker} price={px} />}
+        {pane === 'technicals' && <Technicals ticker={holding.ticker} price={px} />}
 
         <div className="card-title mt"><span className="sq" style={{ background: 'var(--purple)' }} />
           Order history · {mine.length} orders ({buys.length} buys{sells.length ? `, ${sells.length} sells` : ''})

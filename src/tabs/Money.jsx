@@ -15,6 +15,13 @@ import Benchmark from '../components/money/Benchmark.jsx';
 import DataStatus from '../components/money/DataStatus.jsx';
 import Book from '../components/money/Book.jsx';
 import RiskProfile from '../components/money/RiskProfile.jsx';
+import Planner from '../components/money/Planner.jsx';
+import DividendDesk from '../components/money/DividendDesk.jsx';
+import Expenses from '../components/money/Expenses.jsx';
+import Leaderboard from '../components/money/Leaderboard.jsx';
+import Compare from '../components/money/Compare.jsx';
+import Rebalance from '../components/money/Rebalance.jsx';
+import TaxDesk from '../components/money/TaxDesk.jsx';
 import { defaultBenchmark } from '../lib/india.js';
 import { aiNewsSummary, memGet, memSet } from '../lib/advisor.js';
 import { pickProvider } from '../lib/ai.js';
@@ -60,7 +67,8 @@ export default function Money() {
   const [openStock, setOpenStock] = useState(null);
   const [sortBy, setSortBy] = useState('value');
   const [liveNews, setLiveNews] = useState([]);
-  const [view, setView] = useState('portfolio'); // portfolio | book | vs | risk | nextbuy | calendar
+  const [planSeed, setPlanSeed] = useState(null);   // monthly surplus handed over by the Cash tab
+  const [view, setView] = useState('portfolio'); // portfolio | book | vs | risk | plan | divs | cash | markets | compare | rebal | tax | nextbuy | calendar
   const [newsSum, setNewsSum] = useState(null);
   const [sumBusy, setSumBusy] = useState(false);
   const [fx, setFx] = useState(null);            // USD → INR
@@ -269,6 +277,13 @@ export default function Money() {
             <button className={`seg-btn${view === 'book' ? ' on' : ''}`} onClick={() => setView('book')}>Book</button>
             <button className={`seg-btn${view === 'vs' ? ' on' : ''}`} onClick={() => setView('vs')}>vs Index</button>
             <button className={`seg-btn${view === 'risk' ? ' on' : ''}`} onClick={() => setView('risk')}>Risk</button>
+            <button className={`seg-btn${view === 'plan' ? ' on' : ''}`} onClick={() => setView('plan')}>Plan</button>
+            <button className={`seg-btn${view === 'divs' ? ' on' : ''}`} onClick={() => setView('divs')}>Dividends</button>
+            <button className={`seg-btn${view === 'cash' ? ' on' : ''}`} onClick={() => setView('cash')}>Cash</button>
+            <button className={`seg-btn${view === 'markets' ? ' on' : ''}`} onClick={() => setView('markets')}>Markets</button>
+            <button className={`seg-btn${view === 'compare' ? ' on' : ''}`} onClick={() => setView('compare')}>Compare</button>
+            <button className={`seg-btn${view === 'rebal' ? ' on' : ''}`} onClick={() => setView('rebal')}>Rebalance</button>
+            <button className={`seg-btn${view === 'tax' ? ' on' : ''}`} onClick={() => setView('tax')}>Tax</button>
             <button className={`seg-btn${view === 'nextbuy' ? ' on' : ''}`} onClick={() => setView('nextbuy')}>✦ Next buy</button>
             <button className={`seg-btn${view === 'calendar' ? ' on' : ''}`} onClick={() => setView('calendar')}>Calendar</button>
           </span>
@@ -301,6 +316,49 @@ export default function Money() {
           defaultKey={defaultBenchmark('US')}
         />
       )}
+      {view === 'plan' && (
+        <Planner currentValue={inr && fx ? value * fx : value} cur={inr ? '\u20b9' : '$'} seedMonthly={planSeed} />
+      )}
+      {view === 'divs' && (
+        <DividendDesk
+          held={held} priceOf={priceOf} costOf={h => Number(h.avg_cost || 0)}
+          cur={inr ? '\u20b9' : '$'} fx={fx} inr={!!inr}
+        />
+      )}
+      {view === 'cash' && (
+        <Expenses
+          cur={inr ? '\u20b9' : '$'}
+          onContribution={m => { setPlanSeed(m); setView('plan'); }}
+        />
+      )}
+
+      {/* The board only ever opens a row you actually own, because the detail modal
+          is built around your order history — there is nothing to show for a company
+          you have never bought. So the ticker is resolved back to the holding here,
+          and a name that does not resolve is simply not clickable. */}
+      {view === 'markets' && (
+        <Leaderboard
+          holdings={held}
+          onOpen={t => { const h = held.find(x => x.ticker === t); if (h) setOpenStock(h); }}
+        />
+      )}
+
+      {view === 'compare' && <Compare holdings={held} quotes={quotes} />}
+
+      {/* The rebalancing desk needs the order tape as well as the book, because
+          the tax consequence of a trim is a fact about when the shares were
+          bought — and that only exists in the orders, never in the positions. */}
+      {view === 'rebal' && (
+        <Rebalance held={held} priceOf={priceOf} orders={orders} fx={fx} inr={!!inr} cur={inr ? '\u20b9' : '$'} />
+      )}
+
+      {/* The tax desk needs the order tape, not the positions: a gain is a fact
+          about a matched pair of trades, and a holding period is a fact about
+          when the first of that pair happened. Neither exists in a position. */}
+      {view === 'tax' && (
+        <TaxDesk held={held} orders={orders} priceOf={priceOf} cur={inr ? '\u20b9' : '$'} />
+      )}
+
       {view === 'nextbuy' && <NextBuyDesk held={held} priceOf={priceOf} quotes={quotes} />}
       {view === 'calendar' && <MarketCalendar held={held} />}
 

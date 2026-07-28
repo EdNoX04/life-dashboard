@@ -7,6 +7,7 @@ import {
   allocationBreakdown, concentration,
 } from '../../lib/assets.js';
 import AllocationPie from './AllocationPie.jsx';
+import HoldingsTable from './HoldingsTable.jsx';
 
 // The book, split the way Neel actually thinks about it: Indian equity and
 // international equity are separate worlds with separate currencies and separate
@@ -278,6 +279,11 @@ export default function Book({ held = [], priceOf, quotes = {}, visible = true, 
     <>
       {groups.length === 0 && (
         <Empty icon="$" text="No holdings yet — snapshot from INDmoney or add one on the Portfolio tab." />
+      )}
+
+      {held.length > 0 && (
+        <HoldingsTable held={held} priceOf={priceOf} quotes={quotes}
+          cur={dcur} fx={fx} inr={inr} onOpen={onOpen} visible={visible} />
       )}
 
       {alloc.total > 0 && (
