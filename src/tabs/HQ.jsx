@@ -8,6 +8,7 @@ import MiniCalendar from '../components/MiniCalendar.jsx';
 import NextMeeting from '../components/NextMeeting.jsx';
 import { useLiveQuotes } from '../lib/live.js';
 import { activeDay, ROLLOVER_HOUR } from '../lib/schedule.js';
+import DashAllocation from '../components/money/DashAllocation.jsx';
 
 const WD = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const briefPhase = h => (h < 17 ? 'morning' : h < 21 ? 'evening' : 'night');
@@ -174,12 +175,21 @@ export default function HQ({ go }) {
     </Card>
   );
 
+  // The ring is handed the quotes the Portfolio tile above it was priced with, so
+  // the two can never disagree about what a share is worth. It reads the deposits,
+  // bonds and crypto itself, because those are the parts the tile does NOT count —
+  // which is exactly why the ring is worth having next to it.
+  const AllocationCard = (
+    <DashAllocation key="alloc" held={held} quotes={quotes} moneyVis={moneyVis}
+      cur="$" onOpen={() => go('money')} />
+  );
+
   // Same cards, grouped by column count. 2-col grouping is the original iPad layout.
-  const cardMap = { brief: BriefCard, meetings: MeetingsCard, reminders: RemindersCard, priorities: PrioritiesCard, calendar: CalendarCard, news: NewsCard, classes: ClassesCard };
+  const cardMap = { brief: BriefCard, meetings: MeetingsCard, reminders: RemindersCard, priorities: PrioritiesCard, calendar: CalendarCard, news: NewsCard, classes: ClassesCard, alloc: AllocationCard };
   const LAYOUTS = {
-    1: [['brief', 'meetings', 'reminders', 'priorities', 'calendar', 'news', 'classes']],
-    2: [['brief', 'priorities', 'news'], ['meetings', 'reminders', 'calendar', 'classes']],
-    3: [['brief', 'news'], ['meetings', 'priorities'], ['reminders', 'calendar', 'classes']],
+    1: [['brief', 'meetings', 'reminders', 'priorities', 'alloc', 'calendar', 'news', 'classes']],
+    2: [['brief', 'priorities', 'alloc', 'news'], ['meetings', 'reminders', 'calendar', 'classes']],
+    3: [['brief', 'news'], ['meetings', 'priorities', 'alloc'], ['reminders', 'calendar', 'classes']],
   };
   const layout = LAYOUTS[cols] || LAYOUTS[2];
   const gtc = cols === 3 ? '1.15fr 1fr 1fr' : cols === 2 ? '1.35fr 1fr' : '1fr';

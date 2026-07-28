@@ -22,6 +22,9 @@ import Leaderboard from '../components/money/Leaderboard.jsx';
 import Compare from '../components/money/Compare.jsx';
 import Rebalance from '../components/money/Rebalance.jsx';
 import TaxDesk from '../components/money/TaxDesk.jsx';
+import FactorDesk from '../components/money/FactorDesk.jsx';
+import ReportDesk from '../components/money/ReportDesk.jsx';
+import FinBoy from '../components/money/FinBoy.jsx';
 import { defaultBenchmark } from '../lib/india.js';
 import { aiNewsSummary, memGet, memSet } from '../lib/advisor.js';
 import { pickProvider } from '../lib/ai.js';
@@ -277,6 +280,7 @@ export default function Money() {
             <button className={`seg-btn${view === 'book' ? ' on' : ''}`} onClick={() => setView('book')}>Book</button>
             <button className={`seg-btn${view === 'vs' ? ' on' : ''}`} onClick={() => setView('vs')}>vs Index</button>
             <button className={`seg-btn${view === 'risk' ? ' on' : ''}`} onClick={() => setView('risk')}>Risk</button>
+            <button className={`seg-btn${view === 'factors' ? ' on' : ''}`} onClick={() => setView('factors')}>Factors</button>
             <button className={`seg-btn${view === 'plan' ? ' on' : ''}`} onClick={() => setView('plan')}>Plan</button>
             <button className={`seg-btn${view === 'divs' ? ' on' : ''}`} onClick={() => setView('divs')}>Dividends</button>
             <button className={`seg-btn${view === 'cash' ? ' on' : ''}`} onClick={() => setView('cash')}>Cash</button>
@@ -284,6 +288,8 @@ export default function Money() {
             <button className={`seg-btn${view === 'compare' ? ' on' : ''}`} onClick={() => setView('compare')}>Compare</button>
             <button className={`seg-btn${view === 'rebal' ? ' on' : ''}`} onClick={() => setView('rebal')}>Rebalance</button>
             <button className={`seg-btn${view === 'tax' ? ' on' : ''}`} onClick={() => setView('tax')}>Tax</button>
+            <button className={`seg-btn${view === 'report' ? ' on' : ''}`} onClick={() => setView('report')}>Report</button>
+            <button className={`seg-btn${view === 'finboy' ? ' on' : ''}`} onClick={() => setView('finboy')}>FinBoy</button>
             <button className={`seg-btn${view === 'nextbuy' ? ' on' : ''}`} onClick={() => setView('nextbuy')}>✦ Next buy</button>
             <button className={`seg-btn${view === 'calendar' ? ' on' : ''}`} onClick={() => setView('calendar')}>Calendar</button>
           </span>
@@ -357,6 +363,36 @@ export default function Money() {
           when the first of that pair happened. Neither exists in a position. */}
       {view === 'tax' && (
         <TaxDesk held={held} orders={orders} priceOf={priceOf} cur={inr ? '\u20b9' : '$'} />
+      )}
+
+      {/* The factor desk needs only the book and a price — it measures companies,
+          not trades, so the order tape has nothing to tell it. */}
+      {view === 'factors' && (
+        <FactorDesk held={held} priceOf={priceOf} visible={visible} />
+      )}
+
+      {/* The report is the only view that reads from every other one. It is handed
+          exactly what those views were handed — the same book, the same tape, the
+          same series — so that a figure in the report cannot disagree with the same
+          figure on the screen it came from. It fetches nothing of its own. */}
+      {view === 'report' && (
+        <ReportDesk
+          held={held} priceOf={priceOf} orders={orders}
+          series={valSeries} flowsByDay={flowsByDay} currentValue={value}
+          benchName="S&P 500" cur={inr ? '\u20b9' : '$'}
+        />
+      )}
+
+      {/* FinBoy is handed exactly what the Report is handed, for the same reason:
+          a sentence about a figure and the screen showing that figure must not be
+          able to disagree. It builds its index from the saved blobs and never
+          fetches a price of its own. */}
+      {view === 'finboy' && (
+        <FinBoy
+          held={held} priceOf={priceOf} orders={orders}
+          series={valSeries} flowsByDay={flowsByDay} currentValue={value}
+          cur={inr ? '\u20b9' : '$'}
+        />
       )}
 
       {view === 'nextbuy' && <NextBuyDesk held={held} priceOf={priceOf} quotes={quotes} />}

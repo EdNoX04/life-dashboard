@@ -1462,3 +1462,332 @@
   border: 2px dashed var(--orange); color: var(--orange);
   background: rgba(255,159,28,.07); padding: 5px 8px; margin-top: 6px;
 }
+
+/* ---- Factor & theme desk: measurement above, guesswork below ---- */
+.fac-bars { display: flex; flex-direction: column; gap: 7px; }
+.fac-row {
+  display: grid; grid-template-columns: 108px 1fr 40px 150px;
+  gap: 8px; align-items: center; padding: 3px 4px;
+  border: 2px solid transparent; cursor: pointer;
+}
+.fac-row:hover { border-color: var(--border); }
+.fac-row.on { border-color: var(--border-bright); background: rgba(255,255,255,.03); }
+.fac-label { font-family: var(--font-pixel); font-size: 10px; letter-spacing: .04em; }
+.fac-track {
+  position: relative; height: 16px; background: var(--panel-2);
+  border: 2px solid var(--border); overflow: hidden;
+}
+.fac-fill { height: 100%; image-rendering: pixelated; }
+/* The reference line is dotted rather than solid because it is an anchor this
+   app chose, not a measurement. A solid rule would look like data. */
+.fac-neutral {
+  position: absolute; top: 0; bottom: 0; width: 0;
+  border-left: 2px dotted var(--ink-3); opacity: .8;
+}
+/* Decision 1 in CSS: an unmeasured factor gets WORDS across the empty track,
+   never a bar sitting at the neutral line. A bar there would be a claim. */
+.fac-unmeasured {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3);
+  letter-spacing: .06em;
+}
+.fac-score { font-family: var(--font-pixel); font-size: 11px; text-align: right; }
+.fac-cov { text-align: right; }
+.fac-detail {
+  border: 2px dashed var(--border-bright); background: var(--panel-2);
+  padding: 7px 9px; margin-top: 8px;
+}
+.fac-dhead { font-family: var(--font-pixel); font-size: 11px; margin-bottom: 4px; }
+.fac-summary { border-left: 3px solid var(--green); padding-left: 9px; }
+.fac-summary p { margin: 2px 0; }
+.fac-warn {
+  border: 2px dashed var(--orange); color: var(--orange);
+  background: rgba(255,159,28,.07); padding: 6px 9px;
+}
+/* The out-loud statement that the theme bars are not slices. Loud on purpose:
+   it is the one line that stops the whole section being misread. */
+.fac-overlap {
+  border: 2px dashed var(--cyan); color: var(--ink-2);
+  background: rgba(93,232,255,.06); padding: 6px 9px; margin-bottom: 10px;
+  font-size: 13px; line-height: 1.5;
+}
+.fac-themes { display: flex; flex-direction: column; gap: 11px; }
+/* Each theme is its own block with its own baseline. Nothing is stacked against
+   anything else, because stacking asserts the parts make a whole. */
+.fac-theme { border-left: 2px solid var(--border); padding-left: 8px; }
+.fac-thead { display: flex; gap: 9px; align-items: baseline; cursor: pointer; }
+.fac-tname { font-family: var(--font-pixel); font-size: 10px; }
+.fac-tpct { font-family: var(--font-pixel); font-size: 12px; }
+.fac-ttrack {
+  height: 12px; background: var(--panel-2); border: 2px solid var(--border);
+  margin-top: 3px; overflow: hidden;
+}
+.fac-tfill { height: 100%; image-rendering: pixelated; }
+.fac-tholds { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin-top: 5px; }
+.fac-flag {
+  border: 2px dashed var(--yellow); color: var(--ink);
+  background: rgba(255,214,10,.06); padding: 6px 9px; margin-bottom: 6px;
+}
+.fac-flag.heavy { border-color: var(--orange); background: rgba(255,159,28,.08); }
+
+/* --- ReportDesk (spec 16) ------------------------------------------------
+   The visual job here is one thing: a section that could not be built must be
+   impossible to skim past as though it were a section that came out empty.
+   Hence .rep-miss is dashed where .rep-sec is solid, greyed where .rep-sec is
+   lit, and carries no value column at all — the two cards do not share a
+   silhouette, so the difference survives being glanced at. */
+.rep-wrap { display: flex; flex-direction: column; gap: 10px; }
+.rep-body { display: flex; flex-direction: column; gap: 10px; }
+
+.rep-cover {
+  border: 2px solid var(--border-bright); background: var(--panel-2);
+  padding: 10px 12px;
+}
+.rep-cov-head { display: flex; align-items: baseline; gap: 9px; }
+.rep-cov-num {
+  font-family: var(--font-pixel); font-size: 20px; letter-spacing: 1px;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+.rep-cov-txt { font-family: 'VT323', monospace; font-size: 15px; color: var(--ink-2); }
+.rep-cov-miss {
+  margin-top: 6px; padding: 5px 8px;
+  border-left: 3px solid var(--orange); background: rgba(255,159,28,.07);
+  font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-2);
+}
+.rep-fresh {
+  margin-top: 6px; font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3);
+}
+.rep-fresh b { color: var(--ink); }
+.rep-disc {
+  border: 2px dotted var(--border); padding: 7px 10px;
+  font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3); line-height: 1.35;
+}
+
+.rep-sec { border: 2px solid var(--border); background: var(--panel); padding: 10px 12px; }
+.rep-shead {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  border-bottom: 2px solid var(--border); padding-bottom: 5px; margin-bottom: 6px;
+}
+.rep-stitle {
+  font-family: var(--font-pixel); font-size: 11px; letter-spacing: 1px;
+  color: var(--cyan); filter: drop-shadow(0 0 3px var(--cyan));
+}
+/* Decision 3: the stamp is header furniture at the same weight as the title,
+   not small print at the bottom that stops being read. */
+.rep-sstamp { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3); }
+.rep-ssrc {
+  font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3); margin-bottom: 4px;
+}
+
+.rep-tbl { width: 100%; border-collapse: collapse; font-family: 'VT323', monospace; font-size: 15px; }
+.rep-tbl tr { border-bottom: 1px dotted var(--border); }
+.rep-tbl tr:last-child { border-bottom: none; }
+.rep-tbl td { padding: 3px 6px 3px 0; vertical-align: baseline; }
+.rep-lab { color: var(--ink-2); white-space: nowrap; }
+.rep-val { color: var(--ink); text-align: right; white-space: nowrap; font-size: 16px; }
+.rep-win { color: var(--cyan); white-space: nowrap; font-size: 13px; padding-left: 8px !important; }
+.rep-note { color: var(--ink-3); font-size: 13px; line-height: 1.3; }
+
+.rep-held {
+  margin-top: 7px; padding: 5px 8px;
+  border-left: 3px solid var(--yellow); background: rgba(255,214,10,.06);
+  font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-2); line-height: 1.35;
+}
+.rep-snote {
+  margin-top: 5px; font-family: 'VT323', monospace; font-size: 13px;
+  color: var(--ink-3); line-height: 1.35;
+}
+
+/* Decision 2: dashed, dimmed, and value-less. Nothing on this card can be
+   confused for a figure, so it cannot be misread as a zero. */
+.rep-miss {
+  border: 2px dashed var(--border); background: transparent; opacity: .92;
+}
+.rep-miss .rep-shead { border-bottom-color: var(--border); }
+.rep-miss .rep-sstamp {
+  color: var(--orange); font-family: var(--font-pixel); font-size: 9px; letter-spacing: 1px;
+}
+.rep-mwhy {
+  font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-2); line-height: 1.35;
+}
+.rep-mfix {
+  margin-top: 5px; font-family: 'VT323', monospace; font-size: 14px;
+  color: var(--green); filter: drop-shadow(0 0 3px var(--green));
+}
+
+@media (max-width: 560px) {
+  .rep-tbl, .rep-tbl tbody, .rep-tbl tr, .rep-tbl td { display: block; width: 100%; }
+  .rep-tbl tr { padding: 5px 0; }
+  .rep-val { text-align: left; }
+  .rep-win { padding-left: 0 !important; }
+}
+
+/* --- DashAllocation (spec 11) --------------------------------------------
+   A glance-surface card. The coverage note is deliberately NOT small grey
+   print: it says what the ring leaves out, and a caveat nobody reads is the
+   same as no caveat at all. .da-warn escalates it when something failed to
+   load, because "you own none" and "we could not read it" must not look alike. */
+.da-seg { transform: scale(.85); transform-origin: right center; }
+
+.da-total {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 10px; margin-top: 9px; padding-top: 7px; border-top: 2px dotted var(--border);
+}
+.da-total-k {
+  font-family: var(--font-pixel); font-size: 9px; letter-spacing: 1px; color: var(--ink-3);
+}
+.da-total-v {
+  font-family: 'VT323', monospace; font-size: 21px; color: var(--green);
+  filter: drop-shadow(0 0 4px var(--green));
+}
+
+.da-shape {
+  display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin-top: 7px;
+  font-family: 'VT323', monospace; font-size: 14px;
+}
+.da-shape-k { color: var(--ink-3); white-space: nowrap; }
+.da-shape-v { color: var(--ink); text-align: right; }
+
+.da-note {
+  margin-top: 8px; padding: 5px 8px;
+  border-left: 3px solid var(--border-bright); background: rgba(255,255,255,.03);
+  font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-2); line-height: 1.35;
+}
+.da-warn {
+  border-left-color: var(--orange); background: rgba(255,159,28,.08); color: var(--ink);
+}
+.da-single {
+  padding: 8px 10px; border: 2px dashed var(--border-bright);
+  font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-2); line-height: 1.4;
+}
+.da-single b { color: var(--purple); filter: drop-shadow(0 0 3px var(--purple)); }
+
+/* --- FinBoy (spec 8) -------------------------------------------------------
+   A chat window makes everything in it look like an answer, and that is exactly
+   what this feature cannot afford. So the CSS carries three of the six decisions:
+   .fb-refuse is drawn at answer weight rather than as a grey error line, because
+   a refusal that scrolls away as a toast is a refusal nobody knows happened;
+   .fb-warn is louder than the answer it sits on, because a fabricated figure
+   writes a paragraph that reads perfectly and the warning cannot be subtler than
+   the thing it warns about; and .fb-cites is always visible rather than folded
+   behind a chevron, because a citation you have to ask for is a citation nobody
+   reads. */
+.fb-wrap { display: flex; flex-direction: column; gap: 10px; }
+
+.fb-prov-tag {
+  font-family: var(--font-pixel); font-size: 9px; letter-spacing: .5px;
+  color: var(--ink-3); border: 1px dotted var(--border); padding: 3px 6px;
+}
+
+.fb-tape {
+  margin-top: 10px; max-height: 52vh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 10px; background: var(--bg-deep);
+  border: 2px solid var(--border); image-rendering: pixelated;
+}
+.fb-turn { display: flex; flex-direction: column; gap: 6px; }
+
+.fb-q {
+  align-self: flex-end; max-width: 84%;
+  font-family: 'VT323', monospace; font-size: 17px; line-height: 1.25;
+  color: var(--cyan); background: rgba(0,229,255,.07);
+  border: 1px solid var(--cyan); border-right-width: 4px;
+  padding: 5px 9px; filter: drop-shadow(0 0 3px rgba(0,229,255,.35));
+}
+
+.fb-a {
+  background: var(--panel); border: 2px solid var(--border);
+  border-left: 4px solid var(--pink); padding: 10px 11px;
+  display: flex; flex-direction: column; gap: 9px;
+}
+.fb-text { font-family: 'VT323', monospace; font-size: 18px; line-height: 1.3; color: var(--ink); white-space: pre-wrap; }
+
+/* Decision 3 — the loudest thing on the card, by design. */
+.fb-warn {
+  border: 2px solid var(--red); background: rgba(232,65,65,.12);
+  padding: 8px 9px; display: flex; flex-direction: column; gap: 5px;
+}
+.fb-warn-k {
+  font-family: var(--font-pixel); font-size: 10px; letter-spacing: 1px;
+  color: var(--red); filter: drop-shadow(0 0 5px var(--red));
+}
+.fb-warn-x { font-family: 'VT323', monospace; font-size: 16px; line-height: 1.25; color: var(--ink); }
+.fb-warn-x b { color: var(--red); }
+
+.fb-foot {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  border-top: 1px dotted var(--border); padding-top: 6px;
+}
+.fb-verd { font-family: 'VT323', monospace; font-size: 14px; color: var(--orange); }
+.fb-verd.ok { color: var(--green); }
+.fb-prov { font-family: var(--font-pixel); font-size: 8px; letter-spacing: .5px; color: var(--ink-3); }
+
+/* Decision 2 — never folded away. */
+.fb-cites { display: flex; flex-direction: column; gap: 4px; }
+.fb-cites-h { font-family: var(--font-pixel); font-size: 8px; letter-spacing: .5px; color: var(--ink-3); }
+.fb-cite {
+  display: grid; grid-template-columns: 82px 1fr auto; gap: 8px; align-items: baseline;
+  border-left: 2px solid var(--border-bright); padding: 3px 0 3px 7px;
+}
+.fb-cite-t { font-family: var(--font-pixel); font-size: 8px; color: var(--purple); letter-spacing: .5px; }
+.fb-cite-x { font-family: 'VT323', monospace; font-size: 15px; line-height: 1.2; color: var(--ink-2); }
+.fb-cite-at { font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3); white-space: nowrap; }
+.fb-cite-unknown { color: var(--orange); }
+
+/* Decision 1 — answer weight, not error weight. */
+.fb-refuse { border-left-color: var(--orange); }
+.fb-refuse-advice { border-left-color: var(--yellow); }
+.fb-refuse-offtopic { border-left-color: var(--ink-3); }
+.fb-refuse-nomatch { border-left-color: var(--orange); }
+.fb-refuse-k {
+  font-family: var(--font-pixel); font-size: 11px; letter-spacing: 1px;
+  color: var(--orange); filter: drop-shadow(0 0 4px currentColor);
+}
+.fb-why { font-family: 'VT323', monospace; font-size: 17px; line-height: 1.3; color: var(--ink); }
+.fb-fix {
+  font-family: 'VT323', monospace; font-size: 15px; line-height: 1.25; color: var(--ink-2);
+  border: 1px dashed var(--border-bright); padding: 6px 8px;
+}
+.fb-err { border-left-color: var(--red); }
+.fb-err .fb-refuse-k { color: var(--red); }
+
+.fb-quote { border-left-color: var(--green); }
+.fb-lead { font-family: 'VT323', monospace; font-size: 17px; color: var(--green); filter: drop-shadow(0 0 3px var(--green)); }
+.fb-rows { display: flex; flex-direction: column; gap: 5px; }
+.fb-row {
+  display: grid; grid-template-columns: 82px 1fr auto; gap: 8px; align-items: baseline;
+  border-left: 2px solid var(--green); padding: 4px 0 4px 7px;
+}
+.fb-row-t { font-family: var(--font-pixel); font-size: 8px; color: var(--purple); letter-spacing: .5px; }
+.fb-row-x { font-family: 'VT323', monospace; font-size: 16px; line-height: 1.25; color: var(--ink); }
+.fb-row-at { font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3); white-space: nowrap; }
+.fb-tail { font-family: 'VT323', monospace; font-size: 14px; line-height: 1.25; color: var(--ink-3); }
+.fb-hits-count { display: none; }
+
+.fb-empty { display: flex; flex-direction: column; gap: 9px; padding: 8px 2px; }
+.fb-empty-h { font-family: 'VT323', monospace; font-size: 16px; color: var(--ink-2); }
+.fb-sugg { display: flex; flex-wrap: wrap; gap: 6px; }
+.fb-sugg-b {
+  font-family: 'VT323', monospace; font-size: 15px; color: var(--cyan);
+  background: transparent; border: 1px dashed var(--cyan); padding: 3px 8px; cursor: pointer;
+}
+.fb-sugg-b:hover { background: rgba(0,229,255,.1); }
+.fb-busy { font-family: 'VT323', monospace; font-size: 15px; color: var(--pink); }
+
+.fb-ask { display: flex; gap: 8px; margin-top: 10px; }
+.fb-in {
+  flex: 1; font-family: 'VT323', monospace; font-size: 18px; color: var(--ink);
+  background: var(--bg-deep); border: 2px solid var(--border); padding: 6px 9px;
+}
+.fb-in:focus { outline: none; border-color: var(--pink); filter: drop-shadow(0 0 4px rgba(255,77,166,.4)); }
+
+/* Decision 4 — the price of the press, before the press. */
+.fb-cost {
+  margin-top: 6px; font-family: 'VT323', monospace; font-size: 14px;
+  color: var(--ink-3); border-top: 1px dotted var(--border); padding-top: 6px;
+}
+
+@media (max-width: 560px) {
+  .fb-cite, .fb-row { grid-template-columns: 1fr; gap: 2px; }
+  .fb-tape { max-height: 60vh; }
+}
