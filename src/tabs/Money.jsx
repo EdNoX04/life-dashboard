@@ -18,6 +18,7 @@ import RiskProfile from '../components/money/RiskProfile.jsx';
 import Planner from '../components/money/Planner.jsx';
 import DividendDesk from '../components/money/DividendDesk.jsx';
 import Expenses from '../components/money/Expenses.jsx';
+import OverviewPanels from '../components/money/OverviewPanels.jsx';
 import Leaderboard from '../components/money/Leaderboard.jsx';
 import Compare from '../components/money/Compare.jsx';
 import Rebalance from '../components/money/Rebalance.jsx';
@@ -25,6 +26,7 @@ import TaxDesk from '../components/money/TaxDesk.jsx';
 import FactorDesk from '../components/money/FactorDesk.jsx';
 import ReportDesk from '../components/money/ReportDesk.jsx';
 import FinBoy from '../components/money/FinBoy.jsx';
+import Scanner from '../components/money/Scanner.jsx';
 import { defaultBenchmark } from '../lib/india.js';
 import { aiNewsSummary, memGet, memSet } from '../lib/advisor.js';
 import { pickProvider } from '../lib/ai.js';
@@ -43,18 +45,43 @@ const nameKeys = name => String(name || '').toLowerCase().replace(/[^a-z0-9 ]/g,
 
 // Retro P&L backdrop styled after the neon "crash chart": a jagged neon trend
 // line (red falling / green rising) over a dark grid strewn with faint direction
-// arrows, glowing softly. Static line + gentle glow pulse — no crawling.
+// arrows, glowing softly.
+//
+// The line DRAWS rather than appearing. Both directions use the same mechanism
+// and the same timing so up and down read as one behaviour with two signs — a
+// rise that animates and a fall that just sits there would make the good news
+// feel like an event and the bad news feel like a fact, which is a lie the
+// styling would be telling on its own.
+//
+// pathLength="100" is what makes that possible: it normalises the geometry so
+// one dash-offset keyframe drives both paths regardless of how long each one
+// actually is, and the blurred underlay stays exactly in step with the sharp
+// line instead of finishing early.
+//
+// The whole plot is rotated a couple of degrees INTO its own direction. It is
+// the same trick the arrows do — the tilt reinforces the sign before the eye
+// has read a single number.
 function DayFx({ up }) {
   const line = up
     ? 'M2 50 L16 44 L28 47 L44 33 L58 37 L74 22 L90 28 L106 13 L122 19 L138 7 L150 5'
     : 'M2 6 L16 12 L28 9 L44 23 L58 19 L74 34 L90 28 L106 43 L122 37 L138 49 L150 51';
   const glow = up ? '#6ee76e' : '#e84141';
+  const tip = up ? 5 : 51;
   return (
     <div className={`daypl-fx ${up ? 'up' : 'down'}`} aria-hidden="true">
       <div className="daypl-arrows">{Array.from({ length: 24 }).map((_, i) => <span key={i}>{up ? '▲' : '▼'}</span>)}</div>
-      <svg viewBox="0 0 152 56" preserveAspectRatio="none">
-        <path d={line} fill="none" stroke={glow} strokeWidth="6" opacity="0.22" vectorEffect="non-scaling-stroke" style={{ filter: 'blur(3px)' }} />
-        <path className="daypl-line" d={line} fill="none" stroke={glow} strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
+      <svg viewBox="0 0 152 56" preserveAspectRatio="none" shapeRendering="crispEdges">
+        <path
+          className="daypl-under" d={line} pathLength="100" fill="none" stroke={glow}
+          strokeWidth="6" opacity="0.22" vectorEffect="non-scaling-stroke"
+          style={{ filter: 'blur(3px)' }}
+        />
+        <path
+          className="daypl-line" d={line} pathLength="100" fill="none" stroke={glow}
+          strokeWidth="2.5" vectorEffect="non-scaling-stroke"
+        />
+        {/* The tip only exists once the line has arrived under it. */}
+        <rect className="daypl-tip" x={147} y={tip - 3} width={6} height={6} fill={glow} />
       </svg>
     </div>
   );
@@ -71,7 +98,7 @@ export default function Money() {
   const [sortBy, setSortBy] = useState('value');
   const [liveNews, setLiveNews] = useState([]);
   const [planSeed, setPlanSeed] = useState(null);   // monthly surplus handed over by the Cash tab
-  const [view, setView] = useState('portfolio'); // portfolio | book | vs | risk | plan | divs | cash | markets | compare | rebal | tax | nextbuy | calendar
+  const [view, setView] = useState('portfolio'); // portfolio | book | vs | risk | factors | plan | divs | cash | markets | compare | rebal | tax | report | finboy | scanner | nextbuy | calendar
   const [newsSum, setNewsSum] = useState(null);
   const [sumBusy, setSumBusy] = useState(false);
   const [fx, setFx] = useState(null);            // USD → INR
@@ -290,6 +317,7 @@ export default function Money() {
             <button className={`seg-btn${view === 'tax' ? ' on' : ''}`} onClick={() => setView('tax')}>Tax</button>
             <button className={`seg-btn${view === 'report' ? ' on' : ''}`} onClick={() => setView('report')}>Report</button>
             <button className={`seg-btn${view === 'finboy' ? ' on' : ''}`} onClick={() => setView('finboy')}>FinBoy</button>
+            <button className={`seg-btn${view === 'scanner' ? ' on' : ''}`} onClick={() => setView('scanner')}>Screens</button>
             <button className={`seg-btn${view === 'nextbuy' ? ' on' : ''}`} onClick={() => setView('nextbuy')}>✦ Next buy</button>
             <button className={`seg-btn${view === 'calendar' ? ' on' : ''}`} onClick={() => setView('calendar')}>Calendar</button>
           </span>
@@ -331,9 +359,14 @@ export default function Money() {
           cur={inr ? '\u20b9' : '$'} fx={fx} inr={!!inr}
         />
       )}
+      {/* Cash does NOT take the display currency the rest of this tab uses. Its
+          rows are amounts that were actually typed in a currency — mostly rupees —
+          and the toggle above is a viewing preference for a dollar-priced
+          portfolio. Applying it here would restyle Rs 149 as $149 without
+          converting anything. The tab owns its own base and is handed the rate. */}
       {view === 'cash' && (
         <Expenses
-          cur={inr ? '\u20b9' : '$'}
+          fx={fx}
           onContribution={m => { setPlanSeed(m); setView('plan'); }}
         />
       )}
@@ -395,6 +428,17 @@ export default function Money() {
         />
       )}
 
+      {/* The scanner is handed a TICKER-keyed price function, not the holding-keyed
+          one the rest of this file uses, because most of its universe is not held
+          and there is no holding object to look a price up from. */}
+      {view === 'scanner' && (
+        <Scanner
+          held={held}
+          priceOf={t => Number(quotes[t]?.price) || null}
+          cur={inr ? '\u20b9' : '$'}
+        />
+      )}
+
       {view === 'nextbuy' && <NextBuyDesk held={held} priceOf={priceOf} quotes={quotes} />}
       {view === 'calendar' && <MarketCalendar held={held} />}
 
@@ -428,6 +472,20 @@ export default function Money() {
           <div className="muted small">{status === 'nokey' ? 'Add a free Finnhub key in Settings to see live daily P&L.' : 'Waiting for live quotes…'}</div>
         )}
       </div>
+
+      {/* What you own most of, and what pays you most — the two questions the
+          front page should answer without making you open a screen. Handed the
+          same priceOf the holdings table uses, so the two can never disagree
+          about what a position is worth. */}
+      <OverviewPanels
+        held={held}
+        priceOf={priceOf}
+        costOf={h => (h.avg_cost == null || h.avg_cost === '' ? null : Number(h.avg_cost))}
+        quotes={quotes}
+        fx={inr && fx ? fx : 1}
+        cur={inr ? '\u20b9' : '$'}
+        onOpen={t => { const h = held.find(x => x.ticker === t); if (h) setOpenStock(h); }}
+      />
 
       <Card title="Portfolio over time" color="var(--purple)"
         right={histState === 'loading' ? <span className="chip c-yellow">building line…</span> : histState === 'nokey' ? <span className="chip c-yellow">add Twelve Data key</span> : null}>

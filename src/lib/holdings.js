@@ -146,6 +146,40 @@ export function topBy(rows = [], key = 'marketValue', limit = 5) {
   return sortRows(rows.filter(r => r[key] != null), key, 'desc').slice(0, limit);
 }
 
+// How much of the book sits in how few names.
+//
+// The measure that gets used here is "how many holdings does it take to reach
+// half the portfolio", and it is chosen over a Herfindahl index on purpose:
+// nobody has an intuition for 0.184, but everybody has one for "half your money
+// is in two stocks". The top-3 and top-5 shares are reported beside it because
+// they are the numbers people actually quote to each other.
+//
+// This function describes. It does not judge. There is no threshold in here at
+// which a portfolio becomes "too concentrated" — that depends on things this
+// code does not know, and stating a number is information while stating a
+// verdict is advice.
+export function concentration(rows = []) {
+  const vals = rows.map(r => num(r.marketValue)).filter(v => v > 0).sort((a, b) => b - a);
+  const total = vals.reduce((a, b) => a + b, 0);
+  if (!(total > 0) || !vals.length) {
+    return { total: 0, names: 0, top1: null, top3: null, top5: null, namesToHalf: null, largest: null };
+  }
+  const share = n => (vals.slice(0, n).reduce((a, b) => a + b, 0) / total) * 100;
+  let run = 0, toHalf = 0;
+  for (const v of vals) { run += v; toHalf += 1; if (run >= total / 2) break; }
+  return {
+    total,
+    names: vals.length,
+    top1: share(1),
+    top3: vals.length >= 3 ? share(3) : share(vals.length),
+    top5: vals.length >= 5 ? share(5) : share(vals.length),
+    // A single holding is trivially "one name to half" — true, and worth
+    // showing, because it is exactly what a one-stock portfolio looks like.
+    namesToHalf: toHalf,
+    largest: vals[0],
+  };
+}
+
 export function toCSV(rows = [], total = null) {
   const head = ['Holding', 'Shares', 'DRIP', 'Price', 'Day %', 'Cost/sh', 'Invested',
     'Market value', 'Weight %', 'Day G/L', 'Unrealised G/L', 'Total return %'];

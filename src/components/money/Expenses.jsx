@@ -5,16 +5,25 @@ import {
   CATEGORIES, catOf, EMPTY_EXPENSES, normaliseTxn, thisMonthKey, inMonth,
   totals, byCategory, monthlySeries, averages, runRate, fixedSplit,
   likelyRecurring, budgetStatus, plannerContribution,
+  CURRENCIES, DEFAULT_CUR, symbolOf, savingsHistory, amountIn,
 } from '../../lib/expenses.js';
 
 // Cashflow. The portfolio tabs answer "what do I have"; this one answers the
 // question that actually moves the retirement date, which is "what is left over
 // every month".
 //
-// Two rules the screen keeps: the month in progress is drawn differently from
+// Three rules the screen keeps: the month in progress is drawn differently from
 // the months that finished — it is hatched, and its projection is always
-// labelled a projection — and a savings rate with no income behind it is shown
-// as unknown rather than as a number.
+// labelled a projection — a savings rate with no income behind it is shown
+// as unknown rather than as a number — and money is shown in the currency it
+// was ENTERED in wherever a single transaction is on screen.
+//
+// That last one is why this tab does not follow the Money tab's currency
+// toggle. That toggle exists for a portfolio of US stocks priced in dollars;
+// an auto ride in Noida is a rupee amount no matter how you are viewing NVDA,
+// and letting a display switch restyle it as dollars turns Rs 149 into $149
+// on screen without a single number changing. The base below is this tab's
+// own, it defaults to rupees, and it converts rather than relabels.
 
 const KEY = 'expenses';
 
@@ -127,13 +136,75 @@ export function FlowBars({ series = [], cur = '₹', height = 180 }) {
   );
 }
 
+// ---- the running total of what has been saved ----------------------------
+// A cumulative line, and the reason it is a line rather than bars is that the
+// question it answers is "is the pile growing", which is about the shape over
+// time and not about any one month.
+//
+// Zero is drawn as a real axis at its real position rather than pinned to the
+// floor, so a stretch of months that ate into savings shows as the line going
+// UNDER the axis. A cumulative chart clamped at zero cannot show the single
+// thing you would most want to know.
+export function SavesLine({ months = [], cur = '\u20b9', height = 150 }) {
+  const pts = months.filter(m => m.count > 0 || m.cumulative !== 0);
+  if (pts.length < 2) {
+    return <Empty icon="\u2191" text="Two months of history and the running total draws itself." />;
+  }
+  const W = 640, H = height, PAD = { l: 52, r: 10, t: 12, b: 20 };
+  const vals = pts.map(p => p.cumulative);
+  const hi = Math.max(...vals, 0), lo = Math.min(...vals, 0);
+  const span = hi - lo || 1;
+  const x = i => PAD.l + (i / (pts.length - 1)) * (W - PAD.l - PAD.r);
+  const y = v => PAD.t + (1 - (v - lo) / span) * (H - PAD.t - PAD.b);
+  const zero = y(0);
+  const up = vals[vals.length - 1] >= 0;
+  const col = up ? 'var(--green)' : 'var(--red)';
+  // The last segment is drawn dashed when the final month has not finished.
+  const solid = pts.slice(0, pts[pts.length - 1].partial ? -1 : undefined);
+  const line = a => a.map((p, i) => `${i ? 'L' : 'M'}${x(pts.indexOf(p))} ${y(p.cumulative)}`).join(' ');
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} shapeRendering="crispEdges"
+      style={{ imageRendering: 'pixelated', display: 'block' }}>
+      <line x1={PAD.l} x2={W - PAD.r} y1={zero} y2={zero} stroke="rgba(255,255,255,0.28)" strokeDasharray="3 3" />
+      <text x={PAD.l - 6} y={zero + 3} fontSize="9" textAnchor="end" fill="rgba(255,255,255,0.4)">0</text>
+      <text x={PAD.l - 6} y={y(hi) + 3} fontSize="9" textAnchor="end" fill="rgba(255,255,255,0.4)">{compact(hi, cur)}</text>
+      {lo < 0 && (
+        <text x={PAD.l - 6} y={y(lo) + 3} fontSize="9" textAnchor="end" fill="rgba(255,255,255,0.4)">{compact(lo, cur)}</text>
+      )}
+      {solid.length > 1 && (
+        <path d={line(solid)} fill="none" stroke={col} strokeWidth="2"
+          style={{ filter: `drop-shadow(0 0 4px ${up ? 'rgba(110,231,110,.7)' : 'rgba(232,65,65,.7)'})` }} />
+      )}
+      {pts[pts.length - 1].partial && pts.length > 1 && (
+        <path d={line(pts.slice(-2))} fill="none" stroke={col} strokeWidth="2" strokeDasharray="4 3" opacity="0.75" />
+      )}
+      {pts.map((p, i) => (
+        <rect key={p.key} x={x(i) - 2} y={y(p.cumulative) - 2} width="4" height="4"
+          fill={p.partial ? 'var(--bg-deep)' : col} stroke={col} strokeWidth="1" />
+      ))}
+      {pts.map((p, i) => (
+        (i === 0 || i === pts.length - 1 || pts.length <= 8) && (
+          <text key={`l${p.key}`} x={x(i)} y={H - 6} fontSize="8" textAnchor="middle"
+            fill="rgba(255,255,255,0.42)">{p.label}</text>
+        )
+      ))}
+    </svg>
+  );
+}
+
 // ---- main ----------------------------------------------------------------
-export default function Expenses({ cur = '₹', onContribution }) {
+export default function Expenses({ fx = null, onContribution }) {
   const [data, setData] = useState(EMPTY_EXPENSES);
   const [month, setMonth] = useState(() => thisMonthKey());
-  const [form, setForm] = useState({ date: todayISO(), amount: '', kind: 'out', category: 'food', note: '', fixed: false });
+  const [form, setForm] = useState({
+    date: todayISO(), amount: '', kind: 'out', category: 'food', note: '', fixed: false,
+    cur: DEFAULT_CUR,
+  });
   const [showAll, setShowAll] = useState(false);
+  const [allMonths, setAllMonths] = useState(false);
   const [budgetEdit, setBudgetEdit] = useState(false);
+  const [history, setHistory] = useState(false);
 
   useEffect(() => {
     memGet(KEY).then(v => {
@@ -141,38 +212,104 @@ export default function Expenses({ cur = '₹', onContribution }) {
       setData({
         txns: Array.isArray(v.txns) ? v.txns.map(normaliseTxn) : [],
         budgets: v.budgets && typeof v.budgets === 'object' ? v.budgets : {},
+        base: v.base === 'USD' ? 'USD' : DEFAULT_CUR,
       });
+      if (v.base === 'USD' || v.base === 'INR') setForm(f => ({ ...f, cur: v.base }));
     }).catch(() => {});
   }, []);
+
+  // The reporting base — what the totals, the bars and the averages are
+  // expressed in. Rupees unless it has been changed and saved.
+  const base = data.base === 'USD' ? 'USD' : DEFAULT_CUR;
+  const cur = symbolOf(base);
+  const opts = { base, fx };
 
   const commit = next => { setData(next); memSet(KEY, next); };
 
   const txns = data.txns;
-  const series = useMemo(() => monthlySeries(txns), [txns]);
+  const series = useMemo(() => monthlySeries(txns, opts), [txns, base, fx]);
   const avg = useMemo(() => averages(series), [series]);
-  const rr = useMemo(() => runRate(txns), [txns]);
+  const rr = useMemo(() => runRate(txns, opts), [txns, base, fx]);
   const monthRows = useMemo(() => inMonth(txns, month), [txns, month]);
-  const mt = useMemo(() => totals(monthRows), [monthRows]);
-  const cats = useMemo(() => budgetStatus(byCategory(monthRows), data.budgets), [monthRows, data.budgets]);
-  const split = useMemo(() => fixedSplit(monthRows), [monthRows]);
-  const rec = useMemo(() => likelyRecurring(txns), [txns]);
+  const mt = useMemo(() => totals(monthRows, opts), [monthRows, base, fx]);
+  const cats = useMemo(
+    () => budgetStatus(byCategory(monthRows, opts), data.budgets), [monthRows, data.budgets, base, fx]);
+  const split = useMemo(() => fixedSplit(monthRows, opts), [monthRows, base, fx]);
+  const rec = useMemo(() => likelyRecurring(txns, opts), [txns, base, fx]);
   const contrib = useMemo(() => plannerContribution(series), [series]);
+  const saves = useMemo(() => savingsHistory(series), [series]);
+
+  // A row entered in a currency other than the base needs a rate to join the
+  // totals. Without one it is left out and said so — a $12 charge added to a
+  // rupee total as 12 is a wrong answer that looks like a right one.
+  const foreign = useMemo(() => txns.filter(t => (t.cur || DEFAULT_CUR) !== base), [txns, base]);
+  const stranded = !fx && foreign.length > 0;
+  const assumedRows = useMemo(() => txns.filter(t => t.curAssumed).length, [txns]);
 
   const add = () => {
     if (!Number(form.amount)) return;
     const t = normaliseTxn({ ...form, id: `tx_${Date.now()}` });
     commit({ ...data, txns: [...txns, t] });
+    // The currency is deliberately NOT reset with the amount and the note. If
+    // you are logging in dollars you are usually logging several.
     setForm(f => ({ ...f, amount: '', note: '' }));
   };
+  const setBase = b => commit({ ...data, base: b === 'USD' ? 'USD' : DEFAULT_CUR });
   const drop = id => commit({ ...data, txns: txns.filter(t => t.id !== id) });
   const setBudget = (k, v) =>
     commit({ ...data, budgets: { ...data.budgets, [k]: Number(v) || 0 } });
 
   const isThis = month === thisMonthKey();
-  const listed = showAll ? [...monthRows].reverse() : [...monthRows].reverse().slice(0, 12);
+  // "Every month" is the look-back: the same table, unfiltered, newest first.
+  const pool = allMonths
+    ? [...txns].filter(t => t.date).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+    : [...monthRows].reverse();
+  const listed = showAll ? pool : pool.slice(0, 12);
 
   return (
     <>
+      <div className="exp-basebar">
+        <span className="exp-base-l">TOTALS IN</span>
+        <span className="seg">
+          {CURRENCIES.map(c => (
+            <button key={c.key} className={`seg-btn${base === c.key ? ' on' : ''}`}
+              onClick={() => setBase(c.key)}>
+              {c.key === 'INR' ? <span className="rupee">{c.symbol}</span> : c.symbol} {c.key}
+            </button>
+          ))}
+        </span>
+        <span className="small muted">
+          {fx
+            ? `converting at ${Number(fx).toFixed(2)} per $`
+            : 'no rate loaded — anything not already in this currency is left out'}
+        </span>
+      </div>
+
+      {(stranded || assumedRows > 0) && (
+        <div className="exp-curnote">
+          {stranded && (
+            <div className="exp-curwarn">
+              {foreign.length} transaction{foreign.length === 1 ? '' : 's'} in another
+              currency {foreign.length === 1 ? 'is' : 'are'} sitting out of every total
+              below, because there is no exchange rate loaded to bring
+              {foreign.length === 1 ? ' it' : ' them'} in. Left out on purpose — adding
+              a dollar amount to a rupee total as though the numbers matched would be
+              wrong by roughly eighty times and would look completely normal.
+            </div>
+          )}
+          {assumedRows > 0 && (
+            <div className="exp-curassume">
+              {assumedRows} older transaction{assumedRows === 1 ? '' : 's'} predate
+              {assumedRows === 1 ? 's' : ''} currencies being recorded and
+              {assumedRows === 1 ? ' is' : ' are'} being read as rupees. That is what
+              they were typed as — the dollar sign they used to show came from the
+              portfolio's display switch, not from anything saved on the row. Delete and
+              re-add any that were actually in dollars.
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="tile-row">
         <StatTile label="SPENT THIS MONTH" color="var(--red)"
           value={compact(rr.spend, cur)}
@@ -195,9 +332,15 @@ export default function Expenses({ cur = '₹', onContribution }) {
         <div className="flex" style={{ flexWrap: 'wrap', gap: 6 }}>
           <input style={{ width: 140 }} type="date" value={form.date}
             onChange={e => setForm({ ...form, date: e.target.value })} />
-          <input style={{ width: 110 }} type="number" placeholder={`Amount ${cur}`} value={form.amount}
+          <input style={{ width: 110 }} type="number" placeholder={`Amount ${symbolOf(form.cur)}`} value={form.amount}
             onChange={e => setForm({ ...form, amount: e.target.value })}
             onKeyDown={e => e.key === 'Enter' && add()} />
+          {/* Saved ON the transaction, not applied at display time. What you
+              picked here is what this row will always have been. */}
+          <select value={form.cur} onChange={e => setForm({ ...form, cur: e.target.value })}
+            title="Currency this amount was in">
+            {CURRENCIES.map(c => <option key={c.key} value={c.key}>{c.symbol} {c.key}</option>)}
+          </select>
           <select value={form.kind} onChange={e => setForm({ ...form, kind: e.target.value })}>
             <option value="out">Spent</option>
             <option value="in">Received</option>
@@ -222,7 +365,8 @@ export default function Expenses({ cur = '₹', onContribution }) {
         <div className="small muted mt">
           Mark a transfer as a transfer and it stays out of both totals — moving your
           own money between accounts is not income, and counting it as such is the
-          fastest way to a savings rate that means nothing.
+          fastest way to a savings rate that means nothing. New entries default to
+          rupees; switch the currency per entry when something really was in dollars.
         </div>
       </Card>
 
@@ -356,21 +500,119 @@ export default function Expenses({ cur = '₹', onContribution }) {
         </div>
       </Card>
 
-      <Card title={`Transactions · ${month}`} color="var(--purple)"
-        right={monthRows.length > 12 && (
-          <button className="btn btn-sm" onClick={() => setShowAll(s => !s)}>
-            {showAll ? 'Show recent' : `All ${monthRows.length}`}
-          </button>
-        )}>
-        {!monthRows.length && <Empty icon="·" text="Nothing logged in this month." />}
-        {monthRows.length > 0 && (
+      <Card title="What you have saved so far" color="var(--green)"
+        right={
+          <span className="flex" style={{ gap: 6, alignItems: 'center' }}>
+            <span className={`chip ${saves.negative ? 'c-red' : 'c-green'}`}>
+              {saves.negative ? '' : '+'}{compact(saves.total, cur)} all time
+            </span>
+            <button className={`btn btn-sm${history ? ' btn-cyan' : ''}`} onClick={() => setHistory(h => !h)}>
+              {history ? 'Hide months' : 'Month by month'}
+            </button>
+          </span>
+        }>
+        <SavesLine months={saves.months} cur={cur} />
+        <div className="exp-saves-stats">
+          <div>
+            <div className="exp-saves-k">MONTHS IN THE BLACK</div>
+            <div className="exp-saves-v">
+              {saves.completeMonths ? `${saves.positiveMonths} of ${saves.completeMonths}` : '—'}
+            </div>
+            <div className="small muted">{saves.completeMonths ? 'complete months only' : 'no complete months yet'}</div>
+          </div>
+          <div>
+            <div className="exp-saves-k">CURRENT RUN</div>
+            <div className="exp-saves-v" style={{ color: saves.streak ? 'var(--green)' : 'var(--ink-3)' }}>
+              {saves.streak || '0'}
+            </div>
+            <div className="small muted">
+              {saves.streak ? `month${saves.streak === 1 ? '' : 's'} in a row saving` : 'last complete month spent more than it made'}
+            </div>
+          </div>
+          <div>
+            <div className="exp-saves-k">BEST MONTH</div>
+            <div className="exp-saves-v" style={{ color: 'var(--green)' }}>
+              {saves.best ? compact(saves.best.saved, cur) : '—'}
+            </div>
+            <div className="small muted">{saves.best ? saves.best.key : 'nothing complete to compare'}</div>
+          </div>
+          <div>
+            <div className="exp-saves-k">WORST MONTH</div>
+            <div className="exp-saves-v" style={{ color: saves.worst && saves.worst.saved < 0 ? 'var(--red)' : 'var(--orange)' }}>
+              {saves.worst ? compact(saves.worst.saved, cur) : '—'}
+            </div>
+            <div className="small muted">{saves.worst ? saves.worst.key : '—'}</div>
+          </div>
+        </div>
+
+        {history && (
+          <div className="scroll-x mt">
+            <table className="ptable">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th style={{ textAlign: 'right' }}>In</th>
+                  <th style={{ textAlign: 'right' }}>Out</th>
+                  <th style={{ textAlign: 'right' }}>Saved</th>
+                  <th style={{ textAlign: 'right' }}>Rate</th>
+                  <th style={{ textAlign: 'right' }}>Running total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...saves.months].reverse().map(m => (
+                  <tr key={m.key} className={m.partial ? 'exp-partial' : undefined}>
+                    <td>
+                      {m.key}
+                      {m.partial && <span className="chip c-yellow" style={{ marginLeft: 6 }}>running</span>}
+                    </td>
+                    <td style={{ textAlign: 'right', color: 'var(--green)' }}>{fmt(m.income, cur)}</td>
+                    <td style={{ textAlign: 'right', color: 'var(--red)' }}>{fmt(m.spend, cur)}</td>
+                    <td style={{ textAlign: 'right', color: m.saved >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                      <b>{m.saved >= 0 ? '+' : ''}{fmt(m.saved, cur)}</b>
+                    </td>
+                    <td style={{ textAlign: 'right' }} className={m.rate == null ? 'muted' : undefined}>
+                      {m.rate == null ? 'n/a' : pctTxt(m.rate, 0)}
+                    </td>
+                    <td style={{ textAlign: 'right', color: m.cumulative >= 0 ? 'var(--cyan)' : 'var(--red)' }}>
+                      {fmt(m.cumulative, cur)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="small muted mt">
+          Saved means what came in minus what went out, month by month, with the
+          running total carried forward. Transfers never enter it. A month with no
+          income shows its rate as n/a rather than as a percentage, because a
+          percentage of nothing is not zero — it is unanswerable.
+        </div>
+      </Card>
+
+      <Card title={`Transactions · ${allMonths ? 'every month' : month}`} color="var(--purple)"
+        right={
+          <span className="flex" style={{ gap: 6 }}>
+            <button className={`btn btn-sm${allMonths ? ' btn-cyan' : ''}`}
+              onClick={() => { setAllMonths(a => !a); setShowAll(false); }}>
+              {allMonths ? 'This month' : 'Every month'}
+            </button>
+            {pool.length > 12 && (
+              <button className="btn btn-sm" onClick={() => setShowAll(s => !s)}>
+                {showAll ? 'Show recent' : `All ${pool.length}`}
+              </button>
+            )}
+          </span>
+        }>
+        {!pool.length && <Empty icon="·" text={allMonths ? 'Nothing logged yet.' : 'Nothing logged in this month.'} />}
+        {pool.length > 0 && (
           <div className="scroll-x">
             <table className="ptable">
               <thead><tr><th>Date</th><th>What</th><th>Category</th><th style={{ textAlign: 'right' }}>Amount</th><th /></tr></thead>
               <tbody>
                 {listed.map(t => (
                   <tr key={t.id}>
-                    <td className="small muted">{t.date.slice(5)}</td>
+                    <td className="small muted">{allMonths ? t.date : t.date.slice(5)}</td>
                     <td>{t.note || <span className="muted">—</span>}{t.fixed && <span className="chip" style={{ marginLeft: 6 }}>fixed</span>}</td>
                     <td>
                       {t.kind === 'out'
@@ -381,7 +623,16 @@ export default function Expenses({ cur = '₹', onContribution }) {
                       textAlign: 'right',
                       color: t.kind === 'in' ? 'var(--green)' : t.kind === 'transfer' ? 'var(--ink-3)' : 'var(--red)',
                     }}>
-                      {t.kind === 'in' ? '+' : t.kind === 'transfer' ? '↔' : '−'}{fmt(t.amount, cur)}
+                      {/* The row's OWN currency. This is the number that was
+                          entered, not a conversion of it. */}
+                      {t.kind === 'in' ? '+' : t.kind === 'transfer' ? '↔' : '−'}{fmt(t.amount, symbolOf(t.cur))}
+                      {(t.cur || 'INR') !== base && (
+                        <div className="exp-conv small">
+                          {amountIn(t, base, fx) == null
+                            ? 'not in totals — no rate'
+                            : `\u2248 ${fmt(amountIn(t, base, fx), cur)}`}
+                        </div>
+                      )}
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <button className="btn btn-sm" onClick={() => drop(t.id)}>✕</button>
