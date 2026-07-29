@@ -2146,3 +2146,327 @@
   .ov-w, .ov-p { display: none; }
   .ov-conc { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* ============================================================ GLOBAL MARKETS
+   The coverage screen. The visual job here is the inverse of the usual one:
+   most dashboards make every tile look equally authoritative, and this block
+   exists to make sure four different coverage states LOOK four different
+   amounts of trustworthy. So the state colour is carried on the row's left
+   edge — the first thing scanned — rather than being confined to a chip that
+   the eye reaches after it has already read and believed the number. */
+
+.gm-wrap { display: flex; flex-direction: column; gap: 14px; }
+
+.gm-disclaimer {
+  margin: 0 0 2px; padding: 8px 10px;
+  font-family: 'VT323', monospace; font-size: 14px; line-height: 1.35;
+  color: var(--ink-2); background: var(--panel-2);
+  border: 1px dashed var(--border); border-radius: 3px;
+}
+
+/* --- headline: two numbers, never one --- */
+.gm-head { margin-bottom: 12px; }
+.gm-head-nums { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.gm-head-num { display: flex; flex-direction: column; gap: 2px; }
+.gm-head-v {
+  font-family: var(--font-pixel); font-size: 26px; line-height: 1;
+  filter: drop-shadow(0 0 5px currentColor);
+}
+.gm-head-l {
+  font-family: 'VT323', monospace; font-size: 13px;
+  color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em;
+}
+.gm-head-sep { font-family: var(--font-pixel); font-size: 22px; color: var(--border-bright); align-self: center; }
+.gm-head-note {
+  margin: 8px 0 0; font-family: 'VT323', monospace; font-size: 15px; color: var(--ink-2);
+}
+
+.gm-msg {
+  margin: 8px 0 0; padding: 6px 9px;
+  font-family: 'VT323', monospace; font-size: 14px; color: var(--yellow);
+  border-left: 3px solid var(--yellow); background: var(--panel-2);
+}
+
+/* --- exchange session strip --- */
+.gm-sessions {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px; margin: 12px 0;
+}
+.gm-sess {
+  padding: 7px 9px; background: var(--panel-2);
+  border: 1px solid var(--border); border-left-width: 3px; border-radius: 3px;
+}
+.gm-sess.on { background: color-mix(in srgb, var(--green) 7%, var(--panel-2)); }
+.gm-sess-top { display: flex; align-items: center; justify-content: space-between; }
+.gm-sess-id { font-family: var(--font-pixel); font-size: 11px; letter-spacing: 0.05em; }
+.gm-sess-dot { width: 7px; height: 7px; border-radius: 50%; image-rendering: pixelated; }
+.gm-sess-city, .gm-sess-hours {
+  font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3); margin-top: 3px;
+}
+.gm-sess-phase {
+  font-family: 'VT323', monospace; font-size: 13px; margin-top: 4px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.gm-sess-dst { font-family: 'VT323', monospace; font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+
+.gm-filter { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 8px; }
+
+/* --- index rows --- */
+.gm-rows { display: flex; flex-direction: column; gap: 6px; }
+
+.gm-row {
+  border: 1px solid var(--border); border-radius: 3px;
+  background: var(--panel-2); overflow: hidden;
+}
+/* Rule 1 made literal: the state paints the row's edge, so it is read before
+   the number rather than after it. A dotted edge for "not reached" carries the
+   same information again without relying on colour alone. */
+.gm-row-live { border-left: 3px solid var(--green); }
+.gm-row-stale { border-left: 3px solid var(--orange); }
+.gm-row-cached { border-left: 3px solid var(--yellow); }
+.gm-row-unreachable { border-left: 3px dotted var(--ink-3); opacity: 0.82; }
+
+.gm-row-main {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 8px 10px; background: none; border: 0; cursor: pointer; text-align: left;
+}
+.gm-row-main:hover { background: color-mix(in srgb, var(--cyan) 6%, transparent); }
+.gm-row-mark { width: 6px; height: 22px; border-radius: 1px; image-rendering: pixelated; flex: 0 0 auto; }
+.gm-row-id { display: flex; flex-direction: column; gap: 1px; min-width: 128px; flex: 1 1 auto; }
+.gm-row-short { font-family: var(--font-pixel); font-size: 11px; letter-spacing: 0.04em; }
+.gm-row-label { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink); }
+.gm-row-ex { font-family: 'VT323', monospace; font-size: 12px; color: var(--ink-3); }
+
+.gm-spark { flex: 0 0 auto; image-rendering: pixelated; }
+
+.gm-row-val { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; min-width: 96px; }
+.gm-row-num { font-family: var(--font-pixel); font-size: 13px; color: var(--ink); }
+.gm-row-chg { font-family: 'VT323', monospace; font-size: 13px; }
+
+.gm-row-state { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; min-width: 84px; }
+.gm-row-age { font-family: 'VT323', monospace; font-size: 12px; color: var(--ink-3); }
+.gm-row-caret { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3); flex: 0 0 auto; }
+
+.gm-chip {
+  display: inline-block; padding: 1px 6px;
+  font-family: var(--font-pixel); font-size: 8px; letter-spacing: 0.06em;
+  border: 1px solid currentColor; border-radius: 2px;
+  filter: drop-shadow(0 0 3px currentColor);
+}
+/* "Not reached" is the one chip that must not glow. A glow reads as a status
+   light, and a status light reads as a working connection. */
+.gm-chip-unreachable { filter: none; border-style: dotted; }
+
+/* --- the expanded why --- */
+.gm-row-why {
+  padding: 9px 12px 11px; border-top: 1px dashed var(--border);
+  background: var(--bg-deep);
+}
+.gm-why-text {
+  margin: 0; font-family: 'VT323', monospace; font-size: 15px;
+  line-height: 1.4; color: var(--ink);
+}
+.gm-why-remedy {
+  margin: 6px 0 0; font-family: 'VT323', monospace; font-size: 14px;
+  color: var(--cyan); line-height: 1.4;
+}
+.gm-why-facts {
+  display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px;
+  font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3);
+}
+.gm-why-facts b { color: var(--ink-2); font-weight: normal; text-transform: uppercase; font-size: 11px; }
+.gm-why-flag {
+  margin: 8px 0 0; padding: 5px 8px;
+  font-family: 'VT323', monospace; font-size: 14px; color: var(--orange);
+  border-left: 3px solid var(--orange); background: var(--panel-2);
+}
+.gm-why-caveat {
+  margin: 8px 0 0; font-family: 'VT323', monospace; font-size: 12px;
+  color: var(--ink-3); line-height: 1.35; font-style: italic;
+}
+
+.gm-foot {
+  margin: 12px 0 0; font-family: 'VT323', monospace; font-size: 14px;
+  color: var(--ink-3); line-height: 1.4;
+}
+
+/* --- instruments: priced-by-what --- */
+.gm-inst { display: block; }
+.gm-inst-note {
+  margin: 0 0 10px; font-family: 'VT323', monospace; font-size: 15px; color: var(--ink-2);
+}
+.gm-inst-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+.gm-inst-row {
+  padding: 8px 10px; background: var(--panel-2);
+  border: 1px solid var(--border); border-left-width: 3px; border-radius: 3px;
+}
+.gm-inst-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.gm-inst-label { font-family: var(--font-pixel); font-size: 10px; color: var(--ink); letter-spacing: 0.04em; }
+.gm-inst-region { font-family: 'VT323', monospace; font-size: 12px; color: var(--ink-3); }
+.gm-inst-how {
+  margin-top: 5px; font-family: 'VT323', monospace; font-size: 13px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.gm-inst-desc {
+  margin-top: 3px; font-family: 'VT323', monospace; font-size: 13px;
+  color: var(--ink-3); line-height: 1.35;
+}
+
+@media (max-width: 620px) {
+  .gm-row-main { flex-wrap: wrap; gap: 6px 10px; }
+  .gm-spark { order: 5; }
+  .gm-row-id { min-width: 100px; }
+}
+
+/* =================================================================== ACCOUNTS
+   The visual job: make the unassigned pile look like an account rather than a
+   leftovers tray, and make the scope note impossible to scroll past. Everything
+   else is ordinary retro chrome. */
+
+.acc-wrap { display: flex; flex-direction: column; gap: 14px; }
+
+.acc-disclaimer {
+  margin: 0; padding: 8px 10px;
+  font-family: 'VT323', monospace; font-size: 14px; line-height: 1.35;
+  color: var(--ink-2); background: var(--panel-2);
+  border: 1px dashed var(--border); border-radius: 3px;
+}
+.acc-loading { font-family: 'VT323', monospace; font-size: 15px; color: var(--ink-3); }
+
+.acc-seg { margin-bottom: 10px; }
+
+/* Decision 2 made structural: full width, its own colour, above the numbers,
+   and not visually a footnote. */
+.acc-scope-note {
+  margin: 0 0 10px; padding: 7px 10px;
+  font-family: 'VT323', monospace; font-size: 15px; line-height: 1.35;
+  color: var(--yellow); background: color-mix(in srgb, var(--yellow) 8%, var(--panel-2));
+  border-left: 3px solid var(--yellow); border-radius: 2px;
+}
+
+.acc-scope { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.acc-scoped { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 12px; }
+
+.acc-warn {
+  margin: 0 0 10px; padding: 7px 10px;
+  font-family: 'VT323', monospace; font-size: 14px; line-height: 1.35;
+  color: var(--orange); border-left: 3px solid var(--orange); background: var(--panel-2);
+}
+
+.acc-zero { padding: 6px 0; }
+.acc-zero-txt {
+  margin: 0 0 10px; font-family: 'VT323', monospace; font-size: 15px;
+  line-height: 1.4; color: var(--ink-2); max-width: 60ch;
+}
+
+.acc-cards { display: flex; flex-direction: column; gap: 8px; }
+
+.acc-card {
+  border: 1px solid var(--border); border-left-width: 3px; border-radius: 3px;
+  background: var(--panel-2); overflow: hidden;
+}
+/* Decision 1: the pile is dashed, not dimmed. Dimming reads as "less
+   important"; dashed reads as "not finished", which is what it is. */
+.acc-card-loose { border-left-style: dashed; }
+
+.acc-card-head {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 10px; background: none; border: 0; cursor: pointer; text-align: left;
+}
+.acc-card-head:hover { background: color-mix(in srgb, var(--cyan) 6%, transparent); }
+.acc-card-id { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 120px; }
+.acc-card-label { font-family: var(--font-pixel); font-size: 11px; letter-spacing: 0.04em; }
+.acc-card-kind { font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3); }
+.acc-card-nums { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; min-width: 100px; }
+.acc-card-val { font-family: var(--font-pixel); font-size: 12px; color: var(--ink); }
+.acc-card-share { font-family: 'VT323', monospace; font-size: 12px; color: var(--ink-3); }
+.acc-card-ret { font-family: 'VT323', monospace; font-size: 14px; min-width: 80px; text-align: right; }
+.acc-card-nocost { font-size: 12px; color: var(--ink-3); }
+.acc-card-caret { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3); }
+
+.acc-card-body { padding: 10px 12px 12px; border-top: 1px dashed var(--border); background: var(--bg-deep); }
+.acc-card-note, .acc-card-kindnote {
+  margin: 0 0 8px; font-family: 'VT323', monospace; font-size: 14px;
+  color: var(--ink-2); line-height: 1.35;
+}
+.acc-card-kindnote { color: var(--ink-3); font-style: italic; }
+.acc-card-warn {
+  margin: 0 0 8px; padding: 5px 8px;
+  font-family: 'VT323', monospace; font-size: 13px; color: var(--orange);
+  border-left: 3px solid var(--orange); background: var(--panel-2);
+}
+.acc-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 10px; }
+
+.acc-holdings { display: flex; flex-direction: column; gap: 3px; }
+.acc-hold {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 8px; background: var(--panel-2);
+  border: 1px solid var(--border); border-radius: 2px;
+  font-family: 'VT323', monospace; font-size: 14px;
+}
+.acc-hold-t { flex: 1 1 auto; color: var(--ink); }
+.acc-hold-v { color: var(--ink-2); min-width: 84px; text-align: right; }
+.acc-hold-g { min-width: 68px; text-align: right; }
+
+.acc-card-btns { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.acc-confirm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.acc-confirm-txt {
+  font-family: 'VT323', monospace; font-size: 13px; color: var(--yellow);
+  max-width: 44ch; line-height: 1.3;
+}
+
+.acc-conc {
+  margin: 12px 0 0; padding: 8px 10px;
+  font-family: 'VT323', monospace; font-size: 14px; line-height: 1.4;
+  color: var(--ink-2); border: 1px dashed var(--border); border-radius: 3px;
+}
+
+.acc-add { margin-top: 12px; }
+
+/* --- the form --- */
+.acc-form {
+  margin-top: 12px; padding: 10px 12px;
+  border: 1px dashed var(--border-bright); border-radius: 3px; background: var(--panel-2);
+}
+.acc-form-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.acc-lbl {
+  font-family: var(--font-pixel); font-size: 9px; color: var(--ink-3);
+  letter-spacing: 0.06em; min-width: 44px;
+}
+.acc-in {
+  flex: 1 1 160px; padding: 5px 7px;
+  font-family: 'VT323', monospace; font-size: 15px;
+  color: var(--ink); background: var(--bg-deep);
+  border: 1px solid var(--border); border-radius: 2px;
+}
+.acc-in:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 5px var(--cyan); }
+.acc-kind-note {
+  margin: -2px 0 10px; font-family: 'VT323', monospace; font-size: 13px; line-height: 1.35;
+}
+.acc-form-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.acc-caveat {
+  margin: 10px 0 0; font-family: 'VT323', monospace; font-size: 13px;
+  color: var(--ink-3); line-height: 1.35; max-width: 66ch;
+}
+
+/* --- assigner --- */
+.acc-assign-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.acc-search { flex: 0 1 200px; }
+.acc-assign-left { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3); }
+.acc-assign-rows { display: flex; flex-direction: column; gap: 4px; }
+.acc-arow {
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 8px; background: var(--panel-2);
+  border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 2px;
+}
+/* Same signal as the pile card: dashed means "not filed yet". */
+.acc-arow-loose { border-left: 3px dashed var(--ink-3); }
+.acc-arow-t { font-family: var(--font-pixel); font-size: 10px; color: var(--ink); flex: 1 1 auto; }
+.acc-arow-v { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-2); min-width: 84px; text-align: right; }
+.acc-sel { flex: 0 1 160px; }
+
+@media (max-width: 620px) {
+  .acc-card-head { flex-wrap: wrap; gap: 6px 10px; }
+  .acc-card-ret { min-width: 0; }
+  .acc-arow { flex-wrap: wrap; }
+}

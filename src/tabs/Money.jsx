@@ -20,6 +20,8 @@ import DividendDesk from '../components/money/DividendDesk.jsx';
 import Expenses from '../components/money/Expenses.jsx';
 import OverviewPanels from '../components/money/OverviewPanels.jsx';
 import Leaderboard from '../components/money/Leaderboard.jsx';
+import GlobalMarkets from '../components/money/GlobalMarkets.jsx';
+import Accounts from '../components/money/Accounts.jsx';
 import Compare from '../components/money/Compare.jsx';
 import Rebalance from '../components/money/Rebalance.jsx';
 import TaxDesk from '../components/money/TaxDesk.jsx';
@@ -98,7 +100,13 @@ export default function Money() {
   const [sortBy, setSortBy] = useState('value');
   const [liveNews, setLiveNews] = useState([]);
   const [planSeed, setPlanSeed] = useState(null);   // monthly surplus handed over by the Cash tab
-  const [view, setView] = useState('portfolio'); // portfolio | book | vs | risk | factors | plan | divs | cash | markets | compare | rebal | tax | report | finboy | scanner | nextbuy | calendar
+  const [view, setView] = useState('portfolio');
+  // The Markets view holds two different questions that were previously one tab:
+  // "what is the app able to see" (world) and "what did my own holdings do"
+  // (movers). They were never the same screen — the leaderboard ranks things you
+  // own, which is a portfolio question wearing a markets label — so they now sit
+  // side by side rather than one standing in for the other.
+  const [mkSub, setMkSub] = useState('world'); // portfolio | book | vs | risk | factors | plan | divs | cash | markets | compare | rebal | tax | report | finboy | scanner | nextbuy | calendar
   const [newsSum, setNewsSum] = useState(null);
   const [sumBusy, setSumBusy] = useState(false);
   const [fx, setFx] = useState(null);            // USD → INR
@@ -149,6 +157,28 @@ export default function Money() {
   }, { dayGain: 0, dayBase: 0 });
   const dayPct = dayBase ? (dayGain / dayBase) * 100 : 0;
   const haveLive = dayBase > 0;
+
+  // Rows for the accounts screen. Built from the same held/priceOf/quotes the
+  // headline numbers above are built from, so an account total and the portfolio
+  // total can never disagree about what a position is worth — decision 5 of
+  // lib/accounts.js made real at the call site rather than trusted to it.
+  //
+  // invested is null, not 0, when there is no avg_cost. Zero would mean "bought
+  // for nothing", which reads as infinite profit; null means "we don't know",
+  // and accountTotals is built to carry that through to a sentence instead of a
+  // percentage.
+  const accountRows = useMemo(() => held.map(h => {
+    const qty = Number(h.qty) || 0;
+    const q = quotes[h.ticker];
+    const avg = Number(h.avg_cost);
+    return {
+      ticker: h.ticker,
+      qty,
+      marketValue: qty * priceOf(h),
+      invested: Number.isFinite(avg) && avg > 0 ? qty * avg : null,
+      dayGain: q?.change != null ? qty * Number(q.change) : 0,
+    };
+  }), [held.map(h => h.ticker).join(','), quotes]);
 
   // ---- reconstructed value-over-time (orders × historical prices) ----
   const tickerKey = held.map(h => h.ticker).join(',');
@@ -305,6 +335,7 @@ export default function Money() {
           <span className="seg">
             <button className={`seg-btn${view === 'portfolio' ? ' on' : ''}`} onClick={() => setView('portfolio')}>Portfolio</button>
             <button className={`seg-btn${view === 'book' ? ' on' : ''}`} onClick={() => setView('book')}>Book</button>
+            <button className={`seg-btn${view === 'accounts' ? ' on' : ''}`} onClick={() => setView('accounts')}>Accounts</button>
             <button className={`seg-btn${view === 'vs' ? ' on' : ''}`} onClick={() => setView('vs')}>vs Index</button>
             <button className={`seg-btn${view === 'risk' ? ' on' : ''}`} onClick={() => setView('risk')}>Risk</button>
             <button className={`seg-btn${view === 'factors' ? ' on' : ''}`} onClick={() => setView('factors')}>Factors</button>
@@ -329,6 +360,8 @@ export default function Money() {
         </span>
       </div>
       <p className="tab-sub">US stocks (INDmoney) + crypto — live prices, auto-refreshing. {liveTag}</p>
+
+      {view === 'accounts' && <Accounts rows={accountRows} cur={cur} />}
 
       {view === 'book' && (
         <Book held={held} priceOf={priceOf} quotes={quotes} visible={visible}
@@ -376,10 +409,18 @@ export default function Money() {
           you have never bought. So the ticker is resolved back to the holding here,
           and a name that does not resolve is simply not clickable. */}
       {view === 'markets' && (
-        <Leaderboard
-          holdings={held}
-          onOpen={t => { const h = held.find(x => x.ticker === t); if (h) setOpenStock(h); }}
-        />
+        <>
+          <span className="seg" style={{ marginBottom: 10 }}>
+            <button className={`seg-btn${mkSub === 'world' ? ' on' : ''}`} onClick={() => setMkSub('world')}>Coverage</button>
+            <button className={`seg-btn${mkSub === 'movers' ? ' on' : ''}`} onClick={() => setMkSub('movers')}>Your movers</button>
+          </span>
+          {mkSub === 'world' ? <GlobalMarkets /> : (
+            <Leaderboard
+              holdings={held}
+              onOpen={t => { const h = held.find(x => x.ticker === t); if (h) setOpenStock(h); }}
+            />
+          )}
+        </>
       )}
 
       {view === 'compare' && <Compare holdings={held} quotes={quotes} />}
