@@ -16,6 +16,7 @@ import DataStatus from '../components/money/DataStatus.jsx';
 import Book from '../components/money/Book.jsx';
 import RiskProfile from '../components/money/RiskProfile.jsx';
 import Planner from '../components/money/Planner.jsx';
+import Levers from '../components/money/Levers.jsx';
 import DividendDesk from '../components/money/DividendDesk.jsx';
 import Expenses from '../components/money/Expenses.jsx';
 import OverviewPanels from '../components/money/OverviewPanels.jsx';
@@ -29,6 +30,12 @@ import FactorDesk from '../components/money/FactorDesk.jsx';
 import ReportDesk from '../components/money/ReportDesk.jsx';
 import FinBoy from '../components/money/FinBoy.jsx';
 import Scanner from '../components/money/Scanner.jsx';
+import Sentiment from '../components/money/Sentiment.jsx';
+import Briefing, { useBriefing, BriefStrip } from '../components/money/Briefing.jsx';
+import FairValue from '../components/money/FairValue.jsx';
+import TickerHead from '../components/money/TickerHead.jsx';
+import FinMetric from '../components/money/FinMetric.jsx';
+import EarningsCal from '../components/money/EarningsCal.jsx';
 import { defaultBenchmark } from '../lib/india.js';
 import { aiNewsSummary, memGet, memSet } from '../lib/advisor.js';
 import { pickProvider } from '../lib/ai.js';
@@ -137,6 +144,12 @@ export default function Money() {
   }, []);
 
   const held = items.filter(h => Number(h.qty) > 0);
+  // A tracked ticker with no position IS the watchlist. There is no separate
+  // watchlist table and there does not need to be one — a row in `investments`
+  // with a zero quantity is already exactly "a company I follow but do not own",
+  // and inventing a second table would create two places a ticker can live and
+  // one of them would go stale.
+  const watched = items.filter(h => !(Number(h.qty) > 0));
   const { quotes, status } = useLiveQuotes(held.map(h => h.ticker));
   const marketOpen = usMarketState() === 'open';
 
@@ -205,6 +218,15 @@ export default function Money() {
     }
     return m;
   }, [orders]);
+
+  // The overview strip and the Briefing screen run the SAME rules off the SAME
+  // context — one hook, called here, handed to both. A strip that assembled its
+  // own context could disagree with the screen it links to, and the reader would
+  // have no way to tell which of the two was wrong.
+  const briefResult = useBriefing({
+    held, priceOf, orders, series: valSeries, flowsByDay,
+    currentValue: value, cur: inr ? '\u20b9' : '$',
+  });
 
   // load cached daily closes; fetch missing/stale tickers in the background
   useEffect(() => {
@@ -333,6 +355,7 @@ export default function Money() {
         <h1 className="tab-title">MONEY</h1>
         <span className="flex" style={{ gap: 8 }}>
           <span className="seg">
+            <button className={`seg-btn${view === 'brief' ? ' on' : ''}`} onClick={() => setView('brief')}>◆ Briefing</button>
             <button className={`seg-btn${view === 'portfolio' ? ' on' : ''}`} onClick={() => setView('portfolio')}>Portfolio</button>
             <button className={`seg-btn${view === 'book' ? ' on' : ''}`} onClick={() => setView('book')}>Book</button>
             <button className={`seg-btn${view === 'accounts' ? ' on' : ''}`} onClick={() => setView('accounts')}>Accounts</button>
@@ -340,6 +363,7 @@ export default function Money() {
             <button className={`seg-btn${view === 'risk' ? ' on' : ''}`} onClick={() => setView('risk')}>Risk</button>
             <button className={`seg-btn${view === 'factors' ? ' on' : ''}`} onClick={() => setView('factors')}>Factors</button>
             <button className={`seg-btn${view === 'plan' ? ' on' : ''}`} onClick={() => setView('plan')}>Plan</button>
+            <button className={`seg-btn${view === 'levers' ? ' on' : ''}`} onClick={() => setView('levers')}>Levers</button>
             <button className={`seg-btn${view === 'divs' ? ' on' : ''}`} onClick={() => setView('divs')}>Dividends</button>
             <button className={`seg-btn${view === 'cash' ? ' on' : ''}`} onClick={() => setView('cash')}>Cash</button>
             <button className={`seg-btn${view === 'markets' ? ' on' : ''}`} onClick={() => setView('markets')}>Markets</button>
@@ -349,8 +373,12 @@ export default function Money() {
             <button className={`seg-btn${view === 'report' ? ' on' : ''}`} onClick={() => setView('report')}>Report</button>
             <button className={`seg-btn${view === 'finboy' ? ' on' : ''}`} onClick={() => setView('finboy')}>FinBoy</button>
             <button className={`seg-btn${view === 'scanner' ? ' on' : ''}`} onClick={() => setView('scanner')}>Screens</button>
+            <button className={`seg-btn${view === 'value' ? ' on' : ''}`} onClick={() => setView('value')}>Value</button>
+            <button className={`seg-btn${view === 'ticker' ? ' on' : ''}`} onClick={() => setView('ticker')}>Ticker</button>
+            <button className={`seg-btn${view === 'fin' ? ' on' : ''}`} onClick={() => setView('fin')}>Financials</button>
             <button className={`seg-btn${view === 'nextbuy' ? ' on' : ''}`} onClick={() => setView('nextbuy')}>✦ Next buy</button>
             <button className={`seg-btn${view === 'calendar' ? ' on' : ''}`} onClick={() => setView('calendar')}>Calendar</button>
+            <button className={`seg-btn${view === 'earn' ? ' on' : ''}`} onClick={() => setView('earn')}>Earnings</button>
           </span>
           <span className="seg">
             <button className={`seg-btn${cur === 'usd' ? ' on' : ''}`} onClick={() => setCur('usd')}>$</button>
@@ -383,6 +411,14 @@ export default function Money() {
           defaultKey={defaultBenchmark('US')}
         />
       )}
+      {view === 'levers' && (
+        <Levers
+          currentValue={inr && fx ? value * fx : value}
+          cur={inr ? '\u20b9' : '$'}
+          onEditPlan={() => setView('plan')}
+        />
+      )}
+
       {view === 'plan' && (
         <Planner currentValue={inr && fx ? value * fx : value} cur={inr ? '\u20b9' : '$'} seedMonthly={planSeed} />
       )}
@@ -413,11 +449,23 @@ export default function Money() {
           <span className="seg" style={{ marginBottom: 10 }}>
             <button className={`seg-btn${mkSub === 'world' ? ' on' : ''}`} onClick={() => setMkSub('world')}>Coverage</button>
             <button className={`seg-btn${mkSub === 'movers' ? ' on' : ''}`} onClick={() => setMkSub('movers')}>Your movers</button>
+            <button className={`seg-btn${mkSub === 'sentiment' ? ' on' : ''}`} onClick={() => setMkSub('sentiment')}>Sentiment</button>
           </span>
-          {mkSub === 'world' ? <GlobalMarkets /> : (
+          {mkSub === 'world' && <GlobalMarkets />}
+          {mkSub === 'movers' && (
             <Leaderboard
               holdings={held}
               onOpen={t => { const h = held.find(x => x.ticker === t); if (h) setOpenStock(h); }}
+            />
+          )}
+          {/* The dial reads the same live quotes the board already subscribes to,
+              so opening this view costs no extra requests; only its price-history
+              button spends the Twelve Data budget, and only when pressed. */}
+          {mkSub === 'sentiment' && (
+            <Sentiment
+              quotes={quotes}
+              meta={Object.fromEntries(held.map(h => [h.ticker, { name: h.name, held: true }]))}
+              cur={inr ? '\u20b9' : '$'}
             />
           )}
         </>
@@ -480,8 +528,48 @@ export default function Money() {
         />
       )}
 
+      {/* cur is the LITERAL dollar and not the inr toggle, deliberately. Every
+          other screen here runs its numbers through disp(), which multiplies by
+          fx before stamping a rupee sign. This one does not convert anything:
+          the price comes straight off the quote feed, which live.js opens by
+          saying it is US prices, and it is divided by a per-share figure Neel
+          typed in the same currency. Stamping the display toggle's symbol onto
+          an unconverted number would put a rupee sign on dollars — precisely the
+          class of mislabelling this module exists to refuse. The multiple itself
+          is a ratio and carries no currency at all. */}
+      {view === 'value' && <FairValue held={held} quotes={quotes} cur="$" />}
+
+      {/* Same literal dollar as FairValue above, for the same reason. Every price
+          on this screen comes straight off the quote feed, which live.js opens by
+          stating it is US prices, and nothing here multiplies by fx. Stamping the
+          display toggle's rupee sign onto an unconverted dollar figure would put
+          a wrong currency on a right number — and this screen's market-cap panel
+          would then be wrong by the exchange rate as well as the unit. */}
+      {view === 'ticker' && <TickerHead held={held} quotes={quotes} cur="$" />}
+
+      {/* The third literal dollar on this tab, and the least ambiguous of the
+          three: every figure on this screen is a per-share figure straight out of
+          a US filing summary, and there is no quote feed involved at all. There
+          is nothing here for fx to convert even in principle — a rupee sign would
+          be pure mislabelling with no conversion behind it. */}
+      {view === 'brief' && (
+        <Briefing
+          held={held} priceOf={priceOf} orders={orders}
+          series={valSeries} flowsByDay={flowsByDay} currentValue={value}
+          cur={inr ? '\u20b9' : '$'} onGo={setView}
+        />
+      )}
+      {view === 'fin' && <FinMetric held={held} cur="$" />}
+
       {view === 'nextbuy' && <NextBuyDesk held={held} priceOf={priceOf} quotes={quotes} />}
       {view === 'calendar' && <MarketCalendar held={held} />}
+
+      {/* The fourth literal dollar on this tab, and like the financials screen it
+          is not a display choice: every EPS and revenue figure on the earnings
+          calendar is a US filing figure straight out of the provider's calendar,
+          with no quote feed and therefore nothing to convert. The watchlist is
+          the zero-quantity half of the same holdings table — see `watched`. */}
+      {view === 'earn' && <EarningsCal held={held} watch={watched} cur="$" />}
 
       {view === 'portfolio' && <>
       <div className="tile-row">
@@ -491,6 +579,8 @@ export default function Money() {
         <StatTile label="Holdings" value={held.length} color="var(--pink)" />
         <StatTile label="USD → INR" value={fx ? <><span className="rupee">₹</span>{fx.toFixed(2)}</> : '…'} note="live FX" color="var(--orange)" />
       </div>
+
+      <BriefStrip result={briefResult} onOpen={() => setView('brief')} />
 
       {/* Today's 1D gain / loss */}
       <div className={`px daypl ${dayGain >= 0 ? 'up' : 'down'}`}>

@@ -2470,3 +2470,932 @@
   .acc-card-ret { min-width: 0; }
   .acc-arow { flex-wrap: wrap; }
 }
+
+/* ============ WhatsApp chat import (college) ============
+   The visual job here is to make a machine's reading of other people's writing
+   look provisional. Every rule below that seems inconsistent with the rest of
+   the arcade idiom is deliberate: dashed borders where the parser guessed,
+   solid where it read something written down, and the selected state carried by
+   a left bar rather than a fill so a long list does not become a wall of green. */
+
+.wa-lede {
+  font-family: 'VT323', monospace; font-size: 15px; line-height: 1.35;
+  color: var(--ink-2); margin: 0 0 10px;
+}
+
+/* How-to: numbered because the order genuinely matters — exporting with media
+   produces a zip this parser cannot read. */
+.wa-how { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.wa-how-step {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-2); line-height: 1.3;
+}
+.wa-how-n {
+  flex: 0 0 auto; width: 16px; height: 16px; margin-top: 1px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-pixel); font-size: 8px; color: var(--bg-deep);
+  background: var(--green); border-radius: 2px;
+  filter: drop-shadow(0 0 3px var(--green));
+}
+
+.wa-drop { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.wa-paste { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.wa-textarea {
+  width: 100%; resize: vertical; padding: 8px;
+  font-family: 'VT323', monospace; font-size: 14px; line-height: 1.3;
+  color: var(--ink); background: var(--bg-deep);
+  border: 1px solid var(--border); border-radius: 2px;
+}
+.wa-textarea:focus { outline: none; border-color: var(--green); }
+
+.wa-badge {
+  font-family: var(--font-pixel); font-size: 7px; color: var(--green);
+  border: 1px dashed var(--green); border-radius: 2px; padding: 3px 5px;
+}
+
+/* Meta strip: what the file was, stated before anything is proposed from it. */
+.wa-meta {
+  padding: 8px 10px; margin-bottom: 10px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-left: 3px solid var(--green); border-radius: 2px;
+}
+.wa-meta-line { font-family: 'VT323', monospace; font-size: 15px; color: var(--ink); line-height: 1.3; }
+.wa-meta-dim { color: var(--ink-3); font-size: 14px; }
+.wa-note { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3); margin: 5px 0 0; line-height: 1.3; }
+/* An admission, not a statement of fact. Coloured so the difference is visible
+   without reading the sentence. */
+.wa-note-warn { color: var(--yellow); }
+
+.wa-err {
+  font-family: 'VT323', monospace; font-size: 15px; color: var(--red);
+  padding: 7px 9px; margin: 8px 0 0;
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+  border: 1px dashed var(--red); border-radius: 2px;
+}
+.wa-done {
+  font-family: 'VT323', monospace; font-size: 15px; color: var(--green);
+  padding: 7px 9px; margin: 8px 0 0;
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+  border: 1px solid var(--green); border-radius: 2px;
+}
+
+/* Kind tabs. The count is always shown, including zero — an empty bucket is
+   information ("nothing here looked like a drive"), not an absence. */
+.wa-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.wa-tab {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 8px; cursor: pointer;
+  font-family: var(--font-pixel); font-size: 8px;
+  color: var(--ink-3); background: var(--panel-2);
+  border: 1px solid var(--border); border-radius: 2px;
+}
+.wa-tab:hover { color: var(--ink); border-color: var(--border-bright); }
+.wa-tab.on { background: var(--bg-deep); filter: drop-shadow(0 0 4px currentColor); }
+.wa-tab-n { font-family: 'VT323', monospace; font-size: 13px; opacity: 0.8; }
+
+.wa-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.wa-cal {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-2);
+}
+.wa-cal input { accent-color: var(--cyan); }
+
+.wa-list { display: flex; flex-direction: column; gap: 5px; max-height: 460px; overflow-y: auto; }
+
+.wa-item {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 7px 9px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-left: 3px solid var(--border); border-radius: 2px;
+}
+/* Selection reads as a left bar and a border, never a fill. Forty filled rows
+   is a wall; forty barred rows is still a list you can read. */
+.wa-item-sel { border-color: var(--green); border-left-color: var(--green); }
+
+.wa-check {
+  flex: 0 0 auto; width: 15px; height: 15px; margin-top: 2px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-pixel); font-size: 9px; line-height: 1;
+  color: var(--bg-deep); background: transparent;
+  border: 1px solid var(--ink-3); border-radius: 2px;
+}
+.wa-check:hover { border-color: var(--green); }
+.wa-check.on { background: var(--green); border-color: var(--green); filter: drop-shadow(0 0 4px var(--green)); }
+
+.wa-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.wa-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.wa-title { font-family: var(--font-pixel); font-size: 9px; color: var(--ink); line-height: 1.45; }
+.wa-co {
+  font-family: var(--font-pixel); font-size: 8px; color: var(--orange);
+  border: 1px solid var(--orange); border-radius: 2px; padding: 2px 4px;
+}
+.wa-who { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-family: 'VT323', monospace; font-size: 13px; }
+.wa-when { color: var(--ink-3); }
+.wa-author { color: var(--ink-2); }
+.wa-copies { color: var(--purple); }
+.wa-kind {
+  font-family: var(--font-pixel); font-size: 7px;
+  border: 1px solid currentColor; border-radius: 2px; padding: 2px 4px;
+}
+
+/* Decision 4 made visible: the phrases that matched, each as its own chip, so
+   the reader can disagree with a specific one. A single number could only be
+   trusted or ignored wholesale. */
+.wa-sigs { display: flex; gap: 4px; flex-wrap: wrap; }
+.wa-sig {
+  font-family: 'VT323', monospace; font-size: 12px; color: var(--cyan);
+  background: color-mix(in srgb, var(--cyan) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cyan) 35%, transparent);
+  border-radius: 2px; padding: 1px 5px;
+}
+
+.wa-dl {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  font-family: 'VT323', monospace; font-size: 13px;
+  padding: 3px 6px; border-radius: 2px;
+  border: 1px solid var(--green);
+  background: color-mix(in srgb, var(--green) 8%, transparent);
+}
+/* Solid border = a cue phrase said this was a deadline. Dashed = the message
+   merely contained a date and the app is not claiming it means anything. */
+.wa-dl-soft { border: 1px dashed var(--ink-3); background: transparent; }
+.wa-dl-date { color: var(--ink); }
+.wa-dl-raw { color: var(--ink-3); }
+.wa-dl-warn { color: var(--yellow); border: 1px dashed var(--yellow); border-radius: 2px; padding: 0 4px; }
+
+.wa-links { display: flex; gap: 6px; flex-wrap: wrap; }
+.wa-link {
+  font-family: 'VT323', monospace; font-size: 13px; color: var(--cyan); text-decoration: none;
+  border-bottom: 1px dotted var(--cyan);
+}
+.wa-link:hover { filter: drop-shadow(0 0 4px var(--cyan)); }
+
+.wa-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  margin-top: 10px; padding-top: 9px; border-top: 1px dashed var(--border);
+}
+.wa-count { font-family: 'VT323', monospace; font-size: 15px; color: var(--ink-2); }
+
+/* The bin is styled as a drawer, not a footnote — collapsed by default, but a
+   wrongly-filtered registration link is the one failure this cannot recover
+   from, so it must never look sealed. */
+.wa-noise { margin-top: 12px; padding-top: 9px; border-top: 1px dashed var(--border); }
+.wa-noise-list { display: flex; flex-direction: column; gap: 2px; margin-top: 7px; max-height: 220px; overflow-y: auto; }
+.wa-noise-row {
+  display: flex; gap: 8px; align-items: baseline;
+  font-family: 'VT323', monospace; font-size: 13px; line-height: 1.25;
+  padding: 2px 6px; background: var(--bg-deep); border-radius: 2px;
+}
+.wa-noise-who { flex: 0 0 auto; color: var(--ink-3); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wa-noise-txt { color: var(--ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wa-noise-more { color: var(--ink-3); justify-content: center; }
+
+.wa-reset { margin-top: 10px; }
+.wa-disc {
+  font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3); line-height: 1.3;
+  margin: 12px 0 0; padding-top: 8px; border-top: 1px dotted var(--border);
+}
+
+@media (max-width: 620px) {
+  .wa-list { max-height: 380px; }
+  .wa-bar { flex-direction: column; align-items: stretch; }
+  .wa-who { gap: 6px; }
+}
+
+/* ============ Market sentiment dial + movers ============
+   The dial's whole job is to be checkable. Every rule here serves that: the
+   divisor sits beside the number at the same weight, the blocked components are
+   styled as present-but-unavailable rather than hidden, and a component with no
+   data gets a dashed border so an incomplete gauge looks incomplete. */
+
+.snt-top { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.snt-dial { width: 300px; max-width: 100%; height: auto; flex: 0 0 auto; image-rendering: pixelated; }
+.snt-num { font-family: var(--font-pixel); font-size: 30px; }
+.snt-end { font-family: var(--font-pixel); font-size: 8px; }
+
+.snt-read { flex: 1 1 240px; min-width: 220px; display: flex; flex-direction: column; gap: 6px; }
+.snt-zone { font-family: var(--font-pixel); font-size: 15px; letter-spacing: 1px; filter: drop-shadow(0 0 5px currentColor); }
+/* The sample size, not a footnote. Same family and near the same weight as the
+   number it qualifies. */
+.snt-basis { font-family: 'VT323', monospace; font-size: 15px; color: var(--ink-2); line-height: 1.3; margin: 0; }
+.snt-dim { color: var(--ink-3); font-size: 14px; }
+.snt-count {
+  font-family: var(--font-pixel); font-size: 8px; color: var(--cyan);
+  border: 1px solid var(--cyan); border-radius: 2px; padding: 3px 5px;
+}
+
+.snt-load { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.snt-busy { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3); }
+.snt-err {
+  font-family: 'VT323', monospace; font-size: 14px; color: var(--red);
+  border: 1px dashed var(--red); border-radius: 2px; padding: 5px 7px; margin: 4px 0 0;
+}
+
+.snt-head2 { margin: 10px 0 8px; }
+.snt-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+
+.snt-row {
+  padding: 8px 10px; border-radius: 2px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-left: 3px solid var(--cyan);
+}
+/* Dashed means the gauge is missing this one. An incomplete dial should look
+   incomplete at a glance, without reading a word. */
+.snt-nodata { border: 1px dashed var(--ink-3); border-left: 3px dashed var(--ink-3); opacity: 0.75; }
+.snt-blocked-row { opacity: 0.6; }
+.snt-row.snt-blocked { border: 1px dotted var(--ink-3); border-left: 3px dotted var(--ink-3); opacity: 0.6; }
+
+.snt-row-head { display: flex; align-items: baseline; gap: 8px; }
+.snt-row-label { font-family: var(--font-pixel); font-size: 9px; color: var(--ink); flex: 1 1 auto; }
+.snt-row-score { font-family: var(--font-pixel); font-size: 13px; color: var(--ink); }
+.snt-narrow {
+  font-family: 'VT323', monospace; font-size: 12px; color: var(--yellow);
+  border: 1px dashed var(--yellow); border-radius: 2px; padding: 0 4px;
+}
+.snt-why { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3); margin: 4px 0 0; line-height: 1.25; }
+.snt-detail { font-family: 'VT323', monospace; font-size: 15px; color: var(--ink-2); margin: 4px 0 0; line-height: 1.25; }
+
+/* The audit strip. Small, but never hidden behind a hover — a band you have to
+   discover is a band nobody checks. */
+.snt-band {
+  display: grid; grid-template-columns: auto 1fr; gap: 1px 8px; margin-top: 6px;
+  font-family: 'VT323', monospace; font-size: 13px;
+}
+.snt-band-lbl { color: var(--ink-3); }
+.snt-band-val { color: var(--ink-2); }
+
+.snt-meter { height: 5px; margin-top: 7px; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
+.snt-meter-fill { height: 100%; background: var(--cyan); filter: drop-shadow(0 0 4px var(--cyan)); }
+
+.snt-disc {
+  font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3); line-height: 1.3;
+  margin: 12px 0 0; padding-top: 8px; border-top: 1px dotted var(--border);
+}
+
+/* ---- movers ---- */
+.snt-sess {
+  font-family: var(--font-pixel); font-size: 7px; color: var(--ink-3);
+  border: 1px dashed var(--border-bright); border-radius: 2px; padding: 3px 5px;
+}
+.snt-mv-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.snt-mv-col { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.snt-mv-h {
+  font-family: var(--font-pixel); font-size: 9px; padding-bottom: 5px;
+  border-bottom: 1px dashed var(--border);
+}
+.snt-mv-h.up { color: var(--green); }
+.snt-mv-h.down { color: var(--red); }
+.snt-mv-none { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3); margin: 4px 0 0; }
+
+.snt-mv {
+  display: flex; align-items: baseline; gap: 7px; min-width: 0;
+  padding: 4px 6px; background: var(--panel-2);
+  border: 1px solid var(--border); border-radius: 2px;
+}
+.snt-mv-t { font-family: var(--font-pixel); font-size: 9px; color: var(--ink); flex: 0 0 auto; }
+.snt-mv-held { color: var(--orange); font-size: 11px; flex: 0 0 auto; }
+.snt-mv-n {
+  font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3);
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.snt-mv-p { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-2); flex: 0 0 auto; }
+.snt-mv-c { font-family: var(--font-pixel); font-size: 8px; flex: 0 0 auto; }
+.snt-mv-c.up { color: var(--green); }
+.snt-mv-c.down { color: var(--red); }
+.snt-note { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3); margin: 9px 0 0; line-height: 1.3; }
+
+@media (max-width: 620px) {
+  .snt-top { justify-content: center; }
+  .snt-mv-cols { grid-template-columns: 1fr; }
+  .snt-rows { grid-template-columns: 1fr; }
+}
+
+/* ============ Fair value spectrum ============
+   The screen most likely to be believed, so the CSS works against that. The
+   verdict block is a bordered note rather than a hero banner; the spectrum is
+   six discrete blocks rather than a smooth gradient, because a gradient implies
+   a precision that hand-typed annual figures do not have; and the input grid at
+   the bottom is styled as plainly as the output above it, so the numbers never
+   look like they arrived from somewhere more authoritative than Neel's typing. */
+
+.fv-badge { font: 11px var(--font-pixel), monospace; color: var(--cyan); border: 1px dashed var(--cyan); padding: 1px 6px; letter-spacing: 1px; }
+.fv-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+.fv-err { font: 13px 'VT323', monospace; color: var(--red); border-left: 3px solid var(--red); padding-left: 8px; margin: 6px 0; }
+.fv-dim { color: var(--ink-3); }
+
+/* The verdict. A left bar, not a fill — the reference paints this area green for
+   "Good entry", and a green panel is read as approval before a word of it is. */
+.fv-verdict { border: 1px solid var(--border); border-left: 4px solid var(--ink-3); background: var(--panel-2); padding: 10px 12px; margin: 10px 0 14px; }
+.fv-verdict-none { border-left-style: dashed; }
+.fv-tag { display: inline-block; font: 10px var(--font-pixel), monospace; letter-spacing: 1.5px; border: 1px solid currentColor; padding: 1px 6px; margin-bottom: 6px; }
+.fv-head { font: 20px 'VT323', monospace; color: var(--ink); margin: 2px 0 4px; line-height: 1.15; }
+.fv-detail { font: 14px 'VT323', monospace; color: var(--ink-2); margin: 0; line-height: 1.35; }
+
+/* ---- the Cheap → Expensive track ---- */
+.fv-spec { margin: 6px 0 4px; }
+.fv-spec-track { position: relative; display: flex; height: 18px; border: 2px solid var(--border-bright); background: var(--bg-deep); image-rendering: pixelated; }
+.fv-spec-blk { flex: 1; }
+.fv-blk-0 { background: var(--green); }
+.fv-blk-1 { background: color-mix(in srgb, var(--green) 62%, var(--yellow)); }
+.fv-blk-2 { background: var(--yellow); }
+.fv-blk-3 { background: var(--orange); }
+.fv-blk-4 { background: color-mix(in srgb, var(--orange) 55%, var(--red)); }
+.fv-blk-5 { background: var(--red); }
+
+/* The median gets a thin dotted post, the current multiple gets the flag. Two
+   different marks, because they answer two different questions and a reader
+   glancing at one triangle should not have to work out which one it is. */
+.fv-spec-med { position: absolute; top: -3px; bottom: -3px; width: 0; border-left: 2px dotted var(--ink); opacity: 0.8; }
+.fv-spec-mark { position: absolute; top: -7px; bottom: -7px; width: 0; border-left: 3px solid var(--ink); transform: translateX(-1px); filter: drop-shadow(0 0 4px currentColor); }
+.fv-spec-mark-v { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); font: 13px 'VT323', monospace; white-space: nowrap; }
+
+.fv-spec-scale { position: relative; display: flex; justify-content: space-between; margin-top: 20px; font: 12px 'VT323', monospace; color: var(--ink-2); }
+.fv-spec-scale b { font: 10px var(--font-pixel), monospace; color: var(--ink-3); letter-spacing: 1px; }
+.fv-spec-end { text-align: left; }
+.fv-spec-end-r { text-align: right; }
+.fv-spec-mid { text-align: center; }
+.fv-spec-ends { display: flex; justify-content: space-between; margin-top: 2px; font: 9px var(--font-pixel), monospace; letter-spacing: 1px; }
+/* "for this stock", not "cheap". A company can sit at the bottom of its own band
+   the entire way down, and the label is the only place that fits on screen. */
+.fv-spec-cheap { color: var(--green); }
+.fv-spec-exp { color: var(--red); }
+
+/* ---- price against the implied line ---- */
+.fv-chart { margin: 8px 0 4px; }
+.fv-svg { width: 100%; height: auto; display: block; border: 1px solid var(--border); background: var(--bg-deep); image-rendering: pixelated; }
+.fv-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; font: 12px 'VT323', monospace; color: var(--ink-2); }
+.fv-lg { display: inline-flex; align-items: center; gap: 5px; }
+.fv-lg-dim { color: var(--ink-3); margin-left: auto; }
+.fv-lg-solid { width: 14px; height: 0; border-top: 2px solid var(--ink); }
+.fv-lg-dash { width: 14px; height: 0; border-top: 2px dashed var(--cyan); }
+.fv-lg-g { width: 12px; height: 9px; background: var(--green); opacity: 0.35; }
+.fv-lg-r { width: 12px; height: 9px; background: var(--red); opacity: 0.35; }
+
+/* Decision 3's arithmetic, printed. Small, but never behind a toggle: a band
+   built from 40 of 1200 days is a different claim from one built from 1200. */
+.fv-counts { font: 13px 'VT323', monospace; color: var(--ink-3); margin: 8px 0 4px; line-height: 1.35; }
+.fv-counts b { color: var(--ink-2); }
+
+/* ---- section headings ---- */
+.fv-sec { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 6px; border-top: 1px dashed var(--border); padding-top: 10px; }
+.fv-sec-t { font: 12px var(--font-pixel), monospace; color: var(--ink-2); letter-spacing: 1px; }
+.fv-sec-n { font: 12px 'VT323', monospace; color: var(--ink-3); }
+
+/* ---- the typing ---- */
+.fv-edit { margin-top: 4px; }
+.fv-edit-note { font: 13px 'VT323', monospace; color: var(--ink-2); margin: 0 0 6px; line-height: 1.35; }
+.fv-edit-grid { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; align-items: center; margin-bottom: 8px; max-width: 420px; }
+.fv-edit-h { font: 10px var(--font-pixel), monospace; color: var(--ink-3); letter-spacing: 1px; }
+.fv-in { background: var(--bg-deep); border: 1px solid var(--border-bright); color: var(--ink); font: 15px 'VT323', monospace; padding: 4px 6px; width: 100%; }
+.fv-in:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 4px var(--cyan); }
+.fv-in-t { max-width: 90px; width: 90px; }
+.fv-del { padding: 2px 8px; }
+.fv-saved { font: 13px 'VT323', monospace; color: var(--green); margin: 6px 0 0; }
+
+.fv-disc { font: 12px 'VT323', monospace; color: var(--ink-3); border-top: 1px dashed var(--border); margin-top: 14px; padding-top: 8px; line-height: 1.4; }
+
+/* ---------------- ticker head + price chart (TickerHead.jsx) ---------------- */
+
+.th-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.th-badge { font: 12px 'VT323', monospace; color: var(--cyan); border: 1px dashed var(--border-bright); padding: 1px 6px; letter-spacing: 1px; }
+
+.th-head { display: flex; gap: 12px; align-items: center; margin: 4px 0 10px; }
+
+/* Decision 1: this mark is drawn, never fetched. */
+.th-mono {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  font: 22px var(--font-pixel), 'VT323', monospace; letter-spacing: 1px;
+  border: 2px solid currentColor; background: var(--panel-2);
+  image-rendering: pixelated; filter: drop-shadow(0 0 4px currentColor);
+}
+.th-mono-none { color: var(--ink-3); border-color: var(--border); filter: none; }
+
+.th-id { min-width: 0; }
+.th-sym { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.th-sym b { font: 24px var(--font-pixel), 'VT323', monospace; color: var(--ink); letter-spacing: 2px; }
+.th-name { font: 16px 'VT323', monospace; color: var(--ink-2); }
+.th-pill { font: 12px 'VT323', monospace; color: var(--green); border: 1px dashed var(--green); padding: 0 5px; letter-spacing: 1px; }
+.th-meta { display: flex; flex-wrap: wrap; gap: 6px; font: 13px 'VT323', monospace; color: var(--ink-2); margin-top: 2px; text-transform: uppercase; letter-spacing: 1px; }
+.th-meta i { color: var(--ink-3); font-style: normal; }
+/* Absent is a state with its own look, so a blank can never read as a value. */
+.th-meta-x { color: var(--ink-3); text-transform: none; letter-spacing: 0; font-style: italic; }
+
+.th-price { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 0 12px; }
+.th-px { font: 30px var(--font-pixel), 'VT323', monospace; color: var(--ink); filter: drop-shadow(0 0 5px var(--ink-3)); }
+.th-live { font: 11px 'VT323', monospace; color: var(--green); border: 1px solid var(--green); padding: 0 4px; letter-spacing: 2px; }
+.th-live.th-dim { color: var(--ink-3); border-color: var(--border); }
+
+/* Decision A: the baseline rides inside the chip. */
+.th-chip { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: baseline; border: 1px solid currentColor; padding: 2px 7px; font: 15px 'VT323', monospace; }
+.th-chip b { font-weight: 400; }
+.th-chip-abs { font-size: 13px; opacity: 0.85; }
+.th-chip-base { font-size: 12px; color: var(--ink-3); border-left: 1px dashed var(--border); padding-left: 6px; }
+.th-chip-none { color: var(--ink-3); border-color: var(--border); font-size: 13px; }
+
+.th-ranges { flex-wrap: wrap; }
+.th-note { font: 13px 'VT323', monospace; color: var(--ink-2); line-height: 1.45; margin: 6px 0 10px; }
+.th-err { font: 13px 'VT323', monospace; color: var(--red); margin: 6px 0; }
+.th-short { font: 13px 'VT323', monospace; color: var(--orange); border-left: 3px solid var(--orange); padding: 4px 0 4px 8px; margin: 8px 0; line-height: 1.4; }
+
+.th-chart { position: relative; margin: 8px 0 4px; }
+.th-svg { width: 100%; height: auto; display: block; background: var(--bg-deep); border: 1px solid var(--border); image-rendering: pixelated; }
+.th-axis { position: relative; height: 16px; margin-top: 2px; }
+.th-ax { position: absolute; transform: translateX(-50%); font: 11px 'VT323', monospace; color: var(--ink-3); white-space: nowrap; }
+.th-ax:first-child { transform: none; }
+.th-ax:last-child { transform: translateX(-100%); }
+.th-yrange { font: 12px 'VT323', monospace; color: var(--ink-2); margin: 4px 0 0; }
+.th-dim { color: var(--ink-3); }
+
+/* Decision B: two sliders over a sparkline of the whole window. */
+.th-brush { margin: 12px 0 4px; border-top: 1px dashed var(--border); padding-top: 8px; }
+.th-brush-svg { position: relative; background: var(--bg-deep); border: 1px solid var(--border); }
+.th-brush-svg svg { width: 100%; height: 40px; display: block; }
+.th-brush-sel { position: absolute; top: 0; bottom: 0; background: var(--cyan); opacity: 0.16; border-left: 1px solid var(--cyan); border-right: 1px solid var(--cyan); pointer-events: none; }
+.th-brush-ctl { display: grid; gap: 2px; margin-top: 4px; }
+.th-brush-r { width: 100%; accent-color: var(--cyan); background: transparent; }
+.th-brush-lab { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font: 12px 'VT323', monospace; color: var(--ink-2); margin: 4px 0 0; }
+
+/* Decision 2: the refusal is body text, not a tooltip. */
+.th-cap { margin: 8px 0; }
+.th-cap-refuse { font: 13px 'VT323', monospace; color: var(--ink-2); border-left: 3px solid var(--orange); padding: 6px 0 6px 8px; margin: 10px 0 0; line-height: 1.45; }
+
+.th-disc { font: 12px 'VT323', monospace; color: var(--ink-3); border-top: 1px dashed var(--border); margin-top: 14px; padding-top: 8px; line-height: 1.4; }
+
+/* ============================================================ FINANCIALS (FinMetric) */
+/* The bar chart's palette is the only place in this build where green and red
+   carry meaning on a chart rather than on a P&L figure, and they mean exactly
+   one thing here: which side of zero the bar is on. Not good and bad — a
+   negative free cash flow year during a factory build is not a bad bar. */
+
+.fm-card { position: relative; }
+.fm-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+
+.fm-freq { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 6px; }
+.fm-freq-btn {
+  font: 14px 'VT323', monospace; letter-spacing: 1px; text-transform: uppercase;
+  background: var(--panel-2); color: var(--ink-2);
+  border: 1px dashed var(--border); padding: 4px 10px; cursor: pointer;
+  image-rendering: pixelated;
+}
+.fm-freq-btn:hover { color: var(--ink); border-color: var(--border-bright); }
+.fm-freq-btn.on {
+  color: var(--cyan); border-color: var(--cyan); border-style: solid;
+  filter: drop-shadow(0 0 4px var(--cyan));
+}
+/* Decision A: a refused control keeps its place in the row. It is dimmed and
+   struck through, so the row never changes shape and the refusal is legible as
+   a property of the metric rather than as a missing button. */
+.fm-off { opacity: 0.45; text-decoration: line-through; }
+.fm-off.on { color: var(--orange); border-color: var(--orange); filter: none; }
+.fm-total-btn { margin-left: auto; }
+.fm-total-btn.on { color: var(--orange); border-color: var(--orange); filter: drop-shadow(0 0 4px var(--orange)); }
+
+.fm-why {
+  font: 13px 'VT323', monospace; color: var(--ink-2); line-height: 1.45;
+  border-left: 3px solid var(--orange); padding: 4px 0 4px 8px; margin: 6px 0 0;
+}
+
+.fm-menu { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; }
+.fm-menu-btn {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  font: 13px 'VT323', monospace; letter-spacing: 0.5px;
+  background: var(--panel-2); color: var(--ink-2);
+  border: 1px dotted var(--border); padding: 3px 8px; cursor: pointer;
+}
+.fm-menu-btn:hover { color: var(--ink); border-color: var(--border-bright); }
+.fm-menu-btn.on { color: var(--green); border-color: var(--green); border-style: solid; filter: drop-shadow(0 0 3px var(--green)); }
+/* Lib decision 4 made visible: a key with no definition looks different from one
+   with a definition, so a menu of ten metrics never implies ten known meanings. */
+.fm-unknown { font-style: italic; color: var(--ink-3); }
+.fm-menu-n { font-size: 11px; color: var(--ink-3); }
+
+.fm-kind {
+  font: 12px 'VT323', monospace; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--purple); border: 1px solid var(--purple); padding: 1px 6px;
+}
+.fm-kind-x { color: var(--ink-3); border-color: var(--border); border-style: dashed; }
+.fm-kind em { font-style: normal; opacity: 0.8; }
+
+.fm-headline { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 12px 0 6px; }
+.fm-hv {
+  font: 34px var(--font-pixel), 'VT323', monospace; color: var(--ink);
+  filter: drop-shadow(0 0 6px var(--cyan)); image-rendering: pixelated;
+}
+/* Decision C: the period is not a caption somewhere else on the card. */
+.fm-hp { font: 14px 'VT323', monospace; color: var(--ink-3); letter-spacing: 1px; }
+
+.fm-chip {
+  display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 6px;
+  font: 14px 'VT323', monospace; border: 1px solid var(--border); padding: 2px 8px;
+}
+.fm-chip-x { color: var(--ink-3); border-style: dashed; font-style: italic; }
+.fm-chip-base { font-size: 12px; color: var(--ink-3); border-left: 1px dashed var(--border); padding-left: 6px; }
+.fm-chip-warn { font-size: 12px; color: var(--orange); }
+
+.fm-chart { margin: 12px 0 4px; }
+.fm-svg {
+  width: 100%; height: 200px; display: block;
+  background: var(--bg-deep); border: 1px solid var(--border);
+  image-rendering: pixelated;
+}
+.fm-zero { filter: drop-shadow(0 0 2px var(--ink-3)); }
+.fm-axis { position: relative; height: 16px; margin-top: 2px; }
+.fm-ax {
+  position: absolute; transform: translateX(-50%); white-space: nowrap;
+  font: 11px 'VT323', monospace; color: var(--ink-3);
+}
+.fm-zlab { font: 12px 'VT323', monospace; color: var(--ink-3); margin: 6px 0 0; line-height: 1.4; }
+
+.fm-grow { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
+.fm-tile {
+  flex: 1 1 130px; min-width: 130px;
+  background: var(--panel-2); border: 1px solid var(--border); padding: 6px 8px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+/* Decision B: a refused tile is a different object, not a tile with a dash in
+   it — so a row of four cannot be skimmed as four figures. */
+.fm-tile-x { border-style: dashed; border-color: var(--border); background: transparent; }
+.fm-tile-lab { font: 11px 'VT323', monospace; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-3); }
+.fm-tile-v { font: 20px var(--font-pixel), 'VT323', monospace; image-rendering: pixelated; }
+.fm-tile-note { font: 12px 'VT323', monospace; color: var(--ink-3); }
+.fm-tile-why { font: 12px 'VT323', monospace; color: var(--ink-2); font-style: italic; line-height: 1.35; }
+
+.fm-total { margin: 14px 0 0; border-top: 1px dashed var(--border); padding-top: 10px; }
+/* Lib decision 2: the refusal comes FIRST and outweighs the one figure that
+   follows it, so the figure cannot be read as a series. */
+.fm-total-refuse { font: 13px 'VT323', monospace; color: var(--ink-2); border-left: 3px solid var(--orange); padding: 6px 0 6px 8px; margin: 0; line-height: 1.45; }
+.fm-total-v { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin: 10px 0 0; }
+.fm-total-v b { font: 26px var(--font-pixel), 'VT323', monospace; color: var(--orange); filter: drop-shadow(0 0 5px var(--orange)); image-rendering: pixelated; }
+.fm-total-work { font: 12px 'VT323', monospace; color: var(--ink-3); }
+.fm-total-none { font: 13px 'VT323', monospace; color: var(--ink-3); font-style: italic; }
+
+.fm-note { font: 13px 'VT323', monospace; color: var(--ink-2); margin: 8px 0 0; line-height: 1.45; }
+.fm-err { font: 13px 'VT323', monospace; color: var(--red); margin: 8px 0 0; }
+.fm-thin { font: 12px 'VT323', monospace; color: var(--ink-3); margin: 10px 0 0; line-height: 1.4; font-style: italic; }
+.fm-disc { font: 12px 'VT323', monospace; color: var(--ink-3); border-top: 1px dashed var(--border); margin-top: 14px; padding-top: 8px; line-height: 1.4; }
+
+@media (max-width: 520px) {
+  .fm-hv { font-size: 26px; }
+  .fm-svg { height: 160px; }
+  .fm-tile { flex: 1 1 100%; }
+  .fm-total-btn { margin-left: 0; }
+}
+
+/* ============================================================ EARNINGS CALENDAR (.ec-*) */
+/* The grid is the whole screen, so the rules that matter are the ones that stop
+   it lying: a capped cell reads as capped, an empty cell reads as empty rather
+   than as unloaded, and the two extra session rows look different from the two
+   the reference has — because they ARE different, and a row that looks native
+   would suggest every week has four sessions. */
+
+.ec-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.ec-scope { display: flex; gap: 0; border: 1px solid var(--border); }
+.ec-scope-btn {
+  font: 13px 'VT323', monospace; letter-spacing: .5px; text-transform: uppercase;
+  background: transparent; color: var(--ink-3); border: 0; border-right: 1px solid var(--border);
+  padding: 4px 10px; cursor: pointer;
+}
+.ec-scope-btn:last-child { border-right: 0; }
+.ec-scope-btn.on { background: var(--panel-2); color: var(--cyan); filter: drop-shadow(0 0 3px var(--cyan)); }
+.ec-mode { display: flex; gap: 4px; }
+.ec-mode-btn {
+  font: 12px 'VT323', monospace; text-transform: uppercase; letter-spacing: .5px;
+  background: transparent; color: var(--ink-3); border: 1px dashed var(--border); padding: 2px 8px; cursor: pointer;
+}
+.ec-mode-btn.on { color: var(--orange); border-color: var(--orange); border-style: solid; }
+
+.ec-nav { display: flex; align-items: center; gap: 8px; }
+.ec-arrow {
+  font: 14px 'VT323', monospace; background: var(--panel-2); color: var(--cyan);
+  border: 1px solid var(--border); padding: 2px 8px; cursor: pointer; image-rendering: pixelated;
+}
+.ec-arrow:hover { border-color: var(--cyan); filter: drop-shadow(0 0 4px var(--cyan)); }
+.ec-win { display: flex; flex-direction: column; line-height: 1.1; min-width: 150px; text-align: center; }
+.ec-win b { font: 15px var(--font-pixel), 'VT323', monospace; color: var(--ink); }
+.ec-winsub { font: 12px 'VT323', monospace; color: var(--ink-3); }
+.ec-now { font: 11px 'VT323', monospace; background: transparent; color: var(--yellow); border: 1px dotted var(--yellow); padding: 1px 6px; cursor: pointer; }
+
+/* Decision B: the status line is a fixture, not an error slot that appears only
+   when something breaks. It is present on a good week too. */
+.ec-status { font: 13px 'VT323', monospace; color: var(--ink-2); margin: 0 0 8px; line-height: 1.45; border-left: 3px solid var(--border); padding-left: 8px; }
+.ec-status-ok { border-left-color: var(--green); color: var(--ink-2); }
+.ec-status-warn { border-left-color: var(--orange); }
+.ec-status-bad { border-left-color: var(--red); }
+.ec-at { color: var(--ink-3); }
+.ec-scopenote { font: 12px 'VT323', monospace; color: var(--ink-3); margin: 0 0 8px; border-left: 3px dotted var(--border); padding-left: 8px; line-height: 1.4; }
+
+.ec-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.ec-col { border: 1px solid var(--border); background: var(--panel); display: flex; flex-direction: column; min-width: 0; }
+.ec-col.ec-today { border-color: var(--yellow); box-shadow: 0 0 0 1px var(--yellow) inset; }
+.ec-colhead { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 6px; border-bottom: 1px dashed var(--border); background: var(--panel-2); }
+.ec-colday { font: 12px 'VT323', monospace; color: var(--ink); text-transform: uppercase; letter-spacing: .5px; }
+.ec-coln { font: 12px 'VT323', monospace; color: var(--cyan); }
+.ec-sess { padding: 4px 5px 6px; border-bottom: 1px dotted var(--border); }
+.ec-sess:last-child { border-bottom: 0; }
+/* Decision A: the two rows the reference does not have are visibly not native. */
+.ec-sess-x { background: rgba(255, 255, 255, 0.02); border-left: 2px solid var(--purple); }
+.ec-sesslab { display: block; font: 10px 'VT323', monospace; color: var(--ink-3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; }
+
+.ec-cell { display: flex; flex-direction: column; gap: 3px; }
+/* An empty cell is a dash, not blank space — blank reads as still loading. */
+.ec-cell-empty { font: 12px 'VT323', monospace; color: var(--border-bright); text-align: center; padding: 2px 0; }
+.ec-tile {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  background: var(--panel-2); border: 1px solid var(--border); border-left-width: 3px;
+  padding: 3px 5px; cursor: pointer; text-align: left; width: 100%; min-width: 0;
+}
+.ec-tile:hover { border-color: var(--cyan); }
+.ec-tile.on { border-color: var(--cyan); filter: drop-shadow(0 0 4px var(--cyan)); }
+.ec-beat { border-left-color: var(--ok); }
+.ec-miss { border-left-color: var(--bad); }
+.ec-sym { font: 13px var(--font-pixel), 'VT323', monospace; color: var(--ink); letter-spacing: .5px; }
+/* Decision D: the est/act word is part of the figure, so it must not be so faint
+   that the eye reads past it to the number. */
+.ec-eps { font: 12px 'VT323', monospace; color: var(--ink-2); }
+.ec-none { color: var(--ink-3); font-style: italic; }
+/* Decision C: the overflow is a button and is styled as one. */
+.ec-more {
+  font: 12px 'VT323', monospace; background: transparent; color: var(--orange);
+  border: 1px dashed var(--orange); padding: 1px 4px; cursor: pointer; align-self: stretch; text-align: center;
+}
+.ec-more:hover { background: var(--panel-2); filter: drop-shadow(0 0 4px var(--orange)); }
+
+/* Decision 4 made visible — under the grid, because there is no column for it. */
+.ec-weekend {
+  font: 13px 'VT323', monospace; color: var(--ink-2); margin: 8px 0 0;
+  border-left: 3px solid var(--purple); padding: 6px 0 6px 8px; line-height: 1.45;
+}
+.ec-weekend b { color: var(--purple); }
+
+.ec-month { display: flex; flex-direction: column; gap: 4px; }
+.ec-mhead { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.ec-mdow { font: 11px 'VT323', monospace; color: var(--ink-3); text-transform: uppercase; letter-spacing: 1px; text-align: center; }
+.ec-mrow { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.ec-mcell {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  min-height: 52px; background: var(--panel); border: 1px solid var(--border);
+  padding: 3px 4px; cursor: pointer; text-align: left; min-width: 0; overflow: hidden;
+}
+/* The spill-over days are drawn so the month never starts with blank cells that
+   look like four days with nothing reporting — but they are dimmed, because they
+   belong to a different month. */
+.ec-out { opacity: 0.4; }
+.ec-mcell.ec-today { border-color: var(--yellow); }
+.ec-has { border-color: var(--border-bright); }
+.ec-mnum { font: 12px 'VT323', monospace; color: var(--ink-3); }
+.ec-mn { font: 12px var(--font-pixel), 'VT323', monospace; color: var(--cyan); }
+.ec-msyms { display: flex; flex-direction: column; }
+.ec-msyms i { font: 10px 'VT323', monospace; color: var(--ink-2); font-style: normal; }
+
+.ec-detail { border: 1px dashed var(--border); background: var(--panel); padding: 10px; margin-top: 10px; }
+.ec-detail-none { font: 13px 'VT323', monospace; color: var(--ink-3); margin: 10px 0 0; border-top: 1px dotted var(--border); padding-top: 8px; }
+.ec-dhead { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+.ec-dsym { font: 20px var(--font-pixel), 'VT323', monospace; color: var(--cyan); filter: drop-shadow(0 0 4px var(--cyan)); }
+.ec-dq { font: 13px 'VT323', monospace; color: var(--orange); }
+.ec-dwhen { font: 13px 'VT323', monospace; color: var(--ink-3); }
+.ec-dnote { font: 12px 'VT323', monospace; color: var(--ink-3); margin: 4px 0 8px; line-height: 1.4; }
+.ec-drow { display: flex; flex-wrap: wrap; gap: 8px; }
+.ec-dcol { flex: 1 1 130px; border: 1px solid var(--border); background: var(--panel-2); padding: 5px 7px; min-width: 0; }
+.ec-dlab { display: block; font: 10px 'VT323', monospace; color: var(--ink-3); text-transform: uppercase; letter-spacing: 1px; }
+.ec-dv { font: 16px var(--font-pixel), 'VT323', monospace; color: var(--ink); }
+/* Decision D: "not reported yet" is not a number and must not be typeset as one. */
+.ec-dv-none { font: 12px 'VT323', monospace; color: var(--ink-3); font-style: italic; }
+
+.ec-surp { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ec-schip { font: 13px var(--font-pixel), 'VT323', monospace; border: 1px solid; padding: 2px 8px; letter-spacing: 1px; }
+.ec-up { color: var(--ok); border-color: var(--ok); filter: drop-shadow(0 0 4px var(--ok)); }
+.ec-down { color: var(--bad); border-color: var(--bad); filter: drop-shadow(0 0 4px var(--bad)); }
+/* The bar is centred on the estimate, which is why the midline is drawn on top
+   of the fill: a surprise of nearly zero must still show where zero was. */
+.ec-sbar { width: 200px; height: 8px; image-rendering: pixelated; border: 1px solid var(--border); }
+.ec-swork { font: 12px 'VT323', monospace; color: var(--ink-3); }
+.ec-sx { font: 13px 'VT323', monospace; color: var(--ink-2); border-left: 3px solid var(--orange); padding-left: 8px; line-height: 1.45; }
+
+.ec-disc { font: 11px 'VT323', monospace; color: var(--ink-3); margin: 12px 0 0; line-height: 1.45; border-top: 1px dotted var(--border); padding-top: 8px; }
+
+@media (max-width: 720px) {
+  /* Five columns will not fit, and squeezing them makes every ticker truncate.
+     The grid becomes a scroller with real column widths rather than a mash. */
+  .ec-grid { grid-template-columns: repeat(5, 150px); overflow-x: auto; padding-bottom: 6px; }
+  .ec-mcell { min-height: 44px; }
+  .ec-msyms { display: none; }
+  .ec-dcol { flex: 1 1 100%; }
+  .ec-sbar { width: 100%; }
+}
+
+/* ---- Briefing (money → Briefing) ------------------------------------- */
+/* Decision 5 of the screen: nothing here animates. Severity is colour and
+   order, both derived from stated arithmetic — a pulsing row would be an
+   instruction with no words in it. */
+.bf { display: flex; flex-direction: column; gap: 12px; }
+.bf-intro {
+  font-family: 'VT323', monospace; font-size: 15px; line-height: 1.45;
+  color: var(--ink-2); border-bottom: 1px dashed var(--border);
+  padding-bottom: 8px; margin-bottom: 10px;
+}
+.bf-sortnote { font-family: 'VT323', monospace; font-size: 12px; color: var(--ink-3); }
+
+.bf-rows { display: flex; flex-direction: column; gap: 8px; }
+.bf-row {
+  border: 1px dotted var(--border); border-left: 3px solid var(--ink-3);
+  background: var(--panel-2); padding: 8px 10px; image-rendering: pixelated;
+}
+.bf-row.bf-ok { opacity: 0.86; }
+.bf-row-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.bf-mark { font-family: var(--font-pixel); font-size: 10px; letter-spacing: 1px; }
+.bf-topic {
+  font-family: var(--font-pixel); font-size: 9px; letter-spacing: 1.5px;
+  color: var(--ink-2); text-transform: uppercase;
+}
+.bf-sev {
+  margin-left: auto; font-family: 'VT323', monospace; font-size: 13px;
+  letter-spacing: 0.5px; white-space: nowrap;
+}
+.bf-basis {
+  font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1px;
+  border: 1px dashed currentColor; padding: 2px 5px; text-transform: uppercase;
+  white-space: nowrap;
+}
+.bf-head {
+  font-family: 'VT323', monospace; font-size: 17px; line-height: 1.3;
+  margin-bottom: 3px; text-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+}
+.bf-detail {
+  font-family: 'VT323', monospace; font-size: 14px; line-height: 1.45;
+  color: var(--ink-2);
+}
+.bf-foot {
+  display: flex; align-items: flex-start; gap: 10px; margin-top: 6px;
+  padding-top: 6px; border-top: 1px dashed var(--border);
+}
+.bf-cite {
+  flex: 1; font-family: 'VT323', monospace; font-size: 12px;
+  line-height: 1.4; color: var(--ink-3);
+}
+.bf-go { flex-shrink: 0; align-self: center; }
+
+/* Decision 1: the absences are a panel, never a chevron. */
+.bf-skip-why {
+  font-family: 'VT323', monospace; font-size: 14px; line-height: 1.45;
+  color: var(--ink-2); border-bottom: 1px dashed var(--border);
+  padding-bottom: 8px; margin-bottom: 8px;
+}
+.bf-skips { display: flex; flex-direction: column; gap: 5px; }
+.bf-skip {
+  display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap;
+  border-left: 2px solid var(--border); padding: 3px 0 3px 8px;
+}
+.bf-skip.bf-broke { border-left-color: var(--red); }
+.bf-skip-topic {
+  font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1.5px;
+  color: var(--ink-3); text-transform: uppercase; min-width: 92px;
+}
+.bf-skip-txt { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-2); flex: 1; }
+.bf-skip-bad {
+  font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1px;
+  color: var(--red); filter: drop-shadow(0 0 3px var(--red));
+}
+
+.bf-legend { display: flex; flex-direction: column; gap: 7px; }
+.bf-legend-row { display: flex; gap: 10px; align-items: flex-start; }
+.bf-legend-txt { font-family: 'VT323', monospace; font-size: 14px; line-height: 1.4; color: var(--ink-2); flex: 1; }
+.bf-foot-note {
+  margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border);
+  font-family: 'VT323', monospace; font-size: 13px; line-height: 1.45; color: var(--ink-3);
+}
+
+@media (max-width: 560px) {
+  .bf-foot { flex-direction: column; gap: 6px; }
+  .bf-go { align-self: flex-start; }
+  .bf-sev { margin-left: 0; width: 100%; }
+  .bf-skip-topic { min-width: 0; }
+}
+
+/* ---- Briefing strip (money → portfolio overview) ----
+   The strip inherits decision 5 of the screen: no animation here either. A
+   compact form that pulses is a nag, and a nag is an instruction. */
+.bf-strip{
+  border:1px dashed var(--border-bright); background:var(--panel);
+  padding:10px 12px; margin:10px 0; display:flex; flex-direction:column; gap:8px;
+}
+.bf-strip-none{
+  flex-direction:row; align-items:center; gap:10px; cursor:pointer;
+  border-style:dotted; opacity:.85;
+}
+.bf-strip-head{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.bf-strip-k{
+  font-family:var(--font-pixel); font-size:11px; letter-spacing:1px;
+  color:var(--cyan); filter:drop-shadow(0 0 4px var(--cyan)); flex:0 0 auto;
+}
+.bf-strip-cov{
+  font-family:'VT323', monospace; font-size:15px; margin-left:auto;
+}
+.bf-strip-none .bf-strip-cov{ margin-left:0; }
+.bf-strip-txt{
+  font-family:'VT323', monospace; font-size:15px; color:var(--ink-2); line-height:1.35;
+}
+.bf-strip-rows{ display:flex; flex-direction:column; gap:5px; }
+.bf-strip-row{
+  border-left:3px solid var(--border); padding:3px 0 3px 9px;
+  display:flex; align-items:baseline; gap:9px;
+}
+.bf-strip-topic{
+  font-family:var(--font-pixel); font-size:9px; letter-spacing:1px;
+  color:var(--ink-3); flex:0 0 auto; text-transform:uppercase;
+}
+.bf-strip-line{
+  font-family:'VT323', monospace; font-size:16px; color:var(--ink);
+  line-height:1.2; min-width:0;
+}
+.bf-strip-more{
+  font-family:'VT323', monospace; font-size:14px; color:var(--ink-3);
+  border-top:1px dotted var(--border); padding-top:6px;
+}
+@media (max-width: 560px){
+  .bf-strip-row{ flex-direction:column; gap:1px; }
+  .bf-strip-cov{ margin-left:0; width:100%; }
+}
+
+/* ---- Levers (money → what moves the date) ----
+   Decision A of the screen lives here rather than in the JSX: the two kinds are
+   told apart by FRAME and COLOUR, not by heading text. A reader who is skimming
+   never reads the heading, and the whole protection is for the skimming reader. */
+.lv-wrap{ display:flex; flex-direction:column; gap:14px; }
+.lv-intro{ font-family:'VT323', monospace; font-size:16px; color:var(--ink-2);
+  line-height:1.35; margin-bottom:10px; }
+.lv-sec-note{ font-family:'VT323', monospace; font-size:15px; color:var(--ink-3);
+  line-height:1.35; margin-bottom:12px; border-left:2px dotted var(--border);
+  padding-left:9px; }
+
+/* the assumptions rail — above the date, never under it */
+.lv-assume{ border:1px dotted var(--border-bright); background:var(--panel-2);
+  padding:9px 11px; margin-bottom:12px; }
+.lv-assume-k{ font-family:var(--font-pixel); font-size:9px; letter-spacing:1px;
+  color:var(--ink-3); margin-bottom:7px; }
+.lv-assume-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(126px, 1fr)); gap:7px 12px; }
+.lv-assume-cell{ display:flex; flex-direction:column; gap:1px; min-width:0; }
+.lv-assume-l{ font-family:var(--font-pixel); font-size:8px; letter-spacing:1px; color:var(--ink-3); }
+.lv-assume-v{ font-family:'VT323', monospace; font-size:17px; color:var(--ink); line-height:1; }
+.lv-assume-n{ font-family:'VT323', monospace; font-size:13px; color:var(--ink-3); line-height:1.1; }
+.lv-assume-foot{ font-family:'VT323', monospace; font-size:14px; color:var(--ink-3);
+  line-height:1.3; margin-top:8px; border-top:1px dotted var(--border); padding-top:6px; }
+
+/* the headline crossing */
+.lv-base{ border-left:3px solid var(--green); background:var(--panel);
+  padding:9px 12px; display:flex; flex-direction:column; gap:5px; }
+.lv-base-no{ border-left-color:var(--orange); }
+.lv-base-row{ display:flex; align-items:baseline; gap:11px; flex-wrap:wrap; }
+.lv-base-k{ font-family:var(--font-pixel); font-size:9px; letter-spacing:1px; color:var(--ink-3); }
+.lv-base-big{ font-family:var(--font-pixel); font-size:22px; color:var(--green);
+  filter:drop-shadow(0 0 6px var(--green)); line-height:1.1; }
+.lv-base-no .lv-base-big{ font-size:14px; color:var(--orange); filter:drop-shadow(0 0 5px var(--orange)); }
+.lv-base-sub{ font-family:'VT323', monospace; font-size:16px; color:var(--ink-2); }
+.lv-base-line{ font-family:'VT323', monospace; font-size:15px; color:var(--ink-3); line-height:1.3; }
+.lv-base-note{ font-family:'VT323', monospace; font-size:15px; color:var(--orange);
+  line-height:1.3; border-top:1px dotted var(--border); padding-top:6px; }
+
+/* one ladder */
+.lv-lad{ border-top:1px dotted var(--border); padding:11px 0 3px; }
+.lv-lad:first-of-type{ border-top:0; padding-top:0; }
+.lv-lad-head{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+.lv-lad-name{ font-family:var(--font-pixel); font-size:11px; letter-spacing:1px;
+  color:var(--cyan); filter:drop-shadow(0 0 4px var(--cyan)); }
+.lv-lad-unit{ font-family:'VT323', monospace; font-size:14px; color:var(--ink-3); margin-left:auto; }
+.lv-lad-note{ font-family:'VT323', monospace; font-size:14px; color:var(--ink-3);
+  line-height:1.3; margin:3px 0 8px; }
+.lv-lad-nil{ font-family:'VT323', monospace; font-size:14px; color:var(--ink-3);
+  line-height:1.3; border-left:2px solid var(--border); padding-left:9px; margin-bottom:8px; }
+.lv-lad-rows{ display:flex; flex-direction:column; gap:4px; }
+
+/* the assumption ladders are drawn cold on purpose — decision A */
+.lv-lad-dim .lv-lad-name{ color:var(--ink-2); filter:none; }
+.lv-lad-dim .lv-rung-bar i{ background:var(--ink-3); box-shadow:none; }
+.lv-lad-dim .lv-rung-m{ color:var(--ink-2); }
+.lv-card-assume{ border-style:dashed; }
+
+/* A flat lever stays on the screen (decision 7) but must not read as a live one
+   at a glance, or "nothing here moves your date" gets skimmed as a menu. */
+.lv-lad-flat .lv-lad-name{ color:var(--ink-2); filter:none; }
+.lv-lad-flat .lv-lad-rows{ opacity:.7; }
+
+.lv-rung{ display:flex; align-items:center; gap:9px; font-family:'VT323', monospace;
+  font-size:16px; color:var(--ink); line-height:1.15; }
+.lv-rung-nil{ color:var(--ink-3); }
+.lv-rung-amt{ flex:0 0 84px; color:var(--ink); }
+.lv-rung-nil .lv-rung-amt{ color:var(--ink-3); }
+.lv-rung-to{ flex:0 0 108px; color:var(--ink-3); font-size:15px; }
+.lv-rung-bar{ flex:1 1 60px; height:8px; min-width:40px; background:var(--panel-2);
+  border:1px solid var(--border); display:block; }
+.lv-rung-bar i{ display:block; height:100%; background:var(--green);
+  box-shadow:0 0 5px var(--green); }
+.lv-rung-m{ flex:0 0 74px; text-align:right; color:var(--green); }
+.lv-rung-nil .lv-rung-m{ color:var(--ink-3); }
+.lv-rung-y{ flex:0 0 156px; font-size:15px; color:var(--ink-3); }
+.lv-rung-open .lv-rung-y{ color:var(--yellow); }
+.lv-rung-open .lv-rung-bar i{ background:var(--yellow); box-shadow:0 0 5px var(--yellow); }
+
+@media (max-width: 640px){
+  .lv-rung{ flex-wrap:wrap; gap:4px 9px; }
+  .lv-rung-amt, .lv-rung-to, .lv-rung-m, .lv-rung-y{ flex:0 0 auto; text-align:left; }
+  .lv-rung-bar{ order:5; flex:1 1 100%; }
+}

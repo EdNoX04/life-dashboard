@@ -2,6 +2,8 @@ import React from 'react';
 import { useCollection } from '../lib/hooks.js';
 import { Card, Empty, StatTile, RefreshButton } from '../components/ui.jsx';
 import { DAYS, activeDay, dayLabel } from '../lib/schedule.js';
+import WhatsAppImport from '../components/college/WhatsAppImport.jsx';
+import { announcementLink } from '../lib/whatsapp.js';
 
 // Amizone stores attendance as a fraction (0.81) OR a percent (81); normalize to %.
 const attPct = raw => { const n = Number(raw) || 0; return n > 0 && n <= 1 ? Math.round(n * 1000) / 10 : n; };
@@ -102,16 +104,27 @@ export default function College() {
 
       <Card title="Announcements" color="var(--pink)">
         {annc.length === 0 && <Empty icon="!" text="Nothing yet." />}
-        {annc.map(a => (
-          <div className="row" key={a.id} style={{ alignItems: 'flex-start' }}>
-            <span style={{ flex: 1 }}>
-              <b style={{ fontWeight: 'normal' }}>{a.title}</b>
-              {a.body && <div className="small muted">{a.body}</div>}
-            </span>
-            <span className="chip c-purple">{a.date}</span>
-          </div>
-        ))}
+        {annc.map(a => {
+          // The link is read back out of the body rather than a column, because
+          // announcements has no link column and adding one would need an ALTER
+          // on a live database. Amizone rows benefit too: any body containing a
+          // URL now gets a button it never had.
+          const href = announcementLink(a);
+          return (
+            <div className="row" key={a.id} style={{ alignItems: 'flex-start' }}>
+              <span style={{ flex: 1 }}>
+                <b style={{ fontWeight: 'normal' }}>{a.title}</b>
+                {a.body && <div className="small muted">{a.body}</div>}
+              </span>
+              {href && <a className="btn btn-sm btn-cyan" href={href} target="_blank" rel="noreferrer">open</a>}
+              {a.source === 'whatsapp' && <span className="chip c-green">whatsapp</span>}
+              <span className="chip c-purple">{a.date}</span>
+            </div>
+          );
+        })}
       </Card>
+
+      <WhatsAppImport />
 
       <Card title="Weekly timetable" color="var(--purple)">
         {timetable.length === 0 && <Empty icon="◷" text="Waiting for Amizone sync…" />}

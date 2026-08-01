@@ -221,3 +221,80 @@ export function cachedAt(ticker) {
 }
 
 export const hasKey = () => !!key();
+
+// ---------------------------------------------------------------- earnings calendar
+//
+// A DATE-RANGE FETCH, NOT A PER-HOLDING ONE, AND CACHED IN ITS OWN BLOB.
+//
+// Three things make this different from every other fetcher above.
+//
+// First, it is keyed by a window rather than by a company, so it does NOT go in
+// the `fundamentals` blob. A range key like '2026-08-03|2026-08-09' would never
+// literally collide with a ticker, but dropping it in there quietly ends the
+// invariant that every entry in that blob describes one company — and the next
+// person to write `Object.keys(cache)` over it gets a date back.
+//
+// Second, it uses getStatus rather than get. `calendar/earnings` is one of the
+// endpoints a free plan may refuse outright, and "no company in the world
+// reports next week" and "your plan does not include the calendar" would
+// otherwise render as the same empty grid. They are not the same fact and the
+// screen has to be able to say which it is.
+//
+// Third, the TTL is six hours rather than a day. Companies confirm and move
+// their reporting dates during the week the calendar is being looked at, which
+// is exactly the window this screen is used for. A day-old calendar is a
+// calendar that can be wrong about tomorrow.
+const CAL_KEY = 'earnings_cal';
+const CAL_TTL = 6 * 3600e3;
+
+let calCache = null;
+let calLoading = null;
+
+async function ensureCal() {
+  if (calCache) return calCache;
+  if (!calLoading) {
+    calLoading = memGet(CAL_KEY)
+      .then(v => { calCache = (v && typeof v === 'object' ? v : {}); return calCache; })
+      .catch(() => { calCache = {}; return calCache; });
+  }
+  return calLoading;
+}
+
+// Returns { rows, status, at, from, to }.
+//   status 'ok'      — the endpoint answered; `rows` is whatever it said, possibly none
+//   status 'blocked' — the plan does not include the calendar
+//   status 'nokey'   — no API key configured
+//   status 'error'   — network or server failure
+//
+// On any non-ok status a previously cached window is handed back with its own
+// status preserved, for the same reason fetchEstimates does it: a plan change or
+// a dropped connection must not erase a week we already fetched successfully.
+export async function fetchEarningsCalendar(from, to, { force = false } = {}) {
+  const f = String(from || '').slice(0, 10);
+  const t = String(to || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || !/^\d{4}-\d{2}-\d{2}$/.test(t)) return null;
+  await ensureCal();
+  const id = `${f}|${t}`;
+  const hit = calCache[id];
+  if (!force && hit && hit.at && Date.now() - hit.at < CAL_TTL) return hit;
+
+  const { status, data } = await getStatus(`calendar/earnings?from=${f}&to=${t}`);
+  const rows = Array.isArray(data?.earningsCalendar) ? data.earningsCalendar : null;
+  // Stale-but-real beats absent — the same rule as the estimates fetcher.
+  if (status !== 'ok' && hit?.rows?.length) return { ...hit, status };
+
+  const entry = { rows: rows || [], status, at: Date.now(), from: f, to: t };
+  // Only successful windows are worth persisting. Caching a blocked or failed
+  // answer would make the six-hour TTL into a six-hour lockout: the key could be
+  // fixed a minute later and the screen would keep printing the old refusal.
+  if (status === 'ok') {
+    calCache = { ...(calCache || {}), [id]: entry };
+    memSet(CAL_KEY, calCache);
+  }
+  return entry;
+}
+
+export function calendarCachedAt(from, to) {
+  const e = calCache?.[`${String(from || '').slice(0, 10)}|${String(to || '').slice(0, 10)}`];
+  return e?.at || null;
+}

@@ -249,7 +249,14 @@ function FixedIncome({ fi, setFi, visible }) {
   );
 }
 
-export default function Book({ held = [], priceOf, quotes = {}, visible = true, onOpen, fx = null, inr = false, crypto = [] }) {
+// `priceOf` is the one required prop on this screen with no default, and the
+// render sweep found it: mounted without it, the whole Money tab white-screens
+// instead of showing an empty book. The default is `() => 0` rather than
+// `() => null` deliberately — it has to behave identically to what the real
+// priceOf in Money.jsx returns when it knows nothing about a holding, which is
+// 0 (see its `?? 0` terminal fallback). A null default would quietly change the
+// arithmetic in groupHoldings and concentration rather than just filling a gap.
+export default function Book({ held = [], priceOf = () => 0, quotes = {}, visible = true, onOpen, fx = null, inr = false, crypto = [] }) {
   const [metaVer, setMetaVer] = useState(0);
   const [fi, setFi] = useState(EMPTY_FI);
 
