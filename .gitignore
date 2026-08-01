@@ -3,3 +3,5 @@ dist
 .env
 _to_delete/
 .claude/
+_to_delete/
+.claude/

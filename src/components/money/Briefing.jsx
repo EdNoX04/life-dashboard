@@ -11,6 +11,7 @@ import { DEFAULT_RATES, fyBounds, realised, taxPosition } from '../../lib/tax.js
 import { averages, fixedSplit, inMonth, monthlySeries, normaliseTxn, thisMonthKey, totals } from '../../lib/expenses.js';
 import { DEFAULT_PLAN, EMPTY_GOALS, fireNumber, goalProgress, projectAll } from '../../lib/plan.js';
 import { driftRows, normaliseTargets, summarise as rebalSummary, DEFAULT_BAND } from '../../lib/rebalance.js';
+import { crossing } from '../../lib/levers.js';
 
 // The briefing — screen half.
 //
@@ -130,7 +131,13 @@ export function Header({ result }) {
 // Decision 6 of the library: derived, never stored. Everything here is recomputed
 // from the same blobs the other screens read, which is why a stale briefing cannot
 // exist — there is nowhere for one to live.
-function buildContext({ blobs, held, priceOf, orders, series, benchmark, flowsByDay, currentValue, crypto, cur }) {
+// Exported for one reason: three separate bugs lived in this function's reading of
+// the saved blobs — a plan read from a key nothing writes, a goal read from a field
+// nothing writes, and `start` passed where `startValue` was expected. All three were
+// invisible because they produced a quiet abstention or a silent default rather than
+// a throw, and nothing tested the shapes the WRITERS actually write. The suite now
+// feeds this the literal output of the Planner's own save calls.
+export function buildContext({ blobs, held, priceOf, orders, series, benchmark, flowsByDay, currentValue, crypto, cur }) {
     const b = blobs;
     const now = new Date();
     const withPx = held.map(h => ({ ...h, __px: priceOf(h) }));
@@ -185,9 +192,22 @@ function buildContext({ blobs, held, priceOf, orders, series, benchmark, flowsBy
       ? ((mTotals.income - mTotals.spend) / mTotals.income) * 100 : null;
 
     const goals = b.goals || EMPTY_GOALS;
-    const goal = goals?.rows?.[0] || goals?.goal || null;
-    const planCfg = { ...DEFAULT_PLAN, ...(goals.plan || {}) };
-    const rows = goal ? projectAll({ ...planCfg, start: bookValue }) : [];
+    // `goals.goals` is the shape the Planner writes: { goals: [{id,label,target,by}] }.
+    // The old read was `goals.rows?.[0] || goals.goal`, neither of which any writer
+    // produces, so this was permanently null and plan.track never once fired. The
+    // fallbacks are kept for a hand-edited blob but the real field is first.
+    const goal = goals?.goals?.[0] || goals?.rows?.[0] || goals?.goal || null;
+    // The plan lives under its own memory key. This file used to read it out of the
+    // goals blob, where nothing has ever written it — so every plan rule ran on
+    // DEFAULT_PLAN while its own copy said "the rate you set on the Plan screen".
+    // A default wearing the label of a stated figure is worse than an abstention,
+    // which is what basis:'yours' exists to prevent.
+    const planCfg = { ...DEFAULT_PLAN, ...(b.savedPlan && typeof b.savedPlan === 'object' ? b.savedPlan : {}) };
+    // `projectAll` reads `startValue`, not `start`. Passing `start` left startValue
+    // at its null default, so the projection began from zero — a bug that was
+    // invisible only because the goal above was always null and the rule never ran.
+    const planStart = planCfg.startValue == null ? (num(currentValue) ?? bookValue) : num(planCfg.startValue);
+    const rows = goal ? projectAll({ ...planCfg, startValue: planStart }) : [];
     const avgs = mSeries.length ? averages(mSeries) : null;
 
     // Liquid = deposits and cash sleeves. Equities are not a runway; calling
@@ -211,6 +231,15 @@ function buildContext({ blobs, held, priceOf, orders, series, benchmark, flowsBy
       monthRate, liquid,
       plan: goal ? goalProgress(goal, { value: bookValue, rows }) : null,
       fire: annualSpend ? fireNumber({ annualExpenses: annualSpend, swrPct: swr }) : null,
+      // The crossing is computed from the SAME resolved plan the Levers screen
+      // resolves, by the same function, so the two cannot print different dates
+      // for one plan. `plan.date` reports the saved-expense target; `plan.fire`
+      // reports the logged-spending one; `plan.spendgap` exists because those two
+      // targets can differ, and a reader seeing both without the difference named
+      // would reasonably conclude one of the screens is broken.
+      fireDate: crossing({ ...planCfg, startValue: planStart }),
+      planSpend: num(planCfg.annualExpenses),
+      observedSpend: annualSpend,
       netWorth: alloc?.total || bookValue || null,
       swr,
     };
@@ -231,7 +260,7 @@ export function useBriefing({
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [meta, fi, div, rates, exp, goals, fund, targets] = await Promise.all([
+      const [meta, fi, div, rates, exp, goals, fund, targets, savedPlan] = await Promise.all([
         loadAssetMeta().catch(() => ({})),
         loadFixedIncome().catch(() => null),
         memGet('div_meta').catch(() => null),
@@ -240,8 +269,10 @@ export function useBriefing({
         memGet('goals_money').catch(() => null),
         memGet('fundamentals').catch(() => null),
         memGet('rebal_targets').catch(() => null),
+        // The Planner persists the plan under its own key; see buildContext.
+        memGet('money_plan').catch(() => null),
       ]);
-      if (alive) setBlobs({ meta: meta || {}, fi, div, rates, exp, goals, fund: fund || {}, targets: targets?.targets || null });
+      if (alive) setBlobs({ meta: meta || {}, fi, div, rates, exp, goals, fund: fund || {}, targets: targets?.targets || null, savedPlan });
     })();
     return () => { alive = false; };
   }, []);

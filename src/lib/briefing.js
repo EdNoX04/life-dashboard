@@ -421,6 +421,54 @@ export const RULES = [
         detail: `${fmt(cur, now)} today. The target is your own annual spending divided by the withdrawal rate you set — change either on the Plan screen and this moves.` };
     },
   },
+  {
+    id: 'plan.date', topic: 'Plan', view: 'levers', basis: 'yours',
+    needs: 'a plan saved on the Plan screen with a contribution, a growth rate and annual expenses',
+    cite: 'Every figure is one you saved: starting balance, contribution, step-up, growth, inflation, spending and withdrawal rate. The crossing is measured against the inflation-adjusted balance, because the target is built from what a year costs today \u2014 Levers prints the whole assumption list beside the date.',
+    run: ({ fireDate, cur }) => {
+      if (!fireDate || fireDate.target == null) return null;
+      if (fireDate.reachable) {
+        // No threshold. A date is not something a rule can be past \u2014 it is the
+        // answer to the question the tab exists for, and it belongs on the screen
+        // whether or not anything is wrong.
+        return { ok: true, always: true,
+          headline: `On the plan you saved, the portfolio reaches ${fmt(cur, fireDate.target)} in real terms in ${fireDate.calYear}.`,
+          detail: `${fireDate.years} years out, on your own growth, contribution and inflation figures. Measured in today's money \u2014 the nominal balance crosses years earlier and would not buy the same year of living. Levers shows what each change is worth.` };
+      }
+      const short = fin(fireDate.shortfall);
+      if (short == null) return null;
+      const gap = (short / fireDate.target) * 100;
+      return { ok: false, over: gap, band: 10,
+        headline: `On the plan you saved, the portfolio does not reach ${fmt(cur, fireDate.target)} inside your ${fireDate.horizon}-year horizon.`,
+        detail: `It ends ${fmt(cur, short)} short in today's money \u2014 ${pc(gap)} of the target. The horizon is one you set, and so is every figure feeding it; Levers marks which changes bring the crossing inside it.` };
+    },
+  },
+  {
+    id: 'plan.spendgap', topic: 'Plan', view: 'plan', basis: 'yours',
+    needs: 'annual expenses on the Plan screen and at least a month of logged transactions',
+    cite: 'Both numbers are yours and neither is adjusted: the annual expense figure you typed into the plan, and the average of what you actually logged. The comparison is subtraction.',
+    run: ({ planSpend, observedSpend, swr, cur }) => {
+      const planned = fin(num(planSpend)), actual = fin(num(observedSpend));
+      if (planned == null || actual == null || planned <= 0 || actual <= 0) return null;
+      const rate = num(swr);
+      if (!(rate > 0)) return null;
+      const diff = actual - planned;
+      const targetShift = diff / (rate / 100);
+      // Reports and never fires, for the same reason div.coverage does: any
+      // threshold here would be mine. How far a plan's spending assumption may
+      // drift from logged spending before it matters is a judgement about how
+      // stable the logging is, and only Neel knows that.
+      if (Math.abs(diff) < 1) {
+        return { ok: true, always: true,
+          headline: `Your plan's spending assumption matches what you have logged: ${fmt(cur, planned)} a year.`,
+          detail: `The number the plan is built on and the number you are living on are the same, so the target on the Plan screen is the one your own record supports.` };
+      }
+      const dir = diff > 0 ? 'more' : 'less';
+      return { ok: true, always: true,
+        headline: `Your plan assumes ${fmt(cur, planned)} a year of spending; you have logged ${fmt(cur, actual)}.`,
+        detail: `${fmt(cur, Math.abs(diff))} a year ${dir} than planned. At the ${n1(rate)}% withdrawal rate you set, that is ${fmt(cur, Math.abs(targetShift))} ${diff > 0 ? 'added to' : 'off'} the number you are aiming at. Neither figure is adjusted \u2014 one is typed, one is logged.` };
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
