@@ -38,6 +38,8 @@ export default function Todos() {
   const [adding, setAdding] = useState(null); // 'list' | 'folder' | null
   const [newName, setNewName] = useState('');
   const [folderForNewList, setFolderForNewList] = useState(null);
+  // {kind:'list'|'folder', key} — the row currently swapped for an input.
+  const [renaming, setRenaming] = useState(null);
 
   const today = todayStr();
   const week = addDays(new Date(), 7);
@@ -113,6 +115,31 @@ export default function Todos() {
     setAdding(null); setNewName('');
   }
 
+  // A list's name is its identity in two separate places: the cfg entry that
+  // remembers which folder it sits under, and the `list` column on every task
+  // that belongs to it. Renaming one without the other either loses the folder
+  // grouping or strands the tasks under a list no longer in the sidebar, so
+  // both move together and the view follows if it was the one being renamed.
+  async function renameList(oldName, raw) {
+    const name = (raw || '').trim();
+    setRenaming(null);
+    if (!name || name === oldName) return;
+    const meta = listMeta(oldName);
+    const rest = (cfg.lists || []).filter(l => l.name !== oldName && l.name !== name);
+    await saveCfg({ ...cfg, lists: [...rest, { ...meta, name }] });
+    await Promise.all(items.filter(t => (t.list || 'Inbox') === oldName).map(t => patch(t.id, { list: name })));
+    if (view.type === 'list' && view.key === oldName) setView({ type: 'list', key: name });
+  }
+  // Folders are referenced by a generated id, never by name, so this one is
+  // only ever a label change — nothing else has to be repointed.
+  async function renameFolder(id, raw) {
+    const name = (raw || '').trim();
+    setRenaming(null);
+    if (!name) return;
+    await saveCfg({ ...cfg, folders: (cfg.folders || []).map(f => (f.id === id ? { ...f, name } : f)) });
+  }
+  const isRen = (kind, key) => renaming && renaming.kind === kind && renaming.key === key;
+
   const pick = v => { setView(v); setNavOpen(false); };
 
   return (
@@ -133,15 +160,31 @@ export default function Todos() {
           const open = openFolders[f.id] !== false;
           return (
             <div className="tt2-sec" key={f.id}>
-              <button className="tt2-folder" onClick={() => setOpenFolders(o => ({ ...o, [f.id]: !open }))}>
-                <span className="tt2-ico">{open ? '▾' : '▸'}</span><span className="tt2-nl">{f.name}</span>
-              </button>
-              {open && fl.map(n => (
-                <button key={n} className={`tt2-navitem sub${view.type === 'list' && view.key === n ? ' on' : ''}`} onClick={() => pick({ type: 'list', key: n })}>
-                  <span className="tt2-dot" /><span className="tt2-nl">{n}</span>
-                  {countList(n) > 0 && <span className="tt2-ct">{countList(n)}</span>}
-                </button>
-              ))}
+              {isRen('folder', f.id) ? (
+                <input className="tt2-renin" autoFocus defaultValue={f.name}
+                  onKeyDown={e => { if (e.key === 'Enter') renameFolder(f.id, e.target.value); if (e.key === 'Escape') setRenaming(null); }}
+                  onBlur={e => renameFolder(f.id, e.target.value)} />
+              ) : (
+                <div className="tt2-row">
+                  <button className="tt2-folder" onClick={() => setOpenFolders(o => ({ ...o, [f.id]: !open }))}>
+                    <span className="tt2-ico">{open ? '▾' : '▸'}</span><span className="tt2-nl">{f.name}</span>
+                  </button>
+                  <button className="tt2-ren" title="Rename folder" onClick={() => setRenaming({ kind: 'folder', key: f.id })}>✎</button>
+                </div>
+              )}
+              {open && fl.map(n => (isRen('list', n) ? (
+                <input key={n} className="tt2-renin sub" autoFocus defaultValue={n}
+                  onKeyDown={e => { if (e.key === 'Enter') renameList(n, e.target.value); if (e.key === 'Escape') setRenaming(null); }}
+                  onBlur={e => renameList(n, e.target.value)} />
+              ) : (
+                <div className="tt2-row" key={n}>
+                  <button className={`tt2-navitem sub${view.type === 'list' && view.key === n ? ' on' : ''}`} onClick={() => pick({ type: 'list', key: n })}>
+                    <span className="tt2-dot" /><span className="tt2-nl">{n}</span>
+                    {countList(n) > 0 && <span className="tt2-ct">{countList(n)}</span>}
+                  </button>
+                  <button className="tt2-ren" title="Rename list" onClick={() => setRenaming({ kind: 'list', key: n })}>✎</button>
+                </div>
+              )))}
               {open && (
                 <button className="tt2-navitem sub add" onClick={() => { setAdding('list'); setNewName(''); setFolderForNewList(f.id); }}>
                   <span className="tt2-dot" style={{ opacity: 0 }} /><span className="tt2-nl muted">+ list</span>
@@ -154,12 +197,19 @@ export default function Todos() {
         {ungrouped.length > 0 && (
           <div className="tt2-sec">
             <div className="tt2-seclabel">Lists</div>
-            {ungrouped.map(n => (
-              <button key={n} className={`tt2-navitem${view.type === 'list' && view.key === n ? ' on' : ''}`} onClick={() => pick({ type: 'list', key: n })}>
-                <span className="tt2-dot" /><span className="tt2-nl">{n}</span>
-                {countList(n) > 0 && <span className="tt2-ct">{countList(n)}</span>}
-              </button>
-            ))}
+            {ungrouped.map(n => (isRen('list', n) ? (
+              <input key={n} className="tt2-renin" autoFocus defaultValue={n}
+                onKeyDown={e => { if (e.key === 'Enter') renameList(n, e.target.value); if (e.key === 'Escape') setRenaming(null); }}
+                onBlur={e => renameList(n, e.target.value)} />
+            ) : (
+              <div className="tt2-row" key={n}>
+                <button className={`tt2-navitem${view.type === 'list' && view.key === n ? ' on' : ''}`} onClick={() => pick({ type: 'list', key: n })}>
+                  <span className="tt2-dot" /><span className="tt2-nl">{n}</span>
+                  {countList(n) > 0 && <span className="tt2-ct">{countList(n)}</span>}
+                </button>
+                <button className="tt2-ren" title="Rename list" onClick={() => setRenaming({ kind: 'list', key: n })}>✎</button>
+              </div>
+            )))}
           </div>
         )}
 

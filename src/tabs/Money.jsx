@@ -351,10 +351,20 @@ export default function Money() {
 
   return (
     <>
-      <div className="spread">
+      <div className="spread money-head">
         <h1 className="tab-title">MONEY</h1>
         <span className="flex" style={{ gap: 8 }}>
           <span className="seg">
+            <button className={`seg-btn${cur === 'usd' ? ' on' : ''}`} onClick={() => setCur('usd')}>$</button>
+            <button className={`seg-btn${cur === 'inr' ? ' on' : ''}`} onClick={() => setCur('inr')} disabled={!fx} title={fx ? '' : 'FX loading\u2026'}><span className="rupee">₹</span></button>
+          </span>
+          <EyeBtn visible={visible} onClick={toggle} />
+        </span>
+      </div>
+      <p className="tab-sub money-sub">US stocks (INDmoney) + crypto — live prices, auto-refreshing. {liveTag}</p>
+
+      <div className="money-tabs">
+          <span className="seg seg-wrap">
             <button className={`seg-btn${view === 'brief' ? ' on' : ''}`} onClick={() => setView('brief')}>◆ Briefing</button>
             <button className={`seg-btn${view === 'portfolio' ? ' on' : ''}`} onClick={() => setView('portfolio')}>Portfolio</button>
             <button className={`seg-btn${view === 'book' ? ' on' : ''}`} onClick={() => setView('book')}>Book</button>
@@ -380,14 +390,7 @@ export default function Money() {
             <button className={`seg-btn${view === 'calendar' ? ' on' : ''}`} onClick={() => setView('calendar')}>Calendar</button>
             <button className={`seg-btn${view === 'earn' ? ' on' : ''}`} onClick={() => setView('earn')}>Earnings</button>
           </span>
-          <span className="seg">
-            <button className={`seg-btn${cur === 'usd' ? ' on' : ''}`} onClick={() => setCur('usd')}>$</button>
-            <button className={`seg-btn${cur === 'inr' ? ' on' : ''}`} onClick={() => setCur('inr')} disabled={!fx} title={fx ? '' : 'FX loading…'}><span className="rupee">₹</span></button>
-          </span>
-          <EyeBtn visible={visible} onClick={toggle} />
-        </span>
       </div>
-      <p className="tab-sub">US stocks (INDmoney) + crypto — live prices, auto-refreshing. {liveTag}</p>
 
       {view === 'accounts' && <Accounts rows={accountRows} cur={cur} />}
 

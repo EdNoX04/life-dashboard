@@ -418,25 +418,27 @@
 /* ---- daily spark: overlaps the hero bottom-right on desktop (sits in .hero-wrap,
        outside the hero's overflow:hidden so it can never be clipped) ---- */
 .hero-spark {
-  position: absolute; right: 14px; bottom: 12px; z-index: 5;
-  max-width: 46%; text-align: right;
-  padding: 7px 11px 8px; border-radius: 3px;
-  background: linear-gradient(90deg, transparent 0%, rgba(12,7,20,.5) 45%, rgba(12,7,20,.7) 100%);
+  display: flex; align-items: baseline; gap: 10px;
+  margin-top: -2px; padding: 8px 12px;
+  border: 2px solid var(--border); border-top: none;
+  border-radius: 0 0 3px 3px;
+  background: linear-gradient(90deg, rgba(12,7,20,.72) 0%, rgba(24,14,42,.5) 100%);
 }
-.hero-spark .hs-label { display: block; font-family: var(--font-pixel); font-size: 6.5px; color: var(--yellow); letter-spacing: 1px; margin-bottom: 5px; opacity: .9; }
-.hero-spark .hs-q { display: block; font-size: 15px; color: var(--ink); line-height: 1.32; text-shadow: 0 1px 4px rgba(0,0,0,.85); }
-.hero-spark .hs-a { display: block; font-family: var(--font-pixel); font-size: 6.5px; color: var(--ink-2); margin-top: 5px; letter-spacing: .5px; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
+.hero-spark .hs-label { flex: 0 0 auto; font-family: var(--font-pixel); font-size: 6.5px; color: var(--yellow); letter-spacing: 1px; opacity: .9; text-shadow: 0 0 6px rgba(255,209,102,.45); }
+/* The quote is the only element allowed to take the slack, and it truncates
+   rather than wrapping — a two-line quote is what pushed the old box over the
+   hero's edge and made this read as a floating overlay rather than a strip. */
+.hero-spark .hs-q { flex: 1 1 auto; min-width: 0; font-size: 15px; color: var(--ink); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hero-spark .hs-a { flex: 0 0 auto; font-family: var(--font-pixel); font-size: 6.5px; color: var(--ink-2); letter-spacing: .5px; }
 @media (max-width: 760px) {
   /* stay inside the hero board (like desktop), just smaller + bottom aligned */
   .hero { min-height: 172px; }
-  .hero-spark {
-    position: absolute; left: auto; right: 12px; bottom: 10px; max-width: 74%;
-    text-align: right; padding: 6px 10px;
-    background: linear-gradient(90deg, transparent 0%, rgba(12,7,20,.72) 55%, rgba(12,7,20,.82) 100%);
-  }
-  .hero-spark .hs-label { font-size: 6px; margin-bottom: 3px; }
-  .hero-spark .hs-q { font-size: 12.5px; line-height: 1.28; }
-  .hero-spark .hs-a { font-size: 6px; margin-top: 3px; }
+  /* On a narrow screen one line cannot hold label, quote and attribution, so the
+     strip wraps to two rows rather than truncating the quote to nothing. */
+  .hero-spark { flex-wrap: wrap; gap: 4px 8px; padding: 7px 10px; }
+  .hero-spark .hs-label { font-size: 6px; }
+  .hero-spark .hs-q { flex: 1 1 100%; font-size: 12.5px; line-height: 1.28; white-space: normal; order: 3; }
+  .hero-spark .hs-a { font-size: 6px; }
 }
 
 /* ---- empty states ---- */
@@ -559,6 +561,33 @@
 
 /* ---- segmented toggle (retro / tradingview) ---- */
 .seg { display: inline-flex; border: 2px solid var(--border-bright); border-radius: 2px; overflow: hidden; }
+
+/* ---- Money header. The 24 view buttons used to sit in the same flex row as the
+       title, which forced the strip into a sideways scroll and pushed the last
+       tabs off-screen. Title keeps its own row; the tabs get the full width
+       below it and WRAP instead of scrolling, so every view is reachable
+       without dragging. `overflow: hidden` has to go with the wrap — it is what
+       clipped the second line. ---- */
+.money-head { margin-bottom: 2px; }
+.money-sub { margin-bottom: 10px; }
+.money-tabs { margin: 0 0 16px; }
+.seg.seg-wrap {
+  display: flex; flex-wrap: wrap; overflow: visible;
+  width: 100%; gap: 0; border-radius: 3px;
+}
+/* Wrapped rows need their own separators, because a single outer border only
+   draws round the block and the inner edges would otherwise vanish. */
+.seg.seg-wrap .seg-btn {
+  border-right: 2px solid var(--border);
+  border-bottom: 2px solid var(--border);
+  flex: 1 1 auto; text-align: center; white-space: nowrap;
+}
+.seg.seg-wrap .seg-btn:hover { color: var(--ink); background: var(--panel-2); }
+.seg.seg-wrap .seg-btn.on { border-color: var(--purple); }
+@media (max-width: 760px) {
+  .money-head { flex-wrap: wrap; gap: 8px; }
+  .seg.seg-wrap .seg-btn { font-size: 7px; padding: 7px 8px; }
+}
 .seg-btn { font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1px; padding: 7px 11px; background: var(--bg-deep); color: var(--ink-2); border: none; cursor: pointer; }
 .seg-btn.on { background: linear-gradient(180deg, var(--purple), var(--s4, #7a55b0)); color: #fff; text-shadow: 0 0 8px rgba(255,255,255,.4); }
 
@@ -715,6 +744,58 @@
 .tt2-ct { font-size: 14px; color: var(--ink-3); }
 .tt2-folder { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; padding: 6px 8px; border: none; background: none; color: var(--ink); border-radius: 3px; cursor: pointer; font-family: var(--font-pixel); font-size: 8px; letter-spacing: .5px; text-transform: uppercase; }
 .tt2-folder:hover { background: var(--panel-2); }
+
+/* ---- Rename affordance. The nav rows are <button>s, so the pencil cannot be
+       nested inside one (a button inside a button is invalid and Safari drops
+       the inner click). It sits alongside in a relative row instead and only
+       appears on hover, so the sidebar reads exactly as before until you go
+       looking for it. ---- */
+.tt2-row { position: relative; display: flex; align-items: center; }
+.tt2-row > .tt2-navitem, .tt2-row > .tt2-folder { flex: 1 1 auto; min-width: 0; }
+.tt2-ren {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  border: none; background: var(--panel-2); color: var(--ink-3);
+  font-family: 'VT323', monospace; font-size: 15px; line-height: 1;
+  padding: 2px 5px; border-radius: 2px; cursor: pointer;
+  opacity: 0; transition: opacity .1s;
+}
+.tt2-row:hover .tt2-ren { opacity: 1; }
+.tt2-ren:hover { color: var(--yellow); box-shadow: 0 0 0 2px var(--border-bright); }
+.tt2-renin {
+  width: 100%; padding: 6px 8px; margin: 1px 0;
+  background: var(--bg-deep); color: var(--ink);
+  border: 2px solid var(--border-bright); border-radius: 3px;
+  font-family: 'VT323', monospace; font-size: 16px; line-height: 1;
+}
+.tt2-renin.sub { padding-left: 12px; }
+.tt2-renin:focus { outline: none; border-color: var(--pink); box-shadow: 0 0 6px rgba(255,107,158,.4); }
+
+/* ---- Retro scrollbars. Everything else on the page is 2px borders and hard
+       edges, and then the browser draws a soft rounded grey pill over it. This
+       replaces it with a blocky one in the panel palette: square corners, a
+       dashed track like the section dividers, and the same neon glow the
+       active controls use. `scrollbar-width`/`scrollbar-color` cover Firefox,
+       which ignores the ::-webkit- pseudo-elements entirely, so the two blocks
+       have to state the same thing twice. ---- */
+* { scrollbar-width: thin; scrollbar-color: var(--purple) var(--bg-deep); }
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track {
+  background: var(--bg-deep);
+  border-left: 2px solid var(--border);
+  border-top: 2px solid var(--border);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--purple);
+  border: 2px solid var(--bg-deep);
+  border-radius: 0;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.14), 0 0 5px rgba(185,103,255,.45);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--pink); box-shadow: inset 0 0 0 2px rgba(255,255,255,.2), 0 0 7px rgba(255,107,158,.55); }
+::-webkit-scrollbar-thumb:active { background: var(--cyan); }
+/* The corner is where a horizontal and a vertical bar meet; left unstyled it
+   renders as a bright default-grey square against the deep background. */
+::-webkit-scrollbar-corner { background: var(--bg-deep); }
+::-webkit-scrollbar-button { display: none; }
 .tt2-navfoot { margin-top: auto; padding-top: 8px; }
 .tt2-addrow { display: flex; gap: 6px; }
 .tt2-addrow input { flex: 1; min-width: 0; padding: 6px 8px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'VT323', monospace; font-size: 15px; }
