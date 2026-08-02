@@ -384,7 +384,15 @@ export function rebase(series, at = 100) {
   return s.map(p => ({ d: p.d, v: (num(p.v) / num(first.v)) * at }));
 }
 
-// "If I'd put the same money into the index instead" — the INDmoney comparison line.
+// "If I'd put the same money into the index instead" — the comparison line, in
+// your own currency rather than as a rebased growth curve.
+//
+// The result is denominated in whatever the orders are denominated in, and that
+// is not an accident of the arithmetic - it is the reason this is worth showing.
+// Each flow buys `amount / index_level` units, so the level's own currency
+// cancels out and what survives is `amount x (level_now / level_then)`. A dollar
+// ledger measured against a rupee index therefore still yields a dollar answer,
+// and the two lines can share one axis honestly.
 export function benchmarkEquivalent(orders, benchSeries) {
   const bs = normalise(benchSeries);
   if (!bs.length) return [];
@@ -395,11 +403,25 @@ export function benchmarkEquivalent(orders, benchSeries) {
     const before = dates.filter(x => x <= d);
     return before.length ? bmap.get(before[before.length - 1]) : null;
   };
+  // An order placed on a Saturday, a market holiday, or any day the index did
+  // not print a close has no date of its own in `dates`. The first version of
+  // this looked the date up and, finding nothing, simply never applied the
+  // flow - so every weekend purchase vanished from the index line and it
+  // understated what the index would have been worth, which is the exact
+  // direction that flatters the portfolio. Roll each flow forward to the next
+  // day the index actually traded instead; a flow dated after the last close
+  // lands on the last close.
+  const settle = d => dates.find(x => x >= d) || dates[dates.length - 1];
   const byDate = new Map();
   for (const o of orders || []) {
     if (!o.date || !num(o.qty) || !num(o.price)) continue;
-    const net = (o.side === 'S' ? -1 : 1) * (num(o.qty) * num(o.price) + num(o.fee));
-    byDate.set(iso(o.date), (byDate.get(iso(o.date)) || 0) + net);
+    const gross = num(o.qty) * num(o.price), fee = num(o.fee);
+    // Mirror ledgerFlows: a buy costs you gross + fee, a sell returns gross - fee.
+    // Signing the fee with the trade would have made a sale's fee *increase* the
+    // money notionally pulled out of the index.
+    const net = o.side === 'S' ? -(gross - fee) : gross + fee;
+    const d = settle(iso(o.date));
+    byDate.set(d, (byDate.get(d) || 0) + net);
   }
   let units = 0;
   return dates.map(d => {
@@ -407,6 +429,9 @@ export function benchmarkEquivalent(orders, benchSeries) {
       const px = priceOn(d);
       if (px > 0) units += byDate.get(d) / px;
     }
+    // Selling more than you notionally hold would drive units negative and draw
+    // a line below zero, which is not a thing money can do. Floor it.
+    if (units < 0) units = 0;
     return { d, v: units * (priceOn(d) || 0) };
   });
 }

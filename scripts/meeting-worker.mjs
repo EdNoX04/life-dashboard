@@ -1,4 +1,5 @@
-// Meetings worker — runs on GitHub Actions (full network), no Mac / no Cowork chat.
+// Meetings + calendar + mail worker — runs on GitHub Actions (full network),
+// no Mac, no Cowork chat.
 //
 // Flow (the webapp drives it, this closes the loop):
 //   1. In the app you add a meeting → NextMeeting.jsx saves it to memory.meetings
@@ -6,6 +7,18 @@
 //   2. This worker polls that queue, creates the real Google Calendar event with a
 //      Google Meet link, writes the link + event id back into memory.meetings, and
 //      marks the request done. The dashboard card then shows a live, joinable link.
+//   3. On every run it also pulls the next 90 days of events from every connected
+//      account, and the unread inbox, into `memory` for the dashboard to draw.
+//
+// MULTIPLE ACCOUNTS
+// Personal Gmail and the Google Workspace account are the same OAuth client with
+// two different refresh tokens — one Google Cloud project issues both, so there is
+// no second app to register and no second secret pair to manage. Each account is
+// pulled independently and its events are tagged with the account they came from,
+// which is what lets the calendar colour work meetings differently from personal
+// ones instead of dumping everything into one undifferentiated list.
+//
+// Adding a third account later is three lines in ACCOUNTS plus one more secret.
 //
 // Apple Calendar: there is no clean server API to push a Meet link into iCloud.
 // The right way is to add your Google account to iPhone Settings → Calendar once —
@@ -14,24 +27,49 @@
 //
 // Env (GitHub Secrets):
 //   SUPABASE_URL, SUPABASE_SERVICE_KEY
-//   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN
-//   GOOGLE_CALENDAR_ID   (optional, defaults to "primary")
+//   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET      — shared by every account
+//   GOOGLE_REFRESH_TOKEN                        — personal account
+//   GOOGLE_CALENDAR_ID          (optional, defaults to "primary")
+//   GOOGLE_WORK_REFRESH_TOKEN   (optional)      — Workspace / company account
+//   GOOGLE_WORK_CALENDAR_ID     (optional, defaults to "primary")
+
+import { parseFrom, foldDuplicates, splitEventId } from './lib/calendar-fold.mjs';
 
 const {
   SUPABASE_URL, SUPABASE_SERVICE_KEY,
-  GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN,
+  GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+  GOOGLE_REFRESH_TOKEN, GOOGLE_CALENDAR_ID = 'primary',
+  GOOGLE_WORK_REFRESH_TOKEN, GOOGLE_WORK_CALENDAR_ID = 'primary',
 } = process.env;
-// Fall back to "primary" when the secret is unset OR empty (an unset GitHub secret
-// arrives as an empty string, which would 404 the calendar API).
-const GOOGLE_CALENDAR_ID = (process.env.GOOGLE_CALENDAR_ID || '').trim() || 'primary';
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) { console.error('Missing Supabase env'); process.exit(1); }
-if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REFRESH_TOKEN) {
-  console.error('Missing Google OAuth env (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN).');
-  process.exit(1);
+// A missing secret is a *configuration* state, not a crash. This job runs every
+// five minutes, eighteen hours a day; exiting non-zero on "you have not connected
+// Google yet" turns one unfinished setup step into roughly two hundred red
+// failure emails a day, and once those are arriving every five minutes they stop
+// being read — which means the day something genuinely breaks, that email looks
+// exactly like the two hundred before it and gets ignored too. So: an unconfigured
+// worker reports itself into `memory.sync_status`, where the dashboard can show it
+// as an amber "not connected" line the user actually sees, and exits 0. Only a
+// real error — a rejected token, a 500 from Google, a request that failed to
+// process — is allowed to fail the run.
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  // No Supabase means there is nowhere to even record the problem. Nothing to do.
+  console.error('Missing Supabase env (SUPABASE_URL / SUPABASE_SERVICE_KEY) — nothing to sync against.');
+  process.exit(0);
 }
 
 const DEFAULT_TZ = 'Asia/Kolkata';
+
+// The order matters in exactly one place: when the same meeting appears on both
+// accounts (you are invited on work, it lands on personal too), the earlier entry
+// wins and the later one is folded into `alsoOn`. Personal first keeps the
+// dashboard's existing event ids stable for anything already stored against them.
+const ACCOUNTS = [
+  { id: 'personal', label: 'Personal', color: 'var(--cyan)',
+    refresh: GOOGLE_REFRESH_TOKEN, calendarId: GOOGLE_CALENDAR_ID },
+  { id: 'work', label: 'Work', color: 'var(--orange)',
+    refresh: GOOGLE_WORK_REFRESH_TOKEN, calendarId: GOOGLE_WORK_CALENDAR_ID },
+].filter(a => a.refresh);
 
 // ---- Supabase REST ----
 const SB = SUPABASE_URL.replace(/\/$/, '');
@@ -45,21 +83,45 @@ async function sbJson(p, init) {
   return t ? JSON.parse(t) : null;
 }
 
+async function memPut(key, value) {
+  await sbJson('memory?on_conflict=key', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates' },
+    body: JSON.stringify([{ key, value, updated_at: new Date().toISOString() }]),
+  });
+}
+
 // ---- Google OAuth: refresh token -> access token ----
-async function accessToken() {
+async function accessToken(acct) {
   const body = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID, client_secret: GOOGLE_CLIENT_SECRET,
-    refresh_token: GOOGLE_REFRESH_TOKEN, grant_type: 'refresh_token',
+    refresh_token: acct.refresh, grant_type: 'refresh_token',
   });
   const r = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body,
   });
   if (!r.ok) throw new Error(`Google token: ${r.status} ${await r.text()}`);
-  return (await r.json()).access_token;
+  const j = await r.json();
+  // The granted scopes come back on every refresh. Recording them is what lets the
+  // Gmail pull below say "this token was minted before mail was added, re-run the
+  // token script" instead of reporting an opaque 403.
+  return { token: j.access_token, scopes: (j.scope || '').split(' ').filter(Boolean) };
+}
+
+const gcal = (acct, path, init = {}) => fetch(
+  `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(acct.calendarId)}/${path}`,
+  { ...init, headers: { Authorization: `Bearer ${acct.token}`, 'Content-Type': 'application/json', ...(init.headers || {}) } },
+);
+
+// Which account a queued request is destined for. An unrecognised (or absent)
+// name falls back to the first connected account rather than failing the request:
+// a meeting created before the work account existed still has to go somewhere.
+function acctFor(name) {
+  return ACCOUNTS.find(a => a.id === name) || ACCOUNTS[0];
 }
 
 // ---- Create a Google Calendar event (+ Meet link if wanted) ----
-async function createEvent(token, m) {
+async function createEvent(acct, m) {
   const tz = m.tz || DEFAULT_TZ;
   const wantMeet = m.meet === undefined ? true : !!m.meet;
   const ev = {
@@ -73,14 +135,11 @@ async function createEvent(token, m) {
     ev.conferenceData = { createRequest: { requestId: `po-${m.id}`, conferenceSolutionKey: { type: 'hangoutsMeet' } } };
   }
   const qs = new URLSearchParams({ conferenceDataVersion: '1', sendUpdates: ev.attendees ? 'all' : 'none' });
-  const r = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events?${qs}`,
-    { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(ev) },
-  );
+  const r = await gcal(acct, `events?${qs}`, { method: 'POST', body: JSON.stringify(ev) });
   if (!r.ok) throw new Error(`Calendar insert: ${r.status} ${await r.text()}`);
   const j = await r.json();
   const meet = j.hangoutLink || j.conferenceData?.entryPoints?.find(e => e.entryPointType === 'video')?.uri || '';
-  return { gcal_id: j.id, htmlLink: j.htmlLink, meet };
+  return { gcal_id: j.id, htmlLink: j.htmlLink, meet, account: acct.id };
 }
 
 // ---- write the created link back into memory.meetings ----
@@ -90,12 +149,7 @@ async function patchMemoryMeeting(id, patch) {
   const list = Array.isArray(value.list) ? value.list : [];
   const idx = list.findIndex(x => x.id === id);
   if (idx === -1) { list.unshift({ id, ...patch }); } else { list[idx] = { ...list[idx], ...patch }; }
-  const next = { ...value, list, updated: new Date().toISOString() };
-  await sbJson('memory?on_conflict=key', {
-    method: 'POST',
-    headers: { Prefer: 'resolution=merge-duplicates' },
-    body: JSON.stringify([{ key: 'meetings', value: next, updated_at: new Date().toISOString() }]),
-  });
+  await memPut('meetings', { ...value, list, updated: new Date().toISOString() });
 }
 
 async function resolveRequest(id, status, response) {
@@ -106,7 +160,7 @@ async function resolveRequest(id, status, response) {
 }
 
 // ---- plain calendar event (no Meet link) for the Calendar tab's "Add event" ----
-async function createCalendarEvent(token, p) {
+async function createCalendarEvent(acct, p) {
   const tz = p.timeZone || p.tz || DEFAULT_TZ;
   const ev = {
     summary: p.summary || 'Event',
@@ -115,61 +169,138 @@ async function createCalendarEvent(token, p) {
     start: { dateTime: p.start, timeZone: tz },
     end: { dateTime: p.end || p.start, timeZone: tz },
   };
-  const r = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events`,
-    { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(ev) },
-  );
+  const r = await gcal(acct, 'events', { method: 'POST', body: JSON.stringify(ev) });
   if (!r.ok) throw new Error(`Calendar insert: ${r.status} ${await r.text()}`);
   return await r.json();
 }
 
-async function deleteCalendarEvent(token, eventId) {
-  const r = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events/${encodeURIComponent(eventId)}`,
-    { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } },
-  );
+async function deleteCalendarEvent(acct, eventId) {
+  const r = await gcal(acct, `events/${encodeURIComponent(eventId)}`, { method: 'DELETE' });
   if (!r.ok && r.status !== 410 && r.status !== 404) throw new Error(`Calendar delete: ${r.status} ${await r.text()}`);
 }
 
-// ---- pull upcoming events from Google Calendar into memory.calendar_events ----
-async function pullEvents(token) {
+// ---- pull upcoming events from every account into memory.calendar_events ----
+async function pullEvents() {
   const timeMin = new Date(Date.now() - 2 * 864e5).toISOString();
   const timeMax = new Date(Date.now() + 90 * 864e5).toISOString();
-  const qs = new URLSearchParams({ timeMin, timeMax, singleEvents: 'true', orderBy: 'startTime', maxResults: '250' });
-  const r = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events?${qs}`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
-  if (!r.ok) throw new Error(`Calendar list: ${r.status} ${await r.text()}`);
-  const j = await r.json();
-  const events = (j.items || []).map(e => ({
-    id: e.id,
-    summary: e.summary || '(no title)',
-    start: e.start?.dateTime || e.start?.date || null,
-    end: e.end?.dateTime || e.end?.date || null,
-    location: e.location || '',
-    allDay: !!e.start?.date,
-    htmlLink: e.htmlLink || '',
-  })).filter(e => e.start);
-  await sbJson('memory?on_conflict=key', {
-    method: 'POST',
-    headers: { Prefer: 'resolution=merge-duplicates' },
-    body: JSON.stringify([{ key: 'calendar_events', value: { events, updated: new Date().toISOString() }, updated_at: new Date().toISOString() }]),
+  const all = [];
+  const perAccount = {};
+
+  for (const acct of ACCOUNTS) {
+    const qs = new URLSearchParams({ timeMin, timeMax, singleEvents: 'true', orderBy: 'startTime', maxResults: '250' });
+    const r = await gcal(acct, `events?${qs}`);
+    if (!r.ok) throw new Error(`Calendar list (${acct.id}): ${r.status} ${await r.text()}`);
+    const j = await r.json();
+    const events = (j.items || []).map(e => ({
+      // Prefixed because two accounts can hand back the same event id for the
+      // same invitation, and an unprefixed id would silently collapse them into
+      // one row keyed by whichever account happened to be pulled last.
+      id: `${acct.id}:${e.id}`,
+      gcalId: e.id,
+      account: acct.id,
+      accountLabel: acct.label,
+      color: acct.color,
+      summary: e.summary || '(no title)',
+      start: e.start?.dateTime || e.start?.date || null,
+      end: e.end?.dateTime || e.end?.date || null,
+      location: e.location || '',
+      allDay: !!e.start?.date,
+      htmlLink: e.htmlLink || '',
+      meet: e.hangoutLink || e.conferenceData?.entryPoints?.find(x => x.entryPointType === 'video')?.uri || '',
+      organizer: e.organizer?.email || '',
+      attendees: (e.attendees || []).length,
+      // "accepted" / "declined" / "tentative" / "needsAction" for you specifically.
+      response: (e.attendees || []).find(a => a.self)?.responseStatus || '',
+    })).filter(e => e.start);
+    perAccount[acct.id] = events.length;
+    all.push(...events);
+  }
+
+  // Fold cross-account duplicates (see lib/calendar-fold.mjs for why this is the
+  // one piece of this worker that gets its own tests).
+  const events = foldDuplicates(all);
+
+  await memPut('calendar_events', {
+    events,
+    accounts: ACCOUNTS.map(a => ({ id: a.id, label: a.label, color: a.color })),
+    updated: new Date().toISOString(),
   });
-  console.log(`  pulled ${events.length} calendar event(s) → dashboard`);
+  const dropped = all.length - events.length;
+  console.log(`  pulled ${events.length} calendar event(s) → dashboard`
+    + ` (${Object.entries(perAccount).map(([k, v]) => `${k} ${v}`).join(', ')}`
+    + `${dropped ? `, ${dropped} cross-account duplicate(s) folded` : ''})`);
 }
 
-async function processMeetings(token) {
+// ---- pull the unread inbox into memory.mail_inbox ----
+// Read-only, and deliberately so: this worker has no send path, so a bug here can
+// annoy but cannot embarrass. Metadata format only — headers and the snippet
+// Google already generates, never the message body — which keeps the blob small
+// and means the full text of work mail is not sitting in a database row.
+async function pullMail() {
+  const out = {};
+  for (const acct of ACCOUNTS) {
+    if (!acct.scopes?.some(s => s.includes('gmail'))) {
+      out[acct.id] = { ok: false, reason: 'This account\'s token was issued without Gmail access — re-run scripts/get-google-token.mjs to add it.', messages: [], unread: 0 };
+      continue;
+    }
+    try {
+      const gm = (p) => fetch(`https://gmail.googleapis.com/gmail/v1/users/me/${p}`, { headers: { Authorization: `Bearer ${acct.token}` } });
+      const listR = await gm('messages?q=' + encodeURIComponent('is:unread in:inbox') + '&maxResults=25');
+      if (!listR.ok) throw new Error(`${listR.status} ${(await listR.text()).slice(0, 200)}`);
+      const list = await listR.json();
+      const ids = (list.messages || []).map(m => m.id);
+
+      const messages = [];
+      for (const id of ids) {
+        const r = await gm(`messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`);
+        if (!r.ok) continue;
+        const m = await r.json();
+        const hdr = n => (m.payload?.headers || []).find(h => h.name.toLowerCase() === n)?.value || '';
+        // "Neel Mukherjee <neel@co.com>" → name and address split out, because
+        // the raw header is unreadable at dashboard width.
+        const { name: fromName, email: fromEmail } = parseFrom(hdr('From'));
+        messages.push({
+          id: m.id,
+          threadId: m.threadId,
+          fromName,
+          fromEmail,
+          subject: hdr('Subject') || '(no subject)',
+          snippet: (m.snippet || '').slice(0, 180),
+          date: m.internalDate ? new Date(Number(m.internalDate)).toISOString() : null,
+          important: (m.labelIds || []).includes('IMPORTANT'),
+          starred: (m.labelIds || []).includes('STARRED'),
+          link: `https://mail.google.com/mail/u/0/#inbox/${m.threadId}`,
+        });
+      }
+      messages.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+      // resultSizeEstimate is Google's own count and is not capped at maxResults,
+      // so "31 unread" stays honest even though only 25 are listed.
+      out[acct.id] = { ok: true, reason: '', unread: list.resultSizeEstimate ?? messages.length, messages };
+      console.log(`  ${acct.label} inbox: ${messages.length} unread shown`);
+    } catch (e) {
+      out[acct.id] = { ok: false, reason: e.message, messages: [], unread: 0 };
+      console.error(`  ✗ ${acct.label} inbox: ${e.message}`);
+    }
+  }
+  await memPut('mail_inbox', {
+    accounts: ACCOUNTS.map(a => ({ id: a.id, label: a.label, color: a.color })),
+    byAccount: out,
+    updated: new Date().toISOString(),
+  });
+}
+
+async function processMeetings() {
   const pending = await sbJson('requests?kind=eq.meeting_add&status=eq.pending&select=id,payload&order=created_at.asc');
   for (const req of (pending || [])) {
     const m = req.payload || {};
     if (!m.id || !m.start) { await resolveRequest(req.id, 'failed', 'missing id/start'); continue; }
     await rest(`requests?id=eq.${req.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'working' }) });
     try {
-      const { gcal_id, meet, htmlLink } = await createEvent(token, m);
-      await patchMemoryMeeting(m.id, { gcal_id, meet, htmlLink, status: 'confirmed' });
+      const acct = acctFor(m.account);
+      const { gcal_id, meet, htmlLink, account } = await createEvent(acct, m);
+      await patchMemoryMeeting(m.id, { gcal_id, meet, htmlLink, account, status: 'confirmed' });
       await resolveRequest(req.id, 'done', meet || htmlLink);
-      console.log(`  ✓ meeting: ${m.title} → ${meet || '(no meet link)'}`);
+      console.log(`  ✓ meeting [${acct.label}]: ${m.title} → ${meet || '(no meet link)'}`);
     } catch (e) {
       await resolveRequest(req.id, 'failed', e.message);
       await patchMemoryMeeting(m.id, { status: 'error' }).catch(() => {});
@@ -178,40 +309,114 @@ async function processMeetings(token) {
   }
 }
 
-async function processCalendarAdds(token) {
+async function processCalendarAdds() {
   const pending = await sbJson('requests?kind=eq.calendar_add&status=eq.pending&select=id,payload&order=created_at.asc');
   for (const req of (pending || [])) {
     const p = req.payload || {};
     if (!p.start) { await resolveRequest(req.id, 'failed', 'missing start'); continue; }
     await rest(`requests?id=eq.${req.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'working' }) });
     try {
-      const ev = await createCalendarEvent(token, p);
+      const ev = await createCalendarEvent(acctFor(p.account), p);
       await resolveRequest(req.id, 'done', ev.htmlLink || ev.id);
       console.log(`  ✓ event: ${p.summary}`);
     } catch (e) { await resolveRequest(req.id, 'failed', e.message); console.error(`  ✗ event ${p.summary}: ${e.message}`); process.exitCode = 1; }
   }
 }
 
-async function processCalendarDeletes(token) {
+async function processCalendarDeletes() {
   const pending = await sbJson('requests?kind=eq.calendar_delete&status=eq.pending&select=id,payload&order=created_at.asc');
   for (const req of (pending || [])) {
     const p = req.payload || {};
     if (!p.eventId) { await resolveRequest(req.id, 'failed', 'missing eventId'); continue; }
     await rest(`requests?id=eq.${req.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'working' }) });
-    try { await deleteCalendarEvent(token, p.eventId); await resolveRequest(req.id, 'done', 'deleted'); console.log(`  ✓ deleted: ${p.title || p.eventId}`); }
+    try {
+      // Ids arriving from the dashboard are account-prefixed ("work:abc123"); the
+      // Google API wants the bare id back.
+      const { account, id } = splitEventId(p.eventId, ACCOUNTS.map(a => a.id));
+      await deleteCalendarEvent(acctFor(account || p.account), id);
+      await resolveRequest(req.id, 'done', 'deleted');
+      console.log(`  ✓ deleted: ${p.title || id}`);
+    }
     catch (e) { await resolveRequest(req.id, 'failed', e.message); console.error(`  ✗ delete ${p.eventId}: ${e.message}`); process.exitCode = 1; }
   }
 }
 
-async function run() {
-  let token;
-  try { token = await accessToken(); }
-  catch (e) { console.error('Auth failed:', e.message); process.exit(1); }
+// ---- report this worker's health into memory.sync_status ----
+// Read-modify-write of a single shared blob keyed by worker name, so prices-sync
+// and amizone-sync can land their own entries here without a schema change.
+async function reportStatus(patch) {
+  try {
+    const rows = await sbJson('memory?key=eq.sync_status&select=value');
+    const value = rows?.[0]?.value || {};
+    await memPut('sync_status', { ...value, meetings: { ...patch, at: new Date().toISOString() } });
+  } catch (e) {
+    // Reporting failure must never be the thing that fails the run.
+    console.error('  (could not record sync status:', e.message + ')');
+  }
+}
 
-  await processCalendarDeletes(token);  // deletes first
-  await processMeetings(token);         // meeting_add → event + Meet link
-  await processCalendarAdds(token);     // calendar_add → plain event
-  await pullEvents(token);              // sync Google → dashboard (always, so events show up)
+// How much work is sitting in the queue right now. Worth surfacing: "not
+// connected" with an empty queue is a shrug, "not connected" with four meetings
+// waiting is something to act on today.
+async function queueDepth() {
+  try {
+    const rows = await sbJson('requests?kind=in.(meeting_add,calendar_add,calendar_delete)&status=eq.pending&select=id');
+    return Array.isArray(rows) ? rows.length : 0;
+  } catch { return 0; }
+}
+
+async function run() {
+  const missing = [
+    !GOOGLE_CLIENT_ID && 'GOOGLE_CLIENT_ID',
+    !GOOGLE_CLIENT_SECRET && 'GOOGLE_CLIENT_SECRET',
+    !ACCOUNTS.length && 'GOOGLE_REFRESH_TOKEN',
+  ].filter(Boolean);
+
+  if (missing.length) {
+    const waiting = await queueDepth();
+    const reason = `Google is not connected yet — missing ${missing.join(', ')} in repo secrets.`;
+    await reportStatus({ ok: false, configured: false, reason, waiting, accounts: [] });
+    console.log(reason);
+    console.log(waiting
+      ? `  ${waiting} queued item(s) are waiting — they will go through untouched once the secrets are added.`
+      : '  Queue is empty, so nothing is being lost.');
+    return;  // exit 0 on purpose. See the note at the top of this file.
+  }
+
+  // Authenticate every account up front. One bad token should not stop the others:
+  // if the work refresh token expires, personal meetings must keep flowing.
+  const failed = [];
+  for (const acct of ACCOUNTS) {
+    try {
+      const { token, scopes } = await accessToken(acct);
+      acct.token = token; acct.scopes = scopes;
+    } catch (e) {
+      failed.push(`${acct.label}: ${e.message.slice(0, 120)}`);
+      console.error(`  ✗ auth ${acct.label}: ${e.message}`);
+    }
+  }
+  const live = ACCOUNTS.filter(a => a.token);
+  ACCOUNTS.length = 0; ACCOUNTS.push(...live);
+
+  if (!ACCOUNTS.length) {
+    // Everything was rejected. Unlike "never configured", a credential that used
+    // to work and now does not is a real regression — most often a refresh token
+    // revoked by a password change, or six months of disuse expiring it.
+    await reportStatus({ ok: false, configured: true, reason: `Google rejected every account — ${failed.join('; ')}`, waiting: await queueDepth() });
+    console.error('Auth failed for every account.');
+    process.exit(1);
+  }
+  if (failed.length) process.exitCode = 1;
+
+  await processCalendarDeletes();  // deletes first
+  await processMeetings();         // meeting_add → event + Meet link
+  await processCalendarAdds();     // calendar_add → plain event
+  await pullEvents();              // sync Google → dashboard (always, so events show up)
+  await pullMail();                // unread inbox → dashboard
+
+  await reportStatus(process.exitCode
+    ? { ok: false, configured: true, reason: failed.length ? failed.join('; ') : 'One or more queued items failed — see the workflow log.', waiting: await queueDepth(), accounts: ACCOUNTS.map(a => a.label) }
+    : { ok: true, configured: true, reason: '', waiting: 0, accounts: ACCOUNTS.map(a => a.label) });
 }
 
 run().catch(e => { console.error(e); process.exit(1); });

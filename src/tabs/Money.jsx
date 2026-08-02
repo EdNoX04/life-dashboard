@@ -40,6 +40,8 @@ import { defaultBenchmark } from '../lib/india.js';
 import { aiNewsSummary, memGet, memSet } from '../lib/advisor.js';
 import { pickProvider } from '../lib/ai.js';
 import * as db from '../lib/db.js';
+import Crypto from '../components/money/Crypto.jsx';
+import { MONEY_SECTIONS, sectionRecord } from '../lib/moneynav.js';
 
 // live USD→INR (keyless, CORS-ok; frankfurter with er-api fallback)
 async function fetchUsdInr() {
@@ -349,6 +351,9 @@ export default function Money() {
       ? <span className="rc-live"><span className="rc-dot" />LIVE · market open</span>
       : <span className="chip">market closed · last close</span>;
 
+  const activeSectionRec = sectionRecord(view);
+  const activeSection = activeSectionRec.id;
+
   return (
     <>
       <div className="spread money-head">
@@ -363,36 +368,40 @@ export default function Money() {
       </div>
       <p className="tab-sub money-sub">US stocks (INDmoney) + crypto — live prices, auto-refreshing. {liveTag}</p>
 
+      {/* Two-tier nav. The section row is derived from `view` rather than held
+          in its own state, so a restored or deep-linked view always lands with
+          its section already lit - see sectionOf() in lib/moneynav.js. Picking
+          a section jumps to its first view, which is the one worth landing on. */}
       <div className="money-tabs">
-          <span className="seg seg-wrap">
-            <button className={`seg-btn${view === 'brief' ? ' on' : ''}`} onClick={() => setView('brief')}>◆ Briefing</button>
-            <button className={`seg-btn${view === 'portfolio' ? ' on' : ''}`} onClick={() => setView('portfolio')}>Portfolio</button>
-            <button className={`seg-btn${view === 'book' ? ' on' : ''}`} onClick={() => setView('book')}>Book</button>
-            <button className={`seg-btn${view === 'accounts' ? ' on' : ''}`} onClick={() => setView('accounts')}>Accounts</button>
-            <button className={`seg-btn${view === 'vs' ? ' on' : ''}`} onClick={() => setView('vs')}>vs Index</button>
-            <button className={`seg-btn${view === 'risk' ? ' on' : ''}`} onClick={() => setView('risk')}>Risk</button>
-            <button className={`seg-btn${view === 'factors' ? ' on' : ''}`} onClick={() => setView('factors')}>Factors</button>
-            <button className={`seg-btn${view === 'plan' ? ' on' : ''}`} onClick={() => setView('plan')}>Plan</button>
-            <button className={`seg-btn${view === 'levers' ? ' on' : ''}`} onClick={() => setView('levers')}>Levers</button>
-            <button className={`seg-btn${view === 'divs' ? ' on' : ''}`} onClick={() => setView('divs')}>Dividends</button>
-            <button className={`seg-btn${view === 'cash' ? ' on' : ''}`} onClick={() => setView('cash')}>Cash</button>
-            <button className={`seg-btn${view === 'markets' ? ' on' : ''}`} onClick={() => setView('markets')}>Markets</button>
-            <button className={`seg-btn${view === 'compare' ? ' on' : ''}`} onClick={() => setView('compare')}>Compare</button>
-            <button className={`seg-btn${view === 'rebal' ? ' on' : ''}`} onClick={() => setView('rebal')}>Rebalance</button>
-            <button className={`seg-btn${view === 'tax' ? ' on' : ''}`} onClick={() => setView('tax')}>Tax</button>
-            <button className={`seg-btn${view === 'report' ? ' on' : ''}`} onClick={() => setView('report')}>Report</button>
-            <button className={`seg-btn${view === 'finboy' ? ' on' : ''}`} onClick={() => setView('finboy')}>FinBoy</button>
-            <button className={`seg-btn${view === 'scanner' ? ' on' : ''}`} onClick={() => setView('scanner')}>Screens</button>
-            <button className={`seg-btn${view === 'value' ? ' on' : ''}`} onClick={() => setView('value')}>Value</button>
-            <button className={`seg-btn${view === 'ticker' ? ' on' : ''}`} onClick={() => setView('ticker')}>Ticker</button>
-            <button className={`seg-btn${view === 'fin' ? ' on' : ''}`} onClick={() => setView('fin')}>Financials</button>
-            <button className={`seg-btn${view === 'nextbuy' ? ' on' : ''}`} onClick={() => setView('nextbuy')}>✦ Next buy</button>
-            <button className={`seg-btn${view === 'calendar' ? ' on' : ''}`} onClick={() => setView('calendar')}>Calendar</button>
-            <button className={`seg-btn${view === 'earn' ? ' on' : ''}`} onClick={() => setView('earn')}>Earnings</button>
-          </span>
+        <span className="seg money-sections">
+          {MONEY_SECTIONS.map(sec => (
+            <button
+              key={sec.id}
+              className={`seg-btn msec${sec.id === activeSection ? ' on' : ''}`}
+              style={sec.id === activeSection ? { '--msec': sec.color } : undefined}
+              title={sec.hint}
+              onClick={() => setView(sec.views[0].id)}
+            >{sec.label}</button>
+          ))}
+        </span>
+        <span className="seg seg-wrap money-views" style={{ '--msec': activeSectionRec.color }}>
+          {activeSectionRec.views.map(v => (
+            <button
+              key={v.id}
+              className={`seg-btn${view === v.id ? ' on' : ''}`}
+              onClick={() => setView(v.id)}
+            >{v.label}</button>
+          ))}
+        </span>
       </div>
 
       {view === 'accounts' && <Accounts rows={accountRows} cur={cur} />}
+
+      {/* Crypto owns its own currency the way Cash does. Binance P2P settles in
+          rupees, so a rupee is the honest unit here regardless of what the rest
+          of the tab is displaying, and converting it to dollars to match would
+          be inventing a number nobody transacted in. */}
+      {view === 'crypto' && <Crypto />}
 
       {view === 'book' && (
         <Book held={held} priceOf={priceOf} quotes={quotes} visible={visible}
@@ -400,8 +409,9 @@ export default function Money() {
       )}
       {view === 'vs' && (
         <Benchmark
-          series={valSeries} orders={orders} flowsByDay={flowsByDay}
+          series={valSeries} invested={invSeries} orders={orders} flowsByDay={flowsByDay}
           currentValue={value} cur={inr ? '₹' : '$'} visible={visible}
+          rate={inr && fx ? fx : 1}
           defaultKey={defaultBenchmark('US')}
         />
       )}

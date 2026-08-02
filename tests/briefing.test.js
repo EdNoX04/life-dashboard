@@ -24,6 +24,7 @@
 import fs from 'fs';
 import path from 'path';
 import { RULES, BASIS, brief, SEVERITY, termCrossings } from '../src/lib/briefing.js';
+import { MONEY_VIEWS, MONEY_SECTIONS, sectionOf } from '../src/lib/moneynav.js';
 
 let pass = 0, fail = 0;
 const bad = [];
@@ -33,17 +34,36 @@ const ok = (name, cond, got) => {
 };
 
 const here = new URL('.', import.meta.url).pathname;
-const MONEY = fs.readFileSync(path.join(here, '../src/tabs/Money.jsx'), 'utf8');
 
 // ---------------------------------------------------------------------------
 // Every rule carries a `view` that the Briefing turns into a click-through. A
 // typo there produces a dead link, not an error — so the valid set is DERIVED
-// from Money.jsx's own setView calls rather than transcribed. A transcribed
+// from the Money tab's own navigation rather than transcribed. A transcribed
 // list would go stale the first time a view is renamed and would then approve
 // exactly the broken links it exists to catch.
+//
+// This used to scrape setView('x') literals out of Money.jsx with a regex, and
+// that is precisely the failure the comment above warns about: when the nav
+// became data and the buttons were generated in a loop, the literals vanished
+// and the derived set would have silently emptied. Importing the real list
+// cannot drift that way.
 // ---------------------------------------------------------------------------
-const VIEWS = new Set([...MONEY.matchAll(/setView\('([a-z]+)'\)/g)].map(m => m[1]));
+const VIEWS = new Set(MONEY_VIEWS);
 ok('the view set was derived, not empty', VIEWS.size > 15, String(VIEWS.size));
+ok('no view id is listed in two sections at once', VIEWS.size === MONEY_VIEWS.length,
+  `${VIEWS.size} unique of ${MONEY_VIEWS.length}`);
+// Every section must be reachable and non-empty, or its marquee button lands on
+// undefined and the view row renders blank.
+for (const sec of MONEY_SECTIONS) {
+  ok(`section ${sec.id} has views`, sec.views.length > 0);
+  ok(`section ${sec.id} has a label`, typeof sec.label === 'string' && sec.label.length > 0);
+  for (const v of sec.views) {
+    ok(`${sec.id}/${v.id} round-trips to its own section`, sectionOf(v.id) === sec.id, sectionOf(v.id));
+  }
+}
+// An unknown view must still resolve, so a stale stored value cannot blank the strip.
+ok('an unknown view falls back to a real section',
+  MONEY_SECTIONS.some(s2 => s2.id === sectionOf('no-such-view')), sectionOf('no-such-view'));
 
 // ---------------------------------------------------------------------------
 // Shape.

@@ -6,6 +6,7 @@ import LiveStatus from '../components/LiveStatus.jsx';
 import RetroClock from '../components/RetroClock.jsx';
 import MiniCalendar from '../components/MiniCalendar.jsx';
 import NextMeeting from '../components/NextMeeting.jsx';
+import MailStrip from '../components/MailStrip.jsx';
 import { useLiveQuotes } from '../lib/live.js';
 import { activeDay, ROLLOVER_HOUR } from '../lib/schedule.js';
 import DashAllocation from '../components/money/DashAllocation.jsx';
@@ -133,6 +134,10 @@ export default function HQ({ go }) {
   );
 
   const MeetingsCard = <NextMeeting key="meetings" />;
+  // Mail sits directly under the next meeting because they answer the same
+  // question — "is something about to want me?" — and splitting them across
+  // columns means checking two places for one answer.
+  const MailCard = <MailStrip key="mail" />;
   const CalendarCard = <MiniCalendar key="calendar" go={go} />;
   const RemindersCard = (
     <Card key="reminders" title="Reminders" color="var(--red)">
@@ -185,11 +190,11 @@ export default function HQ({ go }) {
   );
 
   // Same cards, grouped by column count. 2-col grouping is the original iPad layout.
-  const cardMap = { brief: BriefCard, meetings: MeetingsCard, reminders: RemindersCard, priorities: PrioritiesCard, calendar: CalendarCard, news: NewsCard, classes: ClassesCard, alloc: AllocationCard };
+  const cardMap = { brief: BriefCard, meetings: MeetingsCard, mail: MailCard, reminders: RemindersCard, priorities: PrioritiesCard, calendar: CalendarCard, news: NewsCard, classes: ClassesCard, alloc: AllocationCard };
   const LAYOUTS = {
-    1: [['brief', 'meetings', 'reminders', 'priorities', 'alloc', 'calendar', 'news', 'classes']],
-    2: [['brief', 'priorities', 'alloc', 'news'], ['meetings', 'reminders', 'calendar', 'classes']],
-    3: [['brief', 'news'], ['meetings', 'priorities', 'alloc'], ['reminders', 'calendar', 'classes']],
+    1: [['brief', 'meetings', 'mail', 'reminders', 'priorities', 'alloc', 'calendar', 'news', 'classes']],
+    2: [['brief', 'priorities', 'alloc', 'news'], ['meetings', 'mail', 'reminders', 'calendar', 'classes']],
+    3: [['brief', 'news'], ['meetings', 'mail', 'priorities', 'alloc'], ['reminders', 'calendar', 'classes']],
   };
   const layout = LAYOUTS[cols] || LAYOUTS[2];
   const gtc = cols === 3 ? '1.15fr 1fr 1fr' : cols === 2 ? '1.35fr 1fr' : '1fr';

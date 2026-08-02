@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Card, StatTile, money } from '../ui.jsx';
 import VersusChart from './VersusChart.jsx';
 import { BENCHMARKS, benchmarkOf, fetchBenchmark, cachedBenchmark } from '../../lib/india.js';
-import { align, normalise, rebase, analyse, sliceRange } from '../../lib/analytics.js';
+import { align, normalise, analyse, sliceRange, benchmarkEquivalent } from '../../lib/analytics.js';
 
 // "Returns vs benchmark" — the centrepiece. Everything here is derived from two
 // series and the order ledger; nothing is fetched per-render.
@@ -13,6 +13,23 @@ import { align, normalise, rebase, analyse, sliceRange } from '../../lib/analyti
 //   CAGR  — time-weighted. What the *picks* did, ignoring contribution timing.
 // For a portfolio still being funded monthly these diverge a lot, and the gap is
 // itself informative, so both are shown side by side rather than picking one.
+
+// ---------------------------------------------------------------------------
+// The headline used to be two numbers rebased to 100 and a percentage for the
+// index. Both were true and neither was legible: "you 118.4, index 112.9" makes
+// you do the arithmetic that is the whole point of the screen, and the index's
+// XIRR sat next to your rupee total as though they were comparable quantities.
+//
+// It now reads the way INDmoney's does, because that framing is simply the
+// right one: your portfolio's value against *what the identical cashflows would
+// be worth today in the index* - two amounts in the same currency, one axis,
+// XIRR under each. benchmarkEquivalent() had been sitting in analytics.js
+// unwired since it was written; this is what it was for.
+//
+// The Growth tab answers the other question people actually ask - value against
+// what you put in - which the app could already compute (the invested line from
+// portfolioHistory) but never showed here.
+// ---------------------------------------------------------------------------
 
 const RANGE_OPTS = [['1M', 30], ['3M', 91], ['6M', 182], ['1Y', 365], ['3Y', 1095], ['MAX', null]];
 const TRAIL = [['1W', 7], ['1M', 30], ['3M', 91], ['6M', 182], ['1Y', 365], ['3Y', 1095], ['MAX', null]];
@@ -32,9 +49,32 @@ function heat(r) {
 }
 const MONTH_ABBR = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
 
-export default function Benchmark({ series = [], orders = [], flowsByDay = {}, currentValue = null, cur = '$', visible = true, defaultKey = 'NIFTY50' }) {
+// "27th Jan'25" — the caption format, matching the axis labels in VersusChart.
+function longDay(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  const n = dt.getDate();
+  const suf = n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th';
+  return `${n}${suf} ${dt.toLocaleString('en', { month: 'short' })}'${String(dt.getFullYear()).slice(2)}`;
+}
+
+const PORT_C = '#ff5fa2';
+const INVEST_C = 'var(--cyan)';
+
+export default function Benchmark({
+  series = [], invested = [], orders = [], flowsByDay = {}, currentValue = null,
+  cur = '$', visible = true, defaultKey = 'NIFTY50',
+  // Everything upstream of here is priced in the ledger's own currency (USD).
+  // The tab's ₹/$ toggle only changes presentation, so the conversion happens
+  // at the very last moment, on display values only - percentages, XIRR and
+  // every risk statistic are ratios and must not be touched by it. This used to
+  // be missing entirely: the card stamped whatever `cur` said onto unconverted
+  // dollar figures, so switching to ₹ relabelled the number without changing it.
+  rate = 1,
+}) {
   const [benchKey, setBenchKey] = useState(defaultKey);
   const [range, setRange] = useState('1Y');
+  const [tab, setTab] = useState('bench');
   const [bench, setBench] = useState({ points: [], source: null, stale: false, loading: true });
 
   const bm = benchmarkOf(benchKey);
@@ -94,10 +134,55 @@ export default function Benchmark({ series = [], orders = [], flowsByDay = {}, c
     return { label, you: ret(p), bench: ret(b), annualised: !!d && d > 365 };
   }), [full]);
 
-  const chart = useMemo(() => ({
-    p: rebase(pSlice),
-    b: bSlice.length >= 2 ? rebase(bSlice) : [],
-  }), [pSlice, bSlice]);
+  // ---- the two headline charts, both in currency ----
+
+  // "the same money, into the index instead", computed over the WHOLE history
+  // and only then sliced. Computing it inside the range window would restart
+  // the unit count at the window's left edge and quietly compare a full
+  // portfolio against a part-funded index.
+  const equivFull = useMemo(
+    () => (bench.points.length ? benchmarkEquivalent(orders, bench.points) : []),
+    [orders, bench.points],
+  );
+
+  const scale = pts => pts.map(pt => ({ d: pt.d, v: pt.v * (rate || 1) }));
+
+  // Clip a pair of series to the active range on the portfolio's own dates, so
+  // both lines always start and end on the same day.
+  const clipPair = (A, B) => {
+    if (!A.length) return [[], []];
+    if (!days) return [A, B];
+    const last = A[A.length - 1].d;
+    const cut = new Date(new Date(last).getTime() - days * 86400e3).toISOString().slice(0, 10);
+    const keep = A.map((x, i) => [x, B[i]]).filter(([x]) => x.d >= cut);
+    return [keep.map(k => k[0]), keep.map(k => k[1]).filter(Boolean)];
+  };
+
+  const vsChart = useMemo(() => {
+    const p = normalise(series);
+    if (!p.length) return { a: [], b: [] };
+    const [A, B] = equivFull.length ? align(p, equivFull) : [p, []];
+    const [a, b] = clipPair(A, B);
+    return { a: scale(a), b: scale(b) };
+  }, [series, equivFull, days, rate]);
+
+  const growthChart = useMemo(() => {
+    const p = normalise(series);
+    if (!p.length) return { a: [], b: [] };
+    const inv = normalise(invested);
+    const [A, B] = inv.length ? align(p, inv) : [p, []];
+    const [a, b] = clipPair(A, B);
+    return { a: scale(a), b: scale(b) };
+  }, [series, invested, days, rate]);
+
+  const shown = tab === 'growth' ? growthChart : vsChart;
+  const lastOf = arr => (arr.length ? arr[arr.length - 1].v : null);
+  // The portfolio headline is live value where we have it; the chart's last
+  // point is only a fallback, because the reconstructed line ends at the last
+  // stored close and can lag today's quotes by a session.
+  const portNow = currentValue != null ? currentValue * (rate || 1) : lastOf(shown.a);
+  const rightNow = lastOf(shown.b);
+  const fmtMoney = v => (v == null || !Number.isFinite(v) ? '—' : money(v, visible, cur));
 
   // months laid out as a year × month grid
   const grid = useMemo(() => {
@@ -116,22 +201,12 @@ export default function Benchmark({ series = [], orders = [], flowsByDay = {}, c
 
   return (
     <>
-      <Card
-        title="Returns vs benchmark"
-        color="var(--pink)"
-        right={
-          <span className="flex" style={{ gap: 4, flexWrap: 'wrap' }}>
-            {RANGE_OPTS.map(([k]) => (
-              <button key={k} className={`btn btn-sm${range === k ? ' btn-pink' : ''}`} onClick={() => setRange(k)}>{k}</button>
-            ))}
-          </span>
-        }
-      >
-        <div className="flex" style={{ gap: 4, flexWrap: 'wrap', marginBottom: 10 }}>
-          {BENCHMARKS.map(b => (
-            <button key={b.key} className={`btn btn-sm${benchKey === b.key ? ' btn-cyan' : ''}`} onClick={() => setBenchKey(b.key)}>
-              {b.short}
-            </button>
+      <Card title="Returns vs benchmark" color="var(--pink)">
+        {/* Two questions, two tabs. They share the range control and the axis
+            because they are the same chart with a different second line. */}
+        <div className="vsb-tabs">
+          {[['bench', 'vs Benchmark'], ['growth', 'Growth']].map(([k, label]) => (
+            <button key={k} className={`vsb-tab${tab === k ? ' on' : ''}`} onClick={() => setTab(k)}>{label}</button>
           ))}
         </div>
 
@@ -142,37 +217,83 @@ export default function Benchmark({ series = [], orders = [], flowsByDay = {}, c
           </div>
         ) : (
           <>
-            <div className="grid2" style={{ marginBottom: 10 }}>
-              <div>
-                <div className="small muted">YOUR PORTFOLIO</div>
-                <div style={{ fontSize: 22, color: '#ff5fa2' }}>{money(currentValue ?? 0, visible, cur)}</div>
-                <div className="small">
+            <div className="vsb-head">
+              <div className="vsb-side">
+                <div className="vsb-name"><i style={{ background: PORT_C }} />Portfolio</div>
+                <div className="vsb-val" style={{ color: PORT_C }}>{fmtMoney(portNow)}</div>
+                <div className="vsb-sub">
                   XIRR <b style={tone(stats.xirr)}>{pct(stats.xirr)}</b>
-                  <span className="muted"> · CAGR {pct(stats.cagr)}</span>
                 </div>
               </div>
-              <div>
-                <div className="small muted">{bm.label.toUpperCase()} · same cashflows</div>
-                <div style={{ fontSize: 22, color: bm.color }}>
-                  {stats.benchXirr == null ? '—' : pct(stats.benchXirr)}
+
+              <div className="vsb-vs">VS</div>
+
+              <div className="vsb-side vsb-right">
+                {tab === 'bench' ? (
+                  <div className="vsb-name">
+                    <i style={{ background: bm.color }} />
+                    {/* A select rather than six buttons: the index you compare
+                        against is a single choice out of a list that will keep
+                        growing, and a row of pills was already wrapping. */}
+                    <select className="vsb-select" value={benchKey} onChange={e => setBenchKey(e.target.value)}
+                      style={{ color: bm.color }} aria-label="Benchmark index">
+                      {BENCHMARKS.map(b => <option key={b.key} value={b.key}>{b.label}</option>)}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="vsb-name"><i style={{ background: 'var(--cyan)' }} />Invested Value</div>
+                )}
+                <div className="vsb-val" style={{ color: tab === 'bench' ? bm.color : 'var(--cyan)' }}>
+                  {fmtMoney(rightNow)}
                 </div>
-                <div className="small muted">
-                  XIRR if the same money had gone into the index instead
+                <div className="vsb-sub">
+                  {tab === 'bench'
+                    ? <>XIRR <b style={tone(stats.benchXirr)}>{pct(stats.benchXirr)}</b></>
+                    : <span className="muted">what you put in</span>}
                 </div>
               </div>
             </div>
 
+            <div className="vsb-caption">
+              Value from {longDay(shown.a[0]?.d)} to {longDay(shown.a[shown.a.length - 1]?.d)}
+            </div>
+
             <VersusChart
-              portfolio={chart.p} benchmark={chart.b}
-              benchLabel={bm.short} benchColor={bm.color}
+              a={shown.a} b={shown.b}
+              aLabel="Portfolio" aColor={PORT_C}
+              bLabel={tab === 'bench' ? bm.short : 'Invested'}
+              bColor={tab === 'bench' ? bm.color : INVEST_C}
+              fmt={v => money(v, visible, cur)}
+              height={230}
+              emptyNote={tab === 'bench'
+                ? 'Waiting on index closes — the comparison draws itself once they load.'
+                : 'Not enough history yet.'}
             />
 
+            <div className="vsb-ranges">
+              {RANGE_OPTS.map(([k]) => (
+                <button key={k} className={`vsb-range${range === k ? ' on' : ''}`} onClick={() => setRange(k)}>{k}</button>
+              ))}
+            </div>
+
             <div className="small muted mt">
-              Both lines rebased to 100 at the left edge, so the currency difference
-              between a rupee index and a dollar holding doesn't distort the shape.
+              {tab === 'bench' ? (
+                <>
+                  The {bm.short} line is not the index level — it is your own
+                  cashflows, on the dates you actually made them, bought into the
+                  index instead. That is why both lines are in {cur} and why the
+                  gap between them is the only number that matters here.
+                </>
+              ) : (
+                <>
+                  Invested is cost basis on the same positions, so the gap between
+                  the lines is unrealised profit. It steps up when you buy — a step
+                  is money arriving, not a gain.
+                </>
+              )}
               {bench.source === 'cache' && ' · showing stored data while refreshing'}
               {bench.stale && ' · live refresh failed, showing last stored closes'}
-              {!bench.points.length && !bench.loading && ' · no index data yet — run the data self-test in Settings'}
+              {tab === 'bench' && !bench.points.length && !bench.loading && ' · no index data yet — run the data self-test in Settings'}
             </div>
           </>
         )}

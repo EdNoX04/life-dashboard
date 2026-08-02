@@ -8,7 +8,10 @@ const iso = d => d.toISOString().slice(0, 10);
 const fmtD = s => new Date(s + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 
 // Earnings to watch (your holdings) + upcoming US economic reports.
-export default function MarketCalendar({ held }) {
+// Same reasoning as LofiRadio: `held` is always passed today, and defaulting it
+// costs nothing and makes an empty portfolio render an empty calendar instead of
+// taking the Money tab down with it.
+export default function MarketCalendar({ held = [] }) {
   const [earn, setEarn] = useState(undefined); // undefined loading | null err | []
   const [econ, setEcon] = useState(null);
   const [econBusy, setEconBusy] = useState(false);

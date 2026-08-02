@@ -33,7 +33,15 @@ export default function Calendar() {
     gEvents.forEach(e => {
       const s = e.start ? new Date(e.start) : null;
       if (s && dayKey(s) === key) items.push({
-        type: 'gcal', time: e.allDay ? 'All day' : fmtTime(e.start), title: e.summary || '(no title)', sub: e.location || '', id: e.id,
+        type: 'gcal', time: e.allDay ? 'All day' : fmtTime(e.start), title: e.summary || '(no title)',
+        // Location is the useful subtitle when there is one; when there is not,
+        // the account the event came from is the next most useful thing to know
+        // — "is this a work thing or a me thing" is the question you ask of an
+        // unfamiliar entry, and it is answered here without a click.
+        sub: e.location || (e.accountLabel && e.accountLabel !== 'Personal' ? e.accountLabel : ''),
+        id: e.id,
+        account: e.account || '', accountLabel: e.accountLabel || '',
+        color: e.color || '', meet: e.meet || '', alsoOn: e.alsoOn || [],
         sortT: e.allDay ? '00:00' : `${z(s.getHours())}:${z(s.getMinutes())}`,
       });
     });
@@ -152,7 +160,20 @@ export default function Calendar() {
               <div className="row" key={i}>
                 <span className={`chip ${it.type === 'class' ? 'c-purple' : 'c-cyan'}`} style={{ minWidth: 66, textAlign: 'center' }}>{it.time}{it.endTime ? `–${it.endTime}` : ''}</span>
                 <span style={{ flex: 1 }}>{it.title}{it.sub ? <span className="muted small"> · {it.sub}</span> : ''}</span>
-                <span className={`chip ${it.type === 'class' ? 'c-purple' : 'c-cyan'}`}>{it.type === 'class' ? 'CLASS' : 'GCAL'}</span>
+                {it.meet && (
+                  <a className="btn btn-sm btn-green" href={it.meet} target="_blank" rel="noreferrer"
+                     title="Join the Google Meet for this event">JOIN</a>
+                )}
+                <span
+                  className={`chip ${it.type === 'class' ? 'c-purple' : 'c-cyan'}`}
+                  // A work event and a personal event are both "GCAL", which is
+                  // the least interesting thing about either of them. The chip
+                  // takes the account colour so the day reads at a glance.
+                  style={it.type === 'gcal' && it.color ? { color: it.color, borderColor: it.color } : undefined}
+                  title={it.alsoOn?.length ? `Also on: ${it.alsoOn.join(', ')}` : undefined}
+                >
+                  {it.type === 'class' ? 'CLASS' : (it.accountLabel || 'GCAL').toUpperCase()}
+                </span>
                 {it.type === 'gcal' && it.id && <button className="btn btn-sm" onClick={() => delEvent(it.id, it.title)}>✕</button>}
               </div>
             ))}

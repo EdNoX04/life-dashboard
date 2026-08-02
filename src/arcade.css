@@ -107,8 +107,13 @@
 .fees-seg { display: block; }
 .fees-seg + .fees-seg { border-left: 2px solid var(--bg-deep); }
 
-/* retro rupee glyph — force the pixel-era font so ₹ matches the $ styling */
-.rupee { font-family: 'VT323', var(--font-mono, monospace); font-weight: 700; letter-spacing: 0; }
+/* The metric correction for ₹ lives in the RupeeFix @font-face in theme.css, so
+   it applies to every rupee sign in the app - including the many built inside
+   plain strings in lib/, which have no element to carry a class. This class
+   remains only for the handful of call sites that name the glyph explicitly,
+   and its whole job is to make sure they inherit that stack rather than a
+   hard-coded VT323. */
+.rupee { font-family: 'RupeeFix', var(--font-body); letter-spacing: 0; }
 
 /* ---- dashboard columns: balanced flex columns, count chosen by width (see HQ) ---- */
 .dash-cols { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; align-items: start; }
@@ -376,8 +381,8 @@
 /* wrap holds the (clipped) hero + the spark, so the spark is never cut off */
 .hero-wrap { position: relative; margin-bottom: 16px; }
 .hero {
-  border: 3px solid var(--border-bright); border-radius: 2px; padding: 18px;
-  position: relative; overflow: hidden; min-height: 150px;
+  border: 3px solid var(--border-bright); border-radius: 2px; padding: 18px 18px 46px;
+  position: relative; overflow: hidden; min-height: 168px;
   background: var(--panel);
   box-shadow: 0 5px 0 rgba(0,0,0,.5), 0 0 24px rgba(185,103,255,.2), inset 0 0 0 2px var(--bg-deep);
 }
@@ -415,27 +420,43 @@
   .star { animation: none; }
 }
 
-/* ---- daily spark: overlaps the hero bottom-right on desktop (sits in .hero-wrap,
-       outside the hero's overflow:hidden so it can never be clipped) ---- */
+/* ---- daily spark. Two earlier attempts bracket where this landed: it started
+       as a floating two-line box that spilled past the hero's corner, then
+       over-corrected into a full-width strip welded under the hero. What was
+       wanted is the corner position with the one-line discipline - it sits in
+       the hero's empty bottom-right, over the sky, and stays a single line.
+       It lives in .hero-wrap rather than .hero because .hero is overflow:hidden
+       (it clips the sky), and z-index 3 clears the hero's ::before scrim at 1
+       and its text at 2. Because it is out of flow it adds no height, so .hero
+       carries a min-height large enough that the corner is genuinely empty. ---- */
 .hero-spark {
+  position: absolute; right: 14px; bottom: 12px; z-index: 3;
+  max-width: 58%;
   display: flex; align-items: baseline; gap: 10px;
-  margin-top: -2px; padding: 8px 12px;
-  border: 2px solid var(--border); border-top: none;
-  border-radius: 0 0 3px 3px;
-  background: linear-gradient(90deg, rgba(12,7,20,.72) 0%, rgba(24,14,42,.5) 100%);
+  padding: 7px 12px;
+  border: 2px solid var(--border); border-radius: 3px;
+  background: linear-gradient(90deg, rgba(12,7,20,.86) 0%, rgba(24,14,42,.78) 100%);
+  box-shadow: 0 0 0 2px rgba(0,0,0,.35), 0 0 14px rgba(0,0,0,.45);
+  backdrop-filter: blur(2px);
 }
 .hero-spark .hs-label { flex: 0 0 auto; font-family: var(--font-pixel); font-size: 6.5px; color: var(--yellow); letter-spacing: 1px; opacity: .9; text-shadow: 0 0 6px rgba(255,209,102,.45); }
 /* The quote is the only element allowed to take the slack, and it truncates
    rather than wrapping — a two-line quote is what pushed the old box over the
    hero's edge and made this read as a floating overlay rather than a strip. */
-.hero-spark .hs-q { flex: 1 1 auto; min-width: 0; font-size: 15px; color: var(--ink); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hero-spark .hs-q { flex: 1 1 auto; min-width: 0; font-size: 14px; color: var(--ink); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hero-spark .hs-a { flex: 0 0 auto; font-family: var(--font-pixel); font-size: 6.5px; color: var(--ink-2); letter-spacing: .5px; }
 @media (max-width: 760px) {
-  /* stay inside the hero board (like desktop), just smaller + bottom aligned */
-  .hero { min-height: 172px; }
-  /* On a narrow screen one line cannot hold label, quote and attribution, so the
-     strip wraps to two rows rather than truncating the quote to nothing. */
-  .hero-spark { flex-wrap: wrap; gap: 4px 8px; padding: 7px 10px; }
+  /* A phone-width hero has no empty corner to sit in - the greeting and the
+     world line already fill it - so the corner treatment is dropped entirely
+     and the spark returns to the flow as a strip beneath the board, where it
+     is allowed the two lines it needs. */
+  .hero { padding: 18px; min-height: 150px; }
+  .hero-spark {
+    position: static; max-width: none; margin-top: -2px;
+    border-top: none; border-radius: 0 0 3px 3px;
+    box-shadow: none; backdrop-filter: none;
+    flex-wrap: wrap; gap: 4px 8px; padding: 7px 10px;
+  }
   .hero-spark .hs-label { font-size: 6px; }
   .hero-spark .hs-q { flex: 1 1 100%; font-size: 12.5px; line-height: 1.28; white-space: normal; order: 3; }
   .hero-spark .hs-a { font-size: 6px; }
@@ -540,11 +561,11 @@
 .wtt-day.is-today .wtt-dot { background: var(--cyan); box-shadow: 0 0 7px var(--cyan); }
 .wtt-name { font-family: var(--font-pixel); font-size: 9px; letter-spacing: 1px; color: var(--ink); text-transform: uppercase; }
 .wtt-day.is-today .wtt-name { color: var(--cyan); }
-.wtt-count { margin-left: auto; font-family: 'VT323', monospace; font-size: 15px; color: var(--ink-2); }
+.wtt-count { margin-left: auto; font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; color: var(--ink-2); }
 .wtt-classes { display: flex; flex-direction: column; gap: 8px; }
 .wtt-class { border: 2px solid var(--border-bright); border-radius: 4px; background: var(--panel); padding: 8px 9px; display: flex; flex-direction: column; gap: 6px; }
 .wtt-time { align-self: flex-start; }
-.wtt-subj { font-family: 'VT323', monospace; font-size: 17px; color: var(--ink); line-height: 1.2; }
+.wtt-subj { font-family: 'RupeeFix', 'VT323', monospace; font-size: 17px; color: var(--ink); line-height: 1.2; }
 .wtt-cmeta { display: flex; gap: 6px; flex-wrap: wrap; }
 
 /* ---- Today's 1D P&L banner ---- */
@@ -570,7 +591,63 @@
        clipped the second line. ---- */
 .money-head { margin-bottom: 2px; }
 .money-sub { margin-bottom: 10px; }
-.money-tabs { margin: 0 0 16px; }
+.money-tabs { margin: 0 0 16px; display: flex; flex-direction: column; gap: 0; }
+
+/* ---- Two-tier money nav.
+   The section row is the cabinet's marquee: five wide, evenly split, always the
+   same five in the same order, so it becomes muscle memory. The view row below
+   it changes with the section and inherits the section's colour through --msec,
+   which is set inline on the row by the component - that is what makes the two
+   tiers read as one connected control rather than two stacked strips. The rows
+   share a border, so the join has no double line. ---- */
+.money-sections {
+  display: flex; width: 100%; overflow: visible;
+  border-radius: 3px 3px 0 0; border-bottom: none;
+}
+.money-sections .seg-btn.msec {
+  flex: 1 1 0; min-width: 0; text-align: center; white-space: nowrap;
+  font-size: 7px; letter-spacing: 1px; padding: 9px 6px;
+  border-right: 2px solid var(--border);
+  color: var(--ink-3);
+}
+.money-sections .seg-btn.msec:last-child { border-right: none; }
+.money-sections .seg-btn.msec:hover { color: var(--ink-2); background: var(--panel-2); }
+/* The lit section is the only place the section colour appears at full strength.
+   A top rule rather than a full outline, so it reads as a tab joined to the row
+   underneath instead of a button floating above it. */
+.money-sections .seg-btn.msec.on {
+  color: var(--msec); background: var(--panel-2);
+  box-shadow: inset 0 3px 0 var(--msec);
+  text-shadow: 0 0 8px var(--msec);
+}
+
+.money-views {
+  border-radius: 0 0 3px 3px;
+  border-top: 2px solid var(--border-bright);
+  background: rgba(0,0,0,.18);
+}
+/* The active view carries the section's colour too, which is the whole point of
+   threading --msec down: you can tell which section you are in from the view
+   row alone, without looking back up at the marquee. */
+.money-views .seg-btn.on {
+  border-color: var(--msec);
+  color: var(--msec);
+  text-shadow: 0 0 6px var(--msec);
+}
+.money-views .seg-btn.on::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+  background: var(--msec); box-shadow: 0 0 6px var(--msec);
+}
+.money-views .seg-btn { position: relative; }
+
+@media (max-width: 760px) {
+  /* Five section labels will not fit across a phone, and shrinking them to fit
+     makes them unreadable. They scroll sideways instead - a deliberate exception
+     to the no-sideways-scroll rule that motivated this rebuild, because it is
+     five items on one line rather than twenty-four on three. */
+  .money-sections { overflow-x: auto; }
+  .money-sections .seg-btn.msec { flex: 0 0 auto; font-size: 6px; padding: 8px 10px; }
+}
 .seg.seg-wrap {
   display: flex; flex-wrap: wrap; overflow: visible;
   width: 100%; gap: 0; border-radius: 3px;
@@ -600,11 +677,11 @@
 }
 .tf-btn:hover { border-color: var(--border-bright); color: var(--ink); }
 .tf-btn.on { background: linear-gradient(180deg, var(--pink), #b0367a); color: #fff; border-color: var(--pink); box-shadow: 0 0 10px rgba(232,65,145,.45); }
-.rchart-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; font-family: 'VT323', monospace; font-size: 15px; flex-wrap: wrap; }
+.rchart-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; flex-wrap: wrap; }
 .rc-oclc b { font-weight: normal; }
 .rc-oclc span { margin-right: 2px; }
 .rc-msg { height: 300px; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 20px; }
-.rc-foot { display: flex; gap: 16px; margin-top: 6px; flex-wrap: wrap; font-family: 'VT323', monospace; font-size: 13px; }
+.rc-foot { display: flex; gap: 16px; margin-top: 6px; flex-wrap: wrap; font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; }
 .modal-wide { max-width: 900px; width: 94vw; }
 
 /* ---- Study room: pomodoro ring ---- */
@@ -666,7 +743,7 @@
 .quiz-opt.wrong { border-color: var(--red); background: linear-gradient(90deg, rgba(232,65,145,.16), var(--bg-deep)); color: var(--red); }
 .quiz-opt.sel { border-color: var(--purple); background: linear-gradient(90deg, rgba(154,99,232,.18), var(--bg-deep)); color: var(--ink); }
 .q-pal { display: flex; flex-wrap: wrap; gap: 5px; }
-.q-pal-btn { width: 30px; height: 30px; border: 2px solid var(--border); background: var(--bg-deep); color: var(--ink-2); border-radius: 2px; cursor: pointer; font-family: 'VT323', monospace; font-size: 15px; }
+.q-pal-btn { width: 30px; height: 30px; border: 2px solid var(--border); background: var(--bg-deep); color: var(--ink-2); border-radius: 2px; cursor: pointer; font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; }
 .q-pal-btn.done { border-color: var(--green); color: var(--green); box-shadow: 0 0 6px rgba(47,208,107,.4); }
 .q-pal-btn.cur { border-color: var(--pink); color: var(--pink); box-shadow: 0 0 8px rgba(232,65,145,.5); }
 .mock-rev { border-bottom: 2px dashed var(--border); padding: 8px 0; }
@@ -682,7 +759,7 @@
 .quiz-sol { margin-top: 12px; padding: 10px 12px; border-left: 4px solid var(--purple); background: rgba(122,85,176,.1); border-radius: 2px; }
 .code-item { border-bottom: 2px dashed var(--border); padding: 10px 0; }
 .code-item:last-child { border-bottom: none; }
-.code-block { background: var(--bg-deep); border: 2px solid var(--border); border-radius: 3px; padding: 10px; margin-top: 8px; overflow-x: auto; font-family: 'VT323', monospace; font-size: 14px; line-height: 1.4; color: var(--green); white-space: pre; }
+.code-block { background: var(--bg-deep); border: 2px solid var(--border); border-radius: 3px; padding: 10px; margin-top: 8px; overflow-x: auto; font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; line-height: 1.4; color: var(--green); white-space: pre; }
 
 /* ---- lofi radio: retro vinyl turntable ---- */
 .vinyl-player { position: relative; width: 132px; height: 132px; flex-shrink: 0; border: 3px solid var(--border-bright); border-radius: 4px; overflow: hidden; box-shadow: 0 0 16px rgba(154,99,232,.3); background: radial-gradient(120% 120% at 30% 20%, var(--panel-2), var(--bg-deep)); }
@@ -717,7 +794,7 @@
 .player-bar > div { height: 100%; background: linear-gradient(90deg, var(--pink), var(--purple)); box-shadow: 0 0 8px rgba(255,95,162,.5); }
 
 /* ---- Books / Notes / Decision ---- */
-.book-text { width: 100%; min-height: 160px; resize: vertical; padding: 10px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'VT323', monospace; font-size: 16px; line-height: 1.5; }
+.book-text { width: 100%; min-height: 160px; resize: vertical; padding: 10px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 16px; line-height: 1.5; }
 .note-canvas { width: 100%; height: auto; aspect-ratio: 900/420; background: #12091b; border: 2px solid var(--border-bright); border-radius: 3px; touch-action: none; cursor: crosshair; display: block; }
 .dec-item { border-bottom: 2px dashed var(--border); padding: 10px 0; }
 .dec-item:last-child { border-bottom: none; }
@@ -732,7 +809,7 @@
 .tt2-sec { display: flex; flex-direction: column; gap: 2px; padding-bottom: 6px; margin-bottom: 4px; border-bottom: 2px dashed var(--border); }
 .tt2-sec:last-of-type { border-bottom: none; }
 .tt2-seclabel { font-family: var(--font-pixel); font-size: 7px; letter-spacing: 1px; color: var(--ink-3); padding: 4px 6px 2px; text-transform: uppercase; }
-.tt2-navitem { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; padding: 7px 8px; border: none; background: none; color: var(--ink-2); border-radius: 3px; cursor: pointer; font-family: 'VT323', monospace; font-size: 16px; line-height: 1; }
+.tt2-navitem { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; padding: 7px 8px; border: none; background: none; color: var(--ink-2); border-radius: 3px; cursor: pointer; font-family: 'RupeeFix', 'VT323', monospace; font-size: 16px; line-height: 1; }
 .tt2-navitem:hover { background: var(--panel-2); color: var(--ink); }
 .tt2-navitem.on { background: var(--panel-2); color: var(--ink); box-shadow: inset 3px 0 0 var(--pink); }
 .tt2-navitem.sub { padding-left: 12px; }
@@ -755,7 +832,7 @@
 .tt2-ren {
   position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
   border: none; background: var(--panel-2); color: var(--ink-3);
-  font-family: 'VT323', monospace; font-size: 15px; line-height: 1;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; line-height: 1;
   padding: 2px 5px; border-radius: 2px; cursor: pointer;
   opacity: 0; transition: opacity .1s;
 }
@@ -765,7 +842,7 @@
   width: 100%; padding: 6px 8px; margin: 1px 0;
   background: var(--bg-deep); color: var(--ink);
   border: 2px solid var(--border-bright); border-radius: 3px;
-  font-family: 'VT323', monospace; font-size: 16px; line-height: 1;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 16px; line-height: 1;
 }
 .tt2-renin.sub { padding-left: 12px; }
 .tt2-renin:focus { outline: none; border-color: var(--pink); box-shadow: 0 0 6px rgba(255,107,158,.4); }
@@ -798,21 +875,21 @@
 ::-webkit-scrollbar-button { display: none; }
 .tt2-navfoot { margin-top: auto; padding-top: 8px; }
 .tt2-addrow { display: flex; gap: 6px; }
-.tt2-addrow input { flex: 1; min-width: 0; padding: 6px 8px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'VT323', monospace; font-size: 15px; }
+.tt2-addrow input { flex: 1; min-width: 0; padding: 6px 8px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; }
 .tt2-x, .tt2-burger { display: none; }
 .tt2-scrim { display: none; }
 
 /* main */
 .tt2-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .tt2-title { font-family: var(--font-pixel); font-size: 15px; color: var(--ink); margin: 0; text-transform: uppercase; }
-.tt2-count { font-family: 'VT323', monospace; font-size: 17px; color: var(--ink-3); }
+.tt2-count { font-family: 'RupeeFix', 'VT323', monospace; font-size: 17px; color: var(--ink-3); }
 .tt2-modes { margin-left: auto; display: flex; gap: 4px; border: 2px solid var(--border); border-radius: 3px; padding: 2px; }
 .tt2-mode { border: none; background: none; color: var(--ink-3); padding: 4px 10px; border-radius: 2px; cursor: pointer; font-family: var(--font-pixel); font-size: 7px; letter-spacing: 1px; text-transform: uppercase; }
 .tt2-mode.on { background: var(--pink); color: #14090f; }
 
 .tt2-add { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
 .tt2-add input[type=text], .tt2-add > input:first-child { flex: 1; min-width: 160px; }
-.tt2-add input, .tt2-add select { padding: 9px 10px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'VT323', monospace; font-size: 16px; }
+.tt2-add input, .tt2-add select { padding: 9px 10px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 16px; }
 .tt2-add > input:first-child { flex: 1 1 200px; }
 
 /* list view */
@@ -828,12 +905,12 @@
 .tt2-flag.p2 { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
 .tt2-flag.p1 { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
 .tt2-flag.p0 { background: var(--ink-3); }
-.tt2-tt { flex: 1; min-width: 0; text-align: left; background: none; border: none; color: var(--ink); cursor: pointer; font-family: 'VT323', monospace; font-size: 17px; line-height: 1.25; display: flex; flex-direction: column; gap: 2px; padding: 0; }
+.tt2-tt { flex: 1; min-width: 0; text-align: left; background: none; border: none; color: var(--ink); cursor: pointer; font-family: 'RupeeFix', 'VT323', monospace; font-size: 17px; line-height: 1.25; display: flex; flex-direction: column; gap: 2px; padding: 0; }
 .tt2-tt:hover span:first-child { color: var(--pink); }
 .tt2-note { font-size: 13px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-.tt2-due { flex: none; font-family: 'VT323', monospace; font-size: 14px; color: var(--purple); border: 2px solid var(--border); border-radius: 2px; padding: 1px 6px; white-space: nowrap; }
+.tt2-due { flex: none; font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--purple); border: 2px solid var(--border); border-radius: 2px; padding: 1px 6px; white-space: nowrap; }
 .tt2-due.over { color: var(--red); border-color: var(--red); }
-.tt2-listtag { flex: none; font-family: 'VT323', monospace; font-size: 13px; color: var(--cyan); background: var(--panel-2); border-radius: 2px; padding: 1px 6px; white-space: nowrap; }
+.tt2-listtag { flex: none; font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; color: var(--cyan); background: var(--panel-2); border-radius: 2px; padding: 1px 6px; white-space: nowrap; }
 .tt2-gcal { color: var(--green); flex: none; }
 .tt2-meta { display: flex; gap: 6px; align-items: center; flex: none; }
 
@@ -846,7 +923,7 @@
 .tt2-kcard { border: 2px solid var(--border-bright); border-radius: 3px; background: var(--panel); padding: 9px; margin-bottom: 8px; cursor: grab; }
 .tt2-kcard:active { cursor: grabbing; }
 .tt2-kmeta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; padding-left: 28px; }
-.tt2-kempty { text-align: center; color: var(--ink-3); font-family: 'VT323', monospace; font-size: 14px; padding: 14px 0; opacity: .5; }
+.tt2-kempty { text-align: center; color: var(--ink-3); font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; padding: 14px 0; opacity: .5; }
 
 /* timeline */
 .tt2-timeline { border-left: 2px solid var(--border); margin-left: 8px; padding-left: 4px; }
@@ -861,11 +938,11 @@
 
 /* detail drawer */
 .tt2-detail { width: 100%; max-width: 460px; padding: 16px; }
-.tt2-dtitle { width: 100%; padding: 9px 10px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'VT323', monospace; font-size: 19px; margin-bottom: 8px; }
-.tt2-dnotes { width: 100%; min-height: 70px; padding: 9px 10px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'VT323', monospace; font-size: 16px; resize: vertical; margin-bottom: 8px; }
+.tt2-dtitle { width: 100%; padding: 9px 10px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 19px; margin-bottom: 8px; }
+.tt2-dnotes { width: 100%; min-height: 70px; padding: 9px 10px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 16px; resize: vertical; margin-bottom: 8px; }
 .tt2-drow { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .tt2-drow label { width: 70px; color: var(--ink-2); font-family: var(--font-pixel); font-size: 8px; text-transform: uppercase; margin: 0; }
-.tt2-drow input, .tt2-drow select { flex: 1; padding: 7px 9px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'VT323', monospace; font-size: 16px; }
+.tt2-drow input, .tt2-drow select { flex: 1; padding: 7px 9px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 16px; }
 
 @media (max-width: 820px) {
   .tt2 { display: block; }
@@ -915,9 +992,9 @@
 
 /* ---- Meal logger (Body tab) ---- */
 .meal-form { border-bottom: 2px dashed var(--border); padding-bottom: 12px; margin-bottom: 10px; }
-.meal-form > input { width: 100%; padding: 8px 10px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'VT323', monospace; font-size: 16px; }
+.meal-form > input { width: 100%; padding: 8px 10px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 16px; }
 .meal-macros { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
-.meal-macros input { width: 84px; flex: 1 1 84px; min-width: 64px; padding: 6px 8px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'VT323', monospace; font-size: 15px; }
+.meal-macros input { width: 84px; flex: 1 1 84px; min-width: 64px; padding: 6px 8px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; }
 .meal-macros .btn { flex: 0 0 auto; align-self: stretch; }
 .meal-row .chip { flex: none; }
 
@@ -932,21 +1009,21 @@
 .food-results { margin-top: 10px; max-height: 340px; overflow-y: auto; }
 .food-opt { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; padding: 9px 10px; border: none; border-bottom: 2px dashed var(--border); background: none; color: var(--ink); cursor: pointer; }
 .food-opt:hover { background: var(--panel-2); }
-.food-name { font-family: 'VT323', monospace; font-size: 16px; }
-.food-macro { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-2); }
+.food-name { font-family: 'RupeeFix', 'VT323', monospace; font-size: 16px; }
+.food-macro { font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-2); }
 
 /* micronutrient panel */
 .micro-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px 16px; }
 .micro-cell { }
-.micro-top { display: flex; justify-content: space-between; font-family: 'VT323', monospace; font-size: 15px; color: var(--ink); }
+.micro-top { display: flex; justify-content: space-between; font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; color: var(--ink); }
 .micro-val { color: var(--ink-2); }
 .micro-bar { height: 7px; border: 2px solid var(--border); border-radius: 3px; background: var(--bg-deep); margin: 3px 0; overflow: hidden; }
 .micro-bar span { display: block; height: 100%; border-radius: 2px; }
-.micro-tgt { font-family: 'VT323', monospace; font-size: 12px; color: var(--ink-3); }
+.micro-tgt { font-family: 'RupeeFix', 'VT323', monospace; font-size: 12px; color: var(--ink-3); }
 
 /* symptom search dropdown */
 .sym-drop { position: absolute; top: 44px; left: 0; right: 0; z-index: 30; background: var(--panel); border: 2px solid var(--border-bright); border-radius: 3px; max-height: 240px; overflow-y: auto; box-shadow: 0 8px 22px rgba(0,0,0,.5); }
-.sym-opt { display: block; width: 100%; text-align: left; padding: 8px 10px; border: none; border-bottom: 2px dashed var(--border); background: none; color: var(--ink); cursor: pointer; font-family: 'VT323', monospace; font-size: 15px; }
+.sym-opt { display: block; width: 100%; text-align: left; padding: 8px 10px; border: none; border-bottom: 2px dashed var(--border); background: none; color: var(--ink); cursor: pointer; font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; }
 .sym-opt:hover { background: var(--panel-2); color: var(--pink); }
 
 /* ---- Supplement shelf (Body tab) ---- */
@@ -956,8 +1033,8 @@
 .supp-tile:active:not(:disabled) { transform: translateY(1px); }
 .supp-tile:disabled { cursor: default; opacity: .55; }
 .supp-tile.on { background: var(--panel-2); color: var(--ink); }
-.supp-label { font-family: 'VT323', monospace; font-size: 15px; line-height: 1.1; text-align: center; }
-.supp-serving { font-family: 'VT323', monospace; font-size: 12px; color: var(--ink-3); text-align: center; line-height: 1.1; }
+.supp-label { font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; line-height: 1.1; text-align: center; }
+.supp-serving { font-family: 'RupeeFix', 'VT323', monospace; font-size: 12px; color: var(--ink-3); text-align: center; line-height: 1.1; }
 .supp-count { position: absolute; top: -6px; right: -6px; min-width: 17px; height: 17px; padding: 0 4px; display: flex; align-items: center; justify-content: center; font-family: var(--font-pixel); font-size: 8px; color: #0b0712; border-radius: 2px; box-shadow: 0 0 7px currentColor; }
 
 /* ---- Body history ---- */
@@ -1028,8 +1105,8 @@
 /* ---- Meetings (dashboard hub) ---- */
 .spread { display: flex; justify-content: space-between; align-items: center; }
 .meet-form { border-bottom: 2px dashed var(--border); padding-bottom: 10px; margin-bottom: 10px; }
-.meet-form input[type=text], .meet-form input:not([type]) { width: 100%; padding: 7px 9px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'VT323', monospace; font-size: 16px; }
-.meet-form input[type=date], .meet-form input[type=time], .meet-form select { padding: 5px 7px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'VT323', monospace; font-size: 15px; }
+.meet-form input[type=text], .meet-form input:not([type]) { width: 100%; padding: 7px 9px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 16px; }
+.meet-form input[type=date], .meet-form input[type=time], .meet-form select { padding: 5px 7px; border: 2px solid var(--border-bright); background: var(--bg-deep); color: var(--ink); border-radius: 2px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; }
 .meet-next { border: 2px solid var(--pink); border-radius: 3px; padding: 11px 12px; background: linear-gradient(135deg, rgba(255,95,162,.12), rgba(154,99,232,.06)); box-shadow: inset 0 0 18px rgba(255,95,162,.12); }
 .meet-next.live { border-color: var(--green); background: linear-gradient(135deg, rgba(47,208,107,.16), rgba(79,209,255,.06)); box-shadow: inset 0 0 20px rgba(47,208,107,.2); animation: meetPulse 1.6s ease-in-out infinite; }
 @keyframes meetPulse { 0%,100% { box-shadow: inset 0 0 20px rgba(47,208,107,.15); } 50% { box-shadow: inset 0 0 26px rgba(47,208,107,.35), 0 0 14px rgba(47,208,107,.25); } }
@@ -1059,10 +1136,10 @@
 .note-canvas { width: 100%; height: auto; aspect-ratio: 8/5; background: #12091b; border: 2px solid var(--border-bright); border-radius: 3px; touch-action: none; cursor: crosshair; display: block; }
 .note-canvas.white { background: #f4f1e8; }
 .note-pagebar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.note-pageno { font-family: 'VT323', monospace; font-size: 15px; color: var(--ink-2); }
+.note-pageno { font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; color: var(--ink-2); }
 .note-full { position: fixed; inset: 0; z-index: 200; background: var(--bg); padding: 10px; gap: 8px; }
 .note-full .note-canvas { flex: 1; height: auto; aspect-ratio: auto; min-height: 0; }
-.note-transcript { margin-top: 10px; max-height: 200px; overflow-y: auto; border: 2px solid var(--border-bright); border-radius: 3px; background: var(--bg-deep); padding: 10px 12px; font-family: 'VT323', monospace; font-size: 16px; line-height: 1.5; color: var(--ink); white-space: pre-wrap; }
+.note-transcript { margin-top: 10px; max-height: 200px; overflow-y: auto; border: 2px solid var(--border-bright); border-radius: 3px; background: var(--bg-deep); padding: 10px 12px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 16px; line-height: 1.5; color: var(--ink); white-space: pre-wrap; }
 .note-caret { animation: caretBlink 1s steps(1) infinite; color: var(--pink); }
 @keyframes caretBlink { 50% { opacity: 0; } }
 
@@ -1129,7 +1206,7 @@
 .plan-fin input {
   flex: 1 1 auto; min-width: 0; width: 100%;
   border: none; background: transparent; color: var(--ink);
-  font-family: 'VT323', monospace; font-size: 17px; padding: 5px 8px;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 17px; padding: 5px 8px;
 }
 .plan-fin input:focus { outline: none; }
 .plan-fsuffix { flex: none; font-size: 12px; color: var(--ink-3); }
@@ -1160,7 +1237,7 @@
 .plan-fin select {
   flex: 1 1 auto; min-width: 0; width: 100%;
   border: none; background: transparent; color: var(--ink);
-  font-family: 'VT323', monospace; font-size: 17px; padding: 5px 8px;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 17px; padding: 5px 8px;
   appearance: none; -webkit-appearance: none; cursor: pointer;
 }
 .plan-fin select:focus { outline: none; }
@@ -1522,7 +1599,7 @@
 .rb-tlabel { flex: 1; font-size: 14px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rb-tin {
   width: 58px; text-align: right; background: var(--panel-2); color: var(--ink);
-  border: 2px solid var(--border-bright); font-family: 'VT323', monospace; font-size: 16px; padding: 1px 4px;
+  border: 2px solid var(--border-bright); font-family: 'RupeeFix', 'VT323', monospace; font-size: 16px; padding: 1px 4px;
 }
 .rb-tpct { color: var(--ink-3); font-size: 13px; }
 .rb-table td, .rb-table th { white-space: nowrap; }
@@ -1556,7 +1633,7 @@
 .tx-rlabel { flex: 1; font-size: 14px; color: var(--ink-2);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tx-rin { width: 74px; text-align: right; background: var(--panel-2); color: var(--ink);
-  border: 2px solid var(--border-bright); font-family: 'VT323', monospace; font-size: 16px; padding: 1px 4px; }
+  border: 2px solid var(--border-bright); font-family: 'RupeeFix', 'VT323', monospace; font-size: 16px; padding: 1px 4px; }
 .tx-table td, .tx-table th { white-space: nowrap; }
 /* A bucket with nothing in it is dimmed rather than dropped: seeing that foreign
    long-term is empty is itself information about how the year was traded. */
@@ -1583,7 +1660,7 @@
 .est-tip {
   position: absolute; top: 8px; right: 10px; pointer-events: none;
   background: var(--panel-2); border: 2px solid var(--border-bright);
-  padding: 4px 8px; font-family: 'VT323', monospace; font-size: 15px;
+  padding: 4px 8px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px;
   color: var(--ink); line-height: 1.35; max-width: 62%;
 }
 .est-table td, .est-table th { white-space: nowrap; }
@@ -1621,7 +1698,7 @@
    never a bar sitting at the neutral line. A bar there would be a claim. */
 .fac-unmeasured {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-3);
   letter-spacing: .06em;
 }
 .fac-score { font-family: var(--font-pixel); font-size: 11px; text-align: right; }
@@ -1681,19 +1758,19 @@
   font-family: var(--font-pixel); font-size: 20px; letter-spacing: 1px;
   filter: drop-shadow(0 0 4px currentColor);
 }
-.rep-cov-txt { font-family: 'VT323', monospace; font-size: 15px; color: var(--ink-2); }
+.rep-cov-txt { font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; color: var(--ink-2); }
 .rep-cov-miss {
   margin-top: 6px; padding: 5px 8px;
   border-left: 3px solid var(--orange); background: rgba(255,159,28,.07);
-  font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-2);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-2);
 }
 .rep-fresh {
-  margin-top: 6px; font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3);
+  margin-top: 6px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-3);
 }
 .rep-fresh b { color: var(--ink); }
 .rep-disc {
   border: 2px dotted var(--border); padding: 7px 10px;
-  font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3); line-height: 1.35;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; color: var(--ink-3); line-height: 1.35;
 }
 
 .rep-sec { border: 2px solid var(--border); background: var(--panel); padding: 10px 12px; }
@@ -1707,12 +1784,12 @@
 }
 /* Decision 3: the stamp is header furniture at the same weight as the title,
    not small print at the bottom that stops being read. */
-.rep-sstamp { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3); }
+.rep-sstamp { font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-3); }
 .rep-ssrc {
-  font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3); margin-bottom: 4px;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; color: var(--ink-3); margin-bottom: 4px;
 }
 
-.rep-tbl { width: 100%; border-collapse: collapse; font-family: 'VT323', monospace; font-size: 15px; }
+.rep-tbl { width: 100%; border-collapse: collapse; font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; }
 .rep-tbl tr { border-bottom: 1px dotted var(--border); }
 .rep-tbl tr:last-child { border-bottom: none; }
 .rep-tbl td { padding: 3px 6px 3px 0; vertical-align: baseline; }
@@ -1724,10 +1801,10 @@
 .rep-held {
   margin-top: 7px; padding: 5px 8px;
   border-left: 3px solid var(--yellow); background: rgba(255,214,10,.06);
-  font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-2); line-height: 1.35;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; color: var(--ink-2); line-height: 1.35;
 }
 .rep-snote {
-  margin-top: 5px; font-family: 'VT323', monospace; font-size: 13px;
+  margin-top: 5px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px;
   color: var(--ink-3); line-height: 1.35;
 }
 
@@ -1741,10 +1818,10 @@
   color: var(--orange); font-family: var(--font-pixel); font-size: 9px; letter-spacing: 1px;
 }
 .rep-mwhy {
-  font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-2); line-height: 1.35;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-2); line-height: 1.35;
 }
 .rep-mfix {
-  margin-top: 5px; font-family: 'VT323', monospace; font-size: 14px;
+  margin-top: 5px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px;
   color: var(--green); filter: drop-shadow(0 0 3px var(--green));
 }
 
@@ -1770,13 +1847,13 @@
   font-family: var(--font-pixel); font-size: 9px; letter-spacing: 1px; color: var(--ink-3);
 }
 .da-total-v {
-  font-family: 'VT323', monospace; font-size: 21px; color: var(--green);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 21px; color: var(--green);
   filter: drop-shadow(0 0 4px var(--green));
 }
 
 .da-shape {
   display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin-top: 7px;
-  font-family: 'VT323', monospace; font-size: 14px;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px;
 }
 .da-shape-k { color: var(--ink-3); white-space: nowrap; }
 .da-shape-v { color: var(--ink); text-align: right; }
@@ -1784,14 +1861,14 @@
 .da-note {
   margin-top: 8px; padding: 5px 8px;
   border-left: 3px solid var(--border-bright); background: rgba(255,255,255,.03);
-  font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-2); line-height: 1.35;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; color: var(--ink-2); line-height: 1.35;
 }
 .da-warn {
   border-left-color: var(--orange); background: rgba(255,159,28,.08); color: var(--ink);
 }
 .da-single {
   padding: 8px 10px; border: 2px dashed var(--border-bright);
-  font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-2); line-height: 1.4;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-2); line-height: 1.4;
 }
 .da-single b { color: var(--purple); filter: drop-shadow(0 0 3px var(--purple)); }
 
@@ -1822,7 +1899,7 @@
 
 .fb-q {
   align-self: flex-end; max-width: 84%;
-  font-family: 'VT323', monospace; font-size: 17px; line-height: 1.25;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 17px; line-height: 1.25;
   color: var(--cyan); background: rgba(0,229,255,.07);
   border: 1px solid var(--cyan); border-right-width: 4px;
   padding: 5px 9px; filter: drop-shadow(0 0 3px rgba(0,229,255,.35));
@@ -1833,7 +1910,7 @@
   border-left: 4px solid var(--pink); padding: 10px 11px;
   display: flex; flex-direction: column; gap: 9px;
 }
-.fb-text { font-family: 'VT323', monospace; font-size: 18px; line-height: 1.3; color: var(--ink); white-space: pre-wrap; }
+.fb-text { font-family: 'RupeeFix', 'VT323', monospace; font-size: 18px; line-height: 1.3; color: var(--ink); white-space: pre-wrap; }
 
 /* Decision 3 — the loudest thing on the card, by design. */
 .fb-warn {
@@ -1844,14 +1921,14 @@
   font-family: var(--font-pixel); font-size: 10px; letter-spacing: 1px;
   color: var(--red); filter: drop-shadow(0 0 5px var(--red));
 }
-.fb-warn-x { font-family: 'VT323', monospace; font-size: 16px; line-height: 1.25; color: var(--ink); }
+.fb-warn-x { font-family: 'RupeeFix', 'VT323', monospace; font-size: 16px; line-height: 1.25; color: var(--ink); }
 .fb-warn-x b { color: var(--red); }
 
 .fb-foot {
   display: flex; justify-content: space-between; align-items: center; gap: 8px;
   border-top: 1px dotted var(--border); padding-top: 6px;
 }
-.fb-verd { font-family: 'VT323', monospace; font-size: 14px; color: var(--orange); }
+.fb-verd { font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--orange); }
 .fb-verd.ok { color: var(--green); }
 .fb-prov { font-family: var(--font-pixel); font-size: 8px; letter-spacing: .5px; color: var(--ink-3); }
 
@@ -1863,8 +1940,8 @@
   border-left: 2px solid var(--border-bright); padding: 3px 0 3px 7px;
 }
 .fb-cite-t { font-family: var(--font-pixel); font-size: 8px; color: var(--purple); letter-spacing: .5px; }
-.fb-cite-x { font-family: 'VT323', monospace; font-size: 15px; line-height: 1.2; color: var(--ink-2); }
-.fb-cite-at { font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3); white-space: nowrap; }
+.fb-cite-x { font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; line-height: 1.2; color: var(--ink-2); }
+.fb-cite-at { font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; color: var(--ink-3); white-space: nowrap; }
 .fb-cite-unknown { color: var(--orange); }
 
 /* Decision 1 — answer weight, not error weight. */
@@ -1876,47 +1953,47 @@
   font-family: var(--font-pixel); font-size: 11px; letter-spacing: 1px;
   color: var(--orange); filter: drop-shadow(0 0 4px currentColor);
 }
-.fb-why { font-family: 'VT323', monospace; font-size: 17px; line-height: 1.3; color: var(--ink); }
+.fb-why { font-family: 'RupeeFix', 'VT323', monospace; font-size: 17px; line-height: 1.3; color: var(--ink); }
 .fb-fix {
-  font-family: 'VT323', monospace; font-size: 15px; line-height: 1.25; color: var(--ink-2);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; line-height: 1.25; color: var(--ink-2);
   border: 1px dashed var(--border-bright); padding: 6px 8px;
 }
 .fb-err { border-left-color: var(--red); }
 .fb-err .fb-refuse-k { color: var(--red); }
 
 .fb-quote { border-left-color: var(--green); }
-.fb-lead { font-family: 'VT323', monospace; font-size: 17px; color: var(--green); filter: drop-shadow(0 0 3px var(--green)); }
+.fb-lead { font-family: 'RupeeFix', 'VT323', monospace; font-size: 17px; color: var(--green); filter: drop-shadow(0 0 3px var(--green)); }
 .fb-rows { display: flex; flex-direction: column; gap: 5px; }
 .fb-row {
   display: grid; grid-template-columns: 82px 1fr auto; gap: 8px; align-items: baseline;
   border-left: 2px solid var(--green); padding: 4px 0 4px 7px;
 }
 .fb-row-t { font-family: var(--font-pixel); font-size: 8px; color: var(--purple); letter-spacing: .5px; }
-.fb-row-x { font-family: 'VT323', monospace; font-size: 16px; line-height: 1.25; color: var(--ink); }
-.fb-row-at { font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3); white-space: nowrap; }
-.fb-tail { font-family: 'VT323', monospace; font-size: 14px; line-height: 1.25; color: var(--ink-3); }
+.fb-row-x { font-family: 'RupeeFix', 'VT323', monospace; font-size: 16px; line-height: 1.25; color: var(--ink); }
+.fb-row-at { font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; color: var(--ink-3); white-space: nowrap; }
+.fb-tail { font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; line-height: 1.25; color: var(--ink-3); }
 .fb-hits-count { display: none; }
 
 .fb-empty { display: flex; flex-direction: column; gap: 9px; padding: 8px 2px; }
-.fb-empty-h { font-family: 'VT323', monospace; font-size: 16px; color: var(--ink-2); }
+.fb-empty-h { font-family: 'RupeeFix', 'VT323', monospace; font-size: 16px; color: var(--ink-2); }
 .fb-sugg { display: flex; flex-wrap: wrap; gap: 6px; }
 .fb-sugg-b {
-  font-family: 'VT323', monospace; font-size: 15px; color: var(--cyan);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; color: var(--cyan);
   background: transparent; border: 1px dashed var(--cyan); padding: 3px 8px; cursor: pointer;
 }
 .fb-sugg-b:hover { background: rgba(0,229,255,.1); }
-.fb-busy { font-family: 'VT323', monospace; font-size: 15px; color: var(--pink); }
+.fb-busy { font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; color: var(--pink); }
 
 .fb-ask { display: flex; gap: 8px; margin-top: 10px; }
 .fb-in {
-  flex: 1; font-family: 'VT323', monospace; font-size: 18px; color: var(--ink);
+  flex: 1; font-family: 'RupeeFix', 'VT323', monospace; font-size: 18px; color: var(--ink);
   background: var(--bg-deep); border: 2px solid var(--border); padding: 6px 9px;
 }
 .fb-in:focus { outline: none; border-color: var(--pink); filter: drop-shadow(0 0 4px rgba(255,77,166,.4)); }
 
 /* Decision 4 — the price of the press, before the press. */
 .fb-cost {
-  margin-top: 6px; font-family: 'VT323', monospace; font-size: 14px;
+  margin-top: 6px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px;
   color: var(--ink-3); border-top: 1px dotted var(--border); padding-top: 6px;
 }
 
@@ -2123,7 +2200,7 @@
   color: var(--ink-3); margin-bottom: 3px;
 }
 .exp-saves-v {
-  font-family: 'VT323', monospace; font-size: 24px; line-height: 1;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 24px; line-height: 1;
   color: var(--ink); margin-bottom: 2px;
 }
 
@@ -2151,7 +2228,7 @@
   align-items: center; gap: 7px;
   padding: 4px 6px;
   border: 1px solid transparent;
-  font-family: 'VT323', monospace; font-size: 15px;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px;
 }
 .ov-row:nth-child(odd) { background: rgba(255, 255, 255, 0.025); }
 .ov-row.click { cursor: pointer; }
@@ -2201,7 +2278,7 @@
   color: var(--ink-3);
 }
 .ov-conc-v {
-  font-family: 'VT323', monospace; font-size: 20px; line-height: 1; color: var(--ink);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 20px; line-height: 1; color: var(--ink);
 }
 
 /* Coverage is orange when partial, not red. An incomplete data entry is a
@@ -2240,7 +2317,7 @@
 
 .gm-disclaimer {
   margin: 0 0 2px; padding: 8px 10px;
-  font-family: 'VT323', monospace; font-size: 14px; line-height: 1.35;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; line-height: 1.35;
   color: var(--ink-2); background: var(--panel-2);
   border: 1px dashed var(--border); border-radius: 3px;
 }
@@ -2254,17 +2331,17 @@
   filter: drop-shadow(0 0 5px currentColor);
 }
 .gm-head-l {
-  font-family: 'VT323', monospace; font-size: 13px;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px;
   color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em;
 }
 .gm-head-sep { font-family: var(--font-pixel); font-size: 22px; color: var(--border-bright); align-self: center; }
 .gm-head-note {
-  margin: 8px 0 0; font-family: 'VT323', monospace; font-size: 15px; color: var(--ink-2);
+  margin: 8px 0 0; font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; color: var(--ink-2);
 }
 
 .gm-msg {
   margin: 8px 0 0; padding: 6px 9px;
-  font-family: 'VT323', monospace; font-size: 14px; color: var(--yellow);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--yellow);
   border-left: 3px solid var(--yellow); background: var(--panel-2);
 }
 
@@ -2282,13 +2359,13 @@
 .gm-sess-id { font-family: var(--font-pixel); font-size: 11px; letter-spacing: 0.05em; }
 .gm-sess-dot { width: 7px; height: 7px; border-radius: 50%; image-rendering: pixelated; }
 .gm-sess-city, .gm-sess-hours {
-  font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3); margin-top: 3px;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; color: var(--ink-3); margin-top: 3px;
 }
 .gm-sess-phase {
-  font-family: 'VT323', monospace; font-size: 13px; margin-top: 4px;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; margin-top: 4px;
   text-transform: uppercase; letter-spacing: 0.04em;
 }
-.gm-sess-dst { font-family: 'VT323', monospace; font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+.gm-sess-dst { font-family: 'RupeeFix', 'VT323', monospace; font-size: 12px; color: var(--ink-3); margin-top: 2px; }
 
 .gm-filter { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 8px; }
 
@@ -2315,18 +2392,18 @@
 .gm-row-mark { width: 6px; height: 22px; border-radius: 1px; image-rendering: pixelated; flex: 0 0 auto; }
 .gm-row-id { display: flex; flex-direction: column; gap: 1px; min-width: 128px; flex: 1 1 auto; }
 .gm-row-short { font-family: var(--font-pixel); font-size: 11px; letter-spacing: 0.04em; }
-.gm-row-label { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink); }
-.gm-row-ex { font-family: 'VT323', monospace; font-size: 12px; color: var(--ink-3); }
+.gm-row-label { font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink); }
+.gm-row-ex { font-family: 'RupeeFix', 'VT323', monospace; font-size: 12px; color: var(--ink-3); }
 
 .gm-spark { flex: 0 0 auto; image-rendering: pixelated; }
 
 .gm-row-val { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; min-width: 96px; }
 .gm-row-num { font-family: var(--font-pixel); font-size: 13px; color: var(--ink); }
-.gm-row-chg { font-family: 'VT323', monospace; font-size: 13px; }
+.gm-row-chg { font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; }
 
 .gm-row-state { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; min-width: 84px; }
-.gm-row-age { font-family: 'VT323', monospace; font-size: 12px; color: var(--ink-3); }
-.gm-row-caret { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3); flex: 0 0 auto; }
+.gm-row-age { font-family: 'RupeeFix', 'VT323', monospace; font-size: 12px; color: var(--ink-3); }
+.gm-row-caret { font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-3); flex: 0 0 auto; }
 
 .gm-chip {
   display: inline-block; padding: 1px 6px;
@@ -2344,37 +2421,37 @@
   background: var(--bg-deep);
 }
 .gm-why-text {
-  margin: 0; font-family: 'VT323', monospace; font-size: 15px;
+  margin: 0; font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px;
   line-height: 1.4; color: var(--ink);
 }
 .gm-why-remedy {
-  margin: 6px 0 0; font-family: 'VT323', monospace; font-size: 14px;
+  margin: 6px 0 0; font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px;
   color: var(--cyan); line-height: 1.4;
 }
 .gm-why-facts {
   display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px;
-  font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; color: var(--ink-3);
 }
 .gm-why-facts b { color: var(--ink-2); font-weight: normal; text-transform: uppercase; font-size: 11px; }
 .gm-why-flag {
   margin: 8px 0 0; padding: 5px 8px;
-  font-family: 'VT323', monospace; font-size: 14px; color: var(--orange);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--orange);
   border-left: 3px solid var(--orange); background: var(--panel-2);
 }
 .gm-why-caveat {
-  margin: 8px 0 0; font-family: 'VT323', monospace; font-size: 12px;
+  margin: 8px 0 0; font-family: 'RupeeFix', 'VT323', monospace; font-size: 12px;
   color: var(--ink-3); line-height: 1.35; font-style: italic;
 }
 
 .gm-foot {
-  margin: 12px 0 0; font-family: 'VT323', monospace; font-size: 14px;
+  margin: 12px 0 0; font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px;
   color: var(--ink-3); line-height: 1.4;
 }
 
 /* --- instruments: priced-by-what --- */
 .gm-inst { display: block; }
 .gm-inst-note {
-  margin: 0 0 10px; font-family: 'VT323', monospace; font-size: 15px; color: var(--ink-2);
+  margin: 0 0 10px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; color: var(--ink-2);
 }
 .gm-inst-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
 .gm-inst-row {
@@ -2383,13 +2460,13 @@
 }
 .gm-inst-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .gm-inst-label { font-family: var(--font-pixel); font-size: 10px; color: var(--ink); letter-spacing: 0.04em; }
-.gm-inst-region { font-family: 'VT323', monospace; font-size: 12px; color: var(--ink-3); }
+.gm-inst-region { font-family: 'RupeeFix', 'VT323', monospace; font-size: 12px; color: var(--ink-3); }
 .gm-inst-how {
-  margin-top: 5px; font-family: 'VT323', monospace; font-size: 13px;
+  margin-top: 5px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px;
   text-transform: uppercase; letter-spacing: 0.04em;
 }
 .gm-inst-desc {
-  margin-top: 3px; font-family: 'VT323', monospace; font-size: 13px;
+  margin-top: 3px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px;
   color: var(--ink-3); line-height: 1.35;
 }
 
@@ -2408,11 +2485,11 @@
 
 .acc-disclaimer {
   margin: 0; padding: 8px 10px;
-  font-family: 'VT323', monospace; font-size: 14px; line-height: 1.35;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; line-height: 1.35;
   color: var(--ink-2); background: var(--panel-2);
   border: 1px dashed var(--border); border-radius: 3px;
 }
-.acc-loading { font-family: 'VT323', monospace; font-size: 15px; color: var(--ink-3); }
+.acc-loading { font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; color: var(--ink-3); }
 
 .acc-seg { margin-bottom: 10px; }
 
@@ -2420,7 +2497,7 @@
    and not visually a footnote. */
 .acc-scope-note {
   margin: 0 0 10px; padding: 7px 10px;
-  font-family: 'VT323', monospace; font-size: 15px; line-height: 1.35;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; line-height: 1.35;
   color: var(--yellow); background: color-mix(in srgb, var(--yellow) 8%, var(--panel-2));
   border-left: 3px solid var(--yellow); border-radius: 2px;
 }
@@ -2430,13 +2507,13 @@
 
 .acc-warn {
   margin: 0 0 10px; padding: 7px 10px;
-  font-family: 'VT323', monospace; font-size: 14px; line-height: 1.35;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; line-height: 1.35;
   color: var(--orange); border-left: 3px solid var(--orange); background: var(--panel-2);
 }
 
 .acc-zero { padding: 6px 0; }
 .acc-zero-txt {
-  margin: 0 0 10px; font-family: 'VT323', monospace; font-size: 15px;
+  margin: 0 0 10px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px;
   line-height: 1.4; color: var(--ink-2); max-width: 60ch;
 }
 
@@ -2457,23 +2534,23 @@
 .acc-card-head:hover { background: color-mix(in srgb, var(--cyan) 6%, transparent); }
 .acc-card-id { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 120px; }
 .acc-card-label { font-family: var(--font-pixel); font-size: 11px; letter-spacing: 0.04em; }
-.acc-card-kind { font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3); }
+.acc-card-kind { font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; color: var(--ink-3); }
 .acc-card-nums { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; min-width: 100px; }
 .acc-card-val { font-family: var(--font-pixel); font-size: 12px; color: var(--ink); }
-.acc-card-share { font-family: 'VT323', monospace; font-size: 12px; color: var(--ink-3); }
-.acc-card-ret { font-family: 'VT323', monospace; font-size: 14px; min-width: 80px; text-align: right; }
+.acc-card-share { font-family: 'RupeeFix', 'VT323', monospace; font-size: 12px; color: var(--ink-3); }
+.acc-card-ret { font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; min-width: 80px; text-align: right; }
 .acc-card-nocost { font-size: 12px; color: var(--ink-3); }
-.acc-card-caret { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3); }
+.acc-card-caret { font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-3); }
 
 .acc-card-body { padding: 10px 12px 12px; border-top: 1px dashed var(--border); background: var(--bg-deep); }
 .acc-card-note, .acc-card-kindnote {
-  margin: 0 0 8px; font-family: 'VT323', monospace; font-size: 14px;
+  margin: 0 0 8px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px;
   color: var(--ink-2); line-height: 1.35;
 }
 .acc-card-kindnote { color: var(--ink-3); font-style: italic; }
 .acc-card-warn {
   margin: 0 0 8px; padding: 5px 8px;
-  font-family: 'VT323', monospace; font-size: 13px; color: var(--orange);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; color: var(--orange);
   border-left: 3px solid var(--orange); background: var(--panel-2);
 }
 .acc-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 10px; }
@@ -2483,7 +2560,7 @@
   display: flex; align-items: center; gap: 10px;
   padding: 4px 8px; background: var(--panel-2);
   border: 1px solid var(--border); border-radius: 2px;
-  font-family: 'VT323', monospace; font-size: 14px;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px;
 }
 .acc-hold-t { flex: 1 1 auto; color: var(--ink); }
 .acc-hold-v { color: var(--ink-2); min-width: 84px; text-align: right; }
@@ -2492,13 +2569,13 @@
 .acc-card-btns { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .acc-confirm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .acc-confirm-txt {
-  font-family: 'VT323', monospace; font-size: 13px; color: var(--yellow);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; color: var(--yellow);
   max-width: 44ch; line-height: 1.3;
 }
 
 .acc-conc {
   margin: 12px 0 0; padding: 8px 10px;
-  font-family: 'VT323', monospace; font-size: 14px; line-height: 1.4;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; line-height: 1.4;
   color: var(--ink-2); border: 1px dashed var(--border); border-radius: 3px;
 }
 
@@ -2516,24 +2593,24 @@
 }
 .acc-in {
   flex: 1 1 160px; padding: 5px 7px;
-  font-family: 'VT323', monospace; font-size: 15px;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px;
   color: var(--ink); background: var(--bg-deep);
   border: 1px solid var(--border); border-radius: 2px;
 }
 .acc-in:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 5px var(--cyan); }
 .acc-kind-note {
-  margin: -2px 0 10px; font-family: 'VT323', monospace; font-size: 13px; line-height: 1.35;
+  margin: -2px 0 10px; font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; line-height: 1.35;
 }
 .acc-form-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .acc-caveat {
-  margin: 10px 0 0; font-family: 'VT323', monospace; font-size: 13px;
+  margin: 10px 0 0; font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px;
   color: var(--ink-3); line-height: 1.35; max-width: 66ch;
 }
 
 /* --- assigner --- */
 .acc-assign-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
 .acc-search { flex: 0 1 200px; }
-.acc-assign-left { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3); }
+.acc-assign-left { font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-3); }
 .acc-assign-rows { display: flex; flex-direction: column; gap: 4px; }
 .acc-arow {
   display: flex; align-items: center; gap: 10px;
@@ -2543,7 +2620,7 @@
 /* Same signal as the pile card: dashed means "not filed yet". */
 .acc-arow-loose { border-left: 3px dashed var(--ink-3); }
 .acc-arow-t { font-family: var(--font-pixel); font-size: 10px; color: var(--ink); flex: 1 1 auto; }
-.acc-arow-v { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-2); min-width: 84px; text-align: right; }
+.acc-arow-v { font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-2); min-width: 84px; text-align: right; }
 .acc-sel { flex: 0 1 160px; }
 
 @media (max-width: 620px) {
@@ -2560,7 +2637,7 @@
    a left bar rather than a fill so a long list does not become a wall of green. */
 
 .wa-lede {
-  font-family: 'VT323', monospace; font-size: 15px; line-height: 1.35;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; line-height: 1.35;
   color: var(--ink-2); margin: 0 0 10px;
 }
 
@@ -2569,7 +2646,7 @@
 .wa-how { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
 .wa-how-step {
   display: flex; align-items: flex-start; gap: 8px;
-  font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-2); line-height: 1.3;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-2); line-height: 1.3;
 }
 .wa-how-n {
   flex: 0 0 auto; width: 16px; height: 16px; margin-top: 1px;
@@ -2583,7 +2660,7 @@
 .wa-paste { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .wa-textarea {
   width: 100%; resize: vertical; padding: 8px;
-  font-family: 'VT323', monospace; font-size: 14px; line-height: 1.3;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; line-height: 1.3;
   color: var(--ink); background: var(--bg-deep);
   border: 1px solid var(--border); border-radius: 2px;
 }
@@ -2600,21 +2677,21 @@
   background: var(--panel-2); border: 1px solid var(--border);
   border-left: 3px solid var(--green); border-radius: 2px;
 }
-.wa-meta-line { font-family: 'VT323', monospace; font-size: 15px; color: var(--ink); line-height: 1.3; }
+.wa-meta-line { font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; color: var(--ink); line-height: 1.3; }
 .wa-meta-dim { color: var(--ink-3); font-size: 14px; }
-.wa-note { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3); margin: 5px 0 0; line-height: 1.3; }
+.wa-note { font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-3); margin: 5px 0 0; line-height: 1.3; }
 /* An admission, not a statement of fact. Coloured so the difference is visible
    without reading the sentence. */
 .wa-note-warn { color: var(--yellow); }
 
 .wa-err {
-  font-family: 'VT323', monospace; font-size: 15px; color: var(--red);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; color: var(--red);
   padding: 7px 9px; margin: 8px 0 0;
   background: color-mix(in srgb, var(--red) 10%, transparent);
   border: 1px dashed var(--red); border-radius: 2px;
 }
 .wa-done {
-  font-family: 'VT323', monospace; font-size: 15px; color: var(--green);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; color: var(--green);
   padding: 7px 9px; margin: 8px 0 0;
   background: color-mix(in srgb, var(--green) 10%, transparent);
   border: 1px solid var(--green); border-radius: 2px;
@@ -2632,12 +2709,12 @@
 }
 .wa-tab:hover { color: var(--ink); border-color: var(--border-bright); }
 .wa-tab.on { background: var(--bg-deep); filter: drop-shadow(0 0 4px currentColor); }
-.wa-tab-n { font-family: 'VT323', monospace; font-size: 13px; opacity: 0.8; }
+.wa-tab-n { font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; opacity: 0.8; }
 
 .wa-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .wa-cal {
   display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
-  font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-2);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-2);
 }
 .wa-cal input { accent-color: var(--cyan); }
 
@@ -2670,7 +2747,7 @@
   font-family: var(--font-pixel); font-size: 8px; color: var(--orange);
   border: 1px solid var(--orange); border-radius: 2px; padding: 2px 4px;
 }
-.wa-who { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-family: 'VT323', monospace; font-size: 13px; }
+.wa-who { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; }
 .wa-when { color: var(--ink-3); }
 .wa-author { color: var(--ink-2); }
 .wa-copies { color: var(--purple); }
@@ -2684,7 +2761,7 @@
    trusted or ignored wholesale. */
 .wa-sigs { display: flex; gap: 4px; flex-wrap: wrap; }
 .wa-sig {
-  font-family: 'VT323', monospace; font-size: 12px; color: var(--cyan);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 12px; color: var(--cyan);
   background: color-mix(in srgb, var(--cyan) 9%, transparent);
   border: 1px solid color-mix(in srgb, var(--cyan) 35%, transparent);
   border-radius: 2px; padding: 1px 5px;
@@ -2692,7 +2769,7 @@
 
 .wa-dl {
   display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
-  font-family: 'VT323', monospace; font-size: 13px;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px;
   padding: 3px 6px; border-radius: 2px;
   border: 1px solid var(--green);
   background: color-mix(in srgb, var(--green) 8%, transparent);
@@ -2706,7 +2783,7 @@
 
 .wa-links { display: flex; gap: 6px; flex-wrap: wrap; }
 .wa-link {
-  font-family: 'VT323', monospace; font-size: 13px; color: var(--cyan); text-decoration: none;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; color: var(--cyan); text-decoration: none;
   border-bottom: 1px dotted var(--cyan);
 }
 .wa-link:hover { filter: drop-shadow(0 0 4px var(--cyan)); }
@@ -2715,7 +2792,7 @@
   display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
   margin-top: 10px; padding-top: 9px; border-top: 1px dashed var(--border);
 }
-.wa-count { font-family: 'VT323', monospace; font-size: 15px; color: var(--ink-2); }
+.wa-count { font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; color: var(--ink-2); }
 
 /* The bin is styled as a drawer, not a footnote — collapsed by default, but a
    wrongly-filtered registration link is the one failure this cannot recover
@@ -2724,7 +2801,7 @@
 .wa-noise-list { display: flex; flex-direction: column; gap: 2px; margin-top: 7px; max-height: 220px; overflow-y: auto; }
 .wa-noise-row {
   display: flex; gap: 8px; align-items: baseline;
-  font-family: 'VT323', monospace; font-size: 13px; line-height: 1.25;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; line-height: 1.25;
   padding: 2px 6px; background: var(--bg-deep); border-radius: 2px;
 }
 .wa-noise-who { flex: 0 0 auto; color: var(--ink-3); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2733,7 +2810,7 @@
 
 .wa-reset { margin-top: 10px; }
 .wa-disc {
-  font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3); line-height: 1.3;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; color: var(--ink-3); line-height: 1.3;
   margin: 12px 0 0; padding-top: 8px; border-top: 1px dotted var(--border);
 }
 
@@ -2758,7 +2835,7 @@
 .snt-zone { font-family: var(--font-pixel); font-size: 15px; letter-spacing: 1px; filter: drop-shadow(0 0 5px currentColor); }
 /* The sample size, not a footnote. Same family and near the same weight as the
    number it qualifies. */
-.snt-basis { font-family: 'VT323', monospace; font-size: 15px; color: var(--ink-2); line-height: 1.3; margin: 0; }
+.snt-basis { font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; color: var(--ink-2); line-height: 1.3; margin: 0; }
 .snt-dim { color: var(--ink-3); font-size: 14px; }
 .snt-count {
   font-family: var(--font-pixel); font-size: 8px; color: var(--cyan);
@@ -2766,9 +2843,9 @@
 }
 
 .snt-load { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
-.snt-busy { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3); }
+.snt-busy { font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-3); }
 .snt-err {
-  font-family: 'VT323', monospace; font-size: 14px; color: var(--red);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--red);
   border: 1px dashed var(--red); border-radius: 2px; padding: 5px 7px; margin: 4px 0 0;
 }
 
@@ -2790,17 +2867,17 @@
 .snt-row-label { font-family: var(--font-pixel); font-size: 9px; color: var(--ink); flex: 1 1 auto; }
 .snt-row-score { font-family: var(--font-pixel); font-size: 13px; color: var(--ink); }
 .snt-narrow {
-  font-family: 'VT323', monospace; font-size: 12px; color: var(--yellow);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 12px; color: var(--yellow);
   border: 1px dashed var(--yellow); border-radius: 2px; padding: 0 4px;
 }
-.snt-why { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3); margin: 4px 0 0; line-height: 1.25; }
-.snt-detail { font-family: 'VT323', monospace; font-size: 15px; color: var(--ink-2); margin: 4px 0 0; line-height: 1.25; }
+.snt-why { font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-3); margin: 4px 0 0; line-height: 1.25; }
+.snt-detail { font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; color: var(--ink-2); margin: 4px 0 0; line-height: 1.25; }
 
 /* The audit strip. Small, but never hidden behind a hover — a band you have to
    discover is a band nobody checks. */
 .snt-band {
   display: grid; grid-template-columns: auto 1fr; gap: 1px 8px; margin-top: 6px;
-  font-family: 'VT323', monospace; font-size: 13px;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px;
 }
 .snt-band-lbl { color: var(--ink-3); }
 .snt-band-val { color: var(--ink-2); }
@@ -2809,7 +2886,7 @@
 .snt-meter-fill { height: 100%; background: var(--cyan); filter: drop-shadow(0 0 4px var(--cyan)); }
 
 .snt-disc {
-  font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3); line-height: 1.3;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; color: var(--ink-3); line-height: 1.3;
   margin: 12px 0 0; padding-top: 8px; border-top: 1px dotted var(--border);
 }
 
@@ -2826,7 +2903,7 @@
 }
 .snt-mv-h.up { color: var(--green); }
 .snt-mv-h.down { color: var(--red); }
-.snt-mv-none { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3); margin: 4px 0 0; }
+.snt-mv-none { font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-3); margin: 4px 0 0; }
 
 .snt-mv {
   display: flex; align-items: baseline; gap: 7px; min-width: 0;
@@ -2836,14 +2913,14 @@
 .snt-mv-t { font-family: var(--font-pixel); font-size: 9px; color: var(--ink); flex: 0 0 auto; }
 .snt-mv-held { color: var(--orange); font-size: 11px; flex: 0 0 auto; }
 .snt-mv-n {
-  font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; color: var(--ink-3);
   flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.snt-mv-p { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-2); flex: 0 0 auto; }
+.snt-mv-p { font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-2); flex: 0 0 auto; }
 .snt-mv-c { font-family: var(--font-pixel); font-size: 8px; flex: 0 0 auto; }
 .snt-mv-c.up { color: var(--green); }
 .snt-mv-c.down { color: var(--red); }
-.snt-note { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-3); margin: 9px 0 0; line-height: 1.3; }
+.snt-note { font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-3); margin: 9px 0 0; line-height: 1.3; }
 
 @media (max-width: 620px) {
   .snt-top { justify-content: center; }
@@ -3270,11 +3347,11 @@
    instruction with no words in it. */
 .bf { display: flex; flex-direction: column; gap: 12px; }
 .bf-intro {
-  font-family: 'VT323', monospace; font-size: 15px; line-height: 1.45;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; line-height: 1.45;
   color: var(--ink-2); border-bottom: 1px dashed var(--border);
   padding-bottom: 8px; margin-bottom: 10px;
 }
-.bf-sortnote { font-family: 'VT323', monospace; font-size: 12px; color: var(--ink-3); }
+.bf-sortnote { font-family: 'RupeeFix', 'VT323', monospace; font-size: 12px; color: var(--ink-3); }
 
 .bf-rows { display: flex; flex-direction: column; gap: 8px; }
 .bf-row {
@@ -3289,7 +3366,7 @@
   color: var(--ink-2); text-transform: uppercase;
 }
 .bf-sev {
-  margin-left: auto; font-family: 'VT323', monospace; font-size: 13px;
+  margin-left: auto; font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px;
   letter-spacing: 0.5px; white-space: nowrap;
 }
 .bf-basis {
@@ -3298,11 +3375,11 @@
   white-space: nowrap;
 }
 .bf-head {
-  font-family: 'VT323', monospace; font-size: 17px; line-height: 1.3;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 17px; line-height: 1.3;
   margin-bottom: 3px; text-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
 }
 .bf-detail {
-  font-family: 'VT323', monospace; font-size: 14px; line-height: 1.45;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; line-height: 1.45;
   color: var(--ink-2);
 }
 .bf-foot {
@@ -3310,14 +3387,14 @@
   padding-top: 6px; border-top: 1px dashed var(--border);
 }
 .bf-cite {
-  flex: 1; font-family: 'VT323', monospace; font-size: 12px;
+  flex: 1; font-family: 'RupeeFix', 'VT323', monospace; font-size: 12px;
   line-height: 1.4; color: var(--ink-3);
 }
 .bf-go { flex-shrink: 0; align-self: center; }
 
 /* Decision 1: the absences are a panel, never a chevron. */
 .bf-skip-why {
-  font-family: 'VT323', monospace; font-size: 14px; line-height: 1.45;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; line-height: 1.45;
   color: var(--ink-2); border-bottom: 1px dashed var(--border);
   padding-bottom: 8px; margin-bottom: 8px;
 }
@@ -3331,7 +3408,7 @@
   font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1.5px;
   color: var(--ink-3); text-transform: uppercase; min-width: 92px;
 }
-.bf-skip-txt { font-family: 'VT323', monospace; font-size: 14px; color: var(--ink-2); flex: 1; }
+.bf-skip-txt { font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; color: var(--ink-2); flex: 1; }
 .bf-skip-bad {
   font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1px;
   color: var(--red); filter: drop-shadow(0 0 3px var(--red));
@@ -3339,10 +3416,10 @@
 
 .bf-legend { display: flex; flex-direction: column; gap: 7px; }
 .bf-legend-row { display: flex; gap: 10px; align-items: flex-start; }
-.bf-legend-txt { font-family: 'VT323', monospace; font-size: 14px; line-height: 1.4; color: var(--ink-2); flex: 1; }
+.bf-legend-txt { font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; line-height: 1.4; color: var(--ink-2); flex: 1; }
 .bf-foot-note {
   margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border);
-  font-family: 'VT323', monospace; font-size: 13px; line-height: 1.45; color: var(--ink-3);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 13px; line-height: 1.45; color: var(--ink-3);
 }
 
 @media (max-width: 560px) {
@@ -3479,4 +3556,363 @@
   .lv-rung{ flex-wrap:wrap; gap:4px 9px; }
   .lv-rung-amt, .lv-rung-to, .lv-rung-m, .lv-rung-y{ flex:0 0 auto; text-align:left; }
   .lv-rung-bar{ order:5; flex:1 1 100%; }
+}
+
+/* ---- Returns vs benchmark: the headline block ----------------------------
+   Modelled on the way a broker app frames it - a tab pair, then two amounts
+   facing each other across a VS, then the chart, then the range pills centred
+   underneath. The retro part is doing all of that with square corners, a pixel
+   face and a scanline-friendly underline instead of a rounded pill. */
+.vsb-tabs {
+  display: flex; gap: 18px; align-items: center;
+  border-bottom: 2px solid var(--border);
+  margin: 0 0 14px;
+}
+.vsb-tab {
+  background: none; border: none; cursor: pointer;
+  font-family: 'RupeeFix', var(--font-pixel); font-size: 8px; letter-spacing: 1px;
+  color: var(--ink-3); padding: 8px 2px 9px; position: relative;
+}
+.vsb-tab:hover { color: var(--ink-2); }
+.vsb-tab.on { color: var(--cyan); text-shadow: 0 0 8px var(--cyan); }
+.vsb-tab.on::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px;
+  background: var(--cyan); box-shadow: 0 0 6px var(--cyan);
+}
+
+.vsb-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 12px;
+}
+.vsb-side { min-width: 0; }
+.vsb-right { text-align: right; }
+.vsb-name {
+  display: flex; align-items: center; gap: 7px;
+  font-family: 'RupeeFix', var(--font-body); font-size: 14px; color: var(--ink-2);
+}
+.vsb-right .vsb-name { justify-content: flex-end; }
+.vsb-name i { width: 9px; height: 9px; display: inline-block; flex: 0 0 auto; }
+.vsb-val {
+  font-family: 'RupeeFix', var(--font-body);
+  font-size: 24px; line-height: 1.15; margin: 3px 0 1px;
+  text-shadow: 0 0 10px currentColor;
+}
+.vsb-sub { font-family: 'RupeeFix', var(--font-body); font-size: 13px; color: var(--ink-3); }
+.vsb-vs {
+  font-family: 'RupeeFix', var(--font-pixel); font-size: 8px;
+  color: var(--ink-3); flex: 0 0 auto; padding: 0 4px;
+}
+
+/* The index picker. A bare <select> inherits none of the arcade look, so it is
+   restyled rather than replaced - a custom dropdown would lose the native
+   picker on a phone, which is where this screen is actually read. */
+.vsb-select {
+  background: var(--panel-2); border: 2px solid var(--border);
+  font-family: 'RupeeFix', var(--font-body); font-size: 14px;
+  padding: 1px 4px; cursor: pointer; border-radius: 2px;
+  max-width: 150px;
+}
+.vsb-select:focus { outline: none; border-color: var(--border-bright); }
+
+.vsb-caption {
+  font-family: 'RupeeFix', var(--font-body); font-size: 12px;
+  color: var(--ink-3); text-align: center; margin: 2px 0 6px;
+}
+
+.vsb-ranges { display: flex; justify-content: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.vsb-range {
+  background: none; border: 2px solid transparent; cursor: pointer;
+  font-family: 'RupeeFix', var(--font-pixel); font-size: 7px; letter-spacing: 1px;
+  color: var(--ink-3); padding: 6px 9px; border-radius: 2px;
+}
+.vsb-range:hover { color: var(--ink-2); }
+.vsb-range.on {
+  color: var(--pink); border-color: var(--pink);
+  background: rgba(255,95,162,.10); text-shadow: 0 0 6px var(--pink);
+}
+
+@media (max-width: 480px) {
+  .vsb-val { font-size: 19px; }
+  .vsb-name, .vsb-select { font-size: 12px; }
+  .vsb-select { max-width: 108px; }
+}
+
+/* ---------- Background sync status (Settings) ---------------------------- */
+/* One row per worker. The dot is the whole summary: a glance at the left edge
+   should answer "is anything wrong" without reading a word. */
+.sync-rows { display: flex; flex-direction: column; gap: 10px; }
+
+.sync-row {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 8px 10px;
+  border: 1px dashed var(--border);
+  background: var(--panel-2);
+  image-rendering: pixelated;
+}
+
+.sync-dot {
+  width: 9px; height: 9px; flex: 0 0 9px;
+  margin-top: 5px;
+  /* Square, not round — round dots read as a modern status page, and this is a
+     CRT. The glow comes from an inline box-shadow so it can follow the state
+     colour without a class per state. */
+}
+
+.sync-main { flex: 1 1 auto; min-width: 0; }
+
+.sync-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+
+.sync-label {
+  font-family: 'RupeeFix', var(--font-pixel), 'VT323', monospace;
+  font-size: 9px; letter-spacing: 0.5px; color: var(--ink-2);
+}
+
+.sync-word {
+  font-family: 'RupeeFix', var(--font-pixel), 'VT323', monospace;
+  font-size: 9px; letter-spacing: 0.5px;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+.sync-when {
+  font-family: 'RupeeFix', 'VT323', monospace;
+  font-size: 13px; color: var(--ink-3); margin-left: auto;
+}
+
+.sync-hint {
+  font-family: 'RupeeFix', 'VT323', monospace;
+  font-size: 14px; line-height: 1.35; color: var(--ink-3);
+  margin-top: 3px;
+  /* Reasons come back from the worker and can be a full Google error string.
+     Wrapping rather than truncating: a half-shown error is not actionable. */
+  overflow-wrap: anywhere;
+}
+
+.sync-waiting {
+  font-family: 'RupeeFix', 'VT323', monospace;
+  font-size: 14px; color: var(--yellow); margin-top: 3px;
+}
+
+.sync-accounts { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
+
+.sync-chip {
+  font-family: 'RupeeFix', var(--font-pixel), 'VT323', monospace;
+  font-size: 8px; letter-spacing: 0.5px;
+  padding: 3px 5px;
+  border: 1px solid var(--border-bright);
+  color: var(--ink-2);
+}
+
+/* ---- MailStrip: unread mail across connected Google accounts ----------------
+   Rows are anchors, not buttons, and that is the whole interaction model: this
+   card can open a thread in Gmail and can do nothing else. There is no reply,
+   archive or delete control anywhere in it, because the token behind it is
+   read-only and building affordances the backend cannot honour would be a lie
+   told in CSS.
+   The left bar carries the account colour rather than a text label — on a phone
+   the label is the first thing that gets truncated, and a 3px stripe never is. */
+.mail-rows { display: flex; flex-direction: column; gap: 6px; }
+
+.mail-row {
+  display: flex; gap: 8px; align-items: stretch;
+  padding: 6px 8px 7px 0;
+  border: 1px dashed var(--border);
+  background: var(--panel-2);
+  text-decoration: none; color: inherit;
+  image-rendering: pixelated;
+  transition: border-color .12s steps(2), background .12s steps(2);
+}
+.mail-row:hover { border-color: var(--border-bright); background: var(--panel); }
+
+.mail-bar { width: 3px; flex: 0 0 3px; align-self: stretch; }
+
+.mail-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+
+.mail-head { display: flex; align-items: baseline; gap: 6px; }
+
+.mail-from {
+  font-family: 'RupeeFix', 'VT323', monospace;
+  font-size: 1.02rem; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 60%;
+}
+
+/* The important flag is a glyph, not a colour change on the row: a whole row
+   tinted red reads as "this is broken", which is not what Google means by it. */
+.mail-flag {
+  font-family: 'RupeeFix', var(--font-pixel), monospace;
+  font-size: .5rem; color: var(--orange);
+  border: 1px solid var(--orange); padding: 1px 4px;
+  filter: drop-shadow(0 0 3px var(--orange));
+}
+.mail-star { color: var(--yellow); font-size: .85rem; filter: drop-shadow(0 0 3px var(--yellow)); }
+
+.mail-when {
+  margin-left: auto;
+  font-family: 'RupeeFix', 'VT323', monospace;
+  font-size: .9rem; color: var(--ink-3); white-space: nowrap;
+}
+
+.mail-subject {
+  font-family: 'RupeeFix', 'VT323', monospace;
+  font-size: 1.05rem; line-height: 1.2; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Two lines of snippet, then a clean cut. One line is too little to tell a
+   newsletter from a request; three turns the strip into an inbox, which is the
+   thing this card exists to save you from opening. */
+.mail-snippet {
+  font-family: 'RupeeFix', 'VT323', monospace;
+  font-size: .92rem; line-height: 1.25; color: var(--ink-3);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* A per-account failure gets its own row rather than an empty card, because
+   "work mail is not syncing" and "you have no unread work mail" look identical
+   otherwise, and only one of them needs you to do something. */
+.mail-problem {
+  font-family: 'RupeeFix', 'VT323', monospace;
+  font-size: .95rem; line-height: 1.35;
+  color: var(--yellow);
+  border: 1px dashed var(--yellow);
+  background: color-mix(in srgb, var(--yellow) 8%, transparent);
+  padding: 5px 7px; margin-bottom: 6px;
+  overflow-wrap: anywhere;
+}
+.mail-problem strong { color: var(--yellow); }
+
+/* ---- Crypto (Binance) rows ------------------------------------------------
+   Quantities are tabular-nums so a column of them lines up on the decimal. It
+   is the difference between reading a list of holdings and scanning one, and
+   crypto quantities vary by eight orders of magnitude within one account. */
+.crypto-row { gap: 8px; }
+
+.crypto-qty {
+  font-family: 'RupeeFix', 'VT323', monospace;
+  font-size: 1.05rem; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.crypto-avg, .crypto-fiat {
+  font-family: 'RupeeFix', 'VT323', monospace;
+  font-size: 1rem; color: var(--ink-2);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+
+/* One glyph carrying the direction. It sits before the quantity rather than
+   after the amount because the first question about a ledger row is which way
+   the coins went, and the eye reads left first. */
+.crypto-kind {
+  font-family: 'RupeeFix', var(--font-pixel), monospace;
+  font-size: .7rem; width: 12px; text-align: center;
+  filter: drop-shadow(0 0 3px currentColor);
+}
+
+.crypto-when {
+  font-family: 'RupeeFix', 'VT323', monospace;
+  font-size: .92rem; color: var(--ink-3); white-space: nowrap; min-width: 62px; text-align: right;
+}
+
+/* ---- ScoreDial: the five headline health scores ----------------------------
+   Sized in a fixed column rather than flexing, because these are meant to be
+   compared to each other at a glance and a row of dials that resize themselves
+   to fill the width makes the same score look bigger on a wider screen.
+   The value text is deliberately the largest thing in the tile; the band word
+   underneath is the interpretation, and the interpretation should never shout
+   louder than the measurement. */
+.score-dial {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.score-dial .dial-value {
+  font-family: 'RupeeFix', var(--font-pixel), 'VT323', monospace;
+  font-size: 22px;
+  /* Tabular figures so 88 and 11 occupy the same width — without this the
+     centred number visibly shifts left and right as the score changes, which
+     reads as the dial wobbling. */
+  font-variant-numeric: tabular-nums;
+}
+.score-dial .dial-band {
+  font-family: 'RupeeFix', var(--font-pixel), 'VT323', monospace;
+  font-size: 7px;
+  letter-spacing: 0.5px;
+  opacity: 0.9;
+}
+.dial-label {
+  font-family: 'RupeeFix', var(--font-pixel), 'VT323', monospace;
+  font-size: 8px;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.dial-invert {
+  font-family: 'RupeeFix', 'VT323', monospace;
+  font-size: 11px;
+  color: var(--ink-3);
+  letter-spacing: 0;
+  border: 1px dotted var(--border);
+  padding: 0 3px;
+}
+.dial-sub {
+  font-family: 'RupeeFix', 'VT323', monospace;
+  font-size: 12px;
+  color: var(--ink-2);
+  text-align: center;
+  line-height: 1.25;
+  max-width: 132px;
+}
+.dial-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+/* ---- Health: load, sleep bank, biological age -----------------------------
+   The load bar is centred on 1.0 rather than growing from zero, because both
+   ends of the cardio-load ratio are bad and a left-anchored bar says "more is
+   more". The marker is what you read; the bar behind it is only the scale. */
+.load-scale {
+  position: relative;
+  height: 16px;
+  border: 2px solid var(--border);
+  background: var(--panel-2);
+  margin: 8px 0 4px;
+  image-rendering: pixelated;
+}
+.load-zone { position: absolute; top: 0; bottom: 0; opacity: 0.28; }
+.load-mark {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 3px;
+  background: var(--ink);
+  filter: drop-shadow(0 0 4px var(--ink));
+}
+.load-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'RupeeFix', 'VT323', monospace;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.health-group-head {
+  font-family: 'RupeeFix', var(--font-pixel), 'VT323', monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  margin: 14px 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 2px dashed var(--border);
+}
+.est-chip {
+  font-family: 'RupeeFix', 'VT323', monospace;
+  font-size: 11px;
+  color: var(--yellow);
+  border: 1px dotted var(--yellow);
+  padding: 0 4px;
 }

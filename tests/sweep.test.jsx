@@ -83,7 +83,13 @@ const SHAPES = [
 ];
 
 // ---------------------------------------------------------------------------
-const dirs = ['college', 'money'];
+// The two sub-directories plus the components directory itself. The root was
+// left out originally because it holds the small shared primitives, but that is
+// also where every new standalone card lands — SyncStatus, MailStrip — and a
+// card that is not swept is a card whose null-data path has never been run. The
+// sweep passes the same prop shapes to everything; a component that ignores
+// props renders on all of them, which is exactly the assertion wanted here.
+const dirs = ['college', 'money', '.'];
 const files = dirs.flatMap(d =>
   fs.readdirSync(path.join(root, d))
     .filter(f => f.endsWith('.jsx'))

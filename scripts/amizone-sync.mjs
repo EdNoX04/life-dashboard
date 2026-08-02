@@ -13,11 +13,23 @@
 // - Raw HTML of the key pages is stashed in `memory` on every run so selectors
 //   can be hardened without re-scraping live.
 
-import { chromium } from 'playwright';
+// Imported lazily, below the credential guard, for two reasons: an unconfigured
+// run should not need a 300 MB browser on disk to tell you it is unconfigured,
+// and a broken `npm install playwright` should surface as a recorded status line
+// rather than a bare module-resolution stack trace above every other message.
+let chromium;
 
 const { AMIZONE_USER, AMIZONE_PASS, SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
-for (const [k, v] of Object.entries({ AMIZONE_USER, AMIZONE_PASS, SUPABASE_URL, SUPABASE_SERVICE_KEY }))
-  if (!v) { console.error(`Missing env ${k}`); process.exit(1); }
+
+// Same reasoning as meeting-worker.mjs: "the credentials were never added" is a
+// setup state, not a failure, and dressing it up as one trains the reader to
+// ignore the alerts that matter. Missing Supabase leaves nowhere to record the
+// problem, so that one just stops; missing Amizone credentials get written into
+// memory.sync_status where the College tab can show them, and exit 0.
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  console.error('Missing SUPABASE_URL / SUPABASE_SERVICE_KEY — nowhere to write, stopping.');
+  process.exit(0);
+}
 
 const H = { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`, 'Content-Type': 'application/json' };
 const rest = (p, init = {}) => fetch(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/${p}`, { ...init, headers: { ...H, ...(init.headers || {}) } });
@@ -29,6 +41,27 @@ async function mem(key, value) {
 
 // deterministic-ish helpers
 const clean = s => (s || '').replace(/\s+/g, ' ').trim();
+
+// Record this worker's health alongside the other syncs. Read-modify-write of a
+// shared blob so each worker owns exactly its own key inside it.
+async function reportStatus(patch) {
+  try {
+    const r = await rest('memory?key=eq.sync_status&select=value');
+    const rows = r.ok ? await r.json() : [];
+    const value = rows?.[0]?.value || {};
+    await mem('sync_status', { ...value, amizone: { ...patch, at: new Date().toISOString() } });
+  } catch (e) { console.error('  (could not record sync status:', e.message + ')'); }
+}
+
+if (!AMIZONE_USER || !AMIZONE_PASS) {
+  const missing = [!AMIZONE_USER && 'AMIZONE_USER', !AMIZONE_PASS && 'AMIZONE_PASS'].filter(Boolean);
+  const reason = `Amizone is not connected yet — missing ${missing.join(', ')} in repo secrets.`;
+  await reportStatus({ ok: false, configured: false, reason });
+  console.log(reason);
+  process.exit(0);
+}
+
+({ chromium } = await import('playwright'));
 
 async function run() {
   // Headful under xvfb (workflow wraps this in xvfb-run) — Cloudflare Turnstile

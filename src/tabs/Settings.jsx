@@ -3,6 +3,7 @@ import { Card, StatTile } from '../components/ui.jsx';
 import { getConfig, setConfig, isRemote, syncPushConfig } from '../lib/db.js';
 import { useCollection } from '../lib/hooks.js';
 import { THEMES, getTheme, setTheme } from '../lib/theme.js';
+import SyncStatus from '../components/SyncStatus.jsx';
 
 export default function Settings() {
   const [cfg, setCfg] = useState(getConfig());
@@ -113,6 +114,8 @@ export default function Settings() {
         </div>
         <div className="small muted mt">Every AI call logs its tokens × the provider's per-token price, updating this running monthly estimate live. Activates once the AI features start making calls.</div>
       </Card>
+
+      <SyncStatus />
 
       <Card title="Request queue (Cowork inbox)" color="var(--purple)">
         {requests.length === 0 && <div className="muted small">No requests yet. Refresh buttons and Ask-Cowork land here.</div>}

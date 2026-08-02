@@ -29,8 +29,32 @@
   /* status (reserved) */
   --ok: #2fa848; --warn: #b3860a; --bad: #d9351f;
 
-  --font-pixel: 'Press Start 2P', monospace;
-  --font-body: 'VT323', 'Courier New', monospace;
+  --font-pixel: 'RupeeFix', 'Press Start 2P', monospace;
+  --font-body: 'RupeeFix', 'VT323', 'Courier New', monospace;
+}
+
+/* ---- The rupee sign, everywhere at once.
+   Press Start 2P has no U+20B9 and VT323's is drawn small in its own em, so
+   every '₹' + n in the app - and there are dozens, most of them built inside
+   plain strings in lib/ where no element exists to hang a class on - silently
+   font-fell-back and rendered visibly smaller and lower than the $ it is meant
+   to mirror. Rather than wrap every call site, this claims the single codepoint
+   for a face that actually draws it and corrects the metric mismatch with
+   size-adjust. `unicode-range` is what makes that safe: the browser consults
+   this @font-face for U+20B9 and nothing else, so the pixel face still renders
+   all the other text. It is listed first in both stacks precisely because the
+   first matching family wins per-codepoint, not per-run. ---- */
+@font-face {
+  font-family: 'RupeeFix';
+  /* Local faces only - no network cost, and every one of these carries U+20B9
+     on the platforms this runs on. The list degrades across macOS, iOS,
+     Windows and Linux; if none resolve the browser simply falls through to the
+     next family in the stack, which is the old behaviour, not a broken glyph. */
+  src: local('Menlo'), local('SF Mono'), local('Helvetica Neue'), local('Segoe UI'),
+       local('DejaVu Sans'), local('Liberation Sans'), local('Arial');
+  unicode-range: U+20B9;
+  size-adjust: 132%;
+  font-display: swap;
 }
 
 /* ============ retro color themes (recolor the whole app) ============ */
@@ -324,7 +348,7 @@ table.ptable { width: 100%; border-collapse: collapse; font-size: 17px; }
 .dsa-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 14px; align-items: start; }
 @media (max-width: 900px) { .dsa-grid { grid-template-columns: 1fr; } }
 .code-editor {
-  font-family: 'VT323', 'Courier New', monospace; font-size: 17px; line-height: 1.35;
+  font-family: 'RupeeFix', 'VT323', 'Courier New', monospace; font-size: 17px; line-height: 1.35;
   background: #0c0716; color: #cdeaff; border: 3px solid var(--border);
   width: 100%; padding: 10px; border-radius: 2px; resize: vertical;
   tab-size: 2; white-space: pre; overflow-x: auto;
@@ -334,7 +358,7 @@ table.ptable { width: 100%; border-collapse: collapse; font-size: 17px; }
   background: #0c0716; border: 3px solid var(--border); border-radius: 2px; padding: 8px 10px;
   max-height: 220px; overflow: auto;
 }
-.code-out pre { margin: 4px 0 0; font-family: 'VT323', monospace; font-size: 16px; color: var(--ink); white-space: pre-wrap; }
+.code-out pre { margin: 4px 0 0; font-family: 'RupeeFix', 'VT323', monospace; font-size: 16px; color: var(--ink); white-space: pre-wrap; }
 
 /* modal */
 .modal-overlay {

@@ -4,7 +4,11 @@ import * as radio from '../lib/radio.js';
 // Control surface for the global radio (src/lib/radio.js). The actual player lives
 // outside React, so leaving this tab no longer stops the music — the mini player in
 // the sidebar takes over.
-export default function LofiRadio({ stations, stopKey = 0, source = 'study' }) {
+// `stations` defaults to an empty list rather than being assumed present. Every
+// current caller passes it, so this is not fixing a live crash — it is removing
+// the possibility of one, because the failure mode of the missing default is a
+// blank tab with a console error rather than a radio with no stations in it.
+export default function LofiRadio({ stations = [], stopKey = 0, source = 'study' }) {
   const r = radio.useRadio();
 
   useEffect(() => { radio.setStations(stations, source); }, [stations, source]);

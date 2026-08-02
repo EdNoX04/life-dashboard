@@ -1,10 +1,15 @@
 // One-time helper: turn a Google OAuth "Desktop app" client into a long-lived
-// refresh token that the meetings worker uses. Run this ONCE on your Mac.
+// refresh token that the meetings worker uses. Run this ONCE PER ACCOUNT on your Mac.
 //
-//   node scripts/get-google-token.mjs
+//   node scripts/get-google-token.mjs            -> GOOGLE_REFRESH_TOKEN      (personal)
+//   node scripts/get-google-token.mjs work       -> GOOGLE_WORK_REFRESH_TOKEN (company Workspace)
+//
+// The same OAuth client issues both: sign in as whichever account you want the
+// token for when the browser page opens. There is no second Cloud project to set
+// up, and the two tokens are independent, so revoking one leaves the other alone.
 //
 // Prereqs (see MEETINGS-SETUP.md for the click-by-click):
-//   1. Google Cloud Console → enable "Google Calendar API".
+//   1. Google Cloud Console → enable "Google Calendar API" AND "Gmail API".
 //   2. OAuth consent screen → External → add yourself as a Test user.
 //   3. Credentials → Create OAuth client ID → type "Desktop app".
 //   4. Export the client id/secret before running:
@@ -12,7 +17,11 @@
 //        export GOOGLE_CLIENT_SECRET=yyyy
 //
 // It prints a URL, you approve in the browser, paste the code back, and it
-// prints your GOOGLE_REFRESH_TOKEN. Put that + the id/secret into GitHub secrets.
+// prints your refresh token. Put that + the id/secret into GitHub secrets.
+//
+// If you already have a calendar-only token from before Gmail was added: it will
+// keep working for calendar, and the worker will say so rather than throwing a
+// bare 403 — but mail stays dark until you re-run this and replace the secret.
 
 import { createServer } from 'http';
 import { exec } from 'child_process';
@@ -24,7 +33,21 @@ if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
   process.exit(1);
 }
 
-const SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+// Which account this run is for. Only affects the wording and the name of the
+// secret printed at the end — Google decides the actual account from whoever you
+// are signed in as on the consent page.
+const WHICH = (process.argv[2] || 'personal').toLowerCase();
+const SECRET_NAME = WHICH === 'work' ? 'GOOGLE_WORK_REFRESH_TOKEN' : 'GOOGLE_REFRESH_TOKEN';
+
+// calendar.events writes meetings; gmail.readonly powers the unread strip. The
+// read-only Gmail scope is deliberate: the worker has no send path at all, so the
+// token it holds cannot be used to mail anyone even if something goes wrong with
+// it. Google shows both on the consent screen, and declining mail still yields a
+// working calendar token.
+const SCOPE = [
+  'https://www.googleapis.com/auth/calendar.events',
+  'https://www.googleapis.com/auth/gmail.readonly',
+].join(' ');
 const REDIRECT = 'http://localhost:53682';
 
 const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
@@ -77,12 +100,21 @@ try {
     console.error('\nNo refresh_token returned. Remove app access at https://myaccount.google.com/permissions and retry (prompt=consent forces it).');
     process.exit(1);
   }
+  const granted = (tok.scope || '').split(' ').filter(Boolean);
+  const pad = SECRET_NAME.length > 20 ? SECRET_NAME.length : 20;
   console.log('\n==================  GITHUB SECRETS  ==================');
-  console.log('GOOGLE_CLIENT_ID      =', GOOGLE_CLIENT_ID);
-  console.log('GOOGLE_CLIENT_SECRET  =', GOOGLE_CLIENT_SECRET);
-  console.log('GOOGLE_REFRESH_TOKEN  =', tok.refresh_token);
-  console.log('GOOGLE_CALENDAR_ID    = primary   (or your ednox042004@gmail.com)');
-  console.log('=====================================================\n');
+  console.log('GOOGLE_CLIENT_ID'.padEnd(pad), '=', GOOGLE_CLIENT_ID);
+  console.log('GOOGLE_CLIENT_SECRET'.padEnd(pad), '=', GOOGLE_CLIENT_SECRET);
+  console.log(SECRET_NAME.padEnd(pad), '=', tok.refresh_token);
+  console.log((WHICH === 'work' ? 'GOOGLE_WORK_CALENDAR_ID' : 'GOOGLE_CALENDAR_ID').padEnd(pad), '= primary');
+  console.log('=====================================================');
+  console.log(`Account: ${WHICH}`);
+  console.log(`Scopes granted: ${granted.map(x => x.split('/').pop()).join(', ') || '(none reported)'}`);
+  if (!granted.some(x => x.includes('gmail'))) {
+    console.log('NOTE: Gmail was not granted, so the inbox strip will stay empty.');
+    console.log('      Calendar still works. Re-run and tick the mail box to add it.');
+  }
+  console.log('');
 } catch (e) {
   console.error('Exchange failed:', e.message);
   process.exit(1);
