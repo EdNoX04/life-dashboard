@@ -202,6 +202,14 @@ export default function HQ({ go }) {
   return (
     <>
       <div className="hero-wrap">
+        {/* .hero-board exists only to be the spark's positioning context. The
+            spark cannot live inside .hero (which is overflow:hidden, to clip
+            the sky) and it must not anchor to .hero-wrap either, because
+            .hero-live sits in the wrap's flow below the hero and grows it —
+            which is exactly how the spark ended up beside the Awake pill
+            instead of in the hero's bottom-right corner. .hero-board hugs the
+            hero and nothing else, so bottom:12px means what it says. */}
+        <div className="hero-board">
         <div className="hero">
           <Sky hour={now.getHours()} />
           <div className="world">WORLD {now.getMonth() + 1}-{now.getDate()} · {dayName.toUpperCase()}</div>
@@ -209,10 +217,11 @@ export default function HQ({ go }) {
           <p className="tab-sub" style={{ margin: 0 }}>{now.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} · {now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })}</p>
           <RetroClock />
         </div>
-        <div className="hero-spark">
-          <span className="hs-label">✦ DAILY SPARK</span>
-          <span className="hs-q">“{spark.q}”</span>
-          <span className="hs-a">— {spark.a}</span>
+          <div className="hero-spark">
+            <span className="hs-label">✦ DAILY SPARK</span>
+            <span className="hs-q">“{spark.q}”</span>
+            <span className="hs-a">— {spark.a}</span>
+          </div>
         </div>
         <LiveStatus className="hero-live" />
       </div>

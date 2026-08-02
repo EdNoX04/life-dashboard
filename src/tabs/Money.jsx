@@ -33,6 +33,7 @@ import Scanner from '../components/money/Scanner.jsx';
 import Sentiment from '../components/money/Sentiment.jsx';
 import Briefing, { useBriefing, BriefStrip } from '../components/money/Briefing.jsx';
 import FairValue from '../components/money/FairValue.jsx';
+import Intrinsic from '../components/money/Intrinsic.jsx';
 import TickerHead from '../components/money/TickerHead.jsx';
 import FinMetric from '../components/money/FinMetric.jsx';
 import EarningsCal from '../components/money/EarningsCal.jsx';
@@ -551,6 +552,7 @@ export default function Money() {
           class of mislabelling this module exists to refuse. The multiple itself
           is a ratio and carries no currency at all. */}
       {view === 'value' && <FairValue held={held} quotes={quotes} cur="$" />}
+      {view === 'intrinsic' && <Intrinsic held={held} quotes={quotes} cur="₹" />}
 
       {/* Same literal dollar as FairValue above, for the same reason. Every price
           on this screen comes straight off the quote feed, which live.js opens by

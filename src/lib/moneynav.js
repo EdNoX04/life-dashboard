@@ -54,6 +54,7 @@ export const MONEY_SECTIONS = [
     views: [
       { id: 'ticker', label: 'Ticker' },
       { id: 'value', label: 'Value' },
+      { id: 'intrinsic', label: 'Intrinsic' },
       { id: 'fin', label: 'Financials' },
       { id: 'scanner', label: 'Screens' },
       { id: 'compare', label: 'Compare' },
