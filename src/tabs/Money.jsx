@@ -42,7 +42,7 @@ import { aiNewsSummary, memGet, memSet } from '../lib/advisor.js';
 import { pickProvider } from '../lib/ai.js';
 import * as db from '../lib/db.js';
 import Crypto from '../components/money/Crypto.jsx';
-import { MONEY_SECTIONS, sectionRecord } from '../lib/moneynav.js';
+import { MONEY_SECTIONS, MONEY_VIEWS, sectionRecord } from '../lib/moneynav.js';
 
 // live USD→INR (keyless, CORS-ok; frankfurter with er-api fallback)
 async function fetchUsdInr() {
@@ -56,44 +56,98 @@ const STOP = new Set(['inc', 'inc.', 'corp', 'corp.', 'corporation', 'ltd', 'ltd
 const nameKeys = name => String(name || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 3 && !STOP.has(w));
 
 // Retro P&L backdrop styled after the neon "crash chart": a jagged neon trend
-// line (red falling / green rising) over a dark grid strewn with faint direction
+// line (red rising / green falling) over a dark grid strewn with faint direction
 // arrows, glowing softly.
 //
-// The line DRAWS rather than appearing. Both directions use the same mechanism
-// and the same timing so up and down read as one behaviour with two signs — a
-// rise that animates and a fall that just sits there would make the good news
-// feel like an event and the bad news feel like a fact, which is a lie the
-// styling would be telling on its own.
+// This used to DRAW itself — stroke-dashoffset running from 100 to 0 and back
+// on a nine-second loop. Two things were wrong with that. The visible one is
+// that a dash animation on a line is a line with a gap in it for two thirds of
+// every cycle, so most of the time you were looking at a chart that appeared to
+// be missing segments; and because the erase phase ran fast, the line also
+// snapped backwards once every nine seconds. The deeper one is that "draws
+// itself, pauses, redraws" is not what a live market looks like. A price series
+// does not restart.
 //
-// pathLength="100" is what makes that possible: it normalises the geometry so
-// one dash-offset keyframe drives both paths regardless of how long each one
-// actually is, and the blurred underlay stays exactly in step with the sharp
-// line instead of finishing early.
+// So it scrolls instead, and the geometry is built to make that seamless. ONE
+// path, not one per tile: the polyline below is a single M...L...L... through
+// every point of every repeat, so there is no join anywhere for a butt cap to
+// notch. The tile repeats every TILE_W units horizontally AND steps TILE_RISE
+// units vertically, and the scroll translates by exactly (-TILE_W, +TILE_RISE),
+// which lands each repeat precisely on its neighbour's old position. The loop
+// point is therefore invisible — the line genuinely never restarts, it only
+// ever moves, which is the whole difference between decoration and a chart.
 //
-// The whole plot is rotated a couple of degrees INTO its own direction. It is
-// the same trick the arrows do — the tilt reinforces the sign before the eye
-// has read a single number.
-function DayFx({ up }) {
-  const line = up
-    ? 'M2 50 L16 44 L28 47 L44 33 L58 37 L74 22 L90 28 L106 13 L122 19 L138 7 L150 5'
-    : 'M2 6 L16 12 L28 9 L44 23 L58 19 L74 34 L90 28 L106 43 L122 37 L138 49 L150 51';
+// The vertical step is what makes it rise rather than merely slide. New segments
+// enter from the right at a higher position than the ones leaving on the left,
+// so the line climbs continuously and forever, exactly as a rising session does.
+//
+// MOTION IS GATED ON THE MARKET, not on the sign of the number. When the market
+// is shut the line holds still, because a chart that keeps animating after the
+// close is claiming something is happening that is not. The pause is CSS
+// (animation-play-state) rather than a conditional render, so the line freezes
+// where it is instead of jumping to a start position at 3:30.
+//
+// Up and down use the same mechanism and the same timing — a rise that animates
+// and a fall that just sits there would make good news feel like an event and
+// bad news feel like a fact, which is a lie the styling would be telling on its
+// own.
+export const TILE_W = 38;     // user units of one repeat
+export const TILE_RISE = 7;   // how far a repeat climbs; must match the CSS keyframes
+const TILE_PTS = [[0, 0], [6, -4], [12, -1], [19, -8], [25, -4], [31, -10], [38, -7]];
+const TILE_COPIES = 7; // covers the 152-unit viewBox four times over, plus the wrap
+
+/** The whole scrolling series as one continuous polyline. */
+export function dayLinePath(up) {
+  // TILE_PTS already climbs 7 units across one repeat (its last y is -7). The
+  // per-repeat offset must therefore be SUBTRACTED, not added: adding it doubles
+  // the climb inside the tile while the seam only accounts for it once, which
+  // puts a 14-unit cliff at every join. That is a zigzag with a cliff in it, not
+  // a price series, and it is exactly what the dash animation was replaced for.
+  const m = up ? -1 : 1;        // +1 mirrors the climb into a slide
+  // Chosen so five visible repeats span y=2..54 inside the 56-unit viewBox: the
+  // series drifts by TILE_RISE per repeat, so where it STARTS decides whether
+  // the far end is on screen at all. Up starts high and descends to the right,
+  // because the scroll then carries it up-left and it reads as rising; down is
+  // the mirror, and the two bases sum to the viewBox height.
+  const base = up ? 9 : 47;
+  const pts = [];
+  for (let i = -1; i < TILE_COPIES - 1; i++) {
+    // Every repeat after the first skips its own point 0: it is the same point
+    // as the previous repeat's last one, and emitting it twice would put a
+    // zero-length segment at each seam.
+    for (let k = i === -1 ? 0 : 1; k < TILE_PTS.length; k++) {
+      const [x, y] = TILE_PTS[k];
+      pts.push([x + i * TILE_W, base + m * (y - i * TILE_RISE)]);
+    }
+  }
+  return `M${pts.map(([x, y]) => `${x} ${y.toFixed(1)}`).join(' L')}`;
+}
+
+function DayFx({ up, live }) {
+  const line = dayLinePath(up);
   const glow = up ? '#6ee76e' : '#e84141';
-  const tip = up ? 5 : 51;
   return (
-    <div className={`daypl-fx ${up ? 'up' : 'down'}`} aria-hidden="true">
+    <div className={`daypl-fx ${up ? 'up' : 'down'}${live ? '' : ' closed'}`} aria-hidden="true">
       <div className="daypl-arrows">{Array.from({ length: 24 }).map((_, i) => <span key={i}>{up ? '▲' : '▼'}</span>)}</div>
-      <svg viewBox="0 0 152 56" preserveAspectRatio="none" shapeRendering="crispEdges">
-        <path
-          className="daypl-under" d={line} pathLength="100" fill="none" stroke={glow}
-          strokeWidth="6" opacity="0.22" vectorEffect="non-scaling-stroke"
-          style={{ filter: 'blur(3px)' }}
-        />
-        <path
-          className="daypl-line" d={line} pathLength="100" fill="none" stroke={glow}
-          strokeWidth="2.5" vectorEffect="non-scaling-stroke"
-        />
-        {/* The tip only exists once the line has arrived under it. */}
-        <rect className="daypl-tip" x={147} y={tip - 3} width={6} height={6} fill={glow} />
+      {/* crispEdges is deliberately NOT set here, though it is the house style
+          everywhere else. This svg is preserveAspectRatio="none" over a ~4x
+          horizontal stretch, and turning off anti-aliasing on a near-horizontal
+          2.5px stroke under that much scaling renders it as a staircase of
+          detached chunks. The grid behind it is a CSS background and stays
+          crisp, so the retro texture survives; only the trend line is smoothed,
+          and only because the alternative is a line that looks broken. */}
+      <svg viewBox="0 0 152 56" preserveAspectRatio="none" shapeRendering="geometricPrecision">
+        <g className="daypl-scroll">
+          <path
+            className="daypl-under" d={line} fill="none" stroke={glow}
+            strokeWidth="6" strokeLinejoin="miter" opacity="0.22"
+            vectorEffect="non-scaling-stroke" style={{ filter: 'blur(3px)' }}
+          />
+          <path
+            className="daypl-line" d={line} fill="none" stroke={glow}
+            strokeWidth="2.5" strokeLinejoin="miter" vectorEffect="non-scaling-stroke"
+          />
+        </g>
       </svg>
     </div>
   );
@@ -111,6 +165,15 @@ export default function Money() {
   const [liveNews, setLiveNews] = useState([]);
   const [planSeed, setPlanSeed] = useState(null);   // monthly surplus handed over by the Cash tab
   const [view, setView] = useState('portfolio');
+  // The two-tier nav shows one section's views at a time, which is what stopped
+  // twenty-six buttons wrapping onto three unreadable lines. The cost of that is
+  // real and was reported as a bug: with MY MONEY lit you can see six screens
+  // and the other twenty are behind four small pixel-font words, so the honest
+  // reading of the strip is "the rest are gone". This opens the whole map at
+  // once. It is off by default because the collapsed strip is the better daily
+  // control; it exists so that "where is everything" has an answer on screen
+  // rather than requiring you to click each section to find out.
+  const [allViews, setAllViews] = useState(false);
   // The Markets view holds two different questions that were previously one tab:
   // "what is the app able to see" (world) and "what did my own holdings do"
   // (movers). They were never the same screen — the leaderboard ranks things you
@@ -380,9 +443,15 @@ export default function Money() {
               key={sec.id}
               className={`seg-btn msec${sec.id === activeSection ? ' on' : ''}`}
               style={sec.id === activeSection ? { '--msec': sec.color } : undefined}
-              title={sec.hint}
+              // The count and the list are both here because the label alone
+              // does not tell you a section HAS anything in it. "RESEARCH" reads
+              // as one screen; "RESEARCH 7" reads as seven, which is the fact.
+              title={`${sec.hint} — ${sec.views.length} screens: ${sec.views.map(v => v.label.replace(/^[^A-Za-z]+/, '')).join(', ')}`}
               onClick={() => setView(sec.views[0].id)}
-            >{sec.label}</button>
+            >
+              {sec.label}
+              <b className="msec-n">{sec.views.length}</b>
+            </button>
           ))}
         </span>
         <span className="seg seg-wrap money-views" style={{ '--msec': activeSectionRec.color }}>
@@ -393,8 +462,41 @@ export default function Money() {
               onClick={() => setView(v.id)}
             >{v.label}</button>
           ))}
+          <button
+            className={`seg-btn mall-btn${allViews ? ' on' : ''}`}
+            aria-expanded={allViews}
+            onClick={() => setAllViews(a => !a)}
+            title={allViews ? 'Collapse back to this section' : `Show all ${MONEY_VIEWS.length} money screens`}
+          >{allViews ? '▴ fewer' : `▾ all ${MONEY_VIEWS.length}`}</button>
         </span>
       </div>
+
+      {/* Every screen, grouped by the section it lives in rather than in one
+          flat list — the flat list is what the two-tier nav was built to escape,
+          and reintroducing it here would answer "where is everything" while
+          re-losing "and how is it organised". Each group wears its section's
+          colour, so this panel and the strip above teach the same map. */}
+      {allViews && (
+        <div className="money-all px">
+          {MONEY_SECTIONS.map(sec => (
+            <div className="mall-sec" key={sec.id} style={{ '--msec': sec.color }}>
+              <div className="mall-head">
+                <span className="mall-title">{sec.label}</span>
+                <span className="mall-hint">{sec.hint}</span>
+              </div>
+              <div className="mall-grid">
+                {sec.views.map(v => (
+                  <button
+                    key={v.id}
+                    className={`mall-item${view === v.id ? ' on' : ''}`}
+                    onClick={() => { setView(v.id); setAllViews(false); }}
+                  >{v.label}</button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {view === 'accounts' && <Accounts rows={accountRows} cur={cur} />}
 
@@ -599,7 +701,7 @@ export default function Money() {
 
       {/* Today's 1D gain / loss */}
       <div className={`px daypl ${dayGain >= 0 ? 'up' : 'down'}`}>
-        {haveLive && <DayFx up={dayGain >= 0} />}
+        {haveLive && <DayFx up={dayGain >= 0} live={marketOpen} />}
         <div className="flex" style={{ gap: 10, alignItems: 'baseline' }}>
           <span className="daypl-label">TODAY'S P&L <span className="muted">(1D)</span></span>
           {marketOpen && status === 'live' && <span className="rc-live"><span className="rc-dot" />LIVE</span>}

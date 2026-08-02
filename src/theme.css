@@ -33,28 +33,32 @@
   --font-body: 'RupeeFix', 'VT323', 'Courier New', monospace;
 }
 
-/* ---- The rupee sign, everywhere at once.
-   Press Start 2P has no U+20B9 and VT323's is drawn small in its own em, so
-   every '₹' + n in the app - and there are dozens, most of them built inside
-   plain strings in lib/ where no element exists to hang a class on - silently
-   font-fell-back and rendered visibly smaller and lower than the $ it is meant
-   to mirror. Rather than wrap every call site, this claims the single codepoint
-   for a face that actually draws it and corrects the metric mismatch with
-   size-adjust. `unicode-range` is what makes that safe: the browser consults
-   this @font-face for U+20B9 and nothing else, so the pixel face still renders
-   all the other text. It is listed first in both stacks precisely because the
-   first matching family wins per-codepoint, not per-run. ---- */
+/* ---- The rupee sign, everywhere at once. GENERATED - see scripts/make-rupee-font.py
+   Press Start 2P has no U+20B9 at all and VT323's is drawn small in its own em,
+   so every '\u20b9' + n in the app - and there are dozens, most of them built
+   inside plain strings in lib/ where no element exists to hang a class on -
+   silently font-fell-back and rendered smaller and lower than the $ it mirrors.
+
+   The first version of this fix claimed the codepoint for a local face that
+   actually carries it (Menlo, Segoe UI, DejaVu Sans) and corrected the metric
+   mismatch with size-adjust. That got the size right, and it was wrong anyway:
+   those are smooth modern faces, so the sign came out as an anti-aliased curve
+   sitting between blocky digits. It looked pasted in from another typeface,
+   which is precisely what it was.
+
+   So the glyph is drawn here instead, on a 7x7 grid at 100 units a pixel, which
+   puts its bars at y=700 - the same height VT323's digits and Press Start 2P's
+   caps reach. No size-adjust is needed because nothing is being borrowed.
+
+   unicode-range is what keeps this safe: the browser consults this face for
+   U+20B9 and nothing else, so the pixel families still render all other text.
+   It is listed first in both stacks because the first matching family wins
+   per-codepoint, not per-run. ---- */
 @font-face {
   font-family: 'RupeeFix';
-  /* Local faces only - no network cost, and every one of these carries U+20B9
-     on the platforms this runs on. The list degrades across macOS, iOS,
-     Windows and Linux; if none resolve the browser simply falls through to the
-     next family in the stack, which is the old behaviour, not a broken glyph. */
-  src: local('Menlo'), local('SF Mono'), local('Helvetica Neue'), local('Segoe UI'),
-       local('DejaVu Sans'), local('Liberation Sans'), local('Arial');
+  src: url(data:font/ttf;base64,AAEAAAAKAIAAAwAgT1MvMmWaZVcAAAEoAAAAYGNtYXAADCEMAAABkAAAADRnbHlmV56TGAAAAcwAAACYaGVhZC9B/KQAAACsAAAANmhoZWEGJAJfAAAA5AAAACRobXR4AyUAAAAAAYgAAAAGbG9jYQBMAAAAAAHEAAAABm1heHAADwAyAAABCAAAACBuYW1lhtWWYAAAAmQAAAGMcG9zdHZ2atcAAAPwAAAALAABAAAAAQAAvqplN18PPPUAAwPoAAAAAOaU3IQAAAAA5pTchAAjAAAC3wK8AAAAAwACAAAAAAAAAAEAAAMg/zgAAAMCACMAIwLfAAEAAAAAAAAAAAAAAAAAAAABAAEAAAACADAADAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAwMCAZAABQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAPz8/PwAAILkguQMg/zgAAAMgAMgAAAAAAAAAAAAAAAAAAAAgAAADAgAAACMAAAAAAAIAAAADAAAAFAADAAEAAAAUAAQAIAAAAAQABAABAAAguf//AAAguf//30gAAQAAAAAAAAAAAEwAAAAMACMAAALfArwAAwAHAAsADwATABcAGwAfACMAJwArAC8AABM1IRUFNTMVITUzFQU1IRUFNTMVMzUzFQU1MxUhNTMVBTUzFSE1MxUFNTMVITUzFSMCWP2oZAGQZP2oAlj9qGTIyP4MZAEsyP2oZAGQyP1EZAH0ZAJYZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkAAAADACWAAEAAAAAAAEACAAAAAEAAAAAAAIABwAIAAEAAAAAAAMAFgAPAAEAAAAAAAQAEAAlAAEAAAAAAAUADQA1AAEAAAAAAAYAEABCAAMAAQQJAAEAEABSAAMAAQQJAAIADgBiAAMAAQQJAAMALABwAAMAAQQJAAQAIACcAAMAAQQJAAUAGgC8AAMAAQQJAAYAIADWUnVwZWVGaXhSZWd1bGFyUnVwZWVGaXgtUmVndWxhci0xLjAwMFJ1cGVlRml4IFJlZ3VsYXJWZXJzaW9uIDEuMDAwUnVwZWVGaXgtUmVndWxhcgBSAHUAcABlAGUARgBpAHgAUgBlAGcAdQBsAGEAcgBSAHUAcABlAGUARgBpAHgALQBSAGUAZwB1AGwAYQByAC0AMQAuADAAMAAwAFIAdQBwAGUAZQBGAGkAeAAgAFIAZQBnAHUAbABhAHIAVgBlAHIAcwBpAG8AbgAgADEALgAwADAAMABSAHUAcABlAGUARgBpAHgALQBSAGUAZwB1AGwAYQByAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAQIFcnVwZWU=) format('truetype');
   unicode-range: U+20B9;
-  size-adjust: 132%;
-  font-display: swap;
+  font-display: block;
 }
 
 /* ============ retro color themes (recolor the whole app) ============ */

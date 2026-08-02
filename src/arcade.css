@@ -182,50 +182,46 @@
 .daypl-fx.up svg   { transform: rotate(-2.2deg) scale(1.06); transform-origin: 50% 50%; }
 .daypl-fx.down svg { transform: rotate(2.2deg) scale(1.06); transform-origin: 50% 50%; }
 
-/* The draw. Both paths carry pathLength="100", so 100 units of dash is exactly
-   one full line whichever direction it runs — the sharp stroke and its blurred
-   underlay therefore finish together instead of the shadow racing ahead.
-   The cycle holds the finished line for most of its length: it is a chart that
-   redraws itself now and then, not a line that is permanently in motion. */
-.daypl-line, .daypl-under {
-  stroke-dasharray: 100;
-  animation-name: dayDraw;
-  animation-duration: 9s;
-  animation-timing-function: cubic-bezier(.25, .8, .3, 1);
-  animation-iteration-count: infinite;
-}
-/* .daypl-line already runs the glow pulse; naming both keeps them composed. */
-.daypl-line { animation-name: dayGlow, dayDraw; animation-duration: 2.6s, 9s; }
-@keyframes dayDraw {
-  0%       { stroke-dashoffset: 100; }
-  32%, 96% { stroke-dashoffset: 0; }
-  100%     { stroke-dashoffset: 100; }
-}
+/* The scroll. The polyline in DayFx repeats every 38 user units across and
+   climbs 7 units per repeat, so translating by exactly (-38px, +7px) puts every
+   repeat onto its neighbour's former position and the loop point is invisible.
+   Those two numbers are TILE_W and TILE_RISE in tabs/Money.jsx and the three
+   MUST agree — a mismatch does not break the layout, it just makes the line
+   jump once per cycle, which is the exact defect this replaced.
 
-/* The tip square lands only once the stroke has actually reached it. */
-.daypl-tip {
-  opacity: 0;
-  animation: dayTip 9s cubic-bezier(.25, .8, .3, 1) infinite;
-}
-.daypl-fx.up .daypl-tip   { filter: drop-shadow(0 0 6px rgba(110,231,110,.95)); }
-.daypl-fx.down .daypl-tip { filter: drop-shadow(0 0 6px rgba(232,65,65,.95)); }
-@keyframes dayTip {
-  0%, 30%  { opacity: 0; }
-  34%      { opacity: 1; }
-  60%      { opacity: .45; }
-  80%      { opacity: 1; }
-  96%, 100%{ opacity: 0; }
-}
+   `px` on an SVG element means user units, not screen pixels, which is why this
+   survives the preserveAspectRatio="none" stretch.
 
-/* A redrawing line is decoration. Anyone who has asked the system to stop
-   moving things gets the finished chart, immediately and permanently. */
+   linear, not eased: a price series does not accelerate into the middle of the
+   window and slow down at the edges, and any easing here would be visible as a
+   pulse at the loop point even though the geometry is seamless. */
+.daypl-scroll {
+  animation: dayScrollUp 4.5s linear infinite;
+  will-change: transform;
+}
+.daypl-fx.down .daypl-scroll { animation-name: dayScrollDown; }
+/* The y sign is the NEGATIVE of the path's per-repeat drift, because the point
+   is to undo one repeat exactly. dayLinePath's up variant descends 7 units per
+   repeat, so this lifts by 7 - and the line consequently reads as rising even
+   though the drawn path slopes down. Swapping these two is silent: the layout is
+   fine and the loop still runs, it just steps 14 units once per cycle. */
+@keyframes dayScrollUp   { to { transform: translate(-38px, -7px); } }
+@keyframes dayScrollDown { to { transform: translate(-38px, 7px); } }
+
+/* Market shut, line still. Paused rather than removed, so it holds the frame it
+   was on at the close instead of snapping back to a start position — and so it
+   resumes from there rather than restarting when the market opens. The dim is
+   what tells you at a glance that this is a held frame and not a live one; the
+   glow pulse stops for the same reason. */
+.daypl-fx.closed .daypl-scroll,
+.daypl-fx.closed .daypl-line { animation-play-state: paused; }
+.daypl-fx.closed .daypl-line, .daypl-fx.closed .daypl-under { opacity: .5; }
+.daypl-fx.closed .daypl-under { opacity: .14; }
+
+/* A moving line is decoration. Anyone who has asked the system to stop moving
+   things gets the chart standing still, immediately and permanently. */
 @media (prefers-reduced-motion: reduce) {
-  .daypl-line, .daypl-under, .daypl-tip {
-    animation: none;
-    stroke-dashoffset: 0;
-    opacity: 1;
-  }
-  .daypl-under { opacity: .22; }
+  .daypl-scroll, .daypl-line, .daypl-under { animation: none; }
 }
 
 /* ---- Street consensus bar (BUY / HOLD / SELL) ---- */
@@ -646,6 +642,48 @@
   background: var(--msec); box-shadow: 0 0 6px var(--msec);
 }
 .money-views .seg-btn { position: relative; }
+
+/* The count of screens in a section, on the section button. Small, dim and to
+   the right of the label rather than styled as a notification badge - it is a
+   fact about the cabinet's layout, not an alert, and a bright pill here would
+   read as "five unread things in RESEARCH". */
+.msec-n {
+  margin-left: 5px; font-weight: normal; font-size: 6px;
+  color: var(--ink-3); opacity: .8; vertical-align: top;
+}
+.money-sections .seg-btn.msec.on .msec-n { color: var(--msec); opacity: .95; }
+
+/* The all-screens toggle is pushed to the far end of the view row so it never
+   sits between two sibling views and gets clicked as if it were one. */
+.money-views .mall-btn { margin-left: auto; color: var(--ink-3); }
+.money-views .mall-btn:hover, .money-views .mall-btn.on { color: var(--ink-2); }
+
+/* ---- The whole money map, grouped by section ---- */
+.money-all {
+  margin: -8px 0 16px; padding: 12px 14px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px;
+  background: var(--panel); border-color: var(--border-bright);
+}
+.mall-sec { min-width: 0; border-left: 3px solid var(--msec); padding-left: 9px; }
+.mall-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 7px; }
+.mall-title {
+  font-family: var(--font-pixel); font-size: 7px; letter-spacing: 1px;
+  color: var(--msec); text-shadow: 0 0 8px var(--msec);
+}
+.mall-hint { font-size: 13px; color: var(--ink-3); line-height: 1.25; }
+.mall-grid { display: flex; flex-wrap: wrap; gap: 5px; }
+.mall-item {
+  padding: 4px 9px; border: 2px solid var(--border); border-radius: 2px;
+  background: var(--bg-deep); color: var(--ink-2); cursor: pointer;
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 15px; line-height: 1.1;
+}
+.mall-item:hover { border-color: var(--msec); color: var(--ink); }
+/* The screen you are already on is marked, so opening the map orients you
+   rather than just listing where you could go. */
+.mall-item.on {
+  border-color: var(--msec); color: var(--msec);
+  box-shadow: inset 0 0 0 1px var(--msec), 0 0 8px -2px var(--msec);
+}
 
 @media (max-width: 760px) {
   /* Five section labels will not fit across a phone, and shrinking them to fit
