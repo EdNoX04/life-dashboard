@@ -46,6 +46,8 @@
 //      now.
 
 import { closes, sma, rsi, macd, volumeTrend } from './technicals.js';
+import { UNIVERSE as LEADERS } from './leaders.js';
+import { MEMBERS as DIV_MEMBERS } from './divlists.js';
 
 const num = v => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 
@@ -387,24 +389,114 @@ export function scan(strategy, rows = []) {
 }
 
 // ---- the universe --------------------------------------------------------
+//
+// Decision 1 said the screen filters a STATED universe. For a long time that
+// universe was two sources — what you hold, plus the leaderboard — and it was
+// small enough that the screen's real limitation was the universe rather than
+// the rules: a name could fail to appear because nothing was wrong with it but
+// because nobody had ever put it on a list.
+//
+// Widening it does not change the decision, and this is the part that matters:
+// a bigger universe is still a stated one. The sources are named individually
+// and counted individually, the sentence still says what went in, and adding a
+// fourth source means adding a row here rather than editing prose somewhere
+// else. What is NOT done is any attempt to imply coverage — three lists bolted
+// together is not "the market", and the note says so in the same words it did
+// when there were two.
+//
+// The order of this table is the precedence order, and it is load-bearing. A
+// ticker present in more than one source is claimed by the FIRST one, so a
+// holding that also sits on the dividend-lists table counts once, as a
+// holding. Getting that wrong does not throw; it inflates the universe count
+// and prints a name twice, which is the specific way a screener starts lying
+// about its own size.
+
+export const UNIVERSE_SOURCES = [
+  {
+    key: 'held',
+    label: n => `${n} name${n === 1 ? '' : 's'} you hold`,
+    tickers: ({ holdings = [] }) => holdings.map(h => ({
+      ticker: String(h?.ticker || '').toUpperCase(),
+      name: h?.name || null,
+    })),
+  },
+  {
+    key: 'watch',
+    label: n => `${n} more from the leaderboard list`,
+    tickers: () => LEADERS.map(u => ({ ticker: String(u?.t || '').toUpperCase(), name: u?.n || null })),
+  },
+  {
+    key: 'lists',
+    label: n => `${n} more from the dividend-lists table`,
+    tickers: () => DIV_MEMBERS.map(m => ({ ticker: String(m?.t || '').toUpperCase(), name: m?.n || null })),
+  },
+];
+
+// Compose the universe once, here, rather than in the component. The component
+// used to build it inline, which meant the dedup rule and the sentence that
+// describes the dedup rule lived in different files and could disagree.
+export function buildUniverse({ holdings = [] } = {}) {
+  const seen = new Set();
+  const rows = [];
+  const counts = {};
+  for (const src of UNIVERSE_SOURCES) {
+    let n = 0;
+    for (const { ticker, name } of src.tickers({ holdings })) {
+      if (!ticker || seen.has(ticker)) continue;
+      seen.add(ticker);
+      rows.push({ ticker, name: name || ticker, source: src.key, held: src.key === 'held' });
+      n++;
+    }
+    counts[src.key] = n;
+  }
+  return { rows, counts, total: rows.length };
+}
 
 // Decision 1. This is the sentence that stops the screen being read as a market
 // scan, so it is computed rather than written once and left to rot: it counts
-// what actually went in and where each part came from.
-export function universeNote({ held = 0, watch = 0 } = {}) {
+// what actually went in and where each part came from. Sources contributing
+// nothing are omitted from the sentence rather than printed as "0 from", so
+// the note describes the scan that ran instead of the one that was configured.
+export function universeNote(counts = {}) {
   const parts = [];
-  if (held) parts.push(`${held} name${held === 1 ? '' : 's'} you hold`);
-  if (watch) parts.push(`${watch} more from the leaderboard list`);
-  const total = held + watch;
+  let total = 0;
+  for (const src of UNIVERSE_SOURCES) {
+    const n = Number(counts[src.key]) || 0;
+    if (n > 0) { parts.push(src.label(n)); total += n; }
+  }
   if (!total) {
     return {
       total: 0,
-      text: 'There is nothing to scan yet. This screen filters names you already hold plus the leaderboard list; it has no market feed behind it and does not search listed companies at large.',
+      text: 'There is nothing to scan yet. This screen filters names you already hold, plus the leaderboard and the dividend-lists table; it has no market feed behind it and does not search listed companies at large.',
     };
   }
+  const list = parts.length === 1
+    ? parts[0]
+    : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
   return {
     total,
-    text: `Scanning ${total} name${total === 1 ? '' : 's'} — ${parts.join(' and ')}. This is the whole universe: there is no market feed behind this screen, so a name that is not in that list cannot appear here however well it would have scored.`,
+    text: `Scanning ${total} name${total === 1 ? '' : 's'} — ${list}. This is the whole universe: there is no market feed behind this screen, so a name that is not in that list cannot appear here however well it would have scored.`,
+  };
+}
+
+// The candle rules need a provider capped at eight calls a minute, so a wider
+// universe turns "load history" from a short wait into a long one. The number
+// is computed and stated on the button rather than discovered halfway through:
+// a progress bar that appears after the click is not consent.
+export const CANDLE_PACE_MS = 8200;
+
+export function fetchEstimate(n, paceMs = CANDLE_PACE_MS) {
+  const count = Math.max(0, Math.floor(Number(n) || 0));
+  if (!count) return { count: 0, ms: 0, text: 'There is nothing to load.' };
+  // n names means n-1 waits, not n: the pause is between calls, and charging
+  // for a pause after the last one overstates a long run by eight seconds.
+  const ms = (count - 1) * paceMs;
+  const mins = Math.round(ms / 60000);
+  const when = ms < 60000 ? 'under a minute' : `about ${mins} minute${mins === 1 ? '' : 's'}`;
+  return {
+    count,
+    ms,
+    text: `${count} name${count === 1 ? '' : 's'}, ${when} at eight calls a minute. You can stop it part way — names with no history come back as "not evaluated" rather than as failures.`,
   };
 }
 

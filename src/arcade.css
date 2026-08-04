@@ -4458,3 +4458,224 @@
   .dvl-head span:nth-child(3), .dvl-row span:nth-child(3),
   .dvl-head span:nth-child(4), .dvl-row span:nth-child(4) { display: none; }
 }
+
+/* ---- Yield Analyzer ------------------------------------------------------
+   The one rule worth stating: .yl-spec-mark is absolutely positioned by the
+   percentile's VALUE, not by its index, so the labels bunch on a skewed
+   distribution. They are allowed to overlap. Spacing them evenly would make the
+   bar legible and dishonest, since the whole point of drawing the spectrum in
+   yield space is that the gaps between the cuts mean something. ---- */
+.yl-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.yl-basis { display: inline-flex; border: 1px dashed var(--border-bright); }
+.yl-basis-b {
+  font-family: var(--font-pixel); font-size: 9px; letter-spacing: 1px;
+  padding: 7px 12px; background: transparent; color: var(--ink-3);
+  border: 0; border-right: 1px dashed var(--border); cursor: pointer;
+}
+.yl-basis-b:last-child { border-right: 0; }
+.yl-basis-b.on { background: var(--panel-2); color: var(--green); filter: drop-shadow(0 0 4px var(--green)); }
+.yl-basis-note { color: var(--ink-3); flex: 1; min-width: 180px; }
+
+.yl-ranges { display: inline-flex; border: 1px dashed var(--border-bright); }
+.yl-range {
+  font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1px;
+  padding: 6px 8px; background: transparent; color: var(--ink-3);
+  border: 0; border-right: 1px dashed var(--border); cursor: pointer;
+}
+.yl-range:last-child { border-right: 0; }
+.yl-range.on { background: var(--panel-2); color: var(--cyan); filter: drop-shadow(0 0 4px var(--cyan)); }
+
+.yl-approx {
+  font-family: 'RupeeFix', var(--font-body); font-size: 15px; line-height: 1.45;
+  color: var(--orange); border: 1px dashed var(--orange);
+  background: var(--panel-2); padding: 8px 10px; margin-bottom: 12px;
+}
+
+.yl-verdict {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;
+  border: 1px dashed var(--border-bright); background: var(--panel-2);
+  padding: 14px 16px; margin-bottom: 22px; flex-wrap: wrap;
+}
+.yl-verdict-k { font-family: var(--font-pixel); font-size: 8px; letter-spacing: 2px; color: var(--ink-3); }
+.yl-verdict-v { font-family: var(--font-pixel); font-size: 18px; margin: 10px 0 8px; }
+.yl-verdict-line { font-family: 'RupeeFix', var(--font-body); font-size: 16px; color: var(--ink-2); max-width: 60ch; }
+.yl-verdict-r { text-align: right; }
+.yl-verdict-y {
+  font-family: var(--font-pixel); font-size: 22px; color: var(--green);
+  margin: 10px 0 6px; filter: drop-shadow(0 0 5px var(--green));
+}
+.yl-verdict-p { font-family: 'RupeeFix', var(--font-body); font-size: 14px; color: var(--ink-3); }
+
+.yl-spec { margin-bottom: 26px; }
+.yl-spec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.yl-spec-title, .yl-sec-title {
+  font-family: var(--font-pixel); font-size: 8px; letter-spacing: 2px; color: var(--ink-3);
+}
+.yl-spec-hint { font-family: 'RupeeFix', var(--font-body); font-size: 13px; color: var(--ink-3); }
+.yl-spec-bar {
+  position: relative; height: 22px; margin-top: 8px;
+  border: 1px solid var(--border-bright);
+}
+.yl-spec-grad {
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, var(--red), var(--orange), var(--yellow), var(--green));
+  image-rendering: pixelated; opacity: 0.85;
+}
+.yl-spec-tick { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(0, 0, 0, 0.45); }
+.yl-spec-needle {
+  position: absolute; top: -3px; bottom: -3px; width: 3px; margin-left: -1px;
+  background: var(--ink); filter: drop-shadow(0 0 4px var(--ink));
+}
+.yl-spec-scale { position: relative; height: 34px; margin-top: 4px; }
+.yl-spec-mark { position: absolute; transform: translateX(-50%); text-align: center; white-space: nowrap; }
+.yl-spec-mark b {
+  display: block; font-family: var(--font-pixel); font-size: 7px;
+  letter-spacing: 1px; color: var(--ink-3); font-weight: normal;
+}
+.yl-spec-mark em {
+  display: block; font-family: 'RupeeFix', var(--font-body); font-size: 14px;
+  font-style: normal; color: var(--ink-2);
+}
+
+.yl-sec { margin-bottom: 24px; }
+.yl-sec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.yl-sec-n { color: var(--ink-3); }
+.yl-cuts { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0; margin-top: 8px; border: 1px dashed var(--border-bright); }
+.yl-cut { padding: 10px 4px; text-align: center; border-right: 1px dashed var(--border); }
+.yl-cut:last-child { border-right: 0; }
+.yl-cut-k { font-family: var(--font-pixel); font-size: 7px; letter-spacing: 1px; color: var(--ink-3); }
+.yl-cut-v { font-family: var(--font-pixel); font-size: 12px; color: var(--ink); margin-top: 8px; }
+.yl-cut-min .yl-cut-v { color: var(--red); }
+.yl-cut-max .yl-cut-v { color: var(--green); }
+.yl-cut-med .yl-cut-v { color: var(--yellow); }
+
+.yl-grow { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 8px; }
+
+.yl-hist { margin-top: 8px; }
+.yl-hist-svg { width: 100%; height: 260px; display: block; margin-top: 8px; }
+.yl-line { filter: drop-shadow(0 0 3px var(--green)); }
+.yl-dot { filter: drop-shadow(0 0 5px var(--green)); }
+.yl-ax { font-family: 'RupeeFix', var(--font-body); font-size: 12px; fill: var(--ink-3); }
+.yl-flag { font-family: var(--font-pixel); font-size: 7px; }
+.yl-disc { color: var(--ink-3); margin-top: 18px; line-height: 1.5; }
+
+/* ---- Valuation library ---------------------------------------------------
+   .vl-price-dot is positioned from bar()'s domain, which STRETCHES to include
+   the price. So a dot pinned hard against one end with the green range squashed
+   at the other is correct and is the whole finding on that card. Do not clamp
+   the domain to the range to make the cards look alike. ---- */
+.vl-lede {
+  font-family: 'RupeeFix', var(--font-body); font-size: 17px; line-height: 1.5;
+  color: var(--ink-2); max-width: 62ch; margin: 0 0 14px;
+}
+.vl-search {
+  width: 100%; box-sizing: border-box; padding: 12px 14px;
+  font-family: 'RupeeFix', var(--font-body); font-size: 18px;
+  background: var(--bg-deep); color: var(--ink);
+  border: 1px dashed var(--border-bright); outline: none;
+}
+.vl-search:focus { border-color: var(--purple); box-shadow: 0 0 6px var(--purple); }
+.vl-popular { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--ink-3); flex-wrap: wrap; }
+.vl-pop {
+  font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1px;
+  padding: 5px 7px; background: transparent; color: var(--green);
+  border: 1px dashed var(--border); cursor: pointer;
+}
+.vl-pop:hover { border-color: var(--green); filter: drop-shadow(0 0 4px var(--green)); }
+
+.vl-assume { margin-top: 16px; border: 1px dashed var(--border); background: var(--panel-2); padding: 10px 12px; }
+.vl-assume-note { color: var(--orange); line-height: 1.45; }
+.vl-assume-row { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; }
+.vl-assume-k { display: inline-flex; align-items: baseline; gap: 6px; }
+.vl-assume-k b {
+  font-family: var(--font-pixel); font-size: 7px; letter-spacing: 1px;
+  color: var(--ink-3); font-weight: normal;
+}
+.vl-assume-k em { font-family: 'RupeeFix', var(--font-body); font-size: 15px; font-style: normal; color: var(--cyan); }
+
+.vl-results { margin-top: 18px; }
+.vl-legend { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-3); }
+.vl-legend-range { display: inline-block; width: 22px; height: 3px; background: var(--green); }
+.vl-legend-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ink); margin-left: 10px; }
+
+.vl-shelf { margin-bottom: 26px; }
+.vl-shelf-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.vl-shelf-title { font-family: var(--font-pixel); font-size: 11px; color: var(--ink); }
+.vl-shelf-note { color: var(--ink-3); margin-top: 5px; max-width: 64ch; }
+.vl-shelf-ctl { display: inline-flex; align-items: center; gap: 6px; }
+.vl-all {
+  font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1px;
+  background: transparent; color: var(--cyan); border: 0; cursor: pointer;
+}
+.vl-arrow {
+  font-family: var(--font-body); font-size: 18px; line-height: 1;
+  width: 24px; height: 24px; background: transparent; color: var(--ink-2);
+  border: 1px dashed var(--border); cursor: pointer;
+}
+.vl-arrow:hover { border-color: var(--cyan); color: var(--cyan); }
+
+.vl-rail {
+  display: flex; gap: 10px; overflow-x: auto; padding: 12px 2px 6px;
+  scrollbar-width: thin;
+}
+.vl-card {
+  flex: 0 0 232px; box-sizing: border-box; padding: 12px;
+  border: 1px dashed var(--border-bright); background: var(--panel-2); cursor: pointer;
+}
+.vl-card:hover { border-color: var(--purple); box-shadow: 0 0 6px var(--purple); }
+.vl-card-head { display: flex; align-items: center; gap: 8px; }
+.vl-logo {
+  width: 26px; height: 26px; flex: 0 0 26px; display: grid; place-items: center;
+  font-family: var(--font-pixel); font-size: 8px; color: var(--bg-deep);
+  background: var(--ink-2); image-rendering: pixelated;
+}
+.vl-idy { display: flex; flex-direction: column; min-width: 0; }
+.vl-idy b { font-family: var(--font-pixel); font-size: 9px; color: var(--ink); }
+.vl-idy em {
+  font-family: 'RupeeFix', var(--font-body); font-size: 14px; font-style: normal;
+  color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.vl-bar { position: relative; height: 18px; margin: 16px 0 4px; }
+.vl-track { position: absolute; left: 0; right: 0; top: 8px; height: 1px; background: var(--border); }
+.vl-range { position: absolute; top: 6px; height: 5px; background: var(--green); opacity: 0.75; }
+.vl-base-tick {
+  position: absolute; top: 1px; width: 2px; height: 15px; margin-left: -1px;
+  background: var(--green); filter: drop-shadow(0 0 3px var(--green));
+}
+.vl-price-dot {
+  position: absolute; top: 4px; width: 9px; height: 9px; margin-left: -4px;
+  border-radius: 50%; background: var(--ink);
+}
+.vl-price-dot.out { background: var(--orange); filter: drop-shadow(0 0 4px var(--orange)); }
+.vl-ends {
+  display: flex; justify-content: space-between;
+  font-family: 'RupeeFix', var(--font-body); font-size: 14px; color: var(--ink-3);
+}
+.vl-nobar {
+  font-family: 'RupeeFix', var(--font-body); font-size: 14px; color: var(--ink-3);
+  border: 1px dashed var(--border); padding: 12px 8px; text-align: center; margin: 14px 0 6px;
+}
+
+.vl-verdict { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.vl-badge {
+  font-family: var(--font-pixel); font-size: 7px; letter-spacing: 1px;
+  border: 1px dashed currentColor; padding: 4px 6px;
+}
+.vl-to-base { font-family: 'RupeeFix', var(--font-body); font-size: 15px; }
+
+.vl-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border);
+}
+.vl-foot-t {
+  font-family: 'RupeeFix', var(--font-body); font-size: 13px; color: var(--ink-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vl-dots { display: inline-flex; gap: 4px; flex: 0 0 auto; }
+.vl-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  border: 1px solid var(--border-bright); background: transparent;
+}
+.vl-dot.on { background: var(--green); border-color: var(--green); filter: drop-shadow(0 0 3px var(--green)); }
+.vl-disc { color: var(--ink-3); line-height: 1.5; margin-top: 16px; }

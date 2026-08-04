@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Empty, StatTile } from '../ui.jsx';
 import {
   RULES, STRATEGIES, strategyById, scan, universeNote, dataAge, ideaCard, DISCLAIMER,
+  buildUniverse, fetchEstimate, CANDLE_PACE_MS,
 } from '../../lib/scanner.js';
 
-import { UNIVERSE } from '../../lib/leaders.js';
 import { fetchMetrics, hasKey, cachedAt } from '../../lib/fundamentals.js';
 import { fetchCandles } from '../../lib/marketdata.js';
 
@@ -171,40 +171,26 @@ export default function Scanner({ held = [], priceOf = () => null, cur = '$' }) 
 
   const strategy = strategyById(pick);
 
-  // Decision 1 of the library, computed rather than asserted: the universe is
-  // the names held plus the leaderboard list, and nothing else exists.
-  const heldTickers = useMemo(
-    () => [...new Set(held.map(h => String(h.ticker || '').toUpperCase()).filter(Boolean))],
-    [held],
-  );
-  const watchTickers = useMemo(
-    () => UNIVERSE.map(u => String(u.t || '').toUpperCase()).filter(t => t && !heldTickers.includes(t)),
-    [heldTickers],
-  );
-  const universeNames = useMemo(
-    () => Object.fromEntries(UNIVERSE.map(u => [String(u.t || '').toUpperCase(), u.n])),
-    [],
-  );
-  const note = useMemo(
-    () => universeNote({ held: heldTickers.length, watch: watchTickers.length }),
-    [heldTickers, watchTickers],
-  );
+  // Decision 1 of the library, delegated to the library rather than rebuilt
+  // here. This used to compose the universe inline from two sources, which put
+  // the dedup rule in this file and the sentence describing it in the other
+  // one — so widening the universe meant changing both and hoping.
+  const universe = useMemo(() => buildUniverse({ holdings: held }), [held]);
+  const note = useMemo(() => universeNote(universe.counts), [universe]);
 
-  const rows = useMemo(() => {
-    const mk = (t, isHeld) => {
-      const h = held.find(x => String(x.ticker || '').toUpperCase() === t);
-      const px = Number(priceOf(t)) || Number(h?.last_price) || null;
-      return {
-        ticker: t,
-        name: h?.name || universeNames[t] || t,
-        held: isHeld,
-        price: px,
-        metric: metrics[t] || null,
-        candles: candles[t] || null,
-      };
+  const rows = useMemo(() => universe.rows.map(u => {
+    const h = held.find(x => String(x.ticker || '').toUpperCase() === u.ticker);
+    const px = Number(priceOf(u.ticker)) || Number(h?.last_price) || null;
+    return {
+      ticker: u.ticker,
+      name: h?.name || u.name || u.ticker,
+      held: u.held,
+      source: u.source,
+      price: px,
+      metric: metrics[u.ticker] || null,
+      candles: candles[u.ticker] || null,
     };
-    return [...heldTickers.map(t => mk(t, true)), ...watchTickers.map(t => mk(t, false))];
-  }, [heldTickers, watchTickers, held, priceOf, metrics, candles, universeNames]);
+  }), [universe, held, priceOf, metrics, candles]);
 
   const result = useMemo(() => scan(pick, rows), [pick, rows]);
 
@@ -217,6 +203,7 @@ export default function Scanner({ held = [], priceOf = () => null, cur = '$' }) 
 
   const needsCandles = !!strategy?.rules.some(id => RULES_INDEX[id]?.need === 'candles');
   const candleCount = Object.keys(candles).length;
+  const estimate = useMemo(() => fetchEstimate(rows.length), [rows.length]);
   const metricCount = Object.keys(metrics).filter(k => metrics[k]).length;
 
   const groups = useMemo(() => {
@@ -241,22 +228,43 @@ export default function Scanner({ held = [], priceOf = () => null, cur = '$' }) 
     setBusy(null);
   }
 
-  // Paced at 8200 ms because the candle provider's free tier is 8 calls a
-  // minute. The wait is stated on the button before it is pressed rather than
-  // discovered halfway through it.
+  // Paced because the candle provider's free tier is 8 calls a minute. The wait
+  // is stated on the button before it is pressed rather than discovered halfway
+  // through it — and since the universe was widened that wait is now measured
+  // in minutes, so the run is also STOPPABLE.
+  //
+  // Making it stoppable is safe only because of the library's decision 2: a
+  // name with no history comes back 'unknown', not 'fail'. A half-loaded run
+  // therefore produces a screen that knows less, not a screen that is wrong,
+  // and the "not evaluated" list — which decision 2 of the screen forbids
+  // collapsing — grows to say exactly how much less.
+  //
+  // The flag is a ref rather than state on purpose: the loop reads it after
+  // every await, and a state value captured in this closure would still be
+  // `false` on the next tick however many times the button was pressed.
+  const stopRef = useRef(false);
+
   async function loadCandles() {
     if (busy || !rows.length) return;
+    stopRef.current = false;
     setBusy('candles'); setDone(0);
     const acc = {};
-    for (const r of rows) {
+    for (let i = 0; i < rows.length; i++) {
+      if (stopRef.current) break;
       try {
-        const c = await fetchCandles(r.ticker, '1D');
-        if (c && c.length) acc[r.ticker] = c;
+        const c = await fetchCandles(rows[i].ticker, '1D');
+        if (c && c.length) acc[rows[i].ticker] = c;
       } catch {}
       setDone(d => d + 1);
       setCandles({ ...acc });
-      await new Promise(res => setTimeout(res, 8200));
+      // The pace is between calls, so the last name does not pay for a pause
+      // nobody is waiting on — and a stop pressed during the wait is honoured
+      // at the top of the next iteration rather than after another 8 seconds.
+      if (i < rows.length - 1 && !stopRef.current) {
+        await new Promise(res => setTimeout(res, CANDLE_PACE_MS));
+      }
     }
+    stopRef.current = false;
     setBusy(null);
   }
 
@@ -265,7 +273,7 @@ export default function Scanner({ held = [], priceOf = () => null, cur = '$' }) 
   return (
     <>
       <div className="tile-row">
-        <StatTile label="Universe" value={note.total} note="held + leaderboard" color="var(--cyan)" />
+        <StatTile label="Universe" value={note.total} note="held + lists" color="var(--cyan)" />
         <StatTile label="Matching" value={result.hits.length} note="at least one rule" color={result.hits.length ? 'var(--green)' : 'var(--ink-2)'} />
         <StatTile label="No match" value={result.misses.length} note="answered, matched nothing" color="var(--ink-2)" />
         <StatTile label="Not evaluated" value={result.blocked.length} note="missing data, not a failure" color={result.blocked.length ? 'var(--orange)' : 'var(--green)'} />
@@ -316,12 +324,20 @@ export default function Scanner({ held = [], priceOf = () => null, cur = '$' }) 
               {candleCount
                 ? `Price history loaded for ${candleCount} of ${rows.length} names.`
                 : 'The trend rules in this screen need daily price history, which is not loaded.'}
-              {' '}The candle feed allows 8 requests a minute, so loading all {rows.length} takes about{' '}
-              {Math.ceil((rows.length * 8.2) / 60)} minute{Math.ceil((rows.length * 8.2) / 60) === 1 ? '' : 's'}.
+              {' '}{estimate.text}
             </span>
-            <button className="btn btn-sm btn-pink" onClick={loadCandles} disabled={!!busy}>
-              {busy === 'candles' ? `${done}/${rows.length}…` : 'load price history'}
-            </button>
+            {busy === 'candles' ? (
+              /* Stop is a real button, not a cancel hidden behind the progress
+                 text. A ten-minute run the reader cannot end is a run they will
+                 end by closing the tab, which loses the names already fetched. */
+              <button className="btn btn-sm" onClick={() => { stopRef.current = true; }}>
+                ■ stop — {done}/{rows.length}
+              </button>
+            ) : (
+              <button className="btn btn-sm btn-pink" onClick={loadCandles} disabled={!!busy}>
+                load price history
+              </button>
+            )}
           </div>
         )}
       </Card>
