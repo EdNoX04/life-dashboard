@@ -3,7 +3,7 @@ import { Card, StatTile, Empty } from '../ui.jsx';
 import { memGet, memSet } from '../../lib/advisor.js';
 import {
   FREQS, MONTH_NAMES, EMPTY_DIVS, normaliseEntry, calendarForYear, monthlyTotals,
-  incomeSummary, upcoming, perHolding, coverage, bookYield, incomeLadder, annualPerShare,
+  incomeSummary, upcoming, perHolding, coverage, bookYield, incomeLadder, annualPerShare, exWatch,
 } from '../../lib/dividends.js';
 
 // The income side of the book: what it pays, when, and how much of that is a
@@ -276,6 +276,13 @@ export default function DividendDesk({
   const by = useMemo(() => bookYield(lines), [lines]);
   const ladder = useMemo(() => incomeLadder(lines, 10), [lines]);
   const next = useMemo(() => upcoming(payments, { limit: 6 }), [payments]);
+  // Deliberately built off THIS year's payments plus next year's, because an
+  // ex-date in the first days of January has its buy deadline in December and
+  // a year-scoped calendar would hide it during exactly the week it mattered.
+  const watch = useMemo(() => {
+    const spill = calendarForYear(held, meta, new Date().getFullYear() + 1, { sharesOf, fx: rate });
+    return exWatch([...payments, ...spill], { withinDays: 60 });
+  }, [payments, held, meta, rate]);
 
   const save = (ticker, entry) => {
     const nextMeta = { ...meta, [ticker]: entry };
@@ -339,6 +346,51 @@ export default function DividendDesk({
         </div>
       </Card>
 
+      {/* Above "Coming up" on purpose. Everything else on this screen tells you
+          what will arrive; this is the only part with a deadline on it, and a
+          deadline below a diary gets read second. */}
+      {watch.length > 0 && (
+        <Card title="Ex-dividend watch" color="var(--orange)"
+          right={<span className="small muted">next 60 days</span>}>
+          <div className="exw">
+            {watch.map((w, i) => (
+              <div key={i} className={`exw-row ${w.phase}`}>
+                <span className="exw-days">
+                  {w.phase === 'entitled'
+                    ? <b className="c-green">HELD</b>
+                    : <><b>{w.daysToEx}</b><i>d</i></>}
+                </span>
+                <span className="exw-main">
+                  <b>{w.ticker}</b>
+                  <span className={`chip ${w.status === 'declared' ? 'c-green' : 'c-cyan'}`}>
+                    {w.status === 'declared' ? 'declared' : 'estimated'}
+                  </span>
+                  {w.special && <span className="chip c-pink">special</span>}
+                </span>
+                <span className="exw-dates small">
+                  <span title="Last day to buy and still be paid">
+                    buy by <b className={w.phase === 'open' ? 'c-orange' : 'muted'}>{w.lastBuy?.slice(5) || '—'}</b>
+                  </span>
+                  <span title="First day the share trades without the dividend">ex <b>{w.ex.slice(5)}</b></span>
+                  <span title="The day the register is read">rec <b>{w.record?.slice(5) || '—'}</b></span>
+                  <span title="Payment date">pay <b>{w.pay.slice(5)}</b></span>
+                </span>
+                <b className="exw-amt">{exact(w.amount, cur)}</b>
+              </div>
+            ))}
+          </div>
+          {/* Stated once, here, rather than trusted to be common knowledge: the
+              buy deadline is the number people get wrong, and they get it wrong
+              by one day in the expensive direction. */}
+          <div className="small muted mt">
+            Buy on or before the <b>buy by</b> date to receive the payment — a purchase on the ex-date
+            settles too late to be on the register. Under T+1 the record date <i>is</i> the ex-date.
+            Weekends are handled; exchange holidays are not, so treat a deadline that falls next to one
+            as a day earlier than shown.
+          </div>
+        </Card>
+      )}
+
       {next.length > 0 && (
         <Card title="Coming up" color="var(--cyan)">
           <div className="div-next">
@@ -347,6 +399,7 @@ export default function DividendDesk({
                 <span className="div-next-date">{p.pay.slice(5)}</span>
                 <b>{p.ticker}</b>
                 <span className="muted small">{p.shares} sh × {exact(p.perShare, '')}</span>
+                <span className="muted small">ex {p.ex.slice(5)} · rec {p.record?.slice(5) || '—'}</span>
                 <span className={`chip ${p.status === 'declared' ? 'c-green' : 'c-cyan'}`}>
                   {p.status === 'declared' ? 'declared' : 'estimated'}
                 </span>
@@ -355,8 +408,9 @@ export default function DividendDesk({
             ))}
           </div>
           <div className="small muted mt">
-            Ex-dividend dates run {lines.find(l => l.entry)?.entry?.exOffsetDays ?? 14} days ahead of payment by
-            default — sell before the ex-date and the payment goes to the buyer, not to you.
+            Ex-dates run {lines.find(l => l.entry)?.entry?.exOffsetDays ?? 14} days ahead of payment by default
+            where no declaration is on file. Selling before the ex-date hands the payment to the buyer;
+            selling on or after it does not, so you can sell an ex-dividend share and still be paid.
           </div>
         </Card>
       )}

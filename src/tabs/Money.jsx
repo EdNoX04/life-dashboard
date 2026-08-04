@@ -18,6 +18,7 @@ import RiskProfile from '../components/money/RiskProfile.jsx';
 import Planner from '../components/money/Planner.jsx';
 import Levers from '../components/money/Levers.jsx';
 import DividendDesk from '../components/money/DividendDesk.jsx';
+import DivLists from '../components/money/DivLists.jsx';
 import Expenses from '../components/money/Expenses.jsx';
 import OverviewPanels from '../components/money/OverviewPanels.jsx';
 import Leaderboard from '../components/money/Leaderboard.jsx';
@@ -103,13 +104,15 @@ export function dayLinePath(up) {
   // the climb inside the tile while the seam only accounts for it once, which
   // puts a 14-unit cliff at every join. That is a zigzag with a cliff in it, not
   // a price series, and it is exactly what the dash animation was replaced for.
-  const m = up ? -1 : 1;        // +1 mirrors the climb into a slide
+  const m = up ? 1 : -1;        // -1 mirrors the climb into a slide
   // Chosen so five visible repeats span y=2..54 inside the 56-unit viewBox: the
   // series drifts by TILE_RISE per repeat, so where it STARTS decides whether
-  // the far end is on screen at all. Up starts high and descends to the right,
-  // because the scroll then carries it up-left and it reads as rising; down is
-  // the mirror, and the two bases sum to the viewBox height.
-  const base = up ? 9 : 47;
+  // the far end is on screen at all. Up starts LOW and climbs to the right,
+  // which is both what a rising series looks like standing still and what the
+  // left-to-right scroll needs - the translate is +one repeat, so the drawn
+  // slope and the motion agree rather than cancelling. Down is the mirror, and
+  // the two bases sum to the viewBox height.
+  const base = up ? 47 : 9;
   const pts = [];
   for (let i = -1; i < TILE_COPIES - 1; i++) {
     // Every repeat after the first skips its own point 0: it is the same point
@@ -544,6 +547,7 @@ export default function Money() {
           cur={inr ? '\u20b9' : '$'} fx={fx} inr={!!inr}
         />
       )}
+      {view === 'divlists' && <DivLists held={held} quotes={quotes} />}
       {/* Cash does NOT take the display currency the rest of this tab uses. Its
           rows are amounts that were actually typed in a currency — mostly rupees —
           and the toggle above is a viewing preference for a dollar-priced

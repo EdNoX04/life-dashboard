@@ -200,13 +200,17 @@
   will-change: transform;
 }
 .daypl-fx.down .daypl-scroll { animation-name: dayScrollDown; }
-/* The y sign is the NEGATIVE of the path's per-repeat drift, because the point
-   is to undo one repeat exactly. dayLinePath's up variant descends 7 units per
-   repeat, so this lifts by 7 - and the line consequently reads as rising even
-   though the drawn path slopes down. Swapping these two is silent: the layout is
-   fine and the loop still runs, it just steps 14 units once per cycle. */
-@keyframes dayScrollUp   { to { transform: translate(-38px, -7px); } }
-@keyframes dayScrollDown { to { transform: translate(-38px, 7px); } }
+/* This is exactly +one repeat of the path, which is what makes the loop point
+   invisible: after one period every repeat sits where its neighbour was, so the
+   snap back to translate(0,0) is unobservable. MINUS one repeat is equally
+   seamless and is what this used to do - that ran right-to-left. It runs
+   left-to-right now, so both axes flipped together, and they have to: the x and
+   y here are not two independent choices, they are one vector that must equal
+   dayLinePath's own per-repeat step. Change one without the other and the layout
+   still looks fine, the loop still runs, and the line steps 14 units once per
+   cycle - which is the "inconsistent" defect this whole thing replaced. */
+@keyframes dayScrollUp   { to { transform: translate(38px, -7px); } }
+@keyframes dayScrollDown { to { transform: translate(38px, 7px); } }
 
 /* Market shut, line still. Paused rather than removed, so it holds the frame it
    was on at the close instead of snapping back to a start position — and so it
@@ -1361,6 +1365,40 @@
 .div-month.mini .div-day { min-height: 14px; }
 .div-month.mini .div-day b { font-size: 9px; }
 .div-month.mini .div-chip { height: 3px; padding: 0; }
+
+/* ---- ex-dividend watch ----
+   The countdown is the widest column and sits first, because the list is sorted
+   by deadline and the number IS the sort key: reading down the left edge should
+   tell you the shape of the next two months without reading a single ticker. */
+.exw { display: flex; flex-direction: column; gap: 4px; }
+.exw-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 6px 9px; background: var(--bg-deep);
+  border: 2px solid var(--border); border-left: 4px solid var(--orange);
+  border-radius: 2px;
+}
+/* Dashed for a deadline that has not opened yet is the same idiom the rest of
+   this screen uses for "estimated": not solid because not yet real. */
+.exw-row.closing { border-left-color: var(--ink-3); border-left-style: dashed; }
+.exw-row.entitled { border-left-color: var(--green); }
+.exw-days {
+  min-width: 46px; text-align: right; font-family: var(--font-pixel); font-size: 9px;
+  color: var(--orange); text-shadow: 0 0 7px var(--orange);
+}
+.exw-row.closing .exw-days { color: var(--ink-3); text-shadow: none; }
+.exw-days i { font-style: normal; font-size: 7px; color: var(--ink-3); margin-left: 2px; }
+.exw-days b.c-green { font-size: 7px; text-shadow: 0 0 7px var(--green); }
+.exw-main { display: flex; align-items: center; gap: 6px; min-width: 108px; }
+.exw-dates { display: flex; gap: 10px; flex-wrap: wrap; color: var(--ink-3); }
+.exw-dates b { color: var(--ink-2); font-weight: normal; }
+.exw-amt { margin-left: auto; color: var(--green); }
+
+@media (max-width: 620px) {
+  /* The dates wrap to their own line before the amount does — losing sight of
+     the deadline to keep a number aligned would invert the point of the card. */
+  .exw-dates { width: 100%; order: 3; }
+  .exw-amt { order: 2; }
+}
 
 .div-next { display: flex; flex-direction: column; gap: 4px; }
 .div-next-row {
@@ -4317,4 +4355,82 @@
   border-top: 1px dotted var(--border);
   margin-top: 14px;
   padding-top: 10px;
+}
+
+/* ---- curated dividend lists ----
+   The staleness banner is the load-bearing element here, so it is styled to be
+   read rather than dismissed: full width, above the data, warning-coloured, and
+   with no close affordance. Everything below it inherits its caveat. */
+.dvl-seg { flex-wrap: wrap; }
+.dvl-stale {
+  display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;
+  padding: 8px 11px; border: 2px dashed var(--orange); border-radius: 2px;
+  background: color-mix(in srgb, var(--orange) 8%, var(--bg-deep));
+  color: var(--ink-2); font-size: 12px; line-height: 1.5;
+}
+.dvl-stale b {
+  font-family: var(--font-pixel); font-size: 8px; color: var(--orange);
+  text-shadow: 0 0 7px var(--orange); white-space: nowrap;
+}
+.dvl-stale span { flex: 1 1 260px; }
+
+.dvl-sum { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--ink-3); }
+.dvl-sum b { color: var(--ink); }
+
+.dvl-mix { margin: 8px 0; }
+.dvl-mixbar {
+  display: flex; height: 8px; border: 2px solid var(--border); border-radius: 2px;
+  overflow: hidden; image-rendering: pixelated;
+}
+.dvl-mixbar span { display: block; height: 100%; opacity: .75; }
+.dvl-mixkey { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 5px; color: var(--ink-3); }
+.dvl-mixkey i { display: inline-block; width: 7px; height: 7px; margin-right: 4px; vertical-align: middle; }
+
+.dvl-filter { margin: 6px 0; }
+
+.dvl-tbl { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+.dvl-head, .dvl-row {
+  display: grid; grid-template-columns: minmax(140px, 2.2fr) 1.1fr 1fr .8fr .8fr .8fr;
+  gap: 8px; align-items: center; padding: 5px 8px;
+}
+.dvl-head {
+  font-family: var(--font-pixel); font-size: 7px; color: var(--ink-3);
+  border-bottom: 2px dotted var(--border);
+}
+.dvl-row { background: var(--bg-deep); border: 2px solid var(--border); border-radius: 2px; font-size: 12px; }
+/* Held names get a left rail rather than a fill: the table is scanned down the
+   ticker column, and a filled row would out-shout the yield column it exists
+   next to. */
+.dvl-row.mine { border-left: 4px solid var(--cyan); }
+.dvl-head .r, .dvl-row .r { text-align: right; }
+.dvl-tk { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.dvl-tk b { color: var(--ink); }
+.dvl-tk i { font-style: normal; color: var(--ink-3); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dvl-streak { color: var(--ink-2); white-space: nowrap; }
+.dvl-streak b { color: var(--yellow); text-shadow: 0 0 6px var(--yellow); }
+.dvl-streak i { font-style: normal; color: var(--ink-3); font-size: 10px; }
+/* The spin-off marker. Deliberately loud for one character: a zero streak on a
+   household name looks like a data error until you read the reason. */
+.dvl-streak em {
+  font-style: normal; margin-left: 5px; padding: 0 4px;
+  border: 2px solid var(--pink); border-radius: 2px; color: var(--pink);
+  font-family: var(--font-pixel); font-size: 7px; cursor: help;
+}
+
+.dvl-gaps { display: flex; gap: 7px; flex-wrap: wrap; }
+.dvl-gap {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  padding: 4px 8px; background: var(--bg-deep);
+  border: 2px dotted var(--border-bright); border-radius: 2px; font-size: 12px;
+}
+.dvl-gap b { color: var(--ink); }
+.dvl-gap i { font-style: normal; color: var(--green); }
+.dvl-gap em { font-style: normal; color: var(--ink-3); font-size: 10px; }
+
+@media (max-width: 700px) {
+  /* Sector and rate are the first two to go: they are context, while streak and
+     yield are the two columns the list is actually organised by. */
+  .dvl-head, .dvl-row { grid-template-columns: minmax(110px, 2fr) 1.1fr .9fr .9fr; }
+  .dvl-head span:nth-child(3), .dvl-row span:nth-child(3),
+  .dvl-head span:nth-child(4), .dvl-row span:nth-child(4) { display: none; }
 }
