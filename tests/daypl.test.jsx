@@ -68,12 +68,12 @@ for (const up of [true, false]) {
   ok(`${name}: and that step is TILE_RISE in magnitude`,
     Math.abs(rise) === TILE_RISE, rise);
 
-  // The direction is the part that is easy to get backwards and impossible to
-  // spot in the numbers. An up series is drawn DESCENDING because the scroll
-  // then carries it up-and-left; asserting it is what stops someone "fixing"
-  // the slope to match the name and silently reversing the animation.
-  ok(`${name}: the drawn path slopes ${up ? 'down' : 'up'} to the right`,
-    up ? rise > 0 : rise < 0, rise);
+  // The slope is easy to get backwards and impossible to spot in the numbers.
+  // It is not a free choice: the scroll translates by +one repeat, so the drawn
+  // slope IS the direction of travel, and an up series that slopes down would
+  // scroll downhill while calling itself a gain.
+  ok(`${name}: the drawn path slopes ${up ? 'up' : 'down'} to the right`,
+    up ? rise < 0 : rise > 0, rise);
 
   // No duplicated point at the joins: emitting the shared point twice puts a
   // zero-length segment there, which miter-joins render as a visible pip.
@@ -98,8 +98,8 @@ for (const up of [true, false]) {
   const ys = visible.map(p => p[1]);
   ok(`${name}: the revealed span uses most of the box height`,
     Math.max(...ys) - Math.min(...ys) > 30, Math.max(...ys) - Math.min(...ys));
-  ok(`${name}: the path starts ${up ? 'high' : 'low'} in the box`,
-    up ? pts[0][1] < VIEW_H / 2 : pts[0][1] > VIEW_H / 2, pts[0][1]);
+  ok(`${name}: the path starts ${up ? 'low' : 'high'} in the box`,
+    up ? pts[0][1] > VIEW_H / 2 : pts[0][1] < VIEW_H / 2, pts[0][1]);
 }
 
 // The two variants must be reflections, not two independently tuned drawings.
@@ -126,15 +126,21 @@ for (const up of [true, false]) {
   ok('arcade.css defines dayScrollDown with a two-axis translate', !!down);
 
   if (up && down) {
-    // The scroll must undo exactly one repeat, so it is the negation of the
-    // path's own per-repeat step. Anything else steps once per cycle.
+    // The scroll must advance by exactly one repeat, so it IS the path's own
+    // per-repeat step. Minus that step is equally seamless and equally wrong
+    // here - it is the right-to-left version this replaced - so the check is
+    // equality with the step, not with its magnitude.
     for (const [name, kfv, isUp] of [['dayScrollUp', up, true], ['dayScrollDown', down, false]]) {
       const p = points(dayLinePath(isUp));
       const step = [p[6][0] - p[0][0], +(p[6][1] - p[0][1]).toFixed(3)];
-      ok(`${name} translates left by exactly one repeat`, kfv[0] === -step[0], kfv[0]);
-      ok(`${name} translates vertically by the negation of the path's drift`,
-        kfv[1] === -step[1], `${kfv[1]} vs ${-step[1]}`);
+      ok(`${name} advances horizontally by exactly one repeat`, kfv[0] === step[0], kfv[0]);
+      ok(`${name} advances vertically by exactly the path's own drift`,
+        kfv[1] === step[1], `${kfv[1]} vs ${step[1]}`);
     }
+    // Asked for directly: the line travels left to right. Stated on its own
+    // rather than left implicit in the step equality, because it is a product
+    // decision and the step equality would hold just as happily for the mirror.
+    ok('both variants travel LEFT TO RIGHT', up[0] > 0 && down[0] > 0, `${up[0]} / ${down[0]}`);
     ok('the two keyframes scroll the same direction horizontally', up[0] === down[0]);
     ok('and opposite directions vertically', up[1] === -down[1], `${up[1]} / ${down[1]}`);
     ok('dayScrollUp lifts the line, which is what makes it read as rising',

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Draw ₹ as a pixel glyph and emit a one-codepoint webfont, base64-inlined.
+"""Draw ₹ as a pixel glyph and emit TWO one-codepoint webfonts, base64-inlined.
 
 Why a generated font rather than a component.
 
@@ -16,9 +16,45 @@ Segoe UI. That got the SIZE right — which is what it was for — but it drew a
 smooth, modern, anti-aliased rupee sitting next to blocky VT323 digits, and it
 read as a glyph pasted in from another typeface, because it was one.
 
-This draws the sign on a 7x8 pixel grid, the same idiom as the rest of the UI,
-and ships it as the only glyph in a font restricted to U+20B9. Everything else
+This draws the sign on a 7x7 pixel grid, the same idiom as the rest of the UI,
+and ships it as the only glyph in fonts restricted to U+20B9. Everything else
 still renders in the pixel faces; only this one codepoint is claimed.
+
+
+TWO FIXES, both found by measuring a screenshot of the live stat tiles rather
+than by reading the drawing.
+
+1. THE DRAWING WAS A LATIN R, NOT A RUPEE. The previous ART had a stem running
+   the full height down the left side, a closed bowl, and a leg off the bowl —
+   which is the construction of R, and rendered as one. ₹ has NO left stem. It
+   is two horizontal bars, a short stroke between them, and then a single
+   stroke that leaves the second bar, bulges out to the LEFT, and returns to
+   run down to the bottom RIGHT. The left edge of the glyph is touched at
+   exactly one height, about halfway down, and nowhere else. Checked against a
+   rasterisation of DejaVu Sans Bold's U+20B9 rather than from memory, because
+   the previous drawing was also "checked against DejaVu" and still came out as
+   an R — reading a glyph and reproducing its skeleton are different jobs.
+
+2. ONE SET OF METRICS CANNOT SERVE BOTH STACKS. The app has two font stacks and
+   they do not agree about where text sits:
+
+     --font-body  -> VT323, an ordinary-baseline face: digits rest ON the
+                     baseline and reach about 700/1000 of the em.
+     --font-pixel -> Press Start 2P, which does NOT rest on the baseline: its
+                     caps and digits float about 125/1000 above it and reach
+                     1000, so they are both TALLER and HIGHER than VT323's.
+
+   The old font shipped one face at 0..700, which is right for VT323 and wrong
+   for Press Start 2P — and the stat tiles, the most prominent money on the
+   dashboard, are Press Start 2P. There the sign came out at 29px beside 36px
+   digits and sat five device-pixels lower. Measured off the rendered page: at
+   font-size 20px on a 2x display, 1em = 40 device px, the digits spanned 36px
+   with their feet 5px clear of the baseline, i.e. 125..1000 in font units.
+
+   So two faces are generated from the same drawing, differing only in the size
+   of a pixel and the height of the bottom row. Nothing is scaled with
+   size-adjust: each face is drawn at the size it needs to be, so the pixel
+   grid stays square in both and neither gets resampled.
 
 Run:  python3 scripts/make-rupee-font.py
 It rewrites the @font-face block in src/theme.css in place.
@@ -27,53 +63,63 @@ It rewrites the @font-face block in src/theme.css in place.
 import base64
 import io
 import os
-import re
 
 from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 
-# The glyph, as a picture. ₹ is structurally an R with two horizontal bars
-# across it: a stem down the LEFT, a bowl closed by the second bar, and the leg
-# running down-RIGHT. It is worth stating because the obvious guess — bars, a
-# stem on the right, a diagonal down-left — is the mirror image, and it renders
-# as something between a 7 and a ₹ that looks almost right at small sizes. This
-# was drawn against DejaVu Sans Bold's ₹ rather than from memory.
+# The glyph, as a picture, read off DejaVu Sans Bold's U+20B9:
+#
+#   row 0   the upper bar, full width
+#   row 1   the short connecting stroke, right of centre
+#   row 2   the lower bar, full width
+#   rows 3-4 the stroke leaving the bar and bulging LEFT — row 4 is the only
+#           row that reaches column 0, which is what stops this reading as an R
+#   rows 5-6 the same stroke turning back and running down to the right
 #
 # Kept as ASCII art on purpose: the next person who wants a thicker stem should
 # be able to edit the drawing, not the geometry.
 ART = [
-    '######.',
-    '#....#.',
-    '######.',
-    '#..##..',
-    '#...##.',
-    '#....##',
-    '#.....#',
+    '#######',
+    '...##..',
+    '#######',
+    '..##...',
+    '###....',
+    '..###..',
+    '....###',
 ]
-# The leg is two pixels wide rather than one, and that is a rendering
-# requirement rather than a weight preference: a one-pixel staircase touches
-# only at its corners, and corner-touching squares are not a connected region.
-# Every rasteriser is entitled to drop those junctions, so at 15px the leg came
-# out as four detached dots. Two-wide makes each step share a full edge with the
-# next, which is the same reason the bars are emitted as runs.
+# Every step of the descending stroke overlaps its neighbour by a full pixel of
+# shared edge (row 3 cols 2-3 into row 4 cols 0-2 into row 5 cols 2-4 into row 6
+# cols 4-6). That is a rendering requirement rather than a weight preference: a
+# staircase that touches only at its corners is not a connected region, every
+# rasteriser is entitled to drop those junctions, and at 15px the previous leg
+# came out as four detached dots.
 
-PX = 100                     # one pixel, in font units
 UPM = 1000
 COLS = len(ART[0])
 ROWS = len(ART)
-# Baseline sits at the bottom row. The bars therefore top out at 7*100 = 700,
-# which is where VT323's digits and Press Start 2P's caps also land — that
-# agreement is the whole point, and it is why PX is 100 and ROWS is 7.
-ADVANCE = COLS * PX + 2 * 35  # 35 units of side bearing either side
+
+# (family, pixel size in font units, height of the bottom row above the
+# baseline). See fix 2 above — these are measured, not chosen.
+#
+#   RupeeFix   : 7 rows x 100 = 700, sitting on the baseline. VT323.
+#   RupeePixel : 7 rows x 125 = 875, lifted 125 clear. Press Start 2P.
+#
+# 875 and 125 are not a rounding of anything convenient; they are what the
+# screenshot measured, and 875/7 landing exactly on 125 is luck that saves a
+# fractional pixel grid.
+FACES = [
+    ('RupeeFix', 100, 0),
+    ('RupeePixel', 125, 125),
+]
 
 
 def runs(row):
     """Contiguous lit spans in a row, as (start, end) column pairs.
 
     Emitting one rectangle per run rather than one per pixel is not an
-    optimisation for its own sake: a six-pixel bar drawn as six abutting squares
-    has five interior edges that a rasteriser can seam along at small sizes, and
-    the top bar of this glyph is exactly where that would show.
+    optimisation for its own sake: a seven-pixel bar drawn as seven abutting
+    squares has six interior edges that a rasteriser can seam along at small
+    sizes, and the top bar of this glyph is exactly where that would show.
     """
     out, i = [], 0
     while i < COLS:
@@ -88,17 +134,17 @@ def runs(row):
     return out
 
 
-def build_glyph():
+def build_glyph(px, yoff, bearing):
     pen = TTGlyphPen(None)
     for r, row in enumerate(ART):
         # Row 0 is the top of the drawing, so it is the HIGHEST y in the font's
         # y-up coordinate system. Getting this inversion wrong produces a glyph
         # that is upside down but perfectly plausible-looking in a hex dump.
-        y0 = (ROWS - 1 - r) * PX
-        y1 = y0 + PX
+        y0 = yoff + (ROWS - 1 - r) * px
+        y1 = y0 + px
         for c0, c1 in runs(row):
-            x0 = 35 + c0 * PX
-            x1 = 35 + c1 * PX
+            x0 = bearing + c0 * px
+            x1 = bearing + c1 * px
             # Clockwise in y-up coords, which is the filled direction TrueType
             # expects for an outer contour.
             pen.moveTo((x0, y0))
@@ -109,36 +155,51 @@ def build_glyph():
     return pen.glyph()
 
 
-def main():
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+def build_face(family, px, yoff):
+    # The side bearing is a third of a pixel either side, so the sign keeps the
+    # same optical gap from the digit next to it in both faces rather than
+    # looking tighter in the larger one.
+    bearing = px // 3
+    advance = COLS * px + 2 * bearing
+    top = yoff + ROWS * px
 
-    names = ['.notdef', 'rupee']
     fb = FontBuilder(UPM, isTTF=True)
-    fb.setupGlyphOrder(names)
+    fb.setupGlyphOrder(['.notdef', 'rupee'])
     fb.setupCharacterMap({0x20B9: 'rupee'})
-
-    empty = TTGlyphPen(None).glyph()
-    fb.setupGlyf({'.notdef': empty, 'rupee': build_glyph()})
-    fb.setupHorizontalMetrics({'.notdef': (ADVANCE, 0), 'rupee': (ADVANCE, 35)})
-    fb.setupHorizontalHeader(ascent=800, descent=-200)
+    fb.setupGlyf({'.notdef': TTGlyphPen(None).glyph(),
+                  'rupee': build_glyph(px, yoff, bearing)})
+    fb.setupHorizontalMetrics({'.notdef': (advance, 0), 'rupee': (advance, bearing)})
+    # Ascent follows the drawing rather than a fixed 800: the lifted face draws
+    # up to 1000, and an ascent below the ink is how a line box ends up clipping
+    # the very glyph this font exists to show.
+    fb.setupHorizontalHeader(ascent=max(800, top), descent=-200)
     fb.setupNameTable({
-        'familyName': 'RupeeFix',
+        'familyName': family,
         'styleName': 'Regular',
-        'psName': 'RupeeFix-Regular',
-        'fullName': 'RupeeFix Regular',
-        'version': 'Version 1.000',
-        'uniqueFontIdentifier': 'RupeeFix-Regular-1.000',
+        'psName': f'{family}-Regular',
+        'fullName': f'{family} Regular',
+        'version': 'Version 2.000',
+        'uniqueFontIdentifier': f'{family}-Regular-2.000',
     })
-    fb.setupOS2(sTypoAscender=800, sTypoDescender=-200, usWinAscent=800, usWinDescent=200)
+    fb.setupOS2(sTypoAscender=max(800, top), sTypoDescender=-200,
+                usWinAscent=max(800, top), usWinDescent=200)
     fb.setupPost()
 
     buf = io.BytesIO()
     fb.save(buf)
     raw = buf.getvalue()
-    b64 = base64.b64encode(raw).decode('ascii')
-    print(f'font: {len(raw)} bytes, {len(b64)} base64 chars')
+    print(f'{family}: {len(raw)} bytes, ink {yoff}..{top}')
+    return base64.b64encode(raw).decode('ascii')
 
-    block = FACE_TEMPLATE.replace('@@B64@@', b64)
+
+def main():
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    faces = ''.join(
+        FACE_ONE.replace('@@FAMILY@@', fam).replace('@@B64@@', build_face(fam, px, yoff))
+        for fam, px, yoff in FACES
+    )
+    block = HEADER + faces
 
     css_path = os.path.join(root, 'src', 'theme.css')
     css = open(css_path).read()
@@ -149,29 +210,37 @@ def main():
     print(f'wrote {css_path}')
 
 
-FACE_TEMPLATE = """/* ---- The rupee sign, everywhere at once. GENERATED - see scripts/make-rupee-font.py
+HEADER = """/* ---- The rupee sign, everywhere at once. GENERATED - see scripts/make-rupee-font.py
    Press Start 2P has no U+20B9 at all and VT323's is drawn small in its own em,
    so every '\\u20b9' + n in the app - and there are dozens, most of them built
    inside plain strings in lib/ where no element exists to hang a class on -
    silently font-fell-back and rendered smaller and lower than the $ it mirrors.
 
-   The first version of this fix claimed the codepoint for a local face that
+   An earlier version of this fix claimed the codepoint for a local face that
    actually carries it (Menlo, Segoe UI, DejaVu Sans) and corrected the metric
    mismatch with size-adjust. That got the size right, and it was wrong anyway:
    those are smooth modern faces, so the sign came out as an anti-aliased curve
    sitting between blocky digits. It looked pasted in from another typeface,
    which is precisely what it was.
 
-   So the glyph is drawn here instead, on a 7x7 grid at 100 units a pixel, which
-   puts its bars at y=700 - the same height VT323's digits and Press Start 2P's
-   caps reach. No size-adjust is needed because nothing is being borrowed.
+   So the glyph is drawn here instead, on a 7x7 grid.
 
-   unicode-range is what keeps this safe: the browser consults this face for
+   TWO faces, because the app's two stacks do not sit at the same height.
+   VT323 rests on the baseline and reaches ~700/1000 of the em; Press Start 2P
+   floats ~125 above the baseline and reaches 1000. A single face fits one and
+   is visibly short and low in the other, which is exactly what the stat tiles
+   were showing. RupeeFix is drawn 0..700 for the body stack, RupeePixel
+   125..1000 for the pixel stack. Neither is size-adjusted - each is drawn at
+   its own size, so the pixel grid stays square in both.
+
+   unicode-range is what keeps this safe: the browser consults these faces for
    U+20B9 and nothing else, so the pixel families still render all other text.
-   It is listed first in both stacks because the first matching family wins
+   Each is listed first in its own stack because the first matching family wins
    per-codepoint, not per-run. ---- */
-@font-face {
-  font-family: 'RupeeFix';
+"""
+
+FACE_ONE = """@font-face {
+  font-family: '@@FAMILY@@';
   src: url(data:font/ttf;base64,@@B64@@) format('truetype');
   unicode-range: U+20B9;
   font-display: block;
