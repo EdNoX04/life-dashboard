@@ -29,6 +29,7 @@ export const MONEY_SECTIONS = [
       { id: 'portfolio', label: 'Portfolio' },
       { id: 'book', label: 'Book' },
       { id: 'accounts', label: 'Accounts' },
+      { id: 'india', label: 'India' },
       { id: 'cash', label: 'Cash' },
       { id: 'crypto', label: 'Crypto' },
     ],

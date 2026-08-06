@@ -5,6 +5,7 @@ import StockDetail from '../components/StockDetail.jsx';
 import PortfolioChart from '../components/PortfolioChart.jsx';
 import CryptoHoldings from '../components/CryptoHoldings.jsx';
 import SipCard from '../components/SipCard.jsx';
+import IndiaDesk from '../components/money/IndiaDesk.jsx';
 import { PortfolioAdvisor, NextBuyDesk } from '../components/MoneyAI.jsx';
 import FeesCard from '../components/FeesCard.jsx';
 import { useLiveQuotes, usMarketState } from '../lib/live.js';
@@ -188,11 +189,23 @@ export default function Money() {
   const [fx, setFx] = useState(null);            // USD → INR
   const [cur, setCur] = useState('usd');         // display currency ($ default)
   const [manualFees, setManualFees] = useState({});
+  // The Indian desk's inputs. They are broker scans rather than live feeds, so
+  // they live in memory blobs and are read once: `sips` is the schedule the
+  // broker reports, `stock_fees.remittances` the deposit receipts behind the
+  // real cost of investing from India.
+  const [sips, setSips] = useState([]);
+  const [remittances, setRemittances] = useState([]);
+  const [indMeta, setIndMeta] = useState({});
 
   useEffect(() => {
     fetchUsdInr().then(setFx);
     const t = setInterval(() => fetchUsdInr().then(r => r && setFx(r)), 6 * 3600e3);
-    memGet('stock_fees').then(v => v?.manual && setManualFees(v.manual));
+    memGet('stock_fees').then(v => {
+      if (v?.manual) setManualFees(v.manual);
+      if (Array.isArray(v?.remittances)) setRemittances(v.remittances);
+    });
+    memGet('sips').then(v => { if (Array.isArray(v?.list)) setSips(v.list); });
+    memGet('ind_meta').then(v => { if (v) setIndMeta(v); });
     return () => clearInterval(t);
   }, []);
 
@@ -502,6 +515,23 @@ export default function Money() {
       )}
 
       {view === 'accounts' && <Accounts rows={accountRows} cur={cur} />}
+
+      {/* The Indian desk takes `held` raw rather than the display-currency
+          totals the rest of the tab passes around. Its whole job is to keep
+          rupee figures in rupees, so a converted number arriving here would be
+          exactly the bug it exists to fix. `fx` is passed so it can state a
+          combined total, and interbank separately because the gap between the
+          two IS the fee. */}
+      {view === 'india' && (
+        <IndiaDesk
+          rows={held} priceOf={priceOf}
+          sips={sips} remittances={remittances}
+          wallet={indMeta.wallet_inr ?? null}
+          believedFreq={indMeta.believed_freq ?? null}
+          interbank={indMeta.interbank ?? null}
+          fx={fx} scanned={indMeta.scanned ?? null}
+        />
+      )}
 
       {/* Crypto owns its own currency the way Cash does. Binance P2P settles in
           rupees, so a rupee is the honest unit here regardless of what the rest

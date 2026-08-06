@@ -4704,3 +4704,75 @@
 }
 .vl-dot.on { background: var(--green); border-color: var(--green); filter: drop-shadow(0 0 3px var(--green)); }
 .vl-disc { color: var(--ink-3); line-height: 1.5; margin-top: 16px; }
+
+/* ---- India desk. The cadence flag is deliberately louder than a chip and
+       quieter than a modal: it is a correction, not an alarm, and it has to be
+       readable before the numbers below it rather than instead of them. ---- */
+.ind-wrap { display: flex; flex-direction: column; gap: 12px; }
+.ind-disclaimer { font-size: 12px; color: var(--ink-3); margin: 0 0 2px; }
+.ind-flag {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px 12px; border: 2px dashed var(--orange); border-radius: 3px;
+  background: rgba(255,146,43,.07);
+  box-shadow: 0 0 12px rgba(255,146,43,.15);
+}
+.ind-flag-tag {
+  font-family: var(--font-pixel); font-size: 7px; letter-spacing: 1.2px;
+  color: var(--orange); flex: 0 0 auto; padding-top: 3px;
+  text-shadow: 0 0 6px rgba(255,146,43,.5);
+}
+.ind-flag-body { flex: 1; min-width: 0; }
+.ind-flag-txt { margin: 0; font-size: 15px; color: var(--ink); line-height: 1.34; }
+.ind-flag-sub { margin: 4px 0 0; font-size: 13px; color: var(--ink-2); line-height: 1.34; }
+
+.ind-holds { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; }
+.ind-hold {
+  display: grid; grid-template-columns: 1.2fr .7fr .9fr .9fr 1fr .8fr;
+  gap: 6px; align-items: center; padding: 6px 8px;
+  border: 1px solid var(--border); border-radius: 2px;
+  font-size: 14px; color: var(--ink-2);
+}
+.ind-hold-head {
+  border: none; color: var(--ink-3); font-family: var(--font-pixel);
+  font-size: 7px; letter-spacing: 1px; padding-bottom: 2px;
+}
+.ind-hold-t { color: var(--orange); }
+
+.ind-sip {
+  display: grid; grid-template-columns: 68px 1fr auto auto; gap: 8px;
+  align-items: center; padding: 7px 9px; margin-bottom: 4px;
+  border: 1px solid var(--border); border-left: 3px solid var(--ink-3);
+  border-radius: 2px;
+}
+.ind-sip-t { font-family: var(--font-pixel); font-size: 8px; color: var(--cyan); }
+.ind-sip-mid { display: flex; flex-direction: column; min-width: 0; }
+.ind-sip-name { font-size: 14px; color: var(--ink); }
+.ind-sip-meta { font-size: 12px; color: var(--ink-3); }
+.ind-sip-rate { font-size: 14px; color: var(--green); }
+.ind-sip-state {
+  font-family: var(--font-pixel); font-size: 6px; letter-spacing: .8px;
+  border: 1px solid; border-radius: 2px; padding: 3px 5px;
+}
+.ind-sip-note { margin: 8px 0 0; font-size: 12px; color: var(--ink-3); line-height: 1.4; }
+
+.ind-remit-lead { margin: 0 0 10px; font-size: 13px; color: var(--ink-2); line-height: 1.4; }
+.ind-remit-rows { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; }
+.ind-remit {
+  display: grid; grid-template-columns: 1fr 1.4fr .9fr .9fr .7fr; gap: 6px;
+  padding: 6px 8px; border: 1px solid var(--border); border-radius: 2px;
+  font-size: 13px; color: var(--ink-2);
+}
+.ind-remit-d { color: var(--ink-3); }
+.ind-remit-fix {
+  margin: 10px 0 0; padding: 8px 10px; font-size: 13px; line-height: 1.4;
+  color: var(--ink); border: 1px dashed var(--green); border-radius: 2px;
+  background: rgba(94,234,138,.05);
+}
+.ind-nofx, .ind-conv { margin: 8px 0 0; font-size: 13px; color: var(--ink-3); line-height: 1.4; }
+.ind-nofx { color: var(--yellow); }
+
+@media (max-width: 760px) {
+  .ind-hold, .ind-remit { grid-template-columns: 1fr 1fr 1fr; font-size: 13px; }
+  .ind-hold-head { display: none; }
+  .ind-sip { grid-template-columns: 56px 1fr; row-gap: 4px; }
+}

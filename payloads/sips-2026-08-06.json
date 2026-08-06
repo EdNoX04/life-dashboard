@@ -1,0 +1,30 @@
+{
+ "list": [
+  {
+   "id": "goldbees-daily",
+   "ticker": "GOLDBEES",
+   "name": "Nippon India ETF Gold BeES",
+   "amount": 123.0,
+   "currency": "INR",
+   "freq": "daily",
+   "broker": "INDstocks",
+   "next": "2026-08-08",
+   "status": "6th sip upcoming",
+   "active": true
+  },
+  {
+   "id": "goldbees-failed-0802",
+   "ticker": "GOLDBEES",
+   "name": "Nippon India ETF Gold BeES",
+   "amount": 123.0,
+   "currency": "INR",
+   "freq": "daily",
+   "broker": "INDstocks",
+   "next": "2026-08-03",
+   "status": "Sip setup failed",
+   "active": false
+  }
+ ],
+ "source": "INDstocks web scan",
+ "scanned": "2026-08-06"
+}

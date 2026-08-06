@@ -1,0 +1,11 @@
+{
+ "wallet_inr": 137.96,
+ "believed_freq": "weekly",
+ "interbank": null,
+ "scanned": "2026-08-06",
+ "accounts": {
+  "INDstocks": "INR",
+  "INDmoney US": "USD"
+ },
+ "note": "believed_freq is what Neel described out loud; the broker reports daily. interbank is left null until a mid-market rate is sourced, so the fee panel reports a tax-only floor rather than guessing a spread."
+}
