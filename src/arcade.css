@@ -451,16 +451,34 @@
        ::before scrim at 1 and its text at 2. Because it is out of flow it adds
        no height, so .hero carries a min-height large enough that the corner is
        genuinely empty. ---- */
+/* "Open-ish": the panel is closed on the right, where it meets the hero's
+   edge, and dissolves toward the left instead of ending on a hard border. A
+   closed rectangle read as a separate widget dropped onto the sky; an open
+   one reads as part of the hero.
+
+   The chrome (background + border) lives on ::before rather than on the
+   element, because the fade is a mask and a mask on the element would fade
+   the QUOTE too - the quote can run most of the block's width, so its first
+   words would wash out. Masking only the backdrop layer lets the panel
+   dissolve while every glyph stays at full strength. The left border is
+   dropped outright rather than masked to zero: masking leaves a faint 2px
+   ghost at the turn of the gradient. Nothing here animates - the blend is a
+   static gradient, not motion. */
 .hero-spark {
   position: absolute; right: 14px; bottom: 12px; z-index: 3;
   max-width: 66%;
   display: flex; flex-direction: column; align-items: flex-end; gap: 3px;
   text-align: right;
-  padding: 9px 14px 8px;
-  border: 2px solid var(--border); border-radius: 3px;
-  background: linear-gradient(90deg, rgba(12,7,20,.86) 0%, rgba(24,14,42,.78) 100%);
-  box-shadow: 0 0 0 2px rgba(0,0,0,.35), 0 0 14px rgba(0,0,0,.45);
+  padding: 9px 14px 8px 26px;
+  background: none; border: none;
+}
+.hero-spark::before {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  border: 2px solid var(--border); border-left: none; border-radius: 0 3px 3px 0;
+  background: linear-gradient(90deg, rgba(12,7,20,0) 0%, rgba(14,8,24,.62) 34%, rgba(24,14,42,.84) 100%);
   backdrop-filter: blur(2px);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0,0,0,.5) 26%, #000 62%);
+  mask-image: linear-gradient(90deg, transparent 0%, rgba(0,0,0,.5) 26%, #000 62%);
 }
 .hero-spark .hs-label { font-family: var(--font-pixel); font-size: 7px; color: var(--yellow); letter-spacing: 1.5px; opacity: .95; text-shadow: 0 0 6px rgba(255,209,102,.45); }
 /* The quote now wraps instead of truncating. It is capped at two lines rather
@@ -482,9 +500,16 @@
   .hero { padding: 18px; min-height: 150px; }
   .hero-spark {
     position: static; max-width: none; margin-top: -2px;
-    border-top: none; border-radius: 0 0 3px 3px;
-    box-shadow: none; backdrop-filter: none;
     gap: 3px; padding: 8px 10px;
+  }
+  /* At phone width the block is a full-width strip in the flow, so there is no
+     hero corner to blend into and the fade would just look like a smudge. The
+     backdrop goes back to a plain closed strip. */
+  .hero-spark::before {
+    border: 2px solid var(--border); border-top: none; border-radius: 0 0 3px 3px;
+    background: linear-gradient(90deg, rgba(12,7,20,.86) 0%, rgba(24,14,42,.78) 100%);
+    backdrop-filter: none;
+    -webkit-mask-image: none; mask-image: none;
   }
   .hero-spark .hs-label { font-size: 6px; }
   /* In the flow the block is free to grow downward, so the two-line cap that

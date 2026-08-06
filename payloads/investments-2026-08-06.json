@@ -1,0 +1,202 @@
+[
+ {
+  "ticker": "NVDA",
+  "name": "NVIDIA Corporation",
+  "qty": 1.722689,
+  "avg_cost": 173.86,
+  "last_price": null,
+  "currency": "USD",
+  "account": "INDmoney US",
+  "source": "indmoney-scan-2026-08-06"
+ },
+ {
+  "ticker": "MSFT",
+  "name": "Microsoft Corporation",
+  "qty": 0.8979619,
+  "avg_cost": 418.29,
+  "last_price": null,
+  "currency": "USD",
+  "account": "INDmoney US",
+  "source": "indmoney-scan-2026-08-06"
+ },
+ {
+  "ticker": "VOO",
+  "name": "Vanguard S&P 500 ETF",
+  "qty": 2.6238284,
+  "avg_cost": 686.04,
+  "last_price": null,
+  "currency": "USD",
+  "account": "INDmoney US",
+  "source": "indmoney-scan-2026-08-06"
+ },
+ {
+  "ticker": "GOOGL",
+  "name": "Alphabet Inc. Class A",
+  "qty": 1.2142299,
+  "avg_cost": 319.96,
+  "last_price": null,
+  "currency": "USD",
+  "account": "INDmoney US",
+  "source": "indmoney-scan-2026-08-06"
+ },
+ {
+  "ticker": "SCHD",
+  "name": "Schwab US Dividend Equity ETF",
+  "qty": 12.2701637,
+  "avg_cost": 31.83,
+  "last_price": null,
+  "currency": "USD",
+  "account": "INDmoney US",
+  "source": "indmoney-scan-2026-08-06"
+ },
+ {
+  "ticker": "QQQ",
+  "name": "Invesco QQQ Trust, Series 1",
+  "qty": 0.2239713,
+  "avg_cost": 618.83,
+  "last_price": null,
+  "currency": "USD",
+  "account": "INDmoney US",
+  "source": "indmoney-scan-2026-08-06"
+ },
+ {
+  "ticker": "AMZN",
+  "name": "Amazon.com Inc.",
+  "qty": 0.5681548,
+  "avg_cost": 243.84,
+  "last_price": null,
+  "currency": "USD",
+  "account": "INDmoney US",
+  "source": "indmoney-scan-2026-08-06"
+ },
+ {
+  "ticker": "AAPL",
+  "name": "Apple Inc.",
+  "qty": 0.3562365,
+  "avg_cost": 269.01,
+  "last_price": null,
+  "currency": "USD",
+  "account": "INDmoney US",
+  "source": "indmoney-scan-2026-08-06"
+ },
+ {
+  "ticker": "NET",
+  "name": "Cloudflare Inc. Class A",
+  "qty": 0.1105563,
+  "avg_cost": 162.09,
+  "last_price": null,
+  "currency": "USD",
+  "account": "INDmoney US",
+  "source": "indmoney-scan-2026-08-06"
+ },
+ {
+  "ticker": "BRK.B",
+  "name": "BERKSHIRE HATHAWAY Class B",
+  "qty": 0.3033192,
+  "avg_cost": 479.92,
+  "last_price": null,
+  "currency": "USD",
+  "account": "INDmoney US",
+  "source": "indmoney-scan-2026-08-06"
+ },
+ {
+  "ticker": "TSM",
+  "name": "Taiwan Semiconductor Manufacturing Company Ltd.",
+  "qty": 0.1028219,
+  "avg_cost": 332.81,
+  "last_price": null,
+  "currency": "USD",
+  "account": "INDmoney US",
+  "source": "indmoney-scan-2026-08-06"
+ },
+ {
+  "ticker": "SOFI",
+  "name": "SoFi Technologies Inc.",
+  "qty": 3.4718251,
+  "avg_cost": 16.0,
+  "last_price": null,
+  "currency": "USD",
+  "account": "INDmoney US",
+  "source": "indmoney-scan-2026-08-06"
+ },
+ {
+  "ticker": "PLTR",
+  "name": "Palantir Technologies Inc. Class A",
+  "qty": 0.1081518,
+  "avg_cost": 138.32,
+  "last_price": null,
+  "currency": "USD",
+  "account": "INDmoney US",
+  "source": "indmoney-scan-2026-08-06"
+ },
+ {
+  "ticker": "TSLA",
+  "name": "Tesla Inc.",
+  "qty": 0.0195581,
+  "avg_cost": 374.78,
+  "last_price": null,
+  "currency": "USD",
+  "account": "INDmoney US",
+  "source": "indmoney-scan-2026-08-06"
+ },
+ {
+  "ticker": "SPOT",
+  "name": "Spotify Technology S.A.",
+  "qty": 0.0078986,
+  "avg_cost": 631.75,
+  "last_price": null,
+  "currency": "USD",
+  "account": "INDmoney US",
+  "source": "indmoney-scan-2026-08-06"
+ },
+ {
+  "ticker": "AMD",
+  "name": "Advanced Micro Devices Inc.",
+  "qty": 0.0302095,
+  "avg_cost": 536.92,
+  "last_price": null,
+  "currency": "USD",
+  "account": "INDmoney US",
+  "source": "indmoney-scan-2026-08-06"
+ },
+ {
+  "ticker": "META",
+  "name": "Meta Platforms Inc. Class A",
+  "qty": 0.2878806,
+  "avg_cost": 608.31,
+  "last_price": null,
+  "currency": "USD",
+  "account": "INDmoney US",
+  "source": "indmoney-scan-2026-08-06"
+ },
+ {
+  "ticker": "SPMO",
+  "name": "Invesco S&P 500 Momentum ETF",
+  "qty": 6.2677105,
+  "avg_cost": 152.08,
+  "last_price": null,
+  "currency": "USD",
+  "account": "INDmoney US",
+  "source": "indmoney-scan-2026-08-06"
+ },
+ {
+  "ticker": "QQQM",
+  "name": "Trust II Invesco NASDAQ 100 ETF",
+  "qty": 2.5911786,
+  "avg_cost": 302.06,
+  "last_price": null,
+  "currency": "USD",
+  "account": "INDmoney US",
+  "source": "indmoney-scan-2026-08-06"
+ },
+ {
+  "ticker": "GOLDBEES",
+  "name": "Nippon India ETF Gold BeES",
+  "qty": 3,
+  "avg_cost": 117.62,
+  "last_price": 122.48,
+  "currency": "INR",
+  "account": "INDstocks",
+  "source": "indmoney-scan-2026-08-06"
+ }
+]

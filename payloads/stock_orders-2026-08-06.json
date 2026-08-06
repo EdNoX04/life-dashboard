@@ -1,0 +1,486 @@
+{
+ "orders": [
+  {
+   "date": "2026-08-06",
+   "ticker": "TSM",
+   "side": "B",
+   "qty": 0.0385,
+   "price": 420.366,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-08-06",
+   "ticker": "AAPL",
+   "side": "B",
+   "qty": 0.0509,
+   "price": 313.076,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-08-06",
+   "ticker": "QQQ",
+   "side": "B",
+   "qty": 0.0066,
+   "price": 712.922,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-08-03",
+   "ticker": "META",
+   "side": "B",
+   "qty": 0.0081,
+   "price": 582.344,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-07-27",
+   "ticker": "QQQ",
+   "side": "B",
+   "qty": 0.0067,
+   "price": 688.188,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-07-24",
+   "ticker": "META",
+   "side": "B",
+   "qty": 0.0195,
+   "price": 604.898,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-07-20",
+   "ticker": "QQQ",
+   "side": "B",
+   "qty": 0.0066,
+   "price": 705.2,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-07-13",
+   "ticker": "AMD",
+   "side": "B",
+   "qty": 0.0302,
+   "price": 536.916,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-07-06",
+   "ticker": "AAPL",
+   "side": "B",
+   "qty": 0.0517,
+   "price": 310.89,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-07-02",
+   "ticker": "GOOGL",
+   "side": "B",
+   "qty": 0.0965,
+   "price": 358.146,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-06-30",
+   "ticker": "SCHD",
+   "side": "B",
+   "qty": 0.0723,
+   "price": 31.828,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-06-29",
+   "ticker": "META",
+   "side": "B",
+   "qty": 0.0176,
+   "price": 565.894,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-06-29",
+   "ticker": "NET",
+   "side": "B",
+   "qty": 0.0089,
+   "price": 243.5,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-06-24",
+   "ticker": "QQQ",
+   "side": "B",
+   "qty": 0.0139,
+   "price": 713.994,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-06-16",
+   "ticker": "NVDA",
+   "side": "B",
+   "qty": 0.5697,
+   "price": 209.306,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-06-16",
+   "ticker": "BRK.B",
+   "side": "B",
+   "qty": 0.1205,
+   "price": 496.564,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-06-16",
+   "ticker": "GOOGL",
+   "side": "B",
+   "qty": 0.4839,
+   "price": 370.884,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-06-16",
+   "ticker": "MSFT",
+   "side": "B",
+   "qty": 0.1325,
+   "price": 391.286,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-06-16",
+   "ticker": "SCHD",
+   "side": "B",
+   "qty": 5.1703,
+   "price": 32.5899,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-06-16",
+   "ticker": "QQQM",
+   "side": "B",
+   "qty": 2.5912,
+   "price": 302.0591,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-06-16",
+   "ticker": "SPMO",
+   "side": "B",
+   "qty": 5.1562,
+   "price": 155.8572,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-06-16",
+   "ticker": "VOO",
+   "side": "B",
+   "qty": 2.3794,
+   "price": 691.4172,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-06-01",
+   "ticker": "GOOGL",
+   "side": "B",
+   "qty": 0.0537,
+   "price": 375.27,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-05-19",
+   "ticker": "META",
+   "side": "B",
+   "qty": 0.0249,
+   "price": 602.81,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-05-18",
+   "ticker": "QQQ",
+   "side": "B",
+   "qty": 0.0138,
+   "price": 707.376,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-05-11",
+   "ticker": "SOFI",
+   "side": "B",
+   "qty": 1.0127,
+   "price": 15.968,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-05-05",
+   "ticker": "AAPL",
+   "side": "B",
+   "qty": 0.0574,
+   "price": 280.728,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-05-04",
+   "ticker": "NVDA",
+   "side": "B",
+   "qty": 0.329,
+   "price": 197.236,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-05-04",
+   "ticker": "BRK.B",
+   "side": "B",
+   "qty": 0.1829,
+   "price": 468.96,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-05-04",
+   "ticker": "META",
+   "side": "B",
+   "qty": 0.1304,
+   "price": 611.526,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-05-04",
+   "ticker": "AMZN",
+   "side": "B",
+   "qty": 0.2759,
+   "price": 271.038,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-05-04",
+   "ticker": "GOOGL",
+   "side": "B",
+   "qty": 0.1949,
+   "price": 383.64,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-05-04",
+   "ticker": "MSFT",
+   "side": "B",
+   "qty": 0.2165,
+   "price": 414.452,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-05-04",
+   "ticker": "SPMO",
+   "side": "B",
+   "qty": 1.1115,
+   "price": 134.554,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-04-30",
+   "ticker": "MSFT",
+   "side": "B",
+   "qty": 0.0064,
+   "price": 400.992,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-04-30",
+   "ticker": "PLTR",
+   "side": "B",
+   "qty": 0.1082,
+   "price": 138.324,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-04-30",
+   "ticker": "AMZN",
+   "side": "B",
+   "qty": 0.0768,
+   "price": 259.574,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-04-30",
+   "ticker": "SOFI",
+   "side": "B",
+   "qty": 0.9282,
+   "price": 16.118,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-04-30",
+   "ticker": "AAPL",
+   "side": "B",
+   "qty": 0.0912,
+   "price": 273.472,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-04-29",
+   "ticker": "MSFT",
+   "side": "B",
+   "qty": 0.0939,
+   "price": 424.512,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-04-29",
+   "ticker": "RCAT",
+   "side": "S",
+   "qty": 0.6726,
+   "price": 10.982,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-04-20",
+   "ticker": "QQQ",
+   "side": "B",
+   "qty": 0.0156,
+   "price": 646.996,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-03-31",
+   "ticker": "SCHD",
+   "side": "B",
+   "qty": 0.06,
+   "price": 30.518,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-03-25",
+   "ticker": "GOOGL",
+   "side": "B",
+   "qty": 0.0344,
+   "price": 291.636,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-03-24",
+   "ticker": "RCAT",
+   "side": "B",
+   "qty": 0.6726,
+   "price": 15.744,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-03-11",
+   "ticker": "QQQ",
+   "side": "B",
+   "qty": 0.0167,
+   "price": 609.794,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-02-17",
+   "ticker": "QQQ",
+   "side": "B",
+   "qty": 0.0173,
+   "price": 598.29,
+   "fee": 0,
+   "currency": "USD",
+   "account": "INDmoney US"
+  },
+  {
+   "date": "2026-08-06",
+   "ticker": "GOLDBEES",
+   "side": "B",
+   "qty": 1,
+   "price": 121.83,
+   "fee": 0,
+   "currency": "INR",
+   "account": "INDstocks"
+  }
+ ],
+ "source": "INDmoney web scan",
+ "scanned": "2026-08-06"
+}

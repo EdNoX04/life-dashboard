@@ -1,0 +1,16 @@
+{
+ "manual": {},
+ "remittances": [
+  {
+   "date": "2026-08-06",
+   "inr": 1600,
+   "usd": 16.14,
+   "rate": 96.33,
+   "gst": 45,
+   "tcs": 0,
+   "txn": "10652273"
+  }
+ ],
+ "note": "INDmoney charges no per-order brokerage on US fractional trades - every order value in the ledger equals qty x price exactly. The cost sits on the INR->USD remittance: a flat GST plus the spread between the applied rate and the interbank rate. Only the 06-Aug remittance was opened and verified; earlier ones were not.",
+ "updated": "2026-08-06"
+}
