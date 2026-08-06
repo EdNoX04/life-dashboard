@@ -1,11 +1,11 @@
 {
  "wallet_inr": 137.96,
- "believed_freq": "weekly",
+ "believed_freq": null,
  "interbank": null,
  "scanned": "2026-08-06",
  "accounts": {
   "INDstocks": "INR",
   "INDmoney US": "USD"
  },
- "note": "believed_freq is what Neel described out loud; the broker reports daily. interbank is left null until a mid-market rate is sourced, so the fee panel reports a tax-only floor rather than guessing a spread."
+ "note": "believed_freq is deliberately null. It previously held 'weekly', on the mistaken reading that the weekly/monthly pair described out loud referred to the Indian SIP. It did not - it referred to the two US SIPs (QQQ weekly, META monthly), which the INDmoney web UI does not expose at all. The Indian GOLDBEES SIP being daily was never contradicted by anything, so arming a cadence flag against it would fire a false correction. interbank is left null until a mid-market rate is sourced, so the fee panel reports a tax-only floor rather than guessing a spread."
 }

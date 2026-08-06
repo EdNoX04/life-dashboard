@@ -1,0 +1,11 @@
+{
+  "note": "Corrective delete for the provisional photo-derived timetable. Neel reports Wednesday has 2 classes but the dashboard shows 3, and previously reported that Friday has only one IOT class against the 3 stored. FBL is the common element in both over-counts and is not a taught class slot, so it is removed on every day. This does NOT resolve Friday down to one class - see `unresolved` below. The durable fix is the Amizone sync (scripts/amizone-sync.mjs), which full-replaces this table; these ops only stop the wrong rows being shown in the meantime.",
+  "unresolved": "After removing FBL, Friday still holds two rows - 'IoT & System1 Y Lab' 11:15-13:10 and 'IoT1 System' 13:15-14:10. Neel said Friday has one IOT class. Which of the two is real is not determinable from the photo, so neither is deleted here.",
+  "ops": [
+    {
+      "table": "timetable",
+      "method": "delete",
+      "match": "subject=eq.FBL"
+    }
+  ]
+}

@@ -1,13 +1,43 @@
 {
  "list": [
   {
+   "id": "us-meta-monthly",
+   "ticker": "META",
+   "name": "Meta Platforms Inc. Class A",
+   "amount": 500.0,
+   "currency": "INR",
+   "asset_currency": "USD",
+   "freq": "monthly",
+   "broker": "INDmoney",
+   "account": "INDmoney US",
+   "next": "2026-09-03",
+   "status": "active",
+   "active": true
+  },
+  {
+   "id": "us-qqq-weekly",
+   "ticker": "QQQ",
+   "name": "Invesco QQQ Trust, Series 1",
+   "amount": 500.0,
+   "currency": "INR",
+   "asset_currency": "USD",
+   "freq": "weekly",
+   "broker": "INDmoney",
+   "account": "INDmoney US",
+   "next": "2026-08-06",
+   "status": "active",
+   "active": true
+  },
+  {
    "id": "goldbees-daily",
    "ticker": "GOLDBEES",
    "name": "Nippon India ETF Gold BeES",
    "amount": 123.0,
    "currency": "INR",
+   "asset_currency": "INR",
    "freq": "daily",
    "broker": "INDstocks",
+   "account": "INDstocks",
    "next": "2026-08-08",
    "status": "6th sip upcoming",
    "active": true
@@ -18,13 +48,16 @@
    "name": "Nippon India ETF Gold BeES",
    "amount": 123.0,
    "currency": "INR",
+   "asset_currency": "INR",
    "freq": "daily",
    "broker": "INDstocks",
+   "account": "INDstocks",
    "next": "2026-08-03",
    "status": "Sip setup failed",
    "active": false
   }
  ],
- "source": "INDstocks web scan",
+ "source": "INDstocks web scan (GOLDBEES) + INDmoney app screenshot (US SIPs)",
+ "note": "The US SIPs are not visible anywhere in INDmoney's web UI - only the mobile app exposes them. They were read from a screenshot, so they do not refresh on their own. Both US SIPs are denominated in RUPEES, which makes every debit a separate INR-to-USD remittance.",
  "scanned": "2026-08-06"
 }

@@ -19,6 +19,11 @@
 // rather than a bare module-resolution stack trace above every other message.
 let chromium;
 
+// The parse rules live in their own DOM-free module so they can be tested
+// without a browser. See scripts/lib/amizone-parse.mjs for why each of them
+// exists - every one is a bug that reached the dashboard.
+import { replacePlan, usableAttendance, countByDay } from './lib/amizone-parse.mjs';
+
 const { AMIZONE_USER, AMIZONE_PASS, SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
 
 // Same reasoning as meeting-worker.mjs: "the credentials were never added" is a
@@ -124,6 +129,8 @@ async function run() {
       report.steps.login.bodyText = bodyText;
       await page.screenshot({ path: 'login-failed.png' }).catch(() => {});
       await mem('amizone_last_sync', { ok: false, reason: 'login_failed', report });
+      await reportStatus({ ok: false, configured: true,
+        reason: 'Login to s.amizone.net failed - the credentials may have changed, or the Turnstile challenge did not clear.' });
       console.error('LOGIN FAILED. turnstile=%s hidden=%o body=%s', report.steps.login.turnstile, hidden, bodyText);
       await browser.close();
       process.exit(2);
@@ -182,25 +189,86 @@ async function run() {
     const ttHtml = await page.content();
     const timetable = await page.evaluate(() => {
       const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-      const slots = [];
-      // The weekly grid: find day columns, then time-tagged cells.
-      // Robust text approach: scan elements that contain a HH:MM to HH:MM plus a course code.
-      const nodes = [...document.querySelectorAll('td, div, li')];
-      let currentDay = null;
-      for (const el of nodes) {
-        const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
-        const dm = DAYS.find(d => t === d);
-        if (dm) { currentDay = dm; continue; }
-        const tm = t.match(/(\d{1,2}:\d{2})\s*(?:to|-|–)\s*(\d{1,2}:\d{2})/);
-        const cm = t.match(/\b([A-Z]{2,4}\d{3})\b/);
-        if (tm && cm && el.children.length < 6 && t.length < 200) {
-          const room = (t.match(/\b([A-Z]\d-\d{2,3}|[A-Z]{1,3}-?\d{2,3})\b(?![^\[]*\])/) || [])[1] || null;
-          const fac = (t.match(/([A-Za-z. ]+)\[(\d+)\]/) || []);
-          slots.push({ day: currentDay, start_time: tm[1], end_time: tm[2], code: cm[1],
-            faculty: fac[1] ? fac[1].trim() : null, faculty_id: fac[2] || null, room, raw: t.slice(0, 120) });
+      const txt = el => (el.textContent || '').replace(/\s+/g, ' ').trim();
+      const TIME = /(\d{1,2}:\d{2})\s*(?:to|-|–)\s*(\d{1,2}:\d{2})/;
+      const CODE = /\b([A-Z]{2,4}\d{3})\b/;
+      const isSlotText = t => TIME.test(t) && CODE.test(t);
+
+      // Only the INNERMOST element describing a class is taken. A cell rendered
+      // as <td><div>...</div></td> used to yield the class twice, once per
+      // level, which is what inflated a two-class Wednesday to three. If any
+      // descendant also looks like a slot, this element is a container rather
+      // than the slot itself.
+      const candidates = [...document.querySelectorAll('td, div, li')].filter(el => {
+        const t = txt(el);
+        if (!isSlotText(t) || t.length > 200) return false;
+        return ![...el.querySelectorAll('td, div, li')].some(k => isSlotText(txt(k)));
+      });
+
+      // Day attribution, strongest signal first.
+      //
+      // (a) The weekly grid is a table whose header row names the days, so a
+      //     cell's day is decided by which column it sits in. This is the case
+      //     the old text-order scan got wrong: the day headers live in <th>
+      //     elements it never queried, so currentDay stayed null forever and
+      //     every slot was thrown away downstream.
+      // (b) Some views render a per-day panel instead, with the day name on an
+      //     ancestor heading.
+      // (c) Only if neither applies do we fall back to reading order.
+      function columnDay(cell) {
+        const row = cell.closest('tr');
+        const table = cell.closest('table');
+        if (!row || !table) return null;
+        const idx = [...row.children].indexOf(cell);
+        if (idx < 0) return null;
+        for (const hr of table.querySelectorAll('tr')) {
+          const named = [...hr.children].map(c =>
+            DAYS.find(d => txt(c).toLowerCase().startsWith(d.toLowerCase())) || null);
+          if (named.filter(Boolean).length >= 3 && named[idx]) return named[idx];
+        }
+        return null;
+      }
+      function ancestorDay(el) {
+        let n = el;
+        for (let i = 0; i < 8 && n; i++) {
+          const head = n.querySelector && n.querySelector('h1,h2,h3,h4,h5,th,.panel-title,.day,legend');
+          if (head) {
+            const d = DAYS.find(x => txt(head).toLowerCase().startsWith(x.toLowerCase()));
+            if (d) return d;
+          }
+          n = n.parentElement;
+        }
+        return null;
+      }
+
+      // Reading-order fallback: the last standalone day label seen before the cell.
+      const orderDay = new Map();
+      {
+        let cur = null;
+        const cset = new Set(candidates);
+        const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
+        let n = walk.currentNode;
+        while (n) {
+          const t = txt(n);
+          const d = DAYS.find(x => t === x);
+          if (d) cur = d;
+          if (cset.has(n)) orderDay.set(n, cur);
+          n = walk.nextNode();
         }
       }
-      return slots;
+
+      return candidates.map(el => {
+        const t = txt(el);
+        const tm = t.match(TIME), cm = t.match(CODE);
+        const room = (t.match(/\b([A-Z]\d-\d{2,3}|[A-Z]{1,3}-?\d{2,3})\b(?![^\[]*\])/) || [])[1] || null;
+        const fac = (t.match(/([A-Za-z. ]+)\[(\d+)\]/) || []);
+        return {
+          day: columnDay(el) || ancestorDay(el) || orderDay.get(el) || null,
+          start_time: tm[1], end_time: tm[2], code: cm[1],
+          faculty: fac[1] ? fac[1].trim() : null, faculty_id: fac[2] || null,
+          room, raw: t.slice(0, 120),
+        };
+      });
     });
     report.steps.timetable = { count: timetable.length, sample: timetable.slice(0, 4) };
 
@@ -211,13 +279,19 @@ async function run() {
 
     // ---- WRITE TO SUPABASE ----
     // subjects: upsert by code (preserve manual syllabus). read existing, match on code.
-    const attByCode = Object.fromEntries(attendance.map(a => [a.code, a]));
+    // usableAttendance drops rows with no readable percentage instead of
+    // letting Number(null) turn them into a confident 0%. That silent zero is
+    // half of "attendance is not updating": a subject whose donut failed to
+    // parse was being written as 0 and then never moved again.
+    const attClean = usableAttendance(attendance);
+    report.steps.attendance.usable = attClean.length;
+    const attByCode = Object.fromEntries(attClean.map(a => [a.code, a]));
     const existing = await (await rest('subjects?select=id,code,name')).json();
     const byCode = Object.fromEntries((existing || []).filter(s => s.code).map(s => [s.code, s]));
     const byName = Object.fromEntries((existing || []).map(s => [clean(s.name).toLowerCase(), s]));
 
     for (const s of subjects) {
-      const att = attByCode[s.code];
+      const att = attByCode[String(s.code || '').toUpperCase()];
       const match = byCode[s.code] || byName[clean(s.name).toLowerCase()];
       const patch = { name: s.name, code: s.code };
       if (att && att.pct != null) patch.attendance_pct = att.pct;
@@ -230,23 +304,46 @@ async function run() {
     // Also update attendance for subjects that have attendance but no MyCourses row (rare)
     report.steps.wrote_subjects = subjects.length;
 
-    // timetable: full replace
-    await rest('timetable?id=neq.00000000-0000-0000-0000-000000000000', { method: 'DELETE' });
-    if (timetable.length) {
-      const rows = timetable.map(t => ({
+    // timetable: replace, but only when there is something worth replacing it
+    // with. The DELETE used to run unconditionally, so a run that logged in
+    // successfully and then scraped nothing (a changed layout, a slow render)
+    // wiped the whole timetable and still reported success.
+    const existingTt = await (await rest('timetable?select=id')).json();
+    const plan = replacePlan(timetable, Array.isArray(existingTt) ? existingTt.length : 0);
+    report.steps.timetable.raw = timetable.length;
+    report.steps.timetable.deduped = plan.slots.length;
+    report.steps.timetable.byDay = countByDay(plan.slots);
+    report.steps.timetable.decision = plan.reason;
+
+    if (plan.replace) {
+      await rest('timetable?id=neq.00000000-0000-0000-0000-000000000000', { method: 'DELETE' });
+      const rows = plan.slots.map(t => ({
         day: t.day, start_time: t.start_time, end_time: t.end_time,
         subject: t.code, room: t.room, faculty: t.faculty,
       }));
       await rest('timetable', { method: 'POST', body: JSON.stringify(rows) });
+    } else {
+      console.warn('TIMETABLE NOT REPLACED:', plan.reason);
     }
-    report.steps.wrote_timetable = timetable.length;
+    report.steps.wrote_timetable = plan.replace ? plan.slots.length : 0;
 
-    await mem('amizone_last_sync', { ok: true, at: report.ts, report });
-    console.log('SYNC OK:', JSON.stringify(report.steps));
+    // A run that scraped nothing usable is not a success, whatever the HTTP
+    // status of its requests. Reporting it as one is precisely how a dead sync
+    // stays invisible behind data that merely looks old.
+    const healthy = plan.slots.length > 0 || attClean.length > 0;
+    await mem('amizone_last_sync', { ok: healthy, at: report.ts, report });
+    await reportStatus({
+      ok: healthy, configured: true,
+      note: `${plan.slots.length} timetable slots (${plan.replace ? 'written' : 'kept existing'}), ${attClean.length} attendance rows, ${subjects.length} subjects.`,
+      reason: healthy ? undefined
+        : 'Logged in, but scraped no timetable slots and no attendance. The page layout has probably changed - raw HTML is stashed in memory.amizone_raw_timetable.',
+    });
+    console.log('SYNC ' + (healthy ? 'OK' : 'EMPTY') + ':', JSON.stringify(report.steps));
   } catch (e) {
     report.error = String(e && e.stack || e);
     await page.screenshot({ path: 'error.png' }).catch(() => {});
     await mem('amizone_last_sync', { ok: false, reason: 'exception', report }).catch(() => {});
+    await reportStatus({ ok: false, configured: true, reason: `Sync threw: ${String(e && e.message || e).slice(0, 200)}` }).catch(() => {});
     console.error('SYNC ERROR:', report.error);
     await browser.close();
     process.exit(3);
