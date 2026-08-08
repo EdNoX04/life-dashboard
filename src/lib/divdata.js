@@ -580,6 +580,14 @@ const fresh = e => e && e.at && Date.now() - e.at < entryTtl(e);
 
 export const hasKey = () => !!(getConfig().fmpKey || '').trim();
 
+// FMP writes share classes with a HYPHEN: BRK-B, not BRK.B. INDmoney writes the
+// dot. One character, and it is the difference between a full dividend history
+// and a hard failure — which is exactly the kind of mismatch that hides inside
+// a generic FAILED row.
+export function fmpSymbol(ticker) {
+  return String(ticker || '').toUpperCase().replace(/\./g, '-');
+}
+
 // One ticker. Returns the cache entry shape: { status, rows, at, note }.
 export async function fetchDividends(ticker, { force = false } = {}) {
   const t = String(ticker || '').toUpperCase();
@@ -595,12 +603,21 @@ export async function fetchDividends(ticker, { force = false } = {}) {
     // Stable first, legacy second. A 403 on the legacy path is the retirement,
     // not a bad key, and saying so is the difference between a five-minute fix
     // and an afternoon spent regenerating credentials.
-    let r = await fetch(`${BASE}/dividends?symbol=${encodeURIComponent(t)}&apikey=${key}`);
+    const sym = fmpSymbol(t);
+    let r = await fetch(`${BASE}/dividends?symbol=${encodeURIComponent(sym)}&apikey=${key}`);
+    // One retry on a rate limit before giving up. The free plan's cap is daily,
+    // but bursts still trip a per-second limiter, and a transient 429 recorded
+    // as a permanent failure is indistinguishable from an unsupported symbol.
+    if (r.status === 429) {
+      await new Promise(res => setTimeout(res, 1500));
+      r = await fetch(`${BASE}/dividends?symbol=${encodeURIComponent(sym)}&apikey=${key}`);
+    }
     if (r.status === 403 || r.status === 404) {
-      r = await fetch(`${LEGACY_BASE}/historical-price-full/stock_dividend/${encodeURIComponent(t)}?apikey=${key}`);
+      r = await fetch(`${LEGACY_BASE}/historical-price-full/stock_dividend/${encodeURIComponent(sym)}?apikey=${key}`);
     }
     if (!r.ok) {
       entry = { status: r.status === 401 ? STATUS.nokey : STATUS.failed, rows: [], at: Date.now(),
+        code: r.status,
         note: r.status === 403
           ? 'Both dividend endpoints refused the key (403). Usually this means the key has not finished activating - confirm the signup email and try again in a few minutes - or that the plan does not cover this endpoint.'
           : r.status === 401 ? 'The dividend source rejected the key (401). Check it in Settings.'
@@ -621,7 +638,8 @@ export async function fetchDividends(ticker, { force = false } = {}) {
       }
     }
   } catch (e) {
-    entry = { status: STATUS.failed, rows: [], at: Date.now(), note: 'Could not reach the dividend source.' };
+    entry = { status: STATUS.failed, rows: [], at: Date.now(), code: 0,
+      note: 'Could not reach the dividend source — a network error or a blocked request, not a rejection.' };
   }
 
   cache = { ...(cache || {}), [t]: entry };
@@ -647,7 +665,10 @@ export async function fetchMany(tickers = [], { force = false, onProgress } = {}
   for (let i = 0; i < list.length; i++) {
     out[list[i]] = await fetchDividends(list[i], { force });
     onProgress?.(i + 1, list.length, list[i]);
-    if (i < list.length - 1) await new Promise(r => setTimeout(r, 260));
+    // 450ms rather than 260. The daily cap is not the binding constraint; the
+    // per-second limiter is, and a burst that trips it turns healthy symbols
+    // into scattered failures that look like unsupported listings.
+    if (i < list.length - 1) await new Promise(r => setTimeout(r, 450));
   }
   return out;
 }

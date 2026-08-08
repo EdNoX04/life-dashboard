@@ -108,6 +108,7 @@ export default function DivSync({ held = [], cur = '$' }) {
       imported: divMeta[t]?.source === 'fmp',
       hasManual: !!divMeta[t] && divMeta[t].source !== 'fmp',
       note: e?.note || null,
+      code: e?.code ?? null,
     };
   }), [tickers, store, divMeta]);
 
@@ -175,17 +176,30 @@ export default function DivSync({ held = [], cur = '$' }) {
             A 403 across the board is one cause, not twenty problems. */}
         {(() => {
           const failed = rows.filter(r => r.status === STATUS.failed);
-          if (!failed.length || failed.length < rows.length) return null;
+          if (!failed.length) return null;
+          const byCode = {};
+          for (const f of failed) byCode[f.code ?? '?'] = (byCode[f.code ?? '?'] || 0) + 1;
+          const all = failed.length === rows.length;
           return (
             <p className="ds-fail">
-              <strong>Every fetch failed.</strong> {failed[0].note}
-              {/* The check that answers "is this even talking to the API?".
-                  If the provider's dashboard shows no requests, the answer is
-                  no — and the reason is almost always that these rows are a
-                  cached result rather than a fresh one. */}
-              {' '}If your Financial Modeling Prep dashboard shows <b>0 requests today</b>,
-              nothing was actually sent: these are cached from an earlier attempt.
-              Press <b>FORCE</b> to ignore the cache and call the API for real.
+              <strong>{all ? 'Every fetch failed.' : `${failed.length} of ${rows.length} failed.`}</strong>{' '}
+              {/* Grouped by code, because a mixed result is several problems and
+                  a single sentence about the first one would describe the wrong
+                  one for most of the rows. */}
+              {Object.entries(byCode).map(([c, n]) => `${n}× ${c === '0' ? 'network' : c}`).join(', ')}.
+              {byCode['403'] && (
+                <> A <b>403</b> on ETFs is the free plan: FMP restricts fund data,
+                  and no client change reaches it. Those rows will stay empty until
+                  the plan changes.</>
+              )}
+              {byCode['429'] && (
+                <> A <b>429</b> is rate limiting, not a permission problem — wait a
+                  minute and press FETCH, which retries only what failed.</>
+              )}
+              {all && (
+                <> If your Financial Modeling Prep dashboard shows <b>0 requests today</b>,
+                  nothing was sent at all: these are cached. Press <b>FORCE</b>.</>
+              )}
             </p>
           );
         })()}
@@ -214,7 +228,16 @@ export default function DivSync({ held = [], cur = '$' }) {
               return (
                 <div className="ds-row" key={r.ticker} title={r.note || undefined}>
                   <span className="ds-t">{r.ticker}</span>
-                  <span style={{ color: look.color }}>{look.label}</span>
+                  <span style={{ color: look.color }}>
+                    {look.label}
+                    {/* The code, in the row. Twenty rows all saying FAILED tell
+                        you nothing; 403 on the ETFs and 429 on two scattered
+                        names are two different problems with two different
+                        fixes, and only the code separates them. */}
+                    {r.code != null && r.status === STATUS.failed && (
+                      <i className="ds-code">{r.code || 'net'}</i>
+                    )}
+                  </span>
                   <span>{r.count || '—'}</span>
                   <span>
                     {r.ttm && r.ttm.total > 0 ? `${cur}${r.ttm.total.toFixed(2)}` : '—'}

@@ -5170,3 +5170,8 @@ th:hover .hold-info { color: var(--cyan); }
   max-width: 90ch;
 }
 .ds-fail strong { color: var(--red); }
+
+.ds-code {
+  margin-left: 5px; font-style: normal; font-size: 9.5px;
+  color: var(--ink-3); border: 1px solid var(--border); padding: 0 3px;
+}

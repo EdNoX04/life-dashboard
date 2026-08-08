@@ -4,7 +4,7 @@
 
 import {
   STATUS, num, normalisePayment, normaliseHistory, ttm, runRate, cacheAge, TTL,
-  BASE, LEGACY_BASE, isFetchable, FAIL_TTL, entryTtl,
+  BASE, LEGACY_BASE, isFetchable, FAIL_TTL, entryTtl, fmpSymbol,
   realisedGrowth, medianExOffset, toDivMeta, toDivMetaAll, CADENCE_TO_FREQ,
   byYear, completeYears, cagr, growthStreak, payoutRatios, payoutSummary,
   sharesBefore, holdingPeriod, receivedHistory, receivedTotals, projectForward,
@@ -90,6 +90,14 @@ eq(isFetchable({ ticker: 'AAPL', currency: 'USD' }), true, 'a US holding is fetc
 eq(isFetchable({ ticker: 'NVDA' }), true, 'a holding with no currency is treated as US');
 eq(isFetchable({ ticker: 'GOLDBEES', currency: 'INR' }), false, 'a rupee holding is skipped');
 eq(isFetchable({ ticker: 'GOLDBEES', currency: 'inr' }), false, 'case-insensitively');
+
+// FMP writes share classes with a hyphen; INDmoney writes a dot. One character,
+// and the difference between a full history and a hard failure.
+eq(fmpSymbol('BRK.B'), 'BRK-B', 'a dotted share class becomes hyphenated');
+eq(fmpSymbol('brk.b'), 'BRK-B', 'and upper-cases');
+eq(fmpSymbol('AAPL'), 'AAPL', 'an ordinary ticker is unchanged');
+eq(fmpSymbol('BF.A'), 'BF-A', 'any dotted class converts');
+eq(fmpSymbol(''), '', 'an empty symbol stays empty');
 
 // ------------------------------------------------------------------ ttm
 const ASOF = new Date('2026-06-01T00:00:00Z');
