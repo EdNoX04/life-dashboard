@@ -5,6 +5,8 @@
 import {
   STATUS, num, normalisePayment, normaliseHistory, ttm, runRate, cacheAge, TTL,
   realisedGrowth, medianExOffset, toDivMeta, toDivMetaAll, CADENCE_TO_FREQ,
+  byYear, completeYears, cagr, growthStreak, payoutRatios, payoutSummary,
+  sharesBefore, holdingPeriod, receivedHistory, receivedTotals, projectForward,
 } from '../src/lib/divdata.js';
 import { normaliseEntry, FREQS } from '../src/lib/dividends.js';
 
@@ -251,6 +253,196 @@ eq(Object.keys(all).length, 1, 'only clean fetches make it into the bridge outpu
 eq(Object.keys(all)[0], 'AAPL', 'and it is the right one');
 eq(Object.keys(toDivMetaAll({})).length, 0, 'an empty store bridges to an empty object');
 eq(CADENCE_TO_FREQ['semi-annual'], 'semiannual', 'the cadence names map across the spelling difference');
+
+// ------------------------------------------------------ payment history
+// Flat 0.20 quarterly 2021-2024, one payment in 2020, three in 2025.
+const YR = byYear(RAGGED, 2026);
+eq(YR.length, 6, 'six calendar years on record');
+eq(YR[0].year, 2020, 'years run oldest first');
+eq(YR[0].count, 1, 'the first year holds one payment');
+eq(YR[0].partial, true, 'and is flagged partial');
+eq(YR[1].partial, false, 'a full four-payment year is not partial');
+near(YR[1].total, 0.80, 'a full year sums its four payments');
+// The trap: 2025 has three payments and must not read as a 25% cut.
+eq(YR[5].partial, true, 'a short final year is flagged partial');
+eq(YR[5].yoy, null, 'and reports no year-on-year, rather than a fake cut');
+// A flat dividend across two full years is 0% YoY, which IS knowable.
+near(YR[2].yoy, 0, 'two complete flat years give zero YoY', 1e-9);
+eq(completeYears(YR).length, 4, 'four complete years');
+// The CURRENT year is always partial, whatever it holds.
+eq(byYear(RAGGED, 2022).find(y => y.year === 2022).partial, true,
+  'the current year is partial by definition');
+
+// ------------------------------------------------------------------ cagr
+const RISING = byYear(YEARS, 2027);
+const c5 = cagr(RISING, 5);
+near(c5.pct, 10, 'a dividend rising 10% a year reports a 10% CAGR', 0.001);
+eq(c5.short, false, 'with enough history the window is not short');
+// Asking for more history than exists must say so rather than silently
+// relabelling a shorter measurement.
+const c10 = cagr(RISING, 10);
+eq(c10.short, true, 'a 10Y window over less history is flagged short');
+ok(c10.years < 10, 'and reports the span it actually measured');
+eq(cagr([], 5), null, 'no years, no CAGR');
+eq(cagr(byYear(RAGGED.slice(0, 4), 2026), 5), null, 'one usable year yields no CAGR');
+// Non-uniform growth: flat for years, then a jump. A 3Y window and a 6Y window
+// must give DIFFERENT answers, or the span argument is doing nothing.
+const UNEVEN = byYear([
+  ...['2019', '2020', '2021', '2022'].flatMap(y => ['02', '05', '08', '11'].map(mo => ({
+    ex: `${y}-${mo}-06`, pay: `${y}-${mo}-27`, payEstimated: false, amount: 0.10,
+  }))),
+  ...['2023', '2024', '2025'].flatMap(y => ['02', '05', '08', '11'].map(mo => ({
+    ex: `${y}-${mo}-06`, pay: `${y}-${mo}-27`, payEstimated: false, amount: 0.40,
+  }))),
+], 2026);
+const short3 = cagr(UNEVEN, 3);
+const long6 = cagr(UNEVEN, 6);
+ok(short3.pct !== long6.pct, 'a 3Y and a 6Y window measure different things');
+eq(short3.from, 2022, 'the 3Y window starts three complete years back');
+eq(long6.from, 2019, 'the 6Y window reaches the start of the record');
+ok(short3.pct > long6.pct, 'a recent jump shows up hotter over the shorter window');
+
+const st = growthStreak(RISING);
+ok(st.years >= 3, 'a consistently rising dividend has a streak');
+eq(st.cut, false, 'and no cut');
+// One cut ends the streak, however long it was.
+const CUT = byYear([
+  ...['2024', '2023', '2022', '2021'].flatMap(y => ['02', '05', '08', '11'].map(mo => ({
+    ex: `${y}-${mo}-06`, pay: `${y}-${mo}-27`, payEstimated: false,
+    amount: y === '2024' ? 0.10 : 0.20,
+  }))),
+], 2026);
+eq(growthStreak(CUT).years, 0, 'a cut in the latest complete year zeroes the streak');
+eq(growthStreak(CUT).cut, true, 'and is reported as a cut');
+eq(growthStreak([]).years, 0, 'no history, no streak');
+// A FLAT year is not a growth year. Held flat is a real and different outcome
+// from raised, and a streak that counts it overstates the record.
+const FLATRUN = byYear([
+  ...['2024', '2023'].flatMap(y => ['02', '05', '08', '11'].map(mo => ({
+    ex: `${y}-${mo}-06`, pay: `${y}-${mo}-27`, payEstimated: false, amount: 0.20,
+  }))),
+  ...['2022', '2021'].flatMap(y => ['02', '05', '08', '11'].map(mo => ({
+    ex: `${y}-${mo}-06`, pay: `${y}-${mo}-27`, payEstimated: false, amount: 0.10,
+  }))),
+], 2026);
+eq(growthStreak(FLATRUN).years, 0, 'a flat latest year breaks the streak');
+eq(growthStreak(FLATRUN).cut, false, 'flat is not a cut either');
+
+// --------------------------------------------------------- payout ratio
+const EPS = { 2021: 1.0, 2022: 1.0, 2023: 0.5, 2024: -0.4 };
+const pr = payoutRatios(YR, EPS);
+const p2021 = pr.find(r => r.year === 2021);
+near(p2021.ratio, 80, '0.80 of dividend on 1.00 of EPS is an 80% payout');
+eq(p2021.over, false, 'and is not over 100');
+const p2023 = pr.find(r => r.year === 2023);
+near(p2023.ratio, 160, 'paying 0.80 out of 0.50 earned is 160%');
+eq(p2023.over, true, 'and is flagged as over');
+// A loss year cannot have a meaningful payout ratio.
+const p2024 = pr.find(r => r.year === 2024);
+eq(p2024.lossYear, true, 'a negative-EPS year is flagged as a loss year');
+// A year with no EPS on file reports null, not zero.
+eq(pr.find(r => r.year === 2020).ratio, null, 'no EPS means no ratio, not a zero one');
+// Break-even earnings: dividing by zero would give Infinity, which renders as
+// a number and means nothing.
+eq(payoutRatios(YR, { 2021: 0 }).find(r => r.year === 2021).ratio, null,
+  'zero EPS yields no ratio rather than infinity');
+
+const ps = payoutSummary(pr);
+eq(ps.latestYear, 2023, 'the summary reads the latest usable complete year');
+near(ps.latest, 160, 'and its ratio');
+eq(ps.band, 'over', 'above 100 bands as over');
+eq(ps.overs, 1, 'one year breached');
+eq(payoutSummary([]), null, 'nothing usable, no summary');
+eq(payoutSummary(payoutRatios(YR, {})), null, 'no EPS at all, no summary');
+// The bands are described, not judged.
+eq(payoutSummary(payoutRatios(YR, { 2021: 4, 2022: 4, 2023: 4 })).band, 'comfortable',
+  'a fifth of earnings bands as comfortable');
+eq(payoutSummary(payoutRatios(YR, { 2021: 1, 2022: 1, 2023: 0.95 })).band, 'tight',
+  'most of earnings bands as tight');
+
+// -------------------------------------------- what you actually received
+const ORDERS = [
+  { date: '2025-06-01', ticker: 'AAA', side: 'B', qty: 10 },
+  { date: '2025-11-07', ticker: 'AAA', side: 'B', qty: 5 },   // ON an ex-date
+  { date: '2026-03-01', ticker: 'AAA', side: 'S', qty: 4 },
+  { date: '2025-01-01', ticker: 'ZZZ', side: 'B', qty: 99 },
+];
+eq(sharesBefore(ORDERS, 'AAA', '2025-05-01'), 0, 'before the first buy you held none');
+eq(sharesBefore(ORDERS, 'AAA', '2025-08-08'), 10, 'after one buy you held ten');
+// THE OFF-BY-ONE: buying ON the ex-date does not entitle you to that payment.
+eq(sharesBefore(ORDERS, 'AAA', '2025-11-07'), 10,
+  'a purchase ON the ex-date does not count toward that payment');
+eq(sharesBefore(ORDERS, 'AAA', '2025-11-08'), 15, 'but does from the next day');
+eq(sharesBefore(ORDERS, 'AAA', '2026-06-01'), 11, 'a sale reduces the count');
+eq(sharesBefore(ORDERS, 'BBB', '2026-06-01'), 0, 'a ticker you never held is zero');
+eq(sharesBefore([], 'AAA', '2026-06-01'), 0, 'no orders, no shares');
+eq(sharesBefore(ORDERS, 'AAA', ''), 0, 'no date, no answer');
+// A tape that sells more than it bought is a data error, not a short position.
+// Floored at zero, so no downstream figure can come out negative.
+eq(sharesBefore([
+  { date: '2025-01-01', ticker: 'AAA', side: 'B', qty: 5 },
+  { date: '2025-02-01', ticker: 'AAA', side: 'S', qty: 9 },
+], 'AAA', '2026-01-01'), 0, 'over-selling floors at zero rather than going short');
+
+const hp = holdingPeriod(ORDERS, 'AAA', new Date('2026-06-01T00:00:00Z'));
+eq(hp.first, '2025-06-01', 'the holding period starts at the first buy');
+eq(hp.open, true, 'a position with shares left is still open');
+eq(hp.days, 365, 'a year to the day');
+eq(hp.overOneYear, true, 'and is over one year');
+eq(holdingPeriod([], 'AAA'), null, 'no orders, no holding period');
+// A fully closed position reports its span, not an ongoing one.
+const CLOSED = [
+  { date: '2026-03-24', ticker: 'RCAT', side: 'B', qty: 0.6726 },
+  { date: '2026-04-29', ticker: 'RCAT', side: 'S', qty: 0.6726 },
+];
+const hc = holdingPeriod(CLOSED, 'RCAT', new Date('2026-08-01T00:00:00Z'));
+eq(hc.open, false, 'a fully sold position is closed');
+eq(hc.end, '2026-04-29', 'and ends on the sale');
+eq(hc.days, 36, 'and spans the days it was actually held');
+eq(hc.overOneYear, false, 'a five-week hold is not over a year');
+
+const REC = receivedHistory(H, ORDERS, 'AAA');
+// H runs 2026-05-08, 2026-02-06, 2025-11-07, 2025-08-08 at 0.26/0.25/0.25/0.24.
+eq(REC[3].shares, 10, 'the oldest payment is valued at the count held then');
+near(REC[3].amount_received, 2.4, 'ten shares at 0.24 is 2.40');
+eq(REC[2].shares, 10, 'the ex-date purchase does not inflate that payment');
+eq(REC[1].shares, 15, 'a later payment reflects the added shares');
+near(REC[1].amount_received, 3.75, 'fifteen at 0.25 is 3.75');
+// Today's count must NOT be applied backwards.
+ok(REC[3].amount_received < REC[1].amount_received,
+  'past payments are not credited with shares bought later');
+
+const rt = receivedTotals(receivedHistory(H, ORDERS, 'AAA'));
+eq(rt.payments, 4, 'four payments received');
+near(rt.total, 2.4 + 2.5 + 3.75 + 0.26 * 11, 'the total sums each at its own count');
+eq(rt.missed, 0, 'none missed');
+// A payment from before you owned anything is counted as missed, not as zero
+// income from a company that pays.
+const early = receivedHistory([{ ex: '2024-01-01', pay: '2024-01-20', amount: 1 }], ORDERS, 'AAA');
+eq(early[0].held, false, 'a payment predating your first buy was not received');
+eq(receivedTotals(early).missed, 1, 'and is counted as missed');
+eq(receivedTotals(early).total, 0, 'contributing nothing to income');
+
+// ------------------------------------------------------------- forward
+const fwd = projectForward(H, 11, { count: 4, asOf: new Date('2026-06-01T00:00:00Z') });
+eq(fwd.length, 4, 'four payments projected');
+ok(fwd.every(f => f.estimated === true), 'every projected row is marked estimated');
+ok(fwd[0].pay > '2026-06-01', 'the first projection is in the future');
+near(fwd[0].perShare, 0.26, 'projected at the latest declared rate');
+near(fwd[0].amount, 0.26 * 11, 'and at the CURRENT share count');
+ok(fwd[1].pay > fwd[0].pay, 'projections run forwards');
+// Roughly a quarter apart, following the company's rhythm.
+const gap = (Date.parse(fwd[1].pay) - Date.parse(fwd[0].pay)) / 864e5;
+ok(gap > 80 && gap < 100, 'projected payments keep the observed quarterly rhythm');
+ok(fwd[0].ex < fwd[0].pay, 'each projection has an ex-date before its pay date');
+eq(projectForward([], 10).length, 0, 'no history, no projection');
+// Projecting from a year in the future must skip every slot already past, not
+// hand back a schedule that started last year.
+const late = projectForward(H, 11, { count: 4, asOf: new Date('2027-06-01T00:00:00Z') });
+eq(late.length, 4, 'four payments projected from a later vantage point');
+ok(late.every(f => f.pay > '2027-06-01'), 'and every one of them is in the future');
+eq(projectForward(H, 0, { asOf: new Date('2026-06-01T00:00:00Z') })[0].amount, 0,
+  'holding nothing projects nothing, but still shows the schedule');
 
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);

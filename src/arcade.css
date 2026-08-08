@@ -5110,3 +5110,49 @@ th:hover .hold-info { color: var(--cyan); }
   .ds-row { grid-template-columns: 64px 1fr 1fr; row-gap: 3px; }
   .ds-head { display: none; }
 }
+
+/* ----------------------------------------------------- payment history */
+.ph-lead { margin: 0 0 10px; font-size: 12.5px; line-height: 1.55; color: var(--ink-2); max-width: 84ch; }
+.ph-lead b { color: var(--ink); font-weight: normal; }
+
+.ph-bars { display: flex; gap: 6px; align-items: flex-end; min-height: 120px; }
+.ph-bar { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ph-bar-v { font-size: 10.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.ph-bar-track {
+  width: 100%; height: 78px; display: flex; align-items: flex-end;
+  border-bottom: 1px solid var(--border-bright);
+}
+.ph-bar-track i { display: block; width: 100%; min-height: 2px; }
+.ph-bar-y { font-size: 11px; color: var(--ink-2); }
+.ph-bar-yoy { font-size: 10px; }
+
+.ph-facts { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 12.5px; color: var(--ink-3); }
+.ph-facts b { color: var(--ink); font-weight: normal; }
+.ph-facts i { font-style: normal; font-size: 11px; }
+.ph-part { font-style: normal; color: var(--orange); font-size: 11px; }
+
+.ph-rows { display: flex; flex-direction: column; }
+.ph-row {
+  display: grid; grid-template-columns: 1fr 1fr .9fr .8fr 1fr;
+  gap: 8px; padding: 5px 4px; font-size: 12.5px;
+  border-bottom: 1px dotted var(--border); align-items: baseline;
+}
+.ph-row:last-child { border-bottom: none; }
+.ph-head { font-size: 10px; letter-spacing: .8px; color: var(--ink-3); border-bottom: 1px solid var(--border-bright); }
+/* A payment from before you owned the stock is dimmed, not hidden: it explains
+   why your income history is shorter than the company's. */
+.ph-missed { opacity: .5; }
+.ph-nope { font-style: normal; color: var(--ink-3); font-size: 11.5px; }
+.ph-fwd { color: var(--ink-2); }
+.ph-est {
+  margin-left: 5px; font-style: normal; font-size: 9.5px;
+  color: var(--purple); border: 1px solid var(--purple); padding: 0 3px;
+}
+.ph-foot { margin: 9px 0 0; font-size: 12px; line-height: 1.5; color: var(--ink-3); max-width: 84ch; }
+.ph-foot b { color: var(--ink); font-weight: normal; }
+
+@media (max-width: 760px) {
+  .ph-row { grid-template-columns: 1fr 1fr 1fr; row-gap: 2px; }
+  .ph-head { display: none; }
+  .ph-bar-v { display: none; }
+}

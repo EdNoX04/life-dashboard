@@ -251,6 +251,282 @@ export function toDivMetaAll(store = {}, opts = {}) {
   return out;
 }
 
+// ------------------------------------------------------ payment history
+
+// Dividend per share by calendar year, which is what the payment-history bars
+// draw and what every growth figure is computed from.
+//
+// The trap this function exists to avoid: the CURRENT year is always partial.
+// A company four payments into 2026 and two payments into 2027 has not halved
+// its dividend, but a bar chart that treats both years the same says it has.
+// So the current year is returned with `partial: true` and the growth figures
+// below never use it as an endpoint.
+export function byYear(rows = [], thisYear = new Date().getUTCFullYear()) {
+  const map = new Map();
+  for (const r of rows) {
+    const y = Number(r.ex.slice(0, 4));
+    if (!Number.isFinite(y)) continue;
+    const e = map.get(y) || { year: y, total: 0, count: 0, payments: [] };
+    e.total += r.amount;
+    e.count += 1;
+    e.payments.push(r);
+    map.set(y, e);
+  }
+  const years = [...map.values()].sort((a, b) => a.year - b.year);
+
+  // Partial-year detection is compared against the company's OWN typical
+  // cadence, not against the neighbouring year. Comparing with the previous
+  // year cannot work at the oldest end - the first year on record has no
+  // predecessor, and the first year is the one most likely to be partial,
+  // because a history usually starts mid-year.
+  //
+  // The mode is taken over completed years only, so a current year with one
+  // payment in it so far cannot drag the expected cadence down to one.
+  const counts = years.filter(y => y.year < thisYear).map(y => y.count);
+  const freq = new Map();
+  for (const c of counts) freq.set(c, (freq.get(c) || 0) + 1);
+  let typical = 0;
+  for (const [c, n] of freq) {
+    const bn = freq.get(typical) || 0;
+    // Ties go to the LARGER count: a history split evenly between three- and
+    // four-payment years is a quarterly payer with a ragged year, not a
+    // three-times-a-year payer with a bonus.
+    if (n > bn || (n === bn && c > typical)) typical = c;
+  }
+
+  return years.map(e => {
+    return {
+      ...e,
+      partial: e.year >= thisYear || (typical > 0 && e.count < typical),
+      // Year-on-year is only meaningful between two complete years, so it is
+      // null rather than a number whenever either side is partial.
+      yoy: null,
+    };
+  }).map((e, i, arr) => {
+    const prev = arr[i - 1];
+    if (!prev || e.partial || prev.partial || !(prev.total > 0)) return e;
+    return { ...e, yoy: ((e.total / prev.total) - 1) * 100 };
+  });
+}
+
+export const completeYears = (years = []) => years.filter(y => !y.partial);
+
+// CAGR across a window of complete years. `years` back from the most recent
+// complete year, or as many as exist — and it reports which, because "5Y CAGR"
+// computed over three years of data is a different claim.
+export function cagr(yearRows = [], span = 5) {
+  const full = completeYears(yearRows);
+  if (full.length < 2) return null;
+  const last = full[full.length - 1];
+  const wantIdx = Math.max(0, full.length - 1 - span);
+  const first = full[wantIdx];
+  const n = last.year - first.year;
+  if (n < 1 || !(first.total > 0) || !(last.total > 0)) return null;
+  return {
+    pct: (Math.pow(last.total / first.total, 1 / n) - 1) * 100,
+    years: n,
+    from: first.year,
+    to: last.year,
+    // True when we could not reach back as far as asked. The label should then
+    // say what it actually measured rather than what was requested.
+    short: n < span,
+  };
+}
+
+// A streak of consecutive complete years with a higher payout than the one
+// before. Counted from the most recent complete year backwards, and stopping at
+// the first year that did not increase — which is the honest definition, since
+// one cut ends a streak however long it was.
+export function growthStreak(yearRows = []) {
+  const full = completeYears(yearRows);
+  if (full.length < 2) return { years: 0, cut: false };
+  let n = 0, cut = false;
+  for (let i = full.length - 1; i > 0; i--) {
+    if (full[i].total > full[i - 1].total) n += 1;
+    else { cut = full[i].total < full[i - 1].total; break; }
+  }
+  return { years: n, cut };
+}
+
+// -------------------------------------------- what YOU actually received
+//
+// A dividend history is a fact about the company. What you received is a fact
+// about the company AND your order tape, and they are not the same shape.
+//
+// Two things decide it, and getting either wrong silently misstates income:
+//
+//   ENTITLEMENT IS BY EX-DATE, AND STRICTLY BEFORE IT. To receive a payment you
+//   must own the shares before the ex-date opens; buying ON the ex-date does
+//   not entitle you. So the share count that matters is the one as of the day
+//   before, which is why `sharesBefore` compares with `<` rather than `<=`.
+//   An off-by-one here hands you a payment you never got.
+//
+//   THE COUNT CHANGES OVER TIME. Using today's holding to value a payment from
+//   eighteen months ago credits you for shares you had not bought yet. Every
+//   past payment is valued at the count held on its own ex-date; only the
+//   FORWARD projection uses the current count, because that is the only count
+//   the future has.
+
+export function sharesBefore(orders = [], ticker, isoDate) {
+  const t = String(ticker || '').toUpperCase();
+  const d = String(isoDate || '');
+  if (!t || !d) return 0;
+  let q = 0;
+  for (const o of orders) {
+    if (String(o?.ticker || '').toUpperCase() !== t) continue;
+    const od = String(o?.date || '').slice(0, 10);
+    // Strictly before: an order placed ON the ex-date does not entitle.
+    if (!od || od >= d) continue;
+    const n = num(o.qty);
+    if (n == null) continue;
+    q += String(o.side).toUpperCase() === 'S' ? -n : n;
+  }
+  // A rounding artefact from fractional trading should not read as a short
+  // position; a genuine short is not something this app models.
+  return q > 1e-9 ? q : 0;
+}
+
+// When you first owned this, and for how long. Used for the holding-period
+// figure and to explain a payment history that starts later than the company's.
+export function holdingPeriod(orders = [], ticker, asOf = new Date()) {
+  const t = String(ticker || '').toUpperCase();
+  const mine = orders
+    .filter(o => String(o?.ticker || '').toUpperCase() === t && num(o.qty) != null)
+    .map(o => ({ date: String(o.date || '').slice(0, 10), side: String(o.side).toUpperCase(), qty: num(o.qty) }))
+    .filter(o => /^\d{4}-\d{2}-\d{2}$/.test(o.date))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  if (!mine.length) return null;
+  const firstBuy = mine.find(o => o.side !== 'S');
+  if (!firstBuy) return null;
+
+  // Net position now, so a closed position reports its span rather than
+  // pretending to be ongoing.
+  let q = 0, closedOn = null;
+  for (const o of mine) {
+    q += o.side === 'S' ? -o.qty : o.qty;
+    if (q <= 1e-9) closedOn = o.date; else closedOn = null;
+  }
+  const endISO = closedOn || asOf.toISOString().slice(0, 10);
+  const days = Math.max(0, Math.round((Date.parse(endISO) - Date.parse(firstBuy.date)) / 864e5));
+  return {
+    first: firstBuy.date,
+    end: closedOn,
+    open: !closedOn,
+    days,
+    years: days / 365.25,
+    // Long-term capital gains treatment turns on this in both jurisdictions the
+    // app deals with, though at different thresholds - so it is reported as a
+    // fact, not applied as a rule.
+    overOneYear: days >= 365,
+  };
+}
+
+// Every declared payment, valued at the shares you actually held on its ex-date.
+export function receivedHistory(rows = [], orders = [], ticker) {
+  return rows.map(r => {
+    const shares = sharesBefore(orders, ticker, r.ex);
+    return {
+      ...r,
+      shares,
+      // No `shares > 0` guard: sharesBefore already floors at zero, so the
+      // multiplication cannot produce a negative. A second guard doing the same
+      // job would be untestable while the first one stood.
+      amount_received: r.amount * shares,
+      // Distinguishes "you owned none" from "the company paid nothing". Both
+      // land at zero income and only one is about the company.
+      held: shares > 0,
+    };
+  });
+}
+
+export function receivedTotals(received = []) {
+  const mine = received.filter(r => r.held);
+  const total = mine.reduce((s, r) => s + r.amount_received, 0);
+  const missed = received.filter(r => !r.held).length;
+  return {
+    total,
+    payments: mine.length,
+    missed,
+    first: mine.length ? mine[mine.length - 1].pay : null,
+    last: mine.length ? mine[0].pay : null,
+  };
+}
+
+// The next payments, projected from the observed cadence at the CURRENT share
+// count. Forward figures are estimates and are labelled as such all the way
+// through - `estimated: true` on every row, not just in a footnote.
+export function projectForward(rows = [], shares = 0, { count = 4, asOf = new Date() } = {}) {
+  const rate = runRate(rows);
+  if (!rate || !rate.payments || !(rate.perShare > 0)) return [];
+  const gapDays = 365 / rate.payments;
+  const last = rows[0];
+  if (!last) return [];
+  let cursor = Date.parse(`${last.pay}T00:00:00Z`);
+  const exGap = Date.parse(`${last.pay}T00:00:00Z`) - Date.parse(`${last.ex}T00:00:00Z`);
+  const out = [];
+  const today = asOf.getTime();
+  // Walk forward from the last real payment until we are past today, then take
+  // the next `count`. Starting from the last payment rather than from today
+  // keeps the projected dates on the company's actual rhythm.
+  for (let i = 1; i <= count + 8 && out.length < count; i++) {
+    const pay = cursor + i * gapDays * 864e5;
+    if (pay <= today) continue;
+    out.push({
+      ex: new Date(pay - exGap).toISOString().slice(0, 10),
+      pay: new Date(pay).toISOString().slice(0, 10),
+      perShare: rate.perShare,
+      shares,
+      amount: rate.perShare * shares,
+      estimated: true,
+    });
+  }
+  return out;
+}
+
+// ------------------------------------------------------- payout ratio
+
+// Dividends as a share of earnings, per year. Above 100% means the company paid
+// out more than it earned that year, which is not automatically bad — it is
+// normal for a REIT and a warning sign for a cyclical — so this reports the
+// number and the breach, never a verdict.
+export function payoutRatios(yearRows = [], epsByYear = {}) {
+  return yearRows.map(y => {
+    const eps = num(epsByYear[y.year]);
+    const ratio = eps != null && eps !== 0 ? (y.total / eps) * 100 : null;
+    return {
+      year: y.year,
+      dividend: y.total,
+      eps,
+      ratio,
+      partial: y.partial,
+      // Negative earnings make the ratio meaningless rather than negative: you
+      // cannot pay out a share of a loss, and printing -240% invites a reader
+      // to interpret a sign that carries no information.
+      lossYear: eps != null && eps < 0,
+      over: ratio != null && ratio > 100,
+    };
+  });
+}
+
+export function payoutSummary(ratios = []) {
+  const usable = ratios.filter(r => r.ratio != null && !r.partial && !r.lossYear);
+  if (!usable.length) return null;
+  const latest = usable[usable.length - 1];
+  const avg = usable.reduce((s, r) => s + r.ratio, 0) / usable.length;
+  const overs = usable.filter(r => r.over).length;
+  return {
+    latest: latest.ratio,
+    latestYear: latest.year,
+    average: avg,
+    years: usable.length,
+    overs,
+    // Tightness is a description of headroom, not a rating. The bands are named
+    // so a screen does not have to invent its own.
+    band: latest.ratio > 100 ? 'over' : latest.ratio > 75 ? 'tight'
+      : latest.ratio > 50 ? 'moderate' : 'comfortable',
+  };
+}
+
 let cache = null;
 let loading = null;
 
