@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Empty, StatTile } from '../ui.jsx';
 import {
   STATUS, hasKey, loadCached, fetchMany, toDivMetaAll, cacheAge, ttm, runRate,
@@ -83,17 +83,50 @@ export default function DivSync({ held = [], cur = '$' }) {
     setBusy(false); setProgress(null);
   }
 
-  async function merge() {
+  async function merge(silent = false) {
     const bridged = toDivMetaAll(store || {});
     const n = Object.keys(bridged).length;
-    if (!n) return;
+    if (!n) return 0;
     // Per-ticker merge, never a replace. A hand-entered row for a ticker that
     // did not fetch cleanly survives untouched.
     const next = { ...divMeta, ...bridged };
     setDivMeta(next);
-    setMerged(n);
+    if (!silent) setMerged(n);
     try { await memSet('div_meta', next); } catch { /* offline: local state stands */ }
+    return n;
   }
+
+  // Automatic. There is no reason to make someone press FETCH and then IMPORT:
+  // the cache already decides when a real request is worth making (a week for a
+  // success, five minutes for a failure, never for a plan boundary), so calling
+  // this on mount costs nothing on a warm cache and does the right thing on a
+  // cold one. The buttons stay for forcing a refresh, not for routine use.
+  //
+  // Importing is safe to do unattended for the same reason it was safe to do on
+  // a button: only CLEAN fetches are merged, per ticker, so nothing you entered
+  // by hand can be erased by a bad day at the API.
+  const autoRef = useRef(false);
+  useEffect(() => {
+    if (!keyed || store === null || !tickers.length || autoRef.current) return;
+    autoRef.current = true;
+    (async () => {
+      const out = await fetchMany(tickers, { force: false });
+      setStore(s2 => ({ ...(s2 || {}), ...out }));
+    })();
+  }, [keyed, store, tickers]);
+
+  // Import whenever there is something clean that is not already in div_meta.
+  // Keyed on what is actually importable rather than on a timer, so it runs
+  // once after a fetch lands and then stays quiet.
+  const importable = useMemo(() => {
+    const bridged = toDivMetaAll(store || {});
+    return Object.keys(bridged).filter(t => divMeta[t]?.at !== bridged[t].at);
+  }, [store, divMeta]);
+
+  useEffect(() => {
+    if (!importable.length || busy) return;
+    merge(true);
+  }, [importable.length]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const rows = useMemo(() => tickers.map(t => {
     const e = store?.[t];
@@ -149,8 +182,12 @@ export default function DivSync({ held = [], cur = '$' }) {
         color="var(--orange)"
         right={
           <span className="flex" style={{ gap: 6 }}>
-            <button className="btn btn-sm btn-cyan" onClick={() => refresh(false)} disabled={busy || !tickers.length}>
-              {busy ? `${progress?.done ?? 0}/${progress?.total ?? 0}` : 'FETCH'}
+            <button
+              className="btn btn-sm btn-cyan" onClick={() => refresh(false)}
+              disabled={busy || !tickers.length}
+              title="Re-check anything the cache considers stale. This also runs on its own when you open the screen."
+            >
+              {busy ? `${progress?.done ?? 0}/${progress?.total ?? 0}` : 'REFRESH'}
             </button>
             <button
               className="btn btn-sm" onClick={() => refresh(true)}
@@ -159,17 +196,25 @@ export default function DivSync({ held = [], cur = '$' }) {
             >
               FORCE
             </button>
-            <button className="btn btn-sm btn-green" onClick={merge} disabled={busy || !bridgeable}>
-              IMPORT {bridgeable || ''}
+            {/* Kept as an override for the case where you want to re-apply an
+                import you have since edited by hand. Routine importing happens
+                on its own. */}
+            <button
+              className="btn btn-sm" onClick={() => merge(false)} disabled={busy || !bridgeable}
+              title="Re-apply every clean fetch to the dividend store, overwriting hand edits for those tickers."
+            >
+              RE-APPLY
             </button>
           </span>
         }
       >
         <p className="ds-lead">
-          Fetches declared payments for each holding, then — on the IMPORT button,
-          not automatically — writes them into the store every other dividend screen
-          reads. Only clean fetches are imported, so a bad day at the API cannot
-          erase anything you entered by hand.
+          Fetches declared payments for each holding and writes them into the store
+          every other dividend screen reads — on its own, when you open this screen.
+          Only clean fetches are imported, per ticker, so a bad day at the API cannot
+          erase anything you entered by hand. A success is cached for a week, a
+          failure for five minutes, and a listing the plan does not cover is not
+          re-asked at all.
         </p>
 
         {/* One explanation at the top beats the same tooltip on twenty rows.
