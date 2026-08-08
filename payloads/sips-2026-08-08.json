@@ -1,64 +1,77 @@
 {
- "list": [
+ "note": "memory.sips. Wrapped in the ops envelope apply-payloads expects \u2014 it was previously a raw blob, which the applier skipped silently and now rejects loudly. Original note: GOLDBEES is read live from the INDmoney MCP: DAILY, Rs 123, next 2026-08-09, 24 installments planned this month with 5 done, 1 in progress, 1 upcoming and 1 FAILED. The two US SIPs still come from an app screenshot - the MCP exposes Indian stock SIPs and mutual fund SIPs, but not US stock SIPs, so those cannot be refreshed automatically.",
+ "ops": [
   {
-   "id": "us-meta-monthly",
-   "ticker": "META",
-   "name": "Meta Platforms Inc. Class A",
-   "amount": 500.0,
-   "currency": "INR",
-   "asset_currency": "USD",
-   "freq": "monthly",
-   "broker": "INDmoney",
-   "account": "INDmoney US",
-   "next": "2026-09-03",
-   "status": "active",
-   "active": true
-  },
-  {
-   "id": "us-qqq-weekly",
-   "ticker": "QQQ",
-   "name": "Invesco QQQ Trust, Series 1",
-   "amount": 500.0,
-   "currency": "INR",
-   "asset_currency": "USD",
-   "freq": "weekly",
-   "broker": "INDmoney",
-   "account": "INDmoney US",
-   "next": "2026-08-06",
-   "status": "active",
-   "active": true
-  },
-  {
-   "id": "goldbees-daily",
-   "ticker": "GOLDBEES",
-   "name": "Nippon India ETF Gold BeES",
-   "amount": 123.0,
-   "currency": "INR",
-   "asset_currency": "INR",
-   "freq": "daily",
-   "broker": "INDstocks",
-   "account": "INDstocks",
-   "next": "2026-08-09",
-   "status": "REGISTERED \u00b7 5 of 24 done this month, 1 failed",
-   "active": true,
-   "sip_id": 2913745
-  },
-  {
-   "id": "goldbees-failed-0802",
-   "ticker": "GOLDBEES",
-   "name": "Nippon India ETF Gold BeES",
-   "amount": 123.0,
-   "currency": "INR",
-   "asset_currency": "INR",
-   "freq": "daily",
-   "broker": "INDstocks",
-   "account": "INDstocks",
-   "next": "2026-08-03",
-   "status": "Sip setup failed",
-   "active": false
+   "table": "memory",
+   "method": "upsert",
+   "rows": [
+    {
+     "key": "sips",
+     "value": {
+      "list": [
+       {
+        "id": "us-meta-monthly",
+        "ticker": "META",
+        "name": "Meta Platforms Inc. Class A",
+        "amount": 500.0,
+        "currency": "INR",
+        "asset_currency": "USD",
+        "freq": "monthly",
+        "broker": "INDmoney",
+        "account": "INDmoney US",
+        "next": "2026-09-03",
+        "status": "active",
+        "active": true
+       },
+       {
+        "id": "us-qqq-weekly",
+        "ticker": "QQQ",
+        "name": "Invesco QQQ Trust, Series 1",
+        "amount": 500.0,
+        "currency": "INR",
+        "asset_currency": "USD",
+        "freq": "weekly",
+        "broker": "INDmoney",
+        "account": "INDmoney US",
+        "next": "2026-08-06",
+        "status": "active",
+        "active": true
+       },
+       {
+        "id": "goldbees-daily",
+        "ticker": "GOLDBEES",
+        "name": "Nippon India ETF Gold BeES",
+        "amount": 123.0,
+        "currency": "INR",
+        "asset_currency": "INR",
+        "freq": "daily",
+        "broker": "INDstocks",
+        "account": "INDstocks",
+        "next": "2026-08-09",
+        "status": "REGISTERED \u00b7 5 of 24 done this month, 1 failed",
+        "active": true,
+        "sip_id": 2913745
+       },
+       {
+        "id": "goldbees-failed-0802",
+        "ticker": "GOLDBEES",
+        "name": "Nippon India ETF Gold BeES",
+        "amount": 123.0,
+        "currency": "INR",
+        "asset_currency": "INR",
+        "freq": "daily",
+        "broker": "INDstocks",
+        "account": "INDstocks",
+        "next": "2026-08-03",
+        "status": "Sip setup failed",
+        "active": false
+       }
+      ],
+      "source": "INDmoney MCP (GOLDBEES, live) + INDmoney app screenshot (US SIPs)",
+      "scanned": "2026-08-08"
+     }
+    }
+   ]
   }
- ],
- "source": "INDmoney MCP (GOLDBEES, live) + INDmoney app screenshot (US SIPs)",
- "note": "GOLDBEES is read live from the INDmoney MCP: DAILY, Rs 123, next 2026-08-09, 24 installments planned this month with 5 done, 1 in progress, 1 upcoming and 1 FAILED. The two US SIPs still come from an app screenshot - the MCP exposes Indian stock SIPs and mutual fund SIPs, but not US stock SIPs, so those cannot be refreshed automatically.",
- "scanned": "2026-08-08"
+ ]
 }
