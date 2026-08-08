@@ -4991,3 +4991,40 @@
   .dv-chart { flex: none; align-self: center; width: 200px; }
   .dv-leg-v { display: none; }
 }
+
+/* -------------------------------------------------- holdings extras */
+.hold-filter { width: 96px; font-size: 12px; padding: 3px 6px; }
+.hold-info { margin-left: 3px; font-size: 9px; color: var(--ink-3); vertical-align: super; }
+th:hover .hold-info { color: var(--cyan); }
+/* The secondary line: same figure as a proportion, so one column reads as two
+   without costing a second column of horizontal scroll. Dimmer and smaller so
+   it never competes with the number it annotates. */
+.hold-sub {
+  display: block; font-style: normal; font-size: 10.5px;
+  color: var(--ink-3); line-height: 1.15; margin-top: 1px;
+}
+
+/* Heat map. Area is weight, colour is the metric — the two channels are kept
+   independent so a small red cell and a large red cell read differently. */
+.heat { display: flex; flex-wrap: wrap; gap: 3px; align-content: flex-start; }
+.heat-cell {
+  flex: 1 1 84px; min-width: 74px; min-height: 62px;
+  display: flex; flex-direction: column; justify-content: center; gap: 1px;
+  padding: 6px 7px; cursor: pointer; text-align: left;
+  border: 1px solid var(--border-bright); color: var(--ink);
+}
+.heat-cell:hover { border-color: var(--cyan); filter: brightness(1.25); }
+.heat-up { border-color: rgba(94,234,138,.45); }
+.heat-down { border-color: rgba(255,91,110,.45); }
+/* A cell with no reading for the chosen metric is drawn as absent — dashed and
+   dim — rather than as a neutral colour, which would read as "flat". */
+.heat-none { border-style: dashed; border-color: var(--border); color: var(--ink-3); }
+.heat-t { font-size: 12px; letter-spacing: .5px; }
+.heat-v { font-size: 14px; font-variant-numeric: tabular-nums; }
+.heat-w { font-size: 10px; color: var(--ink-3); }
+
+@media (max-width: 760px) {
+  .hold-filter { width: 78px; }
+  .heat-cell { min-width: 62px; min-height: 54px; padding: 5px; }
+  .heat-v { font-size: 12.5px; }
+}

@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, StatTile, Empty } from '../ui.jsx';
-import { holdingRows, totalsRow, sortRows, toCSV } from '../../lib/holdings.js';
+import {
+  holdingRows, totalsRow, sortRows, toCSV,
+  HEAT_METRICS, heatCells, COLUMN_HELP,
+} from '../../lib/holdings.js';
 import { loadAssetMeta, assetMetaSync, saveAssetMeta, metaOf } from '../../lib/assets.js';
 import { memGet } from '../../lib/advisor.js';
 import { paymentsForYear } from '../../lib/dividends.js';
@@ -41,7 +44,7 @@ const tone = n => (n == null ? 'var(--ink-3)' : n > 0 ? 'var(--green)' : n < 0 ?
 const COLS = [
   { key: 'ticker', label: 'Holding', a: 'left' },
   { key: 'shares', label: 'Shares', a: 'right' },
-  { key: null, label: 'DRIP', a: 'center' },
+  { key: null, help: 'drip', label: 'DRIP', a: 'center' },
   { key: 'price', label: 'Price', a: 'right' },
   { key: 'dayPct', label: 'Day', a: 'right' },
   { key: 'cost', label: 'Cost/sh', a: 'right' },
@@ -65,6 +68,38 @@ function WeightCell({ pct: p }) {
   );
 }
 
+// The heat map. Area is weight, colour is the chosen metric — see heatCells in
+// lib/holdings.js for why those two channels are kept separate.
+function HeatGrid({ heat, cur, onOpen, rowsById }) {
+  const shade = c => {
+    if (c.intensity == null) return 'var(--panel-2)';
+    const base = c.tone === 'up' ? '94,234,138' : c.tone === 'down' ? '255,91,110' : '138,138,160';
+    return `rgba(${base}, ${(0.10 + c.intensity * 0.68).toFixed(3)})`;
+  };
+  return (
+    <div className="heat">
+      {heat.cells.map(c => (
+        <button
+          key={c.ticker}
+          className={`heat-cell heat-${c.tone}`}
+          // Area carries weight, so a big position is a big rectangle whatever
+          // colour sits on it. flex-grow rather than a fixed width so the row
+          // always fills the strip instead of leaving a ragged edge.
+          style={{ flexGrow: Math.max(0.35, c.weight), background: shade(c) }}
+          title={`${c.ticker} · ${c.weight.toFixed(1)}% of the book · ${heat.metric.label} ${c.value == null ? 'not known' : c.value.toFixed(2)}`}
+          onClick={() => onOpen?.(rowsById[c.ticker]?.raw)}
+        >
+          <span className="heat-t">{c.ticker}</span>
+          <span className="heat-v">
+            {c.value == null ? '—' : `${c.value >= 0 ? '+' : ''}${c.value.toFixed(heat.metric.key === 'unrealised' ? 0 : 2)}${heat.metric.key === 'unrealised' ? '' : '%'}`}
+          </span>
+          <span className="heat-w">{c.weight.toFixed(1)}%</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function HoldingsTable({
   held = [], priceOf, quotes = {}, cur = '$', fx = 1, inr = false, onOpen, visible = true,
 }) {
@@ -72,6 +107,9 @@ export default function HoldingsTable({
   const [divMeta, setDivMeta] = useState({});
   const [sort, setSort] = useState({ key: 'marketValue', dir: 'desc' });
   const [withDivs, setWithDivs] = useState(true);
+  const [mode, setMode] = useState('table');       // table | heat
+  const [heatKey, setHeatKey] = useState('dayPct');
+  const [filter, setFilter] = useState('');
 
   useEffect(() => {
     loadAssetMeta().then(() => setMetaVer(v => v + 1)).catch(() => {});
@@ -107,8 +145,22 @@ export default function HoldingsTable({
     }),
     [held, quotes, rate, incomeOf, metaVer], // eslint-disable-line
   );
-  const total = useMemo(() => totalsRow(rows), [rows]);
-  const view = useMemo(() => sortRows(rows, sort.key, sort.dir), [rows, sort]);
+  const totalAll = useMemo(() => totalsRow(rows), [rows]);
+  // Filtering happens before sorting and before the heat map, so both views and
+  // the CSV all describe the same set of rows. A filtered table whose TOTAL row
+  // still reports the whole book is a table that answers a question nobody
+  // asked.
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    return q ? rows.filter(r => String(r.ticker).toLowerCase().includes(q)) : rows;
+  }, [rows, filter]);
+  const view = useMemo(() => sortRows(filtered, sort.key, sort.dir), [filtered, sort]);
+  const heat = useMemo(() => heatCells(filtered, heatKey), [filtered, heatKey]);
+  const rowsById = useMemo(
+    () => Object.fromEntries(filtered.map(r => [r.ticker, r])), [filtered],
+  );
+
+  const total = useMemo(() => totalsRow(filtered), [filtered]);
 
   const head = key => () => setSort(s => (
     s.key === key ? { key, dir: s.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: key === 'ticker' ? 'asc' : 'desc' }
@@ -137,39 +189,96 @@ export default function HoldingsTable({
 
   return (
     <>
+      {/* The summary tiles describe the WHOLE book, never the filter. Typing a
+          ticker is a way of finding a row, not a way of redefining your
+          portfolio, and a headline that moved every time you searched would be
+          actively misleading. The TOTAL row inside the table does follow the
+          filter, because that one is a footer of what is above it. */}
       <div className="tile-row">
-        <StatTile label="MARKET VALUE" color="var(--cyan)" value={compact(total.marketValue, cur)}
-          note={`${total.count} position${total.count === 1 ? '' : 's'}`} />
-        <StatTile label="INVESTED" color="var(--purple)" value={compact(total.invested, cur)}
-          note={total.missingCost.length ? `${total.missingCost.length} without a cost basis` : 'all costs on file'} />
-        <StatTile label="DAY" color={tone(total.dayGain)} value={compact(total.dayGain, cur)}
-          note={pct(total.dayPct)} />
-        <StatTile label="UNREALISED" color={tone(total.unrealised)} value={compact(total.unrealised, cur)}
-          note={pct(total.unrealisedPct)} />
-        <StatTile label="TOTAL RETURN" color={tone(total.totalReturnPct)} value={pct(total.totalReturnPct)}
-          note={anyIncome ? `incl. ${compact(total.income, cur)} dividends` : 'price only'} />
+        <StatTile label="MARKET VALUE" color="var(--cyan)" value={compact(totalAll.marketValue, cur)}
+          note={`${totalAll.count} position${totalAll.count === 1 ? '' : 's'}`} />
+        <StatTile label="INVESTED" color="var(--purple)" value={compact(totalAll.invested, cur)}
+          note={totalAll.missingCost.length ? `${totalAll.missingCost.length} without a cost basis` : 'all costs on file'} />
+        <StatTile label="DAY" color={tone(totalAll.dayGain)} value={compact(totalAll.dayGain, cur)}
+          note={pct(totalAll.dayPct)} />
+        <StatTile label="UNREALISED" color={tone(totalAll.unrealised)} value={compact(totalAll.unrealised, cur)}
+          note={pct(totalAll.unrealisedPct)} />
+        <StatTile label="TOTAL RETURN" color={tone(totalAll.totalReturnPct)} value={pct(totalAll.totalReturnPct)}
+          note={anyIncome ? `incl. ${compact(totalAll.income, cur)} dividends` : 'price only'} />
       </div>
 
-      <Card title="Holdings" color="var(--green)" right={
-        <span className="flex" style={{ gap: 6 }}>
-          <span className="seg">
-            <button className={`seg-btn${withDivs ? ' on' : ''}`} onClick={() => setWithDivs(true)}>Total rtn</button>
-            <button className={`seg-btn${!withDivs ? ' on' : ''}`} onClick={() => setWithDivs(false)}>Price only</button>
+      <Card
+        title={filter ? `Holdings — “${filter}” (${view.length} of ${rows.length})` : 'Holdings'}
+        color="var(--green)"
+        right={
+          <span className="flex" style={{ gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <input
+              className="hold-filter" placeholder="filter…" value={filter}
+              onChange={e => setFilter(e.target.value)}
+            />
+            <span className="seg">
+              <button className={`seg-btn${mode === 'table' ? ' on' : ''}`} onClick={() => setMode('table')}>TABLE</button>
+              <button className={`seg-btn${mode === 'heat' ? ' on' : ''}`} onClick={() => setMode('heat')}>HEAT</button>
+            </span>
+            {mode === 'table' ? (
+              <span className="seg">
+                <button className={`seg-btn${withDivs ? ' on' : ''}`} onClick={() => setWithDivs(true)}>Total rtn</button>
+                <button className={`seg-btn${!withDivs ? ' on' : ''}`} onClick={() => setWithDivs(false)}>Price only</button>
+              </span>
+            ) : (
+              <span className="seg">
+                {HEAT_METRICS.map(m => (
+                  <button
+                    key={m.key} className={`seg-btn${heatKey === m.key ? ' on' : ''}`}
+                    onClick={() => setHeatKey(m.key)} title={m.note}
+                  >{m.label}</button>
+                ))}
+              </span>
+            )}
+            <button className="btn btn-sm btn-cyan" onClick={download}>↓ CSV</button>
           </span>
-          <button className="btn btn-sm btn-cyan" onClick={download}>↓ CSV</button>
-        </span>
-      }>
+        }
+      >
+        {view.length === 0 && (
+          <Empty icon="?" text={`Nothing in the book matches “${filter}”.`} />
+        )}
+
+        {view.length > 0 && mode === 'heat' && (
+          <>
+            <HeatGrid heat={heat} cur={cur} onOpen={onOpen} rowsById={rowsById} />
+            <div className="small muted mt">
+              Width is the position&#39;s share of the book; colour is {heat.metric.note}.
+              Those two are kept separate on purpose — a small position glowing red is
+              not the same news as a large one, and if width moved with the colour you
+              could not tell them apart.
+              {heat.missing > 0 && ` ${heat.missing} position${heat.missing === 1 ? ' has' : 's have'} no reading for this metric and ${heat.missing === 1 ? 'is' : 'are'} shown blank rather than as zero.`}
+            </div>
+          </>
+        )}
+
+        {view.length > 0 && mode === 'table' && (
         <div className="scroll-x">
           <table className="ptable hold-table">
             <thead>
               <tr>
-                {COLS.map(c => (
-                  <th key={c.label} style={{ textAlign: c.a, cursor: c.key ? 'pointer' : 'default' }}
-                    onClick={c.key ? head(c.key) : undefined}>
-                    {c.label}
-                    {sort.key === c.key && <span className="hold-caret">{sort.dir === 'desc' ? '▼' : '▲'}</span>}
-                  </th>
-                ))}
+                {COLS.map(c => {
+                  const help = COLUMN_HELP[c.help || c.key];
+                  return (
+                    <th
+                      key={c.label} style={{ textAlign: c.a, cursor: c.key ? 'pointer' : 'default' }}
+                      onClick={c.key ? head(c.key) : undefined}
+                      // Native title rather than a hover card: it survives
+                      // touch-and-hold, it is readable by a screen reader, and it
+                      // cannot be clipped by the horizontal scroll this table
+                      // lives inside.
+                      title={help || undefined}
+                    >
+                      {c.label}
+                      {help && <span className="hold-info" aria-hidden="true">ⓘ</span>}
+                      {sort.key === c.key && <span className="hold-caret">{sort.dir === 'desc' ? '▼' : '▲'}</span>}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -188,11 +297,36 @@ export default function HoldingsTable({
                   <td style={{ textAlign: 'right' }}>{fmt(r.price, cur)}</td>
                   <td style={{ textAlign: 'right', color: tone(r.dayPct) }}>{pct(r.dayPct)}</td>
                   <td style={{ textAlign: 'right' }}>{r.cost == null ? <span className="muted">not set</span> : fmt(r.cost, cur)}</td>
-                  <td style={{ textAlign: 'right' }}>{r.invested == null ? '—' : compact(r.invested, cur)}</td>
-                  <td style={{ textAlign: 'right' }}><b>{compact(r.marketValue, cur)}</b></td>
+                  {/* The secondary line is the same figure as a share of the
+                      book, so a column of currency amounts also reads as a
+                      column of proportions without a second column to scan. */}
+                  <td style={{ textAlign: 'right' }}>
+                    {r.invested == null ? '—' : <>
+                      {compact(r.invested, cur)}
+                      {total.invested > 0 && (
+                        <i className="hold-sub">{((r.invested / total.invested) * 100).toFixed(1)}% of cost</i>
+                      )}
+                    </>}
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <b>{compact(r.marketValue, cur)}</b>
+                    {total.marketValue > 0 && (
+                      <i className="hold-sub">{((r.marketValue / total.marketValue) * 100).toFixed(1)}% of book</i>
+                    )}
+                  </td>
                   <td style={{ textAlign: 'right' }}><WeightCell pct={r.weight} /></td>
-                  <td style={{ textAlign: 'right', color: tone(r.dayGain) }}>{r.dayGain == null ? '—' : compact(r.dayGain, cur)}</td>
-                  <td style={{ textAlign: 'right', color: tone(r.unrealised) }}>{r.unrealised == null ? '—' : compact(r.unrealised, cur)}</td>
+                  <td style={{ textAlign: 'right', color: tone(r.dayGain) }}>
+                    {r.dayGain == null ? '—' : <>
+                      {compact(r.dayGain, cur)}
+                      <i className="hold-sub">{pct(r.dayPct)}</i>
+                    </>}
+                  </td>
+                  <td style={{ textAlign: 'right', color: tone(r.unrealised) }}>
+                    {r.unrealised == null ? '—' : <>
+                      {compact(r.unrealised, cur)}
+                      {r.invested > 0 && <i className="hold-sub">{pct((r.unrealised / r.invested) * 100, 1)}</i>}
+                    </>}
+                  </td>
                   <td style={{ textAlign: 'right', color: tone(r.totalReturnPct) }}>
                     {pct(r.totalReturnPct, 1)}
                     {r.income != null && <span className="hold-div" title="includes dividends received this year">·d</span>}
@@ -216,6 +350,7 @@ export default function HoldingsTable({
             </tfoot>
           </table>
         </div>
+        )}
 
         <div className="small muted mt">
           Total return adds the dividends credited to each position <b>so far this year</b> —

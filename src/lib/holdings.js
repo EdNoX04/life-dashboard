@@ -258,6 +258,96 @@ export function arcs(slices = []) {
   });
 }
 
+// ------------------------------------------------------------- heat map
+
+// The same twelve columns, read as an area instead of a list.
+//
+// A table is for looking a number up; a heat map is for seeing where the weight
+// and the damage are without reading anything. They are not competing views of
+// the same data so much as two different questions, which is why this is a
+// toggle rather than a replacement.
+//
+// Two channels carry meaning and they are deliberately separate:
+//
+//   AREA is always the position's weight. It never changes with the metric,
+//   because "how big is this bet" is the constant a reader needs in order to
+//   interpret whatever colour is on top of it. A 0.2% position glowing red is
+//   not the same news as a 30% position glowing red, and if area moved with the
+//   metric you could not tell those apart at a glance.
+//
+//   COLOUR is the chosen metric, scaled against the largest ABSOLUTE value in
+//   view rather than a fixed range. A fixed range means a quiet day renders as
+//   a uniform grey rectangle and a violent one saturates everywhere; scaling to
+//   the day you are actually looking at keeps the contrast informative.
+export const HEAT_METRICS = [
+  { key: 'dayPct', label: 'DAY', note: "today's move" },
+  { key: 'totalReturnPct', label: 'TOTAL RTN', note: 'return since you bought' },
+  { key: 'unrealised', label: 'UNRLZD', note: 'unrealised gain in currency' },
+];
+
+export const heatMetric = key => HEAT_METRICS.find(m => m.key === key) || HEAT_METRICS[0];
+
+// Intensity is a fraction of the strongest reading on screen, floored so that a
+// real but small move is still visible. A cell that is genuinely at zero gets
+// the floor too - it has a value, it just is not moving - while a cell with NO
+// value gets null and is rendered as absent rather than as neutral.
+export const HEAT_FLOOR = 0.14;
+
+export function heatCells(rows = [], metricKey = 'dayPct') {
+  const m = heatMetric(metricKey);
+  const totalWeightSource = rows.reduce((a, r) => a + (num(r.marketValue) || 0), 0);
+  // `nn`, not `num`: num() defaults a missing value to 0, which would turn "we
+  // have no return figure for this position" into "this position returned
+  // nothing" — a claim, and a wrong one. This module's own header calls that
+  // out as mistake #1 and it is just as easy to make here.
+  const vals = rows.map(r => nn(r[m.key])).filter(v => v != null);
+  const max = vals.reduce((a, v) => Math.max(a, Math.abs(v)), 0);
+
+  const cells = rows.map(r => {
+    const v = nn(r[m.key]);
+    const mv = num(r.marketValue) || 0;
+    return {
+      ticker: r.ticker,
+      value: v,
+      // Weight recomputed here rather than trusting r.weight, because a filtered
+      // table hands us a subset and the bars must sum to the subset shown, not
+      // to a whole book that is off screen.
+      weight: totalWeightSource > 0 ? (mv / totalWeightSource) * 100 : 0,
+      marketValue: mv,
+      tone: v == null ? 'none' : v > 0 ? 'up' : v < 0 ? 'down' : 'flat',
+      intensity: v == null ? null
+        : max > 0 ? Math.max(HEAT_FLOOR, Math.abs(v) / max) : HEAT_FLOOR,
+    };
+  });
+
+  return {
+    metric: m,
+    max,
+    cells: cells.sort((a, b) => b.weight - a.weight),
+    // How many positions have nothing to say for this metric. Surfaced so the
+    // screen can admit it rather than letting blanks read as zeros.
+    missing: cells.filter(c => c.value == null).length,
+  };
+}
+
+// Column help. Written as sentences rather than definitions, because the reader
+// asking "what is Wt %" is not looking for a formula, they are looking for what
+// the number is FOR.
+export const COLUMN_HELP = {
+  ticker: 'The position. Click a row to open the full research view for it.',
+  shares: 'Units held, including fractional shares.',
+  drip: 'Whether you have marked this position as reinvesting its dividends. It is a label you set here — it does not reinvest anything on its own.',
+  price: 'Latest price seen. Refreshes with the quote feed, not on a fixed schedule.',
+  dayPct: "Today's move in percent, from the previous close.",
+  cost: 'Your average cost per share. Blank where it was never entered — the row is then left out of the return columns rather than being counted as free.',
+  invested: 'What you paid in total: shares times average cost.',
+  marketValue: 'What the position is worth now: shares times latest price.',
+  weight: 'This position as a share of the whole book. The bar behind the number is the same figure — a column of percentages hides concentration that one long bar does not.',
+  dayGain: "Today's move in currency rather than percent, so a big move on a tiny position does not read as loudly as a small move on a large one.",
+  unrealised: 'Market value minus what you paid. Not realised until you sell, and not taxed until then either.',
+  totalReturnPct: 'Price move plus dividends credited to this position so far this year. Marked ·d where dividends are included. It does not count payments that have not happened yet.',
+};
+
 export function toCSV(rows = [], total = null) {
   const head = ['Holding', 'Shares', 'DRIP', 'Price', 'Day %', 'Cost/sh', 'Invested',
     'Market value', 'Weight %', 'Day G/L', 'Unrealised G/L', 'Total return %'];

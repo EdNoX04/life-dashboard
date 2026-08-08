@@ -6,6 +6,7 @@
 import {
   WEIGHT_BASES, weightBasis, hhiOf, allocationSlices, arcs, OTHER_KEY,
   concentration, topBy,
+  HEAT_METRICS, heatMetric, HEAT_FLOOR, heatCells, COLUMN_HELP, COLUMNS,
 } from '../src/lib/holdings.js';
 
 let pass = 0, fail = 0;
@@ -125,6 +126,61 @@ eq(concentration([{ ticker: 'A', marketValue: 100 }]).namesToHalf, 1,
   'a one-stock book needs one name to reach half');
 eq(topBy(TEN, 'marketValue', 5).length, 5, 'topBy returns the requested count');
 eq(topBy(TEN, 'marketValue', 5)[0].ticker, 'T0', 'and leads with the largest');
+
+// ------------------------------------------------------------- heat map
+eq(HEAT_METRICS.length, 3, 'three heat metrics');
+eq(heatMetric('totalReturnPct').label, 'TOTAL RTN', 'a known metric resolves');
+eq(heatMetric('nonsense').key, 'dayPct', 'an unknown metric falls back to the day move');
+
+const HEAT = [
+  { ticker: 'BIG', marketValue: 600, dayPct: 1, totalReturnPct: 10 },
+  { ticker: 'MID', marketValue: 300, dayPct: -4, totalReturnPct: -2 },
+  { ticker: 'SML', marketValue: 100, dayPct: 0, totalReturnPct: null },
+];
+const hc = heatCells(HEAT, 'dayPct');
+eq(hc.max, 4, 'the scale is the largest absolute reading on screen');
+// Sorted by weight, because area is the constant the reader anchors on.
+eq(hc.cells[0].ticker, 'BIG', 'cells are ordered by weight, not by the metric');
+near(hc.cells[0].weight, 60, 'weight is recomputed from what is actually shown');
+near(hc.cells[1].weight, 30, 'and sums across the visible subset');
+// Colour scales to the strongest reading; area does not move with the metric.
+near(hc.cells[1].intensity, 1, 'the strongest reading saturates');
+near(hc.cells[0].intensity, 0.25, 'a quarter-strength move renders at a quarter');
+eq(hc.cells[1].tone, 'down', 'a negative move tones down');
+eq(hc.cells[0].tone, 'up', 'a positive move tones up');
+// Zero has a value and is not missing; it just is not moving.
+eq(hc.cells[2].tone, 'flat', 'a zero move is flat, not absent');
+near(hc.cells[2].intensity, HEAT_FLOOR, 'and renders at the floor rather than invisibly');
+eq(HEAT_FLOOR > 0 && HEAT_FLOOR < 0.3, true, 'the floor keeps small moves visible without shouting');
+
+// Absence is different from zero and must survive as such.
+const hn = heatCells(HEAT, 'totalReturnPct');
+eq(hn.missing, 1, 'a position with no reading for this metric is counted as missing');
+eq(hn.cells[2].value, null, 'and keeps a null value');
+eq(hn.cells[2].intensity, null, 'and gets no intensity, so it renders as absent not neutral');
+eq(hn.cells[2].tone, 'none', 'and no tone');
+
+// Area must NOT move with the metric — the whole point of the two channels.
+eq(hc.cells[0].weight, hn.cells[0].weight, 'weight is identical across metrics');
+
+// A flat day must not divide by zero.
+const flat = heatCells([{ ticker: 'A', marketValue: 100, dayPct: 0 }], 'dayPct');
+eq(flat.max, 0, 'a completely flat day has a zero scale');
+near(flat.cells[0].intensity, HEAT_FLOOR, 'and every cell sits at the floor');
+eq(heatCells([], 'dayPct').cells.length, 0, 'an empty book has no cells');
+eq(heatCells([], 'dayPct').max, 0, 'and no scale');
+// A valueless book must not produce NaN weights.
+eq(heatCells([{ ticker: 'A', marketValue: 0, dayPct: 1 }], 'dayPct').cells[0].weight, 0,
+  'a zero-value book gives zero weight rather than NaN');
+
+// --------------------------------------------------------- column help
+// Every column the table renders must be explainable, or the tooltip is a
+// promise the header does not keep.
+for (const c of COLUMNS) {
+  ok(COLUMN_HELP[c.key] && COLUMN_HELP[c.key].length > 20, `${c.key} has help text`);
+}
+ok(COLUMN_HELP.drip.includes('does not reinvest'), 'the DRIP help says what it does NOT do');
+ok(COLUMN_HELP.cost.includes('never entered'), 'the cost help explains the blanks');
 
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);
