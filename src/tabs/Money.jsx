@@ -439,8 +439,14 @@ export default function Money() {
   }
 
   // total fees: per-order fees from the ledger (buys) + manual entries
+  // Per-ORDER fees only. INDmoney charges none on US fractional trades - every
+  // order value in the scanned ledger equals qty x price exactly - so this sum
+  // is legitimately zero for the US book, and labelling it "total fees" was the
+  // wrongest number on the screen. The real cost is the INR->USD remittance,
+  // which FeesCard computes from the saved receipts.
   const orderFees = orders.reduce((s, o) => s + (o.side !== 'S' ? Number(o.fee || 0) : 0), 0);
-  const totalFees = orderFees + Object.values(manualFees).reduce((s, f) => s + Number(f || 0), 0);
+  const manualFeeTotal = Object.values(manualFees).reduce((s, f) => s + Number(f || 0), 0);
+  const tradeFees = orderFees + manualFeeTotal;
 
   const pctChip = p => (
     <span className="chip" style={{ color: p >= 0 ? 'var(--green)' : 'var(--red)', borderColor: p >= 0 ? 'var(--green)' : 'var(--red)' }}>
@@ -840,8 +846,17 @@ export default function Money() {
           <button className="btn btn-sm btn-green" onClick={addHolding}>+ Add</button>
         </div>
         <div className="mt" style={{ textAlign: 'right' }}>
-          <span className="small muted">Total fees (all buys): </span>
-          <span className="chip c-yellow">{disp(totalFees)}</span>
+          <span className="small muted">Per-trade fees entered here: </span>
+          <span className="chip c-yellow">{disp(tradeFees)}</span>
+          {/* Said out loud, because a zero here is a true answer to a narrow
+              question and reads as a false answer to a broad one. */}
+          {tradeFees === 0 && (
+            <div className="small muted" style={{ marginTop: 3 }}>
+              Zero is correct — INDmoney charges no brokerage on US fractional
+              trades. What investing actually costs you is the rupee-to-dollar
+              transfer, in Fees &amp; forex below.
+            </div>
+          )}
         </div>
       </Card>
 
