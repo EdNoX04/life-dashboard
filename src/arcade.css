@@ -5175,3 +5175,11 @@ th:hover .hold-info { color: var(--cyan); }
   margin-left: 5px; font-style: normal; font-size: 9.5px;
   color: var(--ink-3); border: 1px solid var(--border); padding: 0 3px;
 }
+
+/* The failure's own words, in the row. Spans the grid so a long API message
+   wraps under the ticker rather than squeezing the columns. */
+.ds-why {
+  grid-column: 1 / -1; margin-top: 2px; padding-left: 4px;
+  font-size: 11px; line-height: 1.4; color: var(--red); opacity: .85;
+  word-break: break-word;
+}

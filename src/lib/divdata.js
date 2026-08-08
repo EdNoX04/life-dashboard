@@ -624,17 +624,39 @@ export async function fetchDividends(ticker, { force = false } = {}) {
             : r.status === 429 ? 'Rate limited (429). The free plan allows 250 requests a day; the cache holds for a week, so FETCH rather than FORCE next time.'
               : `The dividend source returned ${r.status}.` };
     } else {
-      const rows = normaliseHistory(await r.json());
+      // Read as TEXT first, then parse. Reading as JSON throws away the body on
+      // an unrecognised shape, which is exactly the case that needs looking at -
+      // and is why these rows have been saying only "unrecognised" while
+      // carrying no status code: they are HTTP 200 responses whose CONTENT the
+      // parser did not understand, not HTTP errors at all.
+      const raw = await r.text();
+      let payload = null, parseError = false;
+      try { payload = JSON.parse(raw); } catch { parseError = true; }
+
+      // FMP answers a symbol it has no dividend data for with an empty object
+      // or a null wrapper rather than an empty array. That is "declares
+      // nothing", not "the response was garbled", and conflating the two turned
+      // every non-payer into a red failure.
+      const emptyish = !parseError && payload !== null && typeof payload === 'object'
+        && !Array.isArray(payload)
+        && (Object.keys(payload).length === 0
+          || ('historical' in payload && !payload.historical)
+          || ('data' in payload && !payload.data));
+
+      const rows = emptyish ? [] : normaliseHistory(payload);
       if (rows === null) {
-        entry = { status: STATUS.failed, rows: [], at: Date.now(), note: 'Unrecognised response from the dividend source.' };
+        entry = { status: STATUS.failed, rows: [], at: Date.now(), code: r.status,
+          // The body itself, truncated. Guessing at an unrecognised payload from
+          // the outside is what turned a one-line fix into several rounds.
+          note: `The source answered ${r.status} but the body was not a payment list${parseError ? ' and was not valid JSON' : ''}. It began: ${raw.slice(0, 180).replace(/\s+/g, ' ')}` };
       } else if (!rows.length) {
         // Genuinely ambiguous on the free plan: a non-US listing and a
         // non-payer both come back empty. Say which one we cannot tell apart
         // rather than picking the flattering reading.
-        entry = { status: STATUS.none, rows: [], at: Date.now(),
+        entry = { status: STATUS.none, rows: [], at: Date.now(), code: r.status,
           note: 'No payments returned. On the free plan this means either that the company declares no dividend or that this listing is not covered — the two are indistinguishable from here.' };
       } else {
-        entry = { status: STATUS.ok, rows, at: Date.now(), note: null };
+        entry = { status: STATUS.ok, rows, at: Date.now(), code: r.status, note: null };
       }
     }
   } catch (e) {

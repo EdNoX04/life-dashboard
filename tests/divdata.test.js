@@ -78,6 +78,16 @@ eq(normaliseHistory({ historical: [] }).length, 0, 'an explicitly empty history 
 // The stable endpoint nests under `data` in some responses.
 eq(normaliseHistory({ data: [{ date: '2026-01-01', dividend: 1 }] }).length, 1,
   'a data-wrapped payload parses');
+// FMP answers a symbol it holds no dividend data for with an empty OBJECT or a
+// null wrapper rather than an empty array. Those must read as "declares
+// nothing", not as a garbled response — conflating them turned every non-payer
+// into a red failure while the request had actually succeeded.
+eq(normaliseHistory({}), null, 'a bare empty object is not a payment list on its own');
+eq(normaliseHistory({ historical: null }), null, 'nor is a null wrapper');
+// The fetch layer classifies those as empty before calling normaliseHistory —
+// these assertions pin that normaliseHistory itself stays strict, so the
+// emptiness decision lives in exactly one place.
+eq(normaliseHistory([]).length, 0, 'an empty array IS an empty payment list');
 
 // The endpoint that actually works. v3 answers 403 for keys issued after the
 // migration, which reads as a bad key rather than a moved endpoint.

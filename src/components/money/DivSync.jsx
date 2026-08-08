@@ -258,6 +258,13 @@ export default function DivSync({ held = [], cur = '$' }) {
                         ? <em className="ds-manual">entered by hand</em>
                         : <em className="ds-empty">—</em>}
                   </span>
+                  {/* Failures explain themselves in the row. A tooltip is a
+                      place to hide something you are hoping nobody reads, and
+                      the whole difficulty with these rows has been that the one
+                      fact that would end the guessing was not on screen. */}
+                  {r.status === STATUS.failed && r.note && (
+                    <span className="ds-why">{r.note}</span>
+                  )}
                 </div>
               );
             })}
