@@ -552,7 +552,31 @@ async function ensure() {
   return loading;
 }
 
-const fresh = e => e && e.at && Date.now() - e.at < TTL;
+// A FAILURE MUST NOT BE CACHED FOR A WEEK.
+//
+// This is the bug that made a fixed endpoint look broken. Every entry - success
+// or failure - was held for the full week-long TTL, so once a run failed, FETCH
+// short-circuited on the cached failure and never called the API again. The
+// symptom is unmistakable once you know it: the screen shows twenty identical
+// errors while the provider's dashboard reports zero requests, because no
+// request was made. Shipping a fix changed nothing, because the fix was never
+// reached.
+//
+// Successes are cached hard, because dividend history genuinely changes about
+// four times a year. Failures are cached only long enough to stop a loop from
+// hammering the API, and are retried on the next deliberate press.
+export const FAIL_TTL = 5 * 60e3;
+
+export function entryTtl(entry) {
+  if (!entry) return 0;
+  // `nokey` is not a fetch result at all - it is a setup state, and it must
+  // clear the instant a key is saved rather than a week later.
+  if (entry.status === STATUS.nokey) return 0;
+  if (entry.status === STATUS.failed) return FAIL_TTL;
+  return TTL;
+}
+
+const fresh = e => e && e.at && Date.now() - e.at < entryTtl(e);
 
 export const hasKey = () => !!(getConfig().fmpKey || '').trim();
 

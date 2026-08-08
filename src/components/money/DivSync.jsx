@@ -151,7 +151,11 @@ export default function DivSync({ held = [], cur = '$' }) {
             <button className="btn btn-sm btn-cyan" onClick={() => refresh(false)} disabled={busy || !tickers.length}>
               {busy ? `${progress?.done ?? 0}/${progress?.total ?? 0}` : 'FETCH'}
             </button>
-            <button className="btn btn-sm" onClick={() => refresh(true)} disabled={busy || !tickers.length} title="Ignore the week-long cache">
+            <button
+              className="btn btn-sm" onClick={() => refresh(true)}
+              disabled={busy || !tickers.length}
+              title="Ignore the cache entirely and call the API for every holding. Use this after fixing a key or when the rows look stale."
+            >
               FORCE
             </button>
             <button className="btn btn-sm btn-green" onClick={merge} disabled={busy || !bridgeable}>
@@ -175,6 +179,13 @@ export default function DivSync({ held = [], cur = '$' }) {
           return (
             <p className="ds-fail">
               <strong>Every fetch failed.</strong> {failed[0].note}
+              {/* The check that answers "is this even talking to the API?".
+                  If the provider's dashboard shows no requests, the answer is
+                  no — and the reason is almost always that these rows are a
+                  cached result rather than a fresh one. */}
+              {' '}If your Financial Modeling Prep dashboard shows <b>0 requests today</b>,
+              nothing was actually sent: these are cached from an earlier attempt.
+              Press <b>FORCE</b> to ignore the cache and call the API for real.
             </p>
           );
         })()}

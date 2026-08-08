@@ -4,7 +4,7 @@
 
 import {
   STATUS, num, normalisePayment, normaliseHistory, ttm, runRate, cacheAge, TTL,
-  BASE, LEGACY_BASE, isFetchable,
+  BASE, LEGACY_BASE, isFetchable, FAIL_TTL, entryTtl,
   realisedGrowth, medianExOffset, toDivMeta, toDivMetaAll, CADENCE_TO_FREQ,
   byYear, completeYears, cagr, growthStreak, payoutRatios, payoutSummary,
   sharesBefore, holdingPeriod, receivedHistory, receivedTotals, projectForward,
@@ -144,7 +144,21 @@ eq(cacheAge({ A: { at: null } }), null, 'entries with no timestamp do not count'
 ok(cacheAge({ A: { at: Date.now() - 1000 } }) >= 1000, 'the age is measured from the newest entry');
 ok(cacheAge({ A: { at: Date.now() - 5e6 }, B: { at: Date.now() - 1000 } }) < 2000,
   'and it is the NEWEST, not the oldest');
-eq(TTL, 7 * 24 * 3600e3, 'the cache holds for a week');
+eq(TTL, 7 * 24 * 3600e3, 'a successful fetch is cached for a week');
+
+// THE BUG THAT MADE A FIXED ENDPOINT LOOK BROKEN. A cached failure held for the
+// full week meant FETCH short-circuited and never called the API again — twenty
+// visible errors while the provider reported zero requests, because no request
+// was made. Shipping a fix changed nothing, because the fix was never reached.
+eq(entryTtl({ status: STATUS.failed }), FAIL_TTL, 'a failure is cached only briefly');
+ok(FAIL_TTL < TTL / 100, 'and that window is far shorter than a success');
+ok(FAIL_TTL > 0, 'but not zero, so a loop cannot hammer the API');
+eq(entryTtl({ status: STATUS.ok }), TTL, 'a success is cached hard');
+eq(entryTtl({ status: STATUS.none }), TTL, 'so is a confirmed no-dividend answer');
+// A missing key is a setup state, not a result, and must clear the moment one
+// is saved rather than a week later.
+eq(entryTtl({ status: STATUS.nokey }), 0, 'a no-key entry is never treated as fresh');
+eq(entryTtl(null), 0, 'nothing cached is never fresh');
 
 // ------------------------------------------------- bridge to div_meta
 // Six years of quarterly payments, rising 10% a year, so the CAGR is knowable.
