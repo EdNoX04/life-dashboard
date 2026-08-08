@@ -73,6 +73,7 @@ export const MONEY_SECTIONS = [
     views: [
       { id: 'divs', label: 'Dividends' },
       { id: 'divhist', label: 'History' },
+      { id: 'divgot', label: 'Received' },
       { id: 'divsync', label: 'Data' },
       { id: 'divlists', label: 'Lists' },
       { id: 'calendar', label: 'Calendar' },

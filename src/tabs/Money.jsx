@@ -7,6 +7,7 @@ import RangeBrush from '../components/money/RangeBrush.jsx';
 import Diversification from '../components/money/Diversification.jsx';
 import AccountTabs from '../components/money/AccountTabs.jsx';
 import DivSync from '../components/money/DivSync.jsx';
+import DivReceived from '../components/money/DivReceived.jsx';
 import PaymentHistory from '../components/money/PaymentHistory.jsx';
 import { loadAccounts, filterRows as filterByAccount } from '../lib/accounts.js';
 import YieldDesk from '../components/money/YieldDesk.jsx';
@@ -698,6 +699,10 @@ export default function Money() {
           one import lights up the calendar, the income lists, the yield
           analyzer and the holdings total-return column at once. */}
       {view === 'divsync' && <DivSync held={held} cur={inr ? '\u20b9' : '$'} />}
+
+      {/* What was actually received, as opposed to what the projections say a
+          year would look like. Different question, different screen. */}
+      {view === 'divgot' && <DivReceived fx={fx} />}
 
       {/* Payment history needs the ORDER TAPE as well as the book: what you
           received depends on how many shares you held on each ex-date, which

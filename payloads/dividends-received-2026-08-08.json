@@ -1,0 +1,180 @@
+{
+ "note": "Real dividends received, from INDmoney's own Tax Centre. This is what was CREDITED to Neel - right share count on every ex-date, withholding applied - which no generic per-share API can reconstruct, because his holdings grew with every SIP run.",
+ "ops": [
+  {
+   "table": "memory",
+   "method": "upsert",
+   "rows": [
+    {
+     "key": "div_received",
+     "value": {
+      "rows": [
+       {
+        "ticker": "VOO",
+        "name": "Vanguard S&P 500 ETF",
+        "gross_inr": 568.34,
+        "by_year": {
+         "TY2026-27": 487.19,
+         "FY2025-26": 81.15
+        },
+        "still_held": true
+       },
+       {
+        "ticker": "SCHD",
+        "name": "Schwab US Dividend Equity ETF",
+        "gross_inr": 503.33,
+        "by_year": {
+         "TY2026-27": 291.37,
+         "FY2025-26": 211.96
+        },
+        "still_held": true
+       },
+       {
+        "ticker": "SPMO",
+        "name": "Invesco S&P 500 Momentum ETF",
+        "gross_inr": 152.76,
+        "by_year": {
+         "TY2026-27": 145.68,
+         "FY2025-26": 7.08
+        },
+        "still_held": true
+       },
+       {
+        "ticker": "MSFT",
+        "name": "Microsoft",
+        "gross_inr": 126.17,
+        "by_year": {
+         "TY2026-27": 66.22,
+         "FY2025-26": 59.95
+        },
+        "still_held": true
+       },
+       {
+        "ticker": "QQQM",
+        "name": "Invesco NASDAQ 100 ETF",
+        "gross_inr": 86.09,
+        "by_year": {
+         "TY2026-27": 86.09,
+         "FY2025-26": 0.0
+        },
+        "still_held": true
+       },
+       {
+        "ticker": "QQQ",
+        "name": "Invesco QQQ Trust",
+        "gross_inr": 37.35,
+        "by_year": {
+         "TY2026-27": 14.09,
+         "FY2025-26": 23.26
+        },
+        "still_held": true
+       },
+       {
+        "ticker": "GOOGL",
+        "name": "Alphabet A",
+        "gross_inr": 32.77,
+        "by_year": {
+         "TY2026-27": 13.24,
+         "FY2025-26": 19.53
+        },
+        "still_held": true
+       },
+       {
+        "ticker": "NVDA",
+        "name": "NVIDIA",
+        "gross_inr": 30.14,
+        "by_year": {
+         "TY2026-27": 28.37,
+         "FY2025-26": 1.77
+        },
+        "still_held": true
+       },
+       {
+        "ticker": "TSM",
+        "name": "TSMC",
+        "gross_inr": 15.55,
+        "by_year": {
+         "TY2026-27": 9.38,
+         "FY2025-26": 6.17
+        },
+        "still_held": true
+       },
+       {
+        "ticker": "METV",
+        "name": "Roundhill Ball Metaverse ETF",
+        "gross_inr": 12.3,
+        "by_year": {
+         "TY2026-27": 12.3,
+         "FY2025-26": 0.0
+        },
+        "still_held": false
+       },
+       {
+        "ticker": "META",
+        "name": "Meta Platforms",
+        "gross_inr": 10.7,
+        "by_year": {
+         "TY2026-27": 0.0,
+         "FY2025-26": 10.7
+        },
+        "still_held": true
+       },
+       {
+        "ticker": "AAPL",
+        "name": "Apple",
+        "gross_inr": 8.84,
+        "by_year": {
+         "TY2026-27": 0.0,
+         "FY2025-26": 8.84
+        },
+        "still_held": true
+       },
+       {
+        "ticker": "V",
+        "name": "Visa",
+        "gross_inr": 8.77,
+        "by_year": {
+         "TY2026-27": 0.0,
+         "FY2025-26": 8.77
+        },
+        "still_held": false
+       },
+       {
+        "ticker": "QCOM",
+        "name": "Qualcomm",
+        "gross_inr": 1.73,
+        "by_year": {
+         "TY2026-27": 0.0,
+         "FY2025-26": 1.73
+        },
+        "still_held": false
+       },
+       {
+        "ticker": "CRM",
+        "name": "Salesforce",
+        "gross_inr": 1.71,
+        "by_year": {
+         "TY2026-27": 0.0,
+         "FY2025-26": 1.71
+        },
+        "still_held": false
+       }
+      ],
+      "total_gross_inr": 1596.55,
+      "withholding_pct": 25.0,
+      "net_inr": 1197.41,
+      "years": {
+       "TY2026-27": 1160.58,
+       "FY2025-26": 442.64
+      },
+      "source": "INDmoney Tax Centre \u2192 Dividends, read 2026-08-08",
+      "basis": "GROSS, in rupees, before the 25% US withholding tax. INDmoney reports these under Schedule OS. The one payment opened in detail - VOO on 30 Jun 2026 - showed gross Rs 487.19 ($5.15), withheld Rs 121.09 ($1.28), net Rs 366.10 ($3.87) at a TT rate of Rs 94.60, which is where the 25% comes from.",
+      "caveat": "These are ANNUAL TOTALS per security, not a payment-by-payment ledger. INDmoney holds the per-payment detail behind a click per security; only VOO was opened. So this supports 'what have I actually received' exactly, and cannot yet support a payment calendar.",
+      "closed_positions": "V, QCOM, CRM and METV paid dividends but are no longer held.",
+      "scanned": "2026-08-08"
+     }
+    }
+   ]
+  }
+ ]
+}
