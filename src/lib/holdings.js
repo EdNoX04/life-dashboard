@@ -180,6 +180,84 @@ export function concentration(rows = []) {
   };
 }
 
+// ------------------------------------------------------ diversification
+
+// The two ways a book can be concentrated are not the same question, and the
+// screen lets you switch between them:
+//
+//   BY VALUE  — where your capital sits, which is what a drawdown hits.
+//   BY INCOME — where your cash flow comes from, which is what a dividend cut
+//               hits. A 3% position paying 9% can be a tenth of your income.
+//
+// A book can look diversified on one axis and not the other, and that gap is
+// the whole reason the toggle exists rather than a single default.
+export const WEIGHT_BASES = [
+  { key: 'value', label: 'VALUE', field: 'marketValue', note: 'where your capital sits' },
+  { key: 'income', label: 'INCOME', field: 'income', note: 'where your cash flow comes from' },
+];
+
+export const weightBasis = key => WEIGHT_BASES.find(b => b.key === key) || WEIGHT_BASES[0];
+
+// Herfindahl-Hirschman index over portfolio weights, and its reciprocal.
+//
+// HHI on its own is the number nobody has an intuition for - 0.184 means
+// nothing to anybody. Its reciprocal does: 1/HHI is the number of EQUALLY sized
+// holdings that would give you the same concentration. Ten equal positions score
+// 10. Ten positions where one is half the book score about 3. That is a sentence
+// a person can act on, so both are returned and the UI leads with the effective
+// count.
+export function hhiOf(rows = [], field = 'marketValue') {
+  const vals = rows.map(r => num(r[field])).filter(v => v > 0);
+  const total = vals.reduce((a, b) => a + b, 0);
+  if (!(total > 0) || !vals.length) return { hhi: null, effective: null, names: 0, total: 0 };
+  const hhi = vals.reduce((a, v) => a + Math.pow(v / total, 2), 0);
+  return {
+    hhi,
+    effective: hhi > 0 ? 1 / hhi : null,
+    names: vals.length,
+    total,
+  };
+}
+
+// Slices for the donut, largest first, with everything past `limit` folded into
+// one OTHER wedge.
+//
+// Folding rather than truncating matters: a donut whose wedges do not sum to
+// the whole book is a pie chart that lies about the denominator, and the small
+// positions are exactly the ones a reader assumes are included.
+export const OTHER_KEY = '__other__';
+
+export function allocationSlices(rows = [], { basis = 'value', limit = 10 } = {}) {
+  const b = weightBasis(basis);
+  const vals = rows
+    .map(r => ({ ticker: r.ticker, value: num(r[b.field]) }))
+    .filter(r => r.value > 0)
+    .sort((a, b2) => b2.value - a.value);
+  const total = vals.reduce((a, r) => a + r.value, 0);
+  if (!(total > 0)) return { slices: [], total: 0, basis: b, folded: 0 };
+
+  const head = vals.slice(0, limit);
+  const tail = vals.slice(limit);
+  const slices = head.map(r => ({ ...r, pct: (r.value / total) * 100, other: false }));
+  if (tail.length) {
+    const v = tail.reduce((a, r) => a + r.value, 0);
+    slices.push({ ticker: OTHER_KEY, label: `OTHER (${tail.length})`, value: v, pct: (v / total) * 100, other: true });
+  }
+  return { slices, total, basis: b, folded: tail.length };
+}
+
+// Cumulative arc offsets, so the component does not have to do trigonometry to
+// know where a wedge starts. Angles are in degrees from 12 o'clock, clockwise.
+export function arcs(slices = []) {
+  let at = 0;
+  return slices.map(s => {
+    const sweep = (s.pct / 100) * 360;
+    const a = { ...s, start: at, sweep, end: at + sweep };
+    at += sweep;
+    return a;
+  });
+}
+
 export function toCSV(rows = [], total = null) {
   const head = ['Holding', 'Shares', 'DRIP', 'Price', 'Day %', 'Cost/sh', 'Invested',
     'Market value', 'Weight %', 'Day G/L', 'Unrealised G/L', 'Total return %'];

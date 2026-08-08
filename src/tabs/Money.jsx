@@ -4,6 +4,8 @@ import { Card, Empty, StatTile, EyeBtn, useMoneyVisible, money } from '../compon
 import StockDetail from '../components/StockDetail.jsx';
 import PortfolioChart from '../components/PortfolioChart.jsx';
 import RangeBrush from '../components/money/RangeBrush.jsx';
+import Diversification from '../components/money/Diversification.jsx';
+import { holdingRows } from '../lib/holdings.js';
 import { clampRange, sliceRange } from '../lib/range.js';
 import CryptoHoldings from '../components/CryptoHoldings.jsx';
 import SipCard from '../components/SipCard.jsx';
@@ -618,6 +620,18 @@ export default function Money() {
           when the first of that pair happened. Neither exists in a position. */}
       {view === 'tax' && (
         <TaxDesk held={held} orders={orders} priceOf={priceOf} cur={inr ? '\u20b9' : '$'} />
+      )}
+
+      {/* The spread desk is handed built rows rather than raw holdings because
+          it weights by marketValue and by income, and neither is a column on a
+          position - both are derived. holdingRows is the one place that
+          derivation lives, so deriving it again here would be a second
+          definition of "what this position is worth". */}
+      {view === 'divers' && (
+        <Diversification
+          rows={holdingRows(held, { priceOf, quotes, fx: inr && fx ? fx : 1 })}
+          cur={inr ? '\u20b9' : '$'}
+        />
       )}
 
       {/* The factor desk needs only the book and a price — it measures companies,

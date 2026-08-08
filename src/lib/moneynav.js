@@ -43,6 +43,7 @@ export const MONEY_SECTIONS = [
       { id: 'vs', label: 'vs Index' },
       { id: 'risk', label: 'Risk' },
       { id: 'factors', label: 'Factors' },
+      { id: 'divers', label: 'Spread' },
       { id: 'rebal', label: 'Rebalance' },
       { id: 'report', label: 'Report' },
     ],
