@@ -5266,3 +5266,13 @@ th:hover .hold-info { color: var(--cyan); }
   background: rgba(255,146,43,.06); max-width: 88ch;
 }
 .fees-thin strong { color: var(--orange); }
+
+/* A plan the app cannot read must say so. Silently excluding it gave "1 running
+   · Rs 0/month · 0 debits a year" - three numbers contradicting each other, none
+   explaining why. */
+.sip-stale {
+  margin: 0 0 10px; padding: 7px 9px; font-size: 12px; line-height: 1.5;
+  color: var(--ink-2); border: 1px dashed var(--yellow);
+  background: rgba(255,214,102,.05); max-width: 86ch;
+}
+.sip-stale code { color: var(--cyan); font-size: 11.5px; }

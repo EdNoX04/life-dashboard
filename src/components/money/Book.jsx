@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { currencyOf } from '../../lib/indiabook.js';
 import { Card, Empty, money } from '../ui.jsx';
 import {
   MARKETS, KINDS, CAPS, CAP_LABEL,
@@ -257,6 +258,27 @@ function FixedIncome({ fi, setFi, visible }) {
 // 0 (see its `?? 0` terminal fallback). A null default would quietly change the
 // arithmetic in groupHoldings and concentration rather than just filling a gap.
 export default function Book({ held = [], priceOf = () => 0, quotes = {}, visible = true, onOpen, fx = null, inr = false, crypto = [] }) {
+  // Rupee holdings are converted to the dollar base BEFORE anything groups or
+  // sums them. The book's whole job is allocation - what fraction sits where -
+  // and a rupee price entering a dollar total does not distort one row, it
+  // distorts every percentage on the screen. GOLDBEES at 122 rupees counted as
+  // 122 dollars is roughly ninety times its real weight.
+  //
+  // Converted here rather than filtered out: unlike the holdings TABLE, which
+  // can show two boxes in two units, an allocation view has to put everything
+  // on one axis or it is not an allocation view.
+  const priceInBase = React.useCallback(h => {
+    const p = Number(priceOf(h)) || 0;
+    if (currencyOf(h) !== 'INR') return p;
+    return fx ? p / fx : 0;
+  }, [priceOf, fx]);
+
+  const heldBase = React.useMemo(() => held.map(h => (
+    currencyOf(h) === 'INR' && fx
+      ? { ...h, avg_cost: h.avg_cost == null ? null : Number(h.avg_cost) / fx }
+      : h
+  )), [held, fx]);
+
   const [metaVer, setMetaVer] = useState(0);
   const [fi, setFi] = useState(EMPTY_FI);
 
@@ -266,8 +288,8 @@ export default function Book({ held = [], priceOf = () => 0, quotes = {}, visibl
   }, []);
 
   const groups = useMemo(
-    () => groupHoldings(held, priceOf, assetMetaSync()),
-    [held, quotes, metaVer] // eslint-disable-line
+    () => groupHoldings(heldBase, priceInBase, assetMetaSync()),
+    [heldBase, priceInBase, quotes, metaVer] // eslint-disable-line
   );
 
   async function classify(ticker, patch) {
@@ -276,7 +298,7 @@ export default function Book({ held = [], priceOf = () => 0, quotes = {}, visibl
   }
 
   const alloc = useMemo(
-    () => allocationBreakdown({ held, priceOf, saved: assetMetaSync(), fi, crypto, fx: fx || 1, inr }),
+    () => allocationBreakdown({ held: heldBase, priceOf: priceInBase, saved: assetMetaSync(), fi, crypto, fx: fx || 1, inr }),
     [held, quotes, metaVer, fi, crypto, fx, inr] // eslint-disable-line
   );
   const conc = useMemo(() => concentration(held, priceOf), [held, quotes]); // eslint-disable-line

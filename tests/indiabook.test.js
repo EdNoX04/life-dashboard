@@ -29,6 +29,16 @@ eq(num('3.5'), 3.5, 'num parses numeric strings');
 eq(currencyOf({ ticker: 'NVDA' }), 'USD', 'missing currency reads as USD');
 eq(currencyOf({ currency: 'inr' }), 'INR', 'currency is case-insensitive');
 eq(currencyOf({ currency: 'EUR' }), 'USD', 'unsupported currency falls back to USD');
+// The silent, large failure this guards: a row written before the currency field
+// existed puts a 122-RUPEE holding into a dollar table at 122 DOLLARS.
+eq(currencyOf({ ticker: 'GOLDBEES' }), 'INR', 'a known Indian ticker is INR even with no currency field');
+eq(currencyOf({ ticker: 'goldbees' }), 'INR', 'case-insensitively');
+eq(currencyOf({ ticker: 'NIFTYBEES' }), 'INR', 'and other Indian ETFs');
+eq(currencyOf({ ticker: 'NVDA' }), 'USD', 'an unlisted ticker still defaults to USD');
+// The row always wins over the list — the list is a fallback, not an override.
+eq(currencyOf({ ticker: 'GOLDBEES', currency: 'USD' }), 'USD',
+  'an explicit currency beats the known-ticker list');
+eq(currencyOf({ sym: 'GOLDBEES' }), 'INR', 'the crypto-style `sym` field is read too');
 
 // -------------------------------------------------------------- convert
 eq(convert(100, 'USD', 'USD', null), 100, 'same-currency needs no rate');

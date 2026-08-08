@@ -569,7 +569,9 @@ export default function Money() {
             rows={held.map(h => ({ ...h, ticker: h.ticker }))}
             scope={scope} onScope={setScope} cur={cur}
           />
-          <Accounts rows={accountRows} cur={cur} />
+          {/* `cur` here is the MODE ('usd'/'inr'), not a symbol — passing it
+              straight through is what rendered "usd367.44". */}
+          <Accounts rows={accountRows} cur={inr ? '\u20b9' : '$'} />
         </>
       )}
 

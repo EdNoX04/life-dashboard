@@ -53,9 +53,29 @@ export const num = v => {
 // A row with no currency recorded is a US row. That is not a guess: every row
 // written by the manual add form hard-codes 'USD', and the whole book predates
 // the Indian account.
+// Tickers that are Indian listings, used ONLY when the row itself does not say.
+//
+// This exists because the currency field is the single point of failure for the
+// whole rupee/dollar split, and a row written before that field existed - or by
+// a payload that has not been applied yet - carries nothing. The default is USD,
+// which is right for the legacy book and catastrophically wrong for GOLDBEES: it
+// puts a 122-rupee holding into a dollar table at 122 dollars.
+//
+// A short list of known Indian symbols is a stopgap, not a design. It is here
+// because the failure it prevents is silent and large, and it costs nothing when
+// the row IS labelled - the field always wins. Anything Indian that is not on
+// this list still needs its currency set properly.
+export const KNOWN_INR_TICKERS = new Set([
+  'GOLDBEES', 'NIFTYBEES', 'BANKBEES', 'JUNIORBEES', 'LIQUIDBEES',
+  'SILVERBEES', 'GOLDSHARE', 'SETFGOLD', 'HDFCGOLD', 'ICICIGOLD',
+]);
+
 export function currencyOf(row) {
   const c = String(row?.currency || '').toUpperCase();
-  return CURRENCIES[c] ? c : 'USD';
+  if (CURRENCIES[c]) return c;
+  const t = String(row?.ticker || row?.sym || '').toUpperCase();
+  if (KNOWN_INR_TICKERS.has(t)) return 'INR';
+  return 'USD';
 }
 
 export function symbolOf(code) {

@@ -28,14 +28,38 @@ export default function SipCard({ fx = null }) {
   const { items: mem } = useCollection('memory', { filter: 'key=eq.sips', order: 'key' });
   const all = mem?.[0]?.value?.list || [];
   const us = splitSips(all).us.filter(s => s.active !== false && sipStateOf(s.status).key !== 'failed');
-  const rates = us.map(s => ({ sip: s, rate: sipRunRate(s) })).filter(x => x.rate);
+  // A plan whose amount or cadence cannot be read is DROPPED from the rate maths
+  // but counted separately, because silently excluding it produced the worst
+  // possible readout: "1 running · ₹0/month · 0 debits a year". That is three
+  // numbers that contradict each other, and none of them says what is wrong.
+  //
+  // It happens when the stored row is the LEGACY shape - amount_usd/fund rather
+  // than amount/name - which is exactly what a blob written before the current
+  // scan looks like.
+  const withRate = us.map(s => ({ sip: s, rate: sipRunRate(s) }));
+  const rates = withRate.filter(x => x.rate);
+  const unreadable = withRate.filter(x => !x.rate).map(x => x.sip.ticker || x.sip.fund || '?');
 
   const perMonth = rates.reduce((n, x) => n + x.rate.perMonth, 0);
   const runsPerYear = rates.reduce((n, x) => n + x.rate.freq.runsPerYear, 0);
 
   return (
     <Card title="US SIPs" color="var(--cyan)"
-      right={us.length ? <span className="chip c-cyan">{us.length} running</span> : null}>
+      right={us.length ? (
+        <span className="chip c-cyan">
+          {rates.length} running{unreadable.length ? ` · ${unreadable.length} unreadable` : ''}
+        </span>
+      ) : null}>
+      {unreadable.length > 0 && (
+        <p className="sip-stale">
+          {unreadable.length} plan{unreadable.length === 1 ? '' : 's'} ({unreadable.join(', ')}) could
+          not be read — the stored row has no amount or frequency this app
+          recognises, which means it predates the current scan. Apply the latest
+          <code> payloads/sips-*.json </code> and it will fill in. The figures
+          below cover only the plans that could be read.
+        </p>
+      )}
+
       {us.length === 0 && (
         <Empty icon="↻" text="No US SIPs recorded. INDmoney's web UI has no SIP page for US stocks — these come from an app scan." />
       )}
