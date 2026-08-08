@@ -31,13 +31,31 @@ export function isRemote() {
 // The Supabase URL/key are baked in and stay per-device, but user-added keys
 // (market data, TMDB, LeetCode) sync through the shared `memory` table so you
 // set them once on any device and every device picks them up.
-const SYNC_KEYS = ['finnhubKey', 'twelveKey', 'tmdbKey', 'leetcodeUser', 'claudeKey', 'openaiKey', 'geminiKey'];
+//
+// Adding a key to Settings is only half the job: a key missing from this list is
+// saved on the device you typed it on and nowhere else, which looks exactly like
+// the sync being broken. `fmpKey` was added to Settings and not to this list,
+// which is why the dividend key vanished on the iPad.
+//
+// What is deliberately NOT here: supabaseUrl and supabaseKey, because they are
+// how a device reaches this table in the first place and syncing them through it
+// is circular; and anything with write authority. Every key below is a read-only
+// data feed. The Binance pair is the case that proves the rule - it can see
+// balances and history, so it lives in GitHub Secrets and never touches this
+// table or the browser.
+const SYNC_KEYS = [
+  'finnhubKey', 'twelveKey', 'fmpKey', 'tmdbKey',
+  'leetcodeUser', 'claudeKey', 'openaiKey', 'geminiKey',
+];
 
 export async function syncPushConfig() {
   if (!isRemote()) return;
   const c = getConfig();
+  // Cleared keys are pushed as empty strings rather than omitted. Omitting them
+  // meant a key you deleted on one device came straight back from another,
+  // which is indistinguishable from the delete not working.
   const payload = {};
-  for (const k of SYNC_KEYS) if (c[k]) payload[k] = c[k];
+  for (const k of SYNC_KEYS) payload[k] = c[k] || '';
   await upsertMemory('app_config', payload);
 }
 
@@ -51,7 +69,14 @@ export async function syncPullConfig() {
     const remote = rows?.[0]?.value || {};
     const cur = getConfig();
     const patch = {};
-    for (const k of SYNC_KEYS) if (remote[k] && remote[k] !== cur[k]) patch[k] = remote[k];
+    // A remote empty string is a deliberate clear and is applied; a remote key
+    // that is ABSENT is simply unknown to the shared record and leaves the
+    // local value alone. The two cases look the same in JSON and mean opposite
+    // things, which is why the push above writes '' rather than omitting.
+    for (const k of SYNC_KEYS) {
+      if (!(k in remote)) continue;
+      if (remote[k] !== cur[k]) patch[k] = remote[k];
+    }
     if (Object.keys(patch).length) { setConfig(patch); return true; }
   } catch { /* offline / not set up yet */ }
   return false;

@@ -28,7 +28,14 @@ import { memGet, memSet } from './advisor.js';
 
 export const CACHE_KEY = 'div_data';
 export const TTL = 7 * 24 * 3600e3;
-export const BASE = 'https://financialmodelingprep.com/api/v3';
+// FMP retired the v3 dividend endpoint for new keys: `historical-price-full/
+// stock_dividend` now answers 403 rather than 401, which is why the first run
+// of this looked like a broken key rather than a moved endpoint. The current
+// one is /stable/dividends. v3 is kept as a fallback for keys old enough to
+// still have access, and tried second so a working modern key never pays for
+// the extra round trip.
+export const BASE = 'https://financialmodelingprep.com/stable';
+export const LEGACY_BASE = 'https://financialmodelingprep.com/api/v3';
 
 // Statuses are a closed set so a screen can switch on them exhaustively rather
 // than guessing from the shape of the payload.
@@ -74,8 +81,13 @@ export function normalisePayment(r) {
 }
 
 export function normaliseHistory(payload) {
-  const list = Array.isArray(payload?.historical) ? payload.historical
-    : Array.isArray(payload) ? payload : null;
+  // Three shapes seen in the wild: the stable endpoint returns a bare array,
+  // v3 wraps it in `historical`, and some stable responses nest it under
+  // `data`. Reading all three is cheaper than guessing which key is live this
+  // month, and an unrecognised shape still returns null rather than empty.
+  const list = Array.isArray(payload) ? payload
+    : Array.isArray(payload?.historical) ? payload.historical
+      : Array.isArray(payload?.data) ? payload.data : null;
   if (!list) return null;
   const rows = list.map(normalisePayment).filter(Boolean);
   // Newest first is how the API returns it and how a payment history reads;
@@ -556,10 +568,20 @@ export async function fetchDividends(ticker, { force = false } = {}) {
 
   let entry;
   try {
-    const r = await fetch(`${BASE}/historical-price-full/stock_dividend/${encodeURIComponent(t)}?apikey=${key}`);
+    // Stable first, legacy second. A 403 on the legacy path is the retirement,
+    // not a bad key, and saying so is the difference between a five-minute fix
+    // and an afternoon spent regenerating credentials.
+    let r = await fetch(`${BASE}/dividends?symbol=${encodeURIComponent(t)}&apikey=${key}`);
+    if (r.status === 403 || r.status === 404) {
+      r = await fetch(`${LEGACY_BASE}/historical-price-full/stock_dividend/${encodeURIComponent(t)}?apikey=${key}`);
+    }
     if (!r.ok) {
-      entry = { status: STATUS.failed, rows: [], at: Date.now(),
-        note: `The dividend source returned ${r.status}.` };
+      entry = { status: r.status === 401 ? STATUS.nokey : STATUS.failed, rows: [], at: Date.now(),
+        note: r.status === 403
+          ? 'Both dividend endpoints refused the key (403). Usually this means the key has not finished activating - confirm the signup email and try again in a few minutes - or that the plan does not cover this endpoint.'
+          : r.status === 401 ? 'The dividend source rejected the key (401). Check it in Settings.'
+            : r.status === 429 ? 'Rate limited (429). The free plan allows 250 requests a day; the cache holds for a week, so FETCH rather than FORCE next time.'
+              : `The dividend source returned ${r.status}.` };
     } else {
       const rows = normaliseHistory(await r.json());
       if (rows === null) {
@@ -586,6 +608,15 @@ export async function fetchDividends(ticker, { force = false } = {}) {
 // Many tickers, paced. The free plan's limit is daily rather than per-second,
 // but a burst of twenty parallel requests is still the fastest way to get rate
 // limited, so they go one at a time with a small gap.
+// The free plan covers US listings. A rupee-denominated holding will always come
+// back empty, so it is not fetched at all - spending one of 250 daily requests
+// to learn nothing, twenty times over, is worse than useless because it also
+// fills the screen with failures that look like a broken key.
+export function isFetchable(holding) {
+  const c = String(holding?.currency || '').toUpperCase();
+  return c !== 'INR';
+}
+
 export async function fetchMany(tickers = [], { force = false, onProgress } = {}) {
   const list = [...new Set(tickers.map(t => String(t || '').toUpperCase()).filter(Boolean))];
   const out = {};

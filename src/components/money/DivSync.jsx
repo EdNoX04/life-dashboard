@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Empty, StatTile } from '../ui.jsx';
 import {
   STATUS, hasKey, loadCached, fetchMany, toDivMetaAll, cacheAge, ttm, runRate,
+  isFetchable,
 } from '../../lib/divdata.js';
 import { memGet, memSet } from '../../lib/advisor.js';
 
@@ -49,9 +50,17 @@ export default function DivSync({ held = [], cur = '$' }) {
   const [merged, setMerged] = useState(0);
   const keyed = hasKey();
 
-  const tickers = useMemo(
-    () => held.map(h => String(h.ticker || '').toUpperCase()).filter(Boolean).sort(),
+  // Only what the source can actually answer for. A rupee holding is skipped
+  // rather than fetched-and-failed: it would spend one of 250 daily requests to
+  // learn nothing, and twenty red FAILED rows look exactly like a broken key.
+  const fetchable = useMemo(() => held.filter(isFetchable), [held]);
+  const skipped = useMemo(
+    () => held.filter(h => !isFetchable(h)).map(h => String(h.ticker || '').toUpperCase()),
     [held],
+  );
+  const tickers = useMemo(
+    () => fetchable.map(h => String(h.ticker || '').toUpperCase()).filter(Boolean).sort(),
+    [fetchable],
   );
 
   useEffect(() => {
@@ -124,7 +133,11 @@ export default function DivSync({ held = [], cur = '$' }) {
   return (
     <>
       <div className="tile-row">
-        <StatTile label="Holdings" value={tickers.length} note="in the fetch list" color="var(--cyan)" />
+        <StatTile
+          label="Holdings" value={tickers.length}
+          note={skipped.length ? `${skipped.join(', ')} skipped — not US-listed` : 'in the fetch list'}
+          color="var(--cyan)"
+        />
         <StatTile label="With history" value={okCount} note={`${rows.length - okCount} without`} color="var(--green)" />
         <StatTile label="Ready to import" value={bridgeable} note="clean fetches only" color="var(--pink)" />
         <StatTile label="Last fetched" value={ago(age)} note="cached for a week" color="var(--orange)" />
@@ -153,6 +166,18 @@ export default function DivSync({ held = [], cur = '$' }) {
           reads. Only clean fetches are imported, so a bad day at the API cannot
           erase anything you entered by hand.
         </p>
+
+        {/* One explanation at the top beats the same tooltip on twenty rows.
+            A 403 across the board is one cause, not twenty problems. */}
+        {(() => {
+          const failed = rows.filter(r => r.status === STATUS.failed);
+          if (!failed.length || failed.length < rows.length) return null;
+          return (
+            <p className="ds-fail">
+              <strong>Every fetch failed.</strong> {failed[0].note}
+            </p>
+          );
+        })()}
 
         {busy && progress && (
           <p className="ds-prog">Fetching {progress.ticker} — {progress.done} of {progress.total}, paced to stay inside the free tier.</p>
@@ -206,9 +231,10 @@ export default function DivSync({ held = [], cur = '$' }) {
         )}
 
         <p className="ds-foot">
-          The free plan covers US listings only. A holding that comes back with
-          nothing found may pay no dividend or may simply not be covered — from
-          here the two are indistinguishable, so neither is asserted.
+          The free plan covers US listings only, so{skipped.length ? ` ${skipped.join(', ')} ` : ' a non-US holding '}
+          is not fetched at all rather than fetched and failed. A US holding that
+          comes back with nothing found may pay no dividend or may simply not be
+          covered — from here the two are indistinguishable, so neither is asserted.
           {rows.some(r => r.hasManual) && ' Rows you entered by hand are marked, and importing will overwrite them for that ticker.'}
         </p>
       </Card>

@@ -5163,3 +5163,10 @@ th:hover .hold-info { color: var(--cyan); }
   color: var(--ink-2); border: 1px dashed var(--yellow); background: rgba(255,214,102,.05);
 }
 .cb-dim { border-color: var(--border); color: var(--ink-3); background: none; }
+
+.ds-fail {
+  margin: 0 0 10px; padding: 8px 10px; font-size: 12.5px; line-height: 1.5;
+  color: var(--ink); border: 1px dashed var(--red); background: rgba(255,91,110,.07);
+  max-width: 90ch;
+}
+.ds-fail strong { color: var(--red); }

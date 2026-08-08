@@ -4,6 +4,7 @@
 
 import {
   STATUS, num, normalisePayment, normaliseHistory, ttm, runRate, cacheAge, TTL,
+  BASE, LEGACY_BASE, isFetchable,
   realisedGrowth, medianExOffset, toDivMeta, toDivMetaAll, CADENCE_TO_FREQ,
   byYear, completeYears, cagr, growthStreak, payoutRatios, payoutSummary,
   sharesBefore, holdingPeriod, receivedHistory, receivedTotals, projectForward,
@@ -74,6 +75,21 @@ eq(normaliseHistory([{ date: '2026-01-01', dividend: 1 }]).length, 1, 'a bare ar
 eq(normaliseHistory({ error: 'nope' }), null, 'an unrecognised payload is null, not empty');
 eq(normaliseHistory(null), null, 'a null payload is null');
 eq(normaliseHistory({ historical: [] }).length, 0, 'an explicitly empty history IS empty');
+// The stable endpoint nests under `data` in some responses.
+eq(normaliseHistory({ data: [{ date: '2026-01-01', dividend: 1 }] }).length, 1,
+  'a data-wrapped payload parses');
+
+// The endpoint that actually works. v3 answers 403 for keys issued after the
+// migration, which reads as a bad key rather than a moved endpoint.
+ok(BASE.endsWith('/stable'), 'the stable endpoint is the primary');
+ok(LEGACY_BASE.includes('/api/v3'), 'and v3 is kept only as a fallback');
+
+// Non-US listings are not fetched at all: the free plan cannot answer for them,
+// and twenty guaranteed failures look exactly like a broken key.
+eq(isFetchable({ ticker: 'AAPL', currency: 'USD' }), true, 'a US holding is fetchable');
+eq(isFetchable({ ticker: 'NVDA' }), true, 'a holding with no currency is treated as US');
+eq(isFetchable({ ticker: 'GOLDBEES', currency: 'INR' }), false, 'a rupee holding is skipped');
+eq(isFetchable({ ticker: 'GOLDBEES', currency: 'inr' }), false, 'case-insensitively');
 
 // ------------------------------------------------------------------ ttm
 const ASOF = new Date('2026-06-01T00:00:00Z');
