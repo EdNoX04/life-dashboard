@@ -5256,3 +5256,13 @@ th:hover .hold-info { color: var(--cyan); }
    window, and saying which one you are looking at costs one line and prevents
    the brush below reading as broken when it has no effect. */
 .tf-note { font-size: 11px; color: var(--ink-3); margin-left: 8px; align-self: center; }
+
+/* A cost readout built on a fraction of the transfers must say so. Amber rather
+   than red: the number is not wrong, its COVERAGE is thin, and those need
+   different reactions from the reader. */
+.fees-thin {
+  margin: 0 0 12px; padding: 8px 10px; font-size: 12.5px; line-height: 1.5;
+  color: var(--ink-2); border: 1px dashed var(--orange);
+  background: rgba(255,146,43,.06); max-width: 88ch;
+}
+.fees-thin strong { color: var(--orange); }

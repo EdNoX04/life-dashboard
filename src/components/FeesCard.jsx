@@ -77,6 +77,20 @@ export default function FeesCard({ orders, investedUsd, fx, visible, cur }) {
 
   const floor = grounded && summary.floor;
 
+  // COVERAGE. The card is grounded in receipts, which is right — but one receipt
+  // for 1,600 rupees does not describe a book where roughly 5.5 lakh has been
+  // remitted. The drag it computes is measured on whatever fraction has been
+  // recorded, and presenting that as "your cost of investing" without saying so
+  // invites planning around a number derived from 0.3% of the transfers.
+  //
+  // So coverage is computed and stated. Below a threshold the headline is
+  // explicitly labelled a sample rather than a total, because the honest failure
+  // here is not an absent number, it is a confident one.
+  const coveragePct = grounded && investedInr > 0
+    ? Math.min(100, (remittedInr / investedInr) * 100)
+    : null;
+  const thin = coveragePct != null && coveragePct < 60;
+
   return (
     <Card
       title="Fees & forex — your real cost of investing"
@@ -87,7 +101,7 @@ export default function FeesCard({ orders, investedUsd, fx, visible, cur }) {
           style={{ color: pct > 2 ? 'var(--red)' : 'var(--yellow)', borderColor: pct > 2 ? 'var(--red)' : 'var(--yellow)' }}
           title={floor ? 'A floor — the exchange-rate spread is not included' : undefined}
         >
-          {floor ? '≥ ' : ''}{pct.toFixed(2)}% drag
+          {floor ? '≥ ' : ''}{pct.toFixed(2)}% drag{thin ? ' (sample)' : ''}
         </span>
       }
     >
@@ -118,6 +132,19 @@ export default function FeesCard({ orders, investedUsd, fx, visible, cur }) {
           />
         </div>
       </div>
+
+      {thin && (
+        <p className="fees-thin">
+          <strong>This is a sample, not your total.</strong> {summary.count} receipt
+          {summary.count === 1 ? ' has' : 's have'} been recorded, covering{' '}
+          {D(remittedInr)} of roughly {D(investedInr)} that has actually been
+          remitted — about {coveragePct.toFixed(1)}%. The percentage above is the
+          drag measured on those transfers; whether it holds across the rest is
+          unknown, and it would not be if the charge is flat per transfer rather
+          than proportional. Open a few more deposit receipts in INDmoney&#39;s US
+          wallet history and this becomes a real figure.
+        </p>
+      )}
 
       <div className="tile-row" style={{ marginBottom: 10 }}>
         <StatTile
