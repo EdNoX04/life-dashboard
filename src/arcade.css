@@ -5219,3 +5219,40 @@ th:hover .hold-info { color: var(--cyan); }
   .dr-row { grid-template-columns: 1.4fr 1fr; row-gap: 2px; }
   .dr-year { display: none; }
 }
+
+/* ------------------------------------------------- dividend calendar */
+.dc { display: flex; flex-direction: column; gap: 14px; }
+.dc-month { border-left: 2px solid var(--green); padding-left: 10px; }
+.dc-head { display: grid; grid-template-columns: 150px 1fr 90px; gap: 10px; align-items: center; margin-bottom: 5px; }
+.dc-m { font-size: 12px; letter-spacing: .5px; color: var(--ink); }
+/* One bar per month. The clustering IS the finding, so it should register
+   before any number is read. */
+.dc-bar { height: 8px; background: var(--bg-deep); border: 1px solid var(--border); }
+.dc-bar i { display: block; height: 100%; background: var(--green); opacity: .55; }
+.dc-tot { font-size: 12.5px; color: var(--green); text-align: right; font-variant-numeric: tabular-nums; }
+.dc-row {
+  display: grid; grid-template-columns: 28px 68px 1fr 1fr 1fr 60px;
+  gap: 8px; padding: 3px 0; font-size: 12px; font-variant-numeric: tabular-nums;
+  border-bottom: 1px dotted var(--border);
+}
+.dc-row:last-child { border-bottom: none; }
+.dc-d { color: var(--ink-3); }
+.dc-t { color: var(--cyan); }
+.dc-g { color: var(--ink); }
+.dc-w { color: var(--red); }
+/* Zero withholding is the interesting case, not an empty cell. */
+.dc-w0 { color: var(--yellow); font-style: italic; }
+.dc-n { color: var(--green); }
+.dc-tt { color: var(--ink-3); font-size: 10.5px; text-align: right; }
+
+@media (max-width: 760px) {
+  .dc-head { grid-template-columns: 1fr 70px; }
+  .dc-bar { display: none; }
+  .dc-row { grid-template-columns: 24px 60px 1fr 1fr; }
+  .dc-n, .dc-tt { display: none; }
+}
+
+/* The 1D mode switch's companion line. 1D is a different SERIES, not a shorter
+   window, and saying which one you are looking at costs one line and prevents
+   the brush below reading as broken when it has no effect. */
+.tf-note { font-size: 11px; color: var(--ink-3); margin-left: 8px; align-self: center; }

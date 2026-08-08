@@ -29,7 +29,9 @@ import { money } from './ui.jsx';
 // lines were clipped to different windows and started at different x positions.
 // Both now share one cutoff anchored to today, and "1M" means a calendar month
 // rather than 30 days.
-const VIEWS = ['1W', '1M', '3M', '6M', '1Y', 'ALL'];
+// No VIEWS list any more: the brush below the chart owns range selection, and
+// the only mode this component still switches is 1D. cutoffFor stays because it
+// is exported and tested, and because `range` can still hold 'ALL'.
 const INV_C = '#9a63e8';   // invested — purple
 const VAL_C = '#ff5fa2';   // value — bright pink (clearly distinct from purple)
 const DAY = 86400000;
@@ -266,18 +268,32 @@ export default function PortfolioChart({ orders = [], invested: investedProp, va
 
   if (!geo) return <div ref={wrapRef} className="muted small" style={{ padding: 12 }}>Chart builds as your history syncs…</div>;
 
-  const rangeKeys = has1D ? ['1D', ...VIEWS] : VIEWS;
   const { padL, padR, padT, padB, y, dInv, dVal, investedNow, gridY } = geo;
   const valColor = VAL_C; // value line is always pink — consistent across every timeframe incl. 1D
 
   return (
     <div ref={wrapRef} style={{ width: '100%' }}>
-      {/* No range strip here any more. The RangeBrush above this chart carries
-          one, and two strips controlling the same axis is worse than either
-          alone: they disagree the moment you touch one, and neither tells you
-          which is in charge. The brush wins because it also SHOWS the window
-          it is selecting, which a row of buttons cannot. `range` still exists
-          internally for the 1D intraday mode, which the brush does not cover. */}
+      {/* The range STRIP is gone - the brush below this chart carries one, and
+          two strips over the same axis is worse than either alone: they
+          disagree the moment you touch one and neither says which is in charge.
+
+          But 1D is not a range on the same axis. It is a different SERIES -
+          intraday ticks rather than daily closes - and the brush, which scrubs
+          the daily series, cannot express it. Removing the strip wholesale made
+          1D unreachable, so it comes back as one button rather than a row: a
+          mode switch, which is what it always was. */}
+      {!mini && has1D && (
+        <div className="tf-row" style={{ marginBottom: 8 }}>
+          <button
+            className={`tf-btn${is1D ? ' on' : ''}`}
+            onClick={() => { setRange(is1D ? 'ALL' : '1D'); setHover(null); }}
+            title={is1D ? 'Back to the daily series, scrubbed by the brush below' : "Today's intraday ticks — a different series, not a shorter window"}
+          >1D</button>
+          <span className="tf-note">
+            {is1D ? 'intraday — the brush below does not apply' : 'daily · use the brush below to narrow'}
+          </span>
+        </div>
+      )}
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" style={{ display: 'block' }}
         onMouseLeave={() => setHover(null)}
         onMouseMove={!mini ? onMove : undefined}>

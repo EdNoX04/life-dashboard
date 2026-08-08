@@ -2,6 +2,66 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Empty, StatTile } from '../ui.jsx';
 import { memGet } from '../../lib/advisor.js';
 
+// The payment calendar. Grouped by month rather than listed flat, because the
+// single most useful thing this data says is not visible in a list: seven of the
+// eleven payments landed between 25 and 30 June. This income arrives in
+// quarter-end clusters, and a flat table sorted by date hides that behind
+// scrolling.
+function Calendar({ payments = [], fx }) {
+  const months = useMemo(() => {
+    const m = new Map();
+    for (const p of payments) {
+      const k = String(p.date).slice(0, 7);
+      if (!m.has(k)) m.set(k, []);
+      m.get(k).push(p);
+    }
+    return [...m.entries()]
+      .map(([k, rows]) => ({
+        key: k,
+        label: new Date(`${k}-01T00:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+        rows: rows.sort((a, b) => a.date.localeCompare(b.date)),
+        gross: rows.reduce((s, r) => s + r.gross_inr, 0),
+        net: rows.reduce((s, r) => s + r.net_inr, 0),
+      }))
+      .sort((a, b) => b.key.localeCompare(a.key));
+  }, [payments]);
+
+  const peak = Math.max(...months.map(m => m.gross), 1);
+
+  return (
+    <div className="dc">
+      {months.map(m => (
+        <div className="dc-month" key={m.key}>
+          <div className="dc-head">
+            <span className="dc-m">{m.label}</span>
+            {/* A bar per month, scaled to the biggest month on screen. The
+                clustering is the finding; it should be visible before you read
+                a single number. */}
+            <span className="dc-bar"><i style={{ width: `${(m.gross / peak) * 100}%` }} /></span>
+            <span className="dc-tot">₹{m.gross.toFixed(2)}</span>
+          </div>
+          {m.rows.map((r, i) => (
+            <div className="dc-row" key={`${r.ticker}-${r.date}-${i}`}>
+              <span className="dc-d">{String(r.date).slice(8, 10)}</span>
+              <span className="dc-t">{r.ticker}</span>
+              <span className="dc-g">₹{r.gross_inr.toFixed(2)}</span>
+              {/* Zero withholding is not a blank — it is the interesting case,
+                  and TSMC is the only holding that has it. */}
+              <span className={`dc-w${r.tax_inr === 0 ? ' dc-w0' : ''}`}>
+                {r.tax_inr === 0 ? 'no tax' : `−₹${r.tax_inr.toFixed(2)}`}
+              </span>
+              <span className="dc-n">₹{r.net_inr.toFixed(2)}</span>
+              <span className="dc-tt" title={`INDmoney booked this at ₹${r.tt} to the dollar`}>
+                @{r.tt}
+              </span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // What was actually received.
 //
 // Every other dividend screen in this app projects: it takes a rate, multiplies
@@ -33,6 +93,8 @@ const inr = n => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionD
 
 export default function DivReceived({ fx = null }) {
   const [data, setData] = useState(undefined);
+  const [pays, setPays] = useState(null);
+  const [tab, setTab] = useState('holdings');
   const [showClosed, setShowClosed] = useState(false);
 
   useEffect(() => {
@@ -40,6 +102,9 @@ export default function DivReceived({ fx = null }) {
     memGet('div_received')
       .then(v => { if (!dead) setData(v && v.rows ? v : null); })
       .catch(() => { if (!dead) setData(null); });
+    memGet('div_payments')
+      .then(v => { if (!dead) setPays(v && v.payments ? v : null); })
+      .catch(() => {});
     return () => { dead = true; };
   }, []);
 
@@ -89,15 +154,35 @@ export default function DivReceived({ fx = null }) {
           note={closedCount ? `${closedCount} more since sold` : 'all still held'}
           color="var(--pink)"
         />
+        {/* Not a footnote. TSMC is the only holding the US does not tax, and
+            after tax that is worth about a third of its yield — a fact no gross
+            figure anywhere else on this screen reveals. */}
+        {pays?.payments?.some(p => p.tax_inr === 0) && (
+          <StatTile
+            label="Untaxed payer" value="TSM"
+            note="Taiwan-domiciled — the US treaty does not reach it"
+            color="var(--yellow)"
+          />
+        )}
       </div>
 
       <Card
         title="Dividends received"
         color="var(--green)"
-        right={closedCount > 0 && (
+        right={(
+          <span className="flex" style={{ gap: 6 }}>
+            {pays?.payments?.length > 0 && (
+              <span className="seg">
+                <button className={`seg-btn${tab === 'holdings' ? ' on' : ''}`} onClick={() => setTab('holdings')}>BY HOLDING</button>
+                <button className={`seg-btn${tab === 'calendar' ? ' on' : ''}`} onClick={() => setTab('calendar')}>WHEN</button>
+              </span>
+            )}
+            {closedCount > 0 && tab === 'holdings' && (
           <button className="btn btn-sm" onClick={() => setShowClosed(s => !s)}>
             {showClosed ? 'HELD ONLY' : `+ ${closedCount} SOLD`}
-          </button>
+            </button>
+            )}
+          </span>
         )}
       >
         <p className="dr-lead">
@@ -106,6 +191,17 @@ export default function DivReceived({ fx = null }) {
           {data.withholding_pct}% US withholding.
         </p>
 
+        {tab === 'calendar' && pays ? (
+          <>
+            <Calendar payments={pays.payments} fx={fx} />
+            <p className="dr-caveat">
+              {pays.cluster_note} {pays.tt_note}
+            </p>
+            {!pays.complete && (
+              <p className="dr-caveat">{pays.missing}</p>
+            )}
+          </>
+        ) : (
         <div className="dr-rows">
           <div className="dr-row dr-head">
             <span>Security</span><span>Total</span>
@@ -141,9 +237,11 @@ export default function DivReceived({ fx = null }) {
           </div>
         </div>
 
+        )}
+
         {/* The limit of this data, stated where it is relevant rather than in a
             footnote nobody reads. */}
-        <p className="dr-caveat">{data.caveat}</p>
+        {tab === 'holdings' && <p className="dr-caveat">{data.caveat}</p>}
         <p className="dr-src">
           {data.source}. {data.closed_positions}
         </p>

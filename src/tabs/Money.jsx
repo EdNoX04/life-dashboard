@@ -867,9 +867,12 @@ export default function Money() {
 
       <Card title="Portfolio over time" color="var(--purple)"
         right={histState === 'loading' ? <span className="chip c-yellow">building line…</span> : histState === 'nokey' ? <span className="chip c-yellow">add Twelve Data key</span> : null}>
-        {/* The brush sits above the chart it controls rather than inside it:
-            it is a control over the whole card, and the same component will sit
-            above the dividend screens, so it should read the same way in both. */}
+        <PortfolioChart orders={orders} invested={investedFrom} value={chartFrom} intraday={intraday} currentValue={value} visible={visible} variant="full" />
+        {/* The brush sits BELOW the chart it controls. Above, it pushed the
+            chart down and read as a second chart competing with the real one -
+            two plots stacked, the small one on top. Underneath it reads as what
+            it is: a scrubber for the thing above it, the way a video timeline
+            sits under the video. */}
         <RangeBrush
           series={valSeries}
           valueOf={p => Number(p?.v ?? 0)}
@@ -877,8 +880,14 @@ export default function Money() {
           onChange={setChartRange}
           color="var(--purple)"
         />
-        <PortfolioChart orders={orders} invested={investedFrom} value={chartFrom} intraday={intraday} currentValue={value} visible={visible} variant="full" />
       </Card>
+
+      {/* SIPs sit directly under the chart rather than at the bottom of the
+          page. They were below the holdings table, the crypto book and the
+          Indian box - four screens of scrolling - and a standing commitment
+          that debits money every week is not a footnote to the portfolio, it is
+          the part of it that has not happened yet. */}
+      <SipCard fx={fx} />
 
       {/* Rupee holdings are drawn separately. GOLDBEES was appearing in this
           table with a DOLLAR value and a RUPEE average cost side by side, which
@@ -993,8 +1002,6 @@ export default function Money() {
       )}
 
       <CryptoHoldings visible={visible} />
-
-      <SipCard fx={fx} />
 
       <Card title="Your stocks in the news" color="var(--pink)"
         right={pickProvider() && shownNews.length > 0 && (
