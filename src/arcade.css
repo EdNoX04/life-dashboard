@@ -4768,6 +4768,18 @@
   color: var(--ink); border: 1px dashed var(--green); border-radius: 2px;
   background: rgba(94,234,138,.05);
 }
+/* The open question, not a finding. Amber rather than red: red is for a cost
+   that has been established, and this one has not been - it is a thing worth
+   ten minutes of checking. The em/strong inside carry the "if" so the claim
+   never hardens by accident. */
+.ind-remit-flat {
+  margin: 10px 0 0; padding: 8px 10px; font-size: 13px; line-height: 1.45;
+  color: var(--ink); border: 1px dashed var(--orange); border-radius: 2px;
+  background: rgba(255,146,43,.06);
+}
+.ind-remit-flat strong { color: var(--orange); }
+.ind-remit-flat em { color: var(--yellow); font-style: normal; text-decoration: underline dotted; }
+
 .ind-nofx, .ind-conv { margin: 8px 0 0; font-size: 13px; color: var(--ink-3); line-height: 1.4; }
 .ind-nofx { color: var(--yellow); }
 

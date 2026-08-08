@@ -222,6 +222,86 @@ export function sipDisagreement(sip, believed) {
   };
 }
 
+// ---------------------------------------------------- which desk owns a SIP
+//
+// A SIP has two currencies and they are not the same thing. Both US plans debit
+// RUPEES — INDmoney takes 500 rupees, remits it, and buys dollars of QQQ. So
+// "the SIP is in rupees" is true of every plan here and tells you nothing about
+// where it belongs. What decides the desk is the ASSET: QQQ is a US holding
+// bought through the US account, and it belongs on the US screen next to the
+// rest of the US book, however it was funded.
+//
+// Getting this wrong is what put QQQ on the India desk. The India screen was
+// handed the whole `sips` blob and rendered all of it, on the unexamined
+// assumption that a rupee SIP is an Indian SIP.
+export const DESKS = {
+  india: { key: 'india', label: 'INDstocks', currency: 'INR' },
+  us: { key: 'us', label: 'INDmoney US', currency: 'USD' },
+};
+
+// asset_currency is the authority when the scan recorded it. Failing that the
+// account name decides, and failing that we fall back to the funding currency —
+// which is only ever right by luck, so it is last.
+export function deskOf(sip) {
+  const ac = String(sip?.asset_currency || '').toUpperCase();
+  if (ac === 'USD') return DESKS.us;
+  if (ac === 'INR') return DESKS.india;
+  const acct = String(sip?.account || sip?.broker || '').toLowerCase();
+  if (acct.includes('us')) return DESKS.us;
+  if (acct.includes('indstocks')) return DESKS.india;
+  return currencyOf(sip) === 'INR' ? DESKS.india : DESKS.us;
+}
+
+// Returns every desk's list, always both keys, so a caller never has to guard
+// for an absent side.
+export function splitSips(sips = []) {
+  const out = { india: [], us: [] };
+  for (const s of sips) out[deskOf(s).key].push(s);
+  return out;
+}
+
+// Every SIP here is denominated in rupees, including the ones that buy US
+// stock. That makes a SIP schedule a remittance schedule: if the per-transfer
+// cost is flat rather than proportional then cadence, not amount, sets the
+// annual fee bill.
+export function sipLoad(sips = [], perTransferTax = null) {
+  const live = sips.filter(s => sipStateOf(s.status).key !== 'failed');
+  const rows = live.map(s => ({ sip: s, rate: sipRunRate(s) })).filter(x => x.rate);
+  if (!rows.length) return null;
+  const runsPerYear = rows.reduce((n, x) => n + x.rate.freq.runsPerYear, 0);
+  const perYear = rows.reduce((n, x) => n + x.rate.perYear, 0);
+  // Number(null) is 0, so num(null) is 0, not null — an absent per-transfer
+  // tax would otherwise be reported as a confident zero annual fee bill. The
+  // absence has to be preserved: "we do not know" and "it is free" are very
+  // different answers here.
+  const tax = perTransferTax == null || perTransferTax === '' ? null : num(perTransferTax);
+  return {
+    count: rows.length, rows, runsPerYear, perYear,
+    perMonth: perYear / 12,
+    taxPerYear: tax === null ? null : tax * runsPerYear,
+    taxPct: tax === null ? null : ((tax * runsPerYear) / perYear) * 100,
+  };
+}
+
+// A per-transfer cost that does not scale with the transfer is the single most
+// consequential thing to establish here, and one receipt cannot establish it.
+// The flag is explicit so the UI can say "if" rather than asserting it.
+export function flatTaxWarning(summary, sipload) {
+  if (!summary || !sipload || summary.count < 1) return null;
+  const perTransferTax = summary.rows.reduce((s, x) => s + x.taxInr, 0) / summary.count;
+  if (!(perTransferTax > 0)) return null;
+  const smallest = Math.min(...sipload.rows.map(x => x.rate.perRun));
+  if (!(smallest > 0) || smallest >= summary.avgTransfer) return null;
+  return {
+    perTransferTax, smallest,
+    dragAtSmallest: (perTransferTax / smallest) * 100,
+    observedAt: summary.avgTransfer,
+    dragObserved: (perTransferTax / summary.avgTransfer) * 100,
+    sampleSize: summary.count,
+    unconfirmed: summary.count < 2,
+  };
+}
+
 // ------------------------------------------------------- remittance costs
 
 export const REMIT_NOTE =

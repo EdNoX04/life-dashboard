@@ -39,7 +39,24 @@ const files = readdirSync(dir).filter(f => f.endsWith('.json'));
 if (!files.length) { console.log('No payloads.'); process.exit(0); }
 
 for (const f of files.sort()) {
-  const { ops = [] } = JSON.parse(readFileSync(path.join(dir, f), 'utf8'));
+  const parsed = JSON.parse(readFileSync(path.join(dir, f), 'utf8'));
+  // A payload whose shape this script does not understand used to destructure
+  // to `ops = []`, print "0 ops", write nothing and still get filed as
+  // processed. That is how the scanned investments file — a bare array rather
+  // than an {ops:[...]} envelope — was silently discarded, which is why the
+  // Indian holding never appeared on the India desk. A file we cannot apply is
+  // a failure, not an empty success.
+  if (!Array.isArray(parsed?.ops)) {
+    console.error(`  FAIL: ${f} has no "ops" array — expected {"ops":[{table,method,rows}]}. Not applied.`);
+    process.exitCode = 1;
+    continue;
+  }
+  const ops = parsed.ops;
+  if (ops.length === 0) {
+    console.error(`  FAIL: ${f} declares an empty ops array. Nothing to apply — remove the file or fill it in.`);
+    process.exitCode = 1;
+    continue;
+  }
   console.log(`Applying ${f} (${ops.length} ops)`);
   for (const op of ops) {
     const { table, method, rows, row, match } = op;

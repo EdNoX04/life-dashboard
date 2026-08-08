@@ -31,6 +31,7 @@ import {
   nativeTotals, mixedTotals, symbolOf, currencyOf, num,
   sipRunRate, sipStateOf, sipDisagreement,
   remittanceSummary, batchingGain, REMIT_NOTE, DISCLAIMER,
+  splitSips, sipLoad, flatTaxWarning,
 } from '../../lib/indiabook.js';
 
 const pct = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`);
@@ -85,7 +86,7 @@ export function SipRow({ sip }) {
 
 // ------------------------------------------------------------ fees panel
 
-export function RemitPanel({ summary, gainAt }) {
+export function RemitPanel({ summary, gainAt, flat = null }) {
   if (!summary) {
     return <Empty icon="₹" text="No remittances recorded yet. A scan of your deposit receipts lands here." />;
   }
@@ -126,6 +127,22 @@ export function RemitPanel({ summary, gainAt }) {
           for nothing but doing it less often.
         </p>
       )}
+      {/* One receipt cannot tell a flat charge from a proportional one, so this
+          says "if" and then says exactly how to settle it. The distinction is
+          worth about six percent of every SIP debit, which makes it the most
+          valuable unanswered question on the screen. */}
+      {flat && (
+        <p className="ind-remit-flat">
+          <strong>Worth confirming:</strong> the {inrFmt(Math.round(flat.perTransferTax))} charged
+          on your {inrFmt(Math.round(flat.observedAt))} transfer was{' '}
+          {flat.dragObserved.toFixed(2)}%. <em>If</em> that charge is flat per transfer
+          rather than proportional, a {inrFmt(flat.smallest)} SIP run pays{' '}
+          {flat.dragAtSmallest.toFixed(1)}% — on every single debit.
+          {flat.unconfirmed
+            ? ` Only ${flat.sampleSize} receipt has been read, which cannot tell the two apart. Open one small SIP debit's receipt and the answer is immediate.`
+            : ''}
+        </p>
+      )}
     </>
   );
 }
@@ -154,8 +171,19 @@ export default function IndiaDesk({
   const remit = useMemo(() => remittanceSummary(remittances, interbank), [remittances, interbank]);
   const gainAt = useMemo(() => batchingGain(remit, 25000), [remit]);
 
-  const live = sips.filter(s => sipStateOf(s.status).key !== 'failed');
-  const shown = showAll ? sips : live;
+  // A SIP belongs to the desk that holds the ASSET, not the one that funds it.
+  // Both US plans debit rupees, which is why handing this screen the whole blob
+  // put QQQ on the India desk. `mine` is the Indian side only; `elsewhere` is
+  // counted so the screen can point at where the others went instead of
+  // silently dropping them.
+  const desks = useMemo(() => splitSips(sips), [sips]);
+  const mine = desks.india;
+  const elsewhere = desks.us;
+
+  const live = mine.filter(s => sipStateOf(s.status).key !== 'failed');
+  const shown = showAll ? mine : live;
+  const load = useMemo(() => sipLoad(sips), [sips]);
+  const flat = useMemo(() => flatTaxWarning(remit, load), [remit, load]);
   const dis = useMemo(() => {
     if (!believedFreq) return null;
     for (const s of live) {
@@ -228,35 +256,45 @@ export default function IndiaDesk({
         )}
       </Card>
 
-      <Card title="SIPs" color="var(--green)" right={
-        sips.length ? <span className="chip c-green">{live.length} live</span> : null
+      <Card title="INDstocks SIPs" color="var(--green)" right={
+        mine.length ? <span className="chip c-green">{live.length} live</span> : null
       }>
-        {sips.length === 0
-          ? <Empty icon="↻" text="No SIPs recorded. A scan of your broker's SIP tab lands here." />
+        {mine.length === 0
+          ? <Empty icon="↻" text="No Indian SIPs recorded. A scan of the INDstocks SIP tab lands here." />
           : (
             <>
               {shown.map((s, i) => <SipRow key={s.id || s.ticker + i} sip={s} />)}
-              {sips.length > live.length && (
+              {mine.length > live.length && (
                 <button className="btn btn-sm" onClick={() => setShowAll(!showAll)}>
                   {showAll
                     ? 'HIDE FAILED'
-                    : `SHOW ${sips.length - live.length} FAILED`}
+                    : `SHOW ${mine.length - live.length} FAILED`}
                 </button>
               )}
-              {/* A US SIP set in the app is invisible to the web UI, so the
-                  screen says so rather than letting an empty US section read as
-                  "you have no US SIP". */}
-              <p className="ind-sip-note">
-                Only the Indian broker exposes a SIP schedule on the web. A US SIP
-                set in the INDmoney app cannot be read from here — it shows up in
-                the order ledger as recurring buys and nowhere else.
-              </p>
             </>
           )}
+        {/* The US plans are not shown here, but their absence must not read as
+            "you have none" — that is the mistake this whole screen exists to
+            undo. They are named and pointed at instead. */}
+        {elsewhere.length > 0 && (
+          <p className="ind-sip-note">
+            {elsewhere.length} more plan{elsewhere.length === 1 ? '' : 's'} —{' '}
+            {elsewhere.map(s => s.ticker).join(', ')} — buy US stock and live under
+            Money → Portfolio with the rest of the US book. They are funded in
+            rupees like these, so their cost shows up below.
+          </p>
+        )}
+        {load && (
+          <p className="ind-sip-note">
+            Across both desks: {load.count} live plan{load.count === 1 ? '' : 's'} ·{' '}
+            {inrFmt(Math.round(load.perMonth))}/month · {load.runsPerYear} debits a
+            year. Each one is a separate rupee transfer, whatever it ends up buying.
+          </p>
+        )}
       </Card>
 
       <Card title="What it costs to invest from India" color="var(--red)">
-        <RemitPanel summary={remit} gainAt={gainAt} />
+        <RemitPanel summary={remit} gainAt={gainAt} flat={flat} />
       </Card>
 
       <Card title="Combined book" color="var(--purple)">

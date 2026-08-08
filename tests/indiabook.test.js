@@ -8,6 +8,7 @@ import {
   nativeTotals, mixedTotals,
   SIP_FREQS, freqOf, SIP_STATES, sipStateOf, sipRunRate, sipDisagreement,
   remittanceCost, remittanceSummary, batchingGain, REMIT_NOTE, DISCLAIMER,
+  DESKS, deskOf, splitSips, sipLoad, flatTaxWarning,
 } from '../src/lib/indiabook.js';
 
 let pass = 0, fail = 0;
@@ -156,6 +157,86 @@ near(bg.toPct, 0.18, 'a 25000 transfer pays 45 tax = 0.18%');
 ok(bg.savedPctPoints > 2.6, 'batching recovers most of the drag');
 eq(batchingGain(sum, 1000), null, 'a smaller target is not a gain');
 eq(batchingGain(null, 25000), null, 'no summary means no gain');
+
+// ------------------------------------------------------------ desk routing
+// The reported bug: QQQ appeared on the India desk. Both US plans are funded in
+// RUPEES, so funding currency cannot be what decides — the asset does.
+const QQQ  = { ticker: 'QQQ',  amount: 500, currency: 'INR', asset_currency: 'USD', freq: 'weekly',  account: 'INDmoney US', status: 'active' };
+const META = { ticker: 'META', amount: 500, currency: 'INR', asset_currency: 'USD', freq: 'monthly', account: 'INDmoney US', status: 'active' };
+const GB   = { ticker: 'GOLDBEES', amount: 123, currency: 'INR', asset_currency: 'INR', freq: 'daily', account: 'INDstocks', status: '6th sip upcoming' };
+const GBX  = { ...GB, status: 'Sip setup failed' };
+
+eq(deskOf(QQQ).key, 'us', 'a rupee-funded SIP that buys US stock is a US SIP');
+eq(deskOf(GB).key, 'india', 'a rupee-funded SIP that buys an Indian ETF is an Indian SIP');
+eq(DESKS.us.label, 'INDmoney US', 'the US desk is named for the account');
+// Funding currency is identical on both, so it cannot be the discriminator.
+eq(QQQ.currency, GB.currency, 'both plans are funded in the same currency');
+ok(deskOf(QQQ).key !== deskOf(GB).key, 'identical funding currency still routes to different desks');
+// Account name is the fallback when the scan did not record an asset currency.
+eq(deskOf({ account: 'INDmoney US' }).key, 'us', 'account name routes when asset currency is absent');
+eq(deskOf({ account: 'INDstocks' }).key, 'india', 'INDstocks account routes to India');
+// Each signal must be load-bearing on its own, so each is probed with the
+// others deliberately pointing the wrong way.
+eq(deskOf({ asset_currency: 'USD', account: 'INDstocks', currency: 'INR' }).key, 'us',
+  'asset currency outranks an account name that says otherwise');
+eq(deskOf({ asset_currency: 'INR', account: 'INDmoney US' }).key, 'india',
+  'an INR asset stays Indian even in a US-named account');
+eq(deskOf({ account: 'INDmoney US', currency: 'INR' }).key, 'us',
+  'a US account outranks rupee funding when no asset currency is recorded');
+
+// Last resort only: funding currency.
+eq(deskOf({ currency: 'INR' }).key, 'india', 'with nothing else, rupee funding falls back to India');
+eq(deskOf({}).key, 'us', 'a bare row falls back to the US book, matching currencyOf');
+
+const sp = splitSips([QQQ, GB, META, GBX]);
+eq(sp.us.length, 2, 'two US plans');
+eq(sp.india.length, 2, 'two Indian plans (one of them failed)');
+eq(sp.us[0].ticker, 'QQQ', 'QQQ lands on the US desk, not the Indian one');
+ok(!sp.india.some(x => x.ticker === 'QQQ'), 'QQQ does NOT appear on the India desk');
+eq(splitSips([]).us.length, 0, 'both desk keys exist even when empty');
+eq(splitSips([]).india.length, 0, 'an empty split still has an India key');
+
+// ---------------------------------------------------------------- sip load
+const loadUs = sipLoad([QQQ, META]);
+eq(loadUs.count, 2, 'both US plans counted');
+eq(loadUs.runsPerYear, 64, 'weekly 52 plus monthly 12 is 64 debits');
+near(loadUs.perYear, 32000, '500 x 52 plus 500 x 12 is 32000 a year');
+near(loadUs.perMonth, 32000 / 12, 'per month is the year over twelve');
+eq(loadUs.taxPerYear, null, 'with no per-transfer tax the annual tax is null, not zero');
+eq(loadUs.taxPct, null, 'with no per-transfer tax the drag is null, not zero');
+// A failed plan is not a live commitment.
+eq(sipLoad([GB, GBX]).count, 1, 'a failed SIP is excluded from the load');
+eq(sipLoad([GBX]), null, 'a list of only failed SIPs has no load');
+eq(sipLoad([]), null, 'no SIPs means no load');
+// `smallest` must be the smallest, so the plans have to differ in size for the
+// assertion to mean anything.
+const mixedLoad = sipLoad([{ ...QQQ, amount: 500 }, { ...META, amount: 4000 }]);
+near(mixedLoad.perYear, 74000, '500 weekly plus 4000 monthly is 74000 a year');
+const flatMixed = flatTaxWarning(sum, mixedLoad);
+near(flatMixed.smallest, 500, 'the warning uses the smallest run, not the largest');
+near(flatMixed.dragAtSmallest, 9, 'drag is computed against the smallest run');
+
+// 45 per transfer across 64 debits.
+const loadTaxed = sipLoad([QQQ, META], 45);
+near(loadTaxed.taxPerYear, 2880, '45 across 64 debits is 2880 a year');
+near(loadTaxed.taxPct, 9, '2880 on 32000 invested is 9 percent');
+
+// ------------------------------------------------------- flat tax warning
+const flat = flatTaxWarning(sum, loadUs);
+near(flat.perTransferTax, 45, 'the observed per-transfer tax is 45');
+near(flat.smallest, 500, 'the smallest SIP run is 500');
+near(flat.dragAtSmallest, 9, '45 on a 500 debit is 9 percent');
+near(flat.dragObserved, 2.8125, '45 on the observed 1600 transfer is 2.81 percent');
+ok(flat.dragAtSmallest > flat.dragObserved, 'a flat charge hurts the small transfer more');
+eq(flat.sampleSize, 2, 'the sample size is carried so the UI can hedge');
+eq(flat.unconfirmed, false, 'two receipts is no longer a single-sample guess');
+eq(flatTaxWarning(remittanceSummary([R], null), loadUs).unconfirmed, true,
+  'one receipt is flagged unconfirmed');
+// No warning when the SIP is not smaller than what was actually observed.
+const bigSip = sipLoad([{ ...QQQ, amount: 5000 }]);
+eq(flatTaxWarning(sum, bigSip), null, 'a SIP larger than the observed transfer raises no warning');
+eq(flatTaxWarning(null, loadUs), null, 'no summary means no warning');
+eq(flatTaxWarning(sum, null), null, 'no load means no warning');
 
 ok(REMIT_NOTE.includes('no per-order brokerage'), 'the note states what is not charged');
 ok(DISCLAIMER.length > 20 && !/advice/i.test(DISCLAIMER.replace(/not advice/i, '')), 'disclaimer disclaims');
