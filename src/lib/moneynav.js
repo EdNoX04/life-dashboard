@@ -57,6 +57,8 @@ export const MONEY_SECTIONS = [
       { id: 'ticker', label: 'Ticker' },
       { id: 'value', label: 'Value' },
       { id: 'intrinsic', label: 'Intrinsic' },
+      { id: 'yield', label: 'Yield' },
+      { id: 'vlib', label: 'Worth' },
       { id: 'fin', label: 'Financials' },
       { id: 'scanner', label: 'Screens' },
       { id: 'compare', label: 'Compare' },

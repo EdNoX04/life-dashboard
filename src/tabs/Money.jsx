@@ -5,6 +5,8 @@ import StockDetail from '../components/StockDetail.jsx';
 import PortfolioChart from '../components/PortfolioChart.jsx';
 import RangeBrush from '../components/money/RangeBrush.jsx';
 import Diversification from '../components/money/Diversification.jsx';
+import YieldDesk from '../components/money/YieldDesk.jsx';
+import ValueDesk from '../components/money/ValueDesk.jsx';
 import { holdingRows } from '../lib/holdings.js';
 import { clampRange, sliceRange } from '../lib/range.js';
 import CryptoHoldings from '../components/CryptoHoldings.jsx';
@@ -620,6 +622,15 @@ export default function Money() {
           when the first of that pair happened. Neither exists in a position. */}
       {view === 'tax' && (
         <TaxDesk held={held} orders={orders} priceOf={priceOf} cur={inr ? '\u20b9' : '$'} />
+      )}
+
+      {/* Two screens that had been built, committed and never rendered. Both
+          are pure given their inputs; the containers exist because the inputs
+          come from stores with different refresh clocks, and reconciling those
+          is not the pure component's job. */}
+      {view === 'yield' && <YieldDesk held={held} priceOf={priceOf} onOpen={setOpenStock} />}
+      {view === 'vlib' && (
+        <ValueDesk held={held} quotes={quotes} cur={inr ? '\u20b9' : '$'} onOpen={setOpenStock} />
       )}
 
       {/* The spread desk is handed built rows rather than raw holdings because

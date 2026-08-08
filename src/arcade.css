@@ -5028,3 +5028,10 @@ th:hover .hold-info { color: var(--cyan); }
   .heat-cell { min-width: 62px; min-height: 54px; padding: 5px; }
   .heat-v { font-size: 12.5px; }
 }
+
+/* ---------------------------------------------- yield / value desks */
+.yd-lead { margin: 0; font-size: 13px; line-height: 1.55; color: var(--ink-2); max-width: 82ch; }
+.yd-warn {
+  margin: 10px 0 0; padding: 7px 9px; font-size: 12.5px; line-height: 1.45;
+  color: var(--ink-2); border: 1px dashed var(--yellow); background: rgba(255,214,102,.06);
+}
