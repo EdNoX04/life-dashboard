@@ -1,0 +1,133 @@
+{
+ "note": "Per-payment dividend calendar, TY 2026-27. 97% of the year by value, with exact credit dates.",
+ "ops": [
+  {
+   "table": "memory",
+   "method": "upsert",
+   "rows": [
+    {
+     "key": "div_payments",
+     "value": {
+      "payments": [
+       {
+        "ticker": "MSFT",
+        "name": "Microsoft",
+        "date": "2026-06-11",
+        "gross_inr": 66.22,
+        "gross_usd": 0.7,
+        "tax_inr": 16.08,
+        "tax_usd": 0.17,
+        "net_inr": 50.14,
+        "net_usd": 0.53,
+        "tt": 94.6,
+        "period": "P1"
+       },
+       {
+        "ticker": "SPMO",
+        "name": "Invesco S&P 500 Momentum ETF",
+        "date": "2026-06-26",
+        "gross_inr": 145.68,
+        "gross_usd": 1.54,
+        "tax_inr": 35.95,
+        "tax_usd": 0.38,
+        "net_inr": 109.74,
+        "net_usd": 1.16,
+        "tt": 94.6,
+        "period": "P2"
+       },
+       {
+        "ticker": "QQQM",
+        "name": "Invesco NASDAQ 100 ETF",
+        "date": "2026-06-26",
+        "gross_inr": 86.09,
+        "gross_usd": 0.91,
+        "tax_inr": 20.81,
+        "tax_usd": 0.22,
+        "net_inr": 65.27,
+        "net_usd": 0.69,
+        "tt": 94.6,
+        "period": "P2"
+       },
+       {
+        "ticker": "NVDA",
+        "name": "NVIDIA",
+        "date": "2026-06-26",
+        "gross_inr": 27.43,
+        "gross_usd": 0.29,
+        "tax_inr": 6.62,
+        "tax_usd": 0.07,
+        "net_inr": 20.81,
+        "net_usd": 0.22,
+        "tt": 94.6,
+        "period": "P2"
+       },
+       {
+        "ticker": "SCHD",
+        "name": "Schwab US Dividend Equity ETF",
+        "date": "2026-06-29",
+        "gross_inr": 291.37,
+        "gross_usd": 3.08,
+        "tax_inr": 72.84,
+        "tax_usd": 0.77,
+        "net_inr": 218.53,
+        "net_usd": 2.31,
+        "tt": 94.6,
+        "period": "P2"
+       },
+       {
+        "ticker": "VOO",
+        "name": "Vanguard S&P 500 ETF",
+        "date": "2026-06-30",
+        "gross_inr": 487.19,
+        "gross_usd": 5.15,
+        "tax_inr": 121.09,
+        "tax_usd": 1.28,
+        "net_inr": 366.1,
+        "net_usd": 3.87,
+        "tt": 94.6,
+        "period": "P2"
+       },
+       {
+        "ticker": "TSM",
+        "name": "TSMC",
+        "date": "2026-07-09",
+        "gross_inr": 9.38,
+        "gross_usd": 0.1,
+        "tax_inr": 0.0,
+        "tax_usd": 0.0,
+        "net_inr": 9.38,
+        "net_usd": 0.1,
+        "tt": 94.6,
+        "period": "P2"
+       },
+       {
+        "ticker": "QQQ",
+        "name": "Invesco QQQ Trust",
+        "date": "2026-07-10",
+        "gross_inr": 14.09,
+        "gross_usd": 0.15,
+        "tax_inr": 2.82,
+        "tax_usd": 0.03,
+        "net_inr": 11.27,
+        "net_usd": 0.12,
+        "tt": 93.95,
+        "period": "P2"
+       }
+      ],
+      "tax_year": "TY2026-27",
+      "captured_gross_inr": 1127.45,
+      "captured_net_inr": 851.24,
+      "year_total_gross_inr": 1160.58,
+      "coverage_pct": 97.1,
+      "complete": false,
+      "missing": "GOOGL ~13.24, Roundhill Metaverse ~12.30, a second smaller NVDA payment of about 0.94, and a few sub-7-rupee securities the list lazy-loads below TSMC. About 33 rupees of 1160.58 unaccounted.",
+      "withholding_note": "The US withholds 25% on dividends paid to Indian residents, which every row here confirms - except TSMC, which withheld NOTHING. TSMC is Taiwan-domiciled, so the US treaty rate does not apply to it. That is worth knowing: its yield is effectively a third higher after tax than a US payer at the same headline rate.",
+      "tt_note": "TT is the rate INDmoney used to book the payment. It is not constant - 94.60 in June, 93.95 in July - so a dollar figure reconstructed from a rupee amount at today's rate will not match the statement.",
+      "source": "INDmoney Tax Centre \u2192 Dividends \u2192 per-security detail, read 2026-08-08",
+      "scanned": "2026-08-08"
+     }
+    }
+   ]
+  }
+ ]
+}
