@@ -3,7 +3,7 @@ import { Card, StatTile } from '../ui.jsx';
 import {
   RISK_MAX, RISK_BANDS, MIN_HISTORY_DAYS, riskProfile, streetConsensus,
 } from '../../lib/risk.js';
-import { analyse, align, normalise, drawdown } from '../../lib/analytics.js';
+import { analyse, align, normalise, drawdown, sliceRange } from '../../lib/analytics.js';
 import { concentration, allocationBreakdown, loadAssetMeta, assetMetaSync, loadFixedIncome, EMPTY_FI } from '../../lib/assets.js';
 import { BENCHMARKS, benchmarkOf, fetchBenchmark, cachedBenchmark } from '../../lib/india.js';
 import { fetchRecommendations, memGet, memSet } from '../../lib/advisor.js';
@@ -20,6 +20,14 @@ import { fetchRecommendations, memGet, memSet } from '../../lib/advisor.js';
 const nn = (n, d = 1) => (n == null || !Number.isFinite(n) ? '—' : n.toFixed(d));
 const pct = n => (n == null || !Number.isFinite(n) ? '—' : `${n.toFixed(1)}%`);
 const CONSENSUS_TTL = 12 * 3600e3;
+
+// The trailing windows the score can be measured over. MAX is kept because it
+// is the right answer to a different question — "what has this book ever done"
+// — and dropping it would trade one fixed view for another.
+const RISK_WINDOWS = [['90D', 90], ['6M', 182], ['1Y', 365], ['MAX', null]];
+// How far back the comparison score is taken. A month: long enough that a
+// couple of quiet days do not read as a trend, short enough to still be news.
+const LOOKBACK = 30;
 
 // ---------------------------------------------------------------- the dial ----
 // A semicircular VU-meter: 48 radial ticks, each coloured by the band it falls
@@ -186,6 +194,7 @@ export default function RiskProfile({
   const [streetBusy, setStreetBusy] = useState(false);
   const [streetErr, setStreetErr] = useState(null);
   const [openPart, setOpenPart] = useState(null);
+  const [windowKey, setWindowKey] = useState('90D');
 
   useEffect(() => {
     loadAssetMeta().then(() => setMetaVer(v => v + 1)).catch(() => {});
@@ -207,15 +216,35 @@ export default function RiskProfile({
 
   const bm = benchmarkOf(benchKey);
 
-  const { stats, benchMaxDD, days } = useMemo(() => {
-    const p = normalise(series);
-    const [A, B] = bench.points.length ? align(p, bench.points) : [p, []];
+  // Why this number never moved.
+  //
+  // The score was computed over the ENTIRE stored history, and a volatility or
+  // a max drawdown measured over all time is designed not to move: one more day
+  // is one observation in hundreds, and the worst drawdown on record only ever
+  // changes on the day a new worst one happens. So the dial sat still, correctly
+  // reporting a statistic that does not change — which is not the question
+  // anyone opens this screen to ask. "How risky is this book *now*" is a
+  // trailing-window question.
+  //
+  // The window is a control rather than a constant because the honest answer
+  // depends on it: 90 days says what the book is doing lately, MAX says what it
+  // has done in total, and those genuinely differ after a volatile quarter.
+  const winDays = (RISK_WINDOWS.find(w => w[0] === windowKey) || [])[1] ?? null;
+
+  const statsFor = React.useCallback((pts, benchPts) => {
+    const [A, B] = benchPts.length ? align(pts, benchPts) : [pts, []];
     return {
       stats: analyse({ series: A, benchmark: B, orders, flowsByDay, currentValue }),
       benchMaxDD: B.length ? drawdown(B).maxDD : null,
       days: A.length,
     };
-  }, [series, bench.points, orders, flowsByDay, currentValue]);
+  }, [orders, flowsByDay, currentValue]);
+
+  const { stats, benchMaxDD, days } = useMemo(
+    () => statsFor(sliceRange(series, winDays), bench.points),
+    [series, winDays, bench.points, statsFor],
+  );
+
 
   const conc = useMemo(() => concentration(held, priceOf), [held, quotes]); // eslint-disable-line
   const alloc = useMemo(
@@ -227,6 +256,31 @@ export default function RiskProfile({
     () => riskProfile({ stats: { ...stats, benchMaxDD }, conc, alloc }),
     [stats, benchMaxDD, conc, alloc],
   );
+
+  // The same score as it stood a month ago, over the same window length ending
+  // 30 days back. Without it the dial is a level with no sense of direction, and
+  // a risk level you cannot watch move is indistinguishable from one that is
+  // stuck — which is exactly how this read.
+  //
+  // conc and alloc are TODAY'S: per-day holdings history is not stored, so this
+  // comparison isolates the market-behaviour drivers and holds the book's shape
+  // fixed. That is a real limitation and it is said on screen, because a reader
+  // would otherwise assume both halves moved.
+  const prev = useMemo(() => {
+    const p = normalise(series);
+    if (p.length < MIN_HISTORY_DAYS + LOOKBACK) return null;
+    const endAt = p[p.length - 1 - LOOKBACK]?.d;
+    if (!endAt) return null;
+    const past = p.filter(x => x.d <= endAt);
+    const pastBench = bench.points.filter(x => x.d <= endAt);
+    const s = statsFor(sliceRange(past, winDays), pastBench);
+    if (s.days < MIN_HISTORY_DAYS) return null;
+    return riskProfile({ stats: { ...s.stats, benchMaxDD: s.benchMaxDD }, conc, alloc });
+  }, [series, bench.points, winDays, statsFor, conc, alloc]);
+
+  const drift = prev?.risk?.score != null && profile.risk.score != null
+    ? profile.risk.score - prev.risk.score
+    : null;
 
   const { risk, health, placement } = profile;
   const band = risk.band;
@@ -277,6 +331,42 @@ export default function RiskProfile({
             <div className="small muted" style={{ textAlign: 'center' }}>
               {measured} of {risk.parts.length} drivers measured · beta vs {bm.short}
             </div>
+
+            {/* Measured over what. The score was computed over all history and
+                therefore barely moved; a window makes it answer "how risky is
+                this book now" instead of "how risky has it ever been". */}
+            <div className="risk-win">
+              {RISK_WINDOWS.map(([k]) => (
+                <button key={k} className={`vsb-range${windowKey === k ? ' on' : ''}`}
+                  onClick={() => setWindowKey(k)}>{k}</button>
+              ))}
+            </div>
+
+            {drift != null ? (
+              <div className="risk-drift small" style={{ textAlign: 'center' }}>
+                {drift === 0 ? 'Unchanged over the past month' : (
+                  <>
+                    <b style={{ color: drift > 0 ? 'var(--red)' : 'var(--green)' }}>
+                      {drift > 0 ? '\u25b2' : '\u25bc'} {Math.abs(drift)}
+                    </b>{' '}
+                    vs a month ago ({prev.risk.score} \u2192 {risk.score})
+                    {prev.risk.band?.label !== band?.label && (
+                      <> \u00b7 crossed from <b>{prev.risk.band?.label}</b> into <b>{band?.label}</b></>
+                    )}
+                  </>
+                )}
+                <div className="muted" style={{ marginTop: 2 }}>
+                  Market drivers only \u2014 per-day holdings history isn&#39;t stored,
+                  so concentration and growth share are held at today&#39;s values in
+                  both scores.
+                </div>
+              </div>
+            ) : (
+              <div className="risk-drift small muted" style={{ textAlign: 'center' }}>
+                Not enough stored history yet to show which way this is moving \u2014
+                that needs {MIN_HISTORY_DAYS + LOOKBACK} days of daily value.
+              </div>
+            )}
           </div>
 
           <div className="risk-parts">

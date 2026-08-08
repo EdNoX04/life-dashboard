@@ -30,8 +30,11 @@
 //   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET      — shared by every account
 //   GOOGLE_REFRESH_TOKEN                        — personal account
 //   GOOGLE_CALENDAR_ID          (optional, defaults to "primary")
-//   GOOGLE_WORK_REFRESH_TOKEN   (optional)      — Workspace / company account
+//   GOOGLE_WORK_REFRESH_TOKEN   (optional)      — Workspace / college account
 //   GOOGLE_WORK_CALENDAR_ID     (optional, defaults to "primary")
+//   GOOGLE_THIRD_REFRESH_TOKEN  (optional)      — a third account
+//   GOOGLE_THIRD_CALENDAR_ID    (optional, defaults to "primary")
+//   GOOGLE_THIRD_LABEL          (optional, defaults to "Third")
 
 import { parseFrom, foldDuplicates, splitEventId } from './lib/calendar-fold.mjs';
 
@@ -40,6 +43,8 @@ const {
   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
   GOOGLE_REFRESH_TOKEN, GOOGLE_CALENDAR_ID = 'primary',
   GOOGLE_WORK_REFRESH_TOKEN, GOOGLE_WORK_CALENDAR_ID = 'primary',
+  GOOGLE_THIRD_REFRESH_TOKEN, GOOGLE_THIRD_CALENDAR_ID = 'primary',
+  GOOGLE_THIRD_LABEL = 'Third',
 } = process.env;
 
 // A missing secret is a *configuration* state, not a crash. This job runs every
@@ -69,6 +74,11 @@ const ACCOUNTS = [
     refresh: GOOGLE_REFRESH_TOKEN, calendarId: GOOGLE_CALENDAR_ID },
   { id: 'work', label: 'Work', color: 'var(--orange)',
     refresh: GOOGLE_WORK_REFRESH_TOKEN, calendarId: GOOGLE_WORK_CALENDAR_ID },
+  // A third account, last so it never displaces an id the dashboard already
+  // stores events against. Its label is configurable because "Third" describes
+  // its position in this list and nothing about what the account is for.
+  { id: 'third', label: GOOGLE_THIRD_LABEL, color: 'var(--purple)',
+    refresh: GOOGLE_THIRD_REFRESH_TOKEN, calendarId: GOOGLE_THIRD_CALENDAR_ID },
 ].filter(a => a.refresh);
 
 // ---- Supabase REST ----

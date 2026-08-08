@@ -3,6 +3,7 @@ import { Card, Empty } from '../components/ui.jsx';
 import { useCollection } from '../lib/hooks.js';
 import LofiRadio from '../components/LofiRadio.jsx';
 import * as amb from '../lib/ambient.js';
+import * as pomo from '../lib/pomodoro.js';
 
 // Cozy study room: functional pomodoro, procedural ambience, a lofi radio (audio only),
 // and your subject notes pulled in to revise while a timer runs.
@@ -14,14 +15,19 @@ const STUDY_STATIONS = [
   { id: '4xDzrJKXOOY', label: 'Synth' },
   { id: 'E2vONfzoyRI', label: 'Jazz' },
 ];
-const DUR = { focus: 25 * 60, short: 5 * 60, long: 15 * 60 };
+const DUR = pomo.DUR;
 const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
 export default function Study({ go }) {
-  const [mode, setMode] = useState('focus');
-  const [secs, setSecs] = useState(DUR.focus);
-  const [running, setRunning] = useState(false);
-  const [rounds, setRounds] = useState(0);
+  // The timer state lives in lib/pomodoro.js, at module scope, for the same
+  // reason the ambience does: this component unmounts every time you look at
+  // another tab, and a running timer must not care. `tick` below only forces a
+  // repaint — it is not what makes time pass, so it can be missed, throttled or
+  // stopped without the clock drifting.
+  const [pomoState, setPomoState] = useState(pomo.get);
+  const [, repaint] = useState(0);
+  const { mode, rounds, running } = pomoState;
+  const secs = pomo.remaining(pomoState);
   // ambience state is global (src/lib/ambient.js) so it keeps playing across tabs
   const { keys: ambKeys, vol: ambVol } = amb.useAmbient();
   const vol = Math.round(ambVol * 100);
@@ -31,20 +37,36 @@ export default function Study({ go }) {
   const withNotes = subjects.filter(s => s.notes_url);
   const [openNotes, setOpenNotes] = useState(null);
 
+  // Any change made anywhere - including by a settle() on read after the tab was
+  // closed - lands here.
+  useEffect(() => pomo.subscribe(setPomoState), []);
+
   useEffect(() => {
     if (!running) { clearInterval(tick.current); return; }
-    tick.current = setInterval(() => setSecs(s => {
-      if (s <= 1) {
-        const next = mode === 'focus' ? ((rounds + 1) % 4 === 0 ? 'long' : 'short') : 'focus';
-        if (mode === 'focus') setRounds(r => r + 1);
-        setMode(next); return DUR[next];
-      }
-      return s - 1;
-    }), 1000);
+    tick.current = setInterval(() => {
+      // Re-read rather than decrement. If the browser throttled this to once a
+      // minute the display jumps a minute, which is honest; the previous code
+      // would have counted one second and quietly lost fifty-nine.
+      const st = pomo.get();
+      if (!st.running) return;          // settle() ended it; the subscription repaints
+      repaint(n => n + 1);
+    }, 1000);
     return () => clearInterval(tick.current);
-  }, [running, mode, rounds]);
+  }, [running]);
 
-  const setM = m => { setMode(m); setSecs(DUR[m]); setRunning(false); };
+  // Coming back to the tab: catch up immediately instead of waiting for the
+  // next interval tick, which on a restored background tab can be a while.
+  useEffect(() => {
+    const wake = () => { pomo.get(); repaint(n => n + 1); };
+    document.addEventListener('visibilitychange', wake);
+    window.addEventListener('focus', wake);
+    return () => {
+      document.removeEventListener('visibilitychange', wake);
+      window.removeEventListener('focus', wake);
+    };
+  }, []);
+
+  const setM = m => pomo.set(st => pomo.setMode(st, m));
   const pct = 100 - Math.round((secs / DUR[mode]) * 100);
   const ringColor = mode === 'focus' ? 'var(--pink)' : 'var(--green)';
   const toggleAmb = k => amb.toggle(k);
@@ -71,10 +93,23 @@ export default function Study({ go }) {
             </div>
           </div>
           <div className="flex" style={{ justifyContent: 'center', gap: 8, marginTop: 12 }}>
-            <button className={`btn ${running ? '' : 'btn-green'}`} onClick={() => setRunning(r => !r)}>{running ? '❚❚ Pause' : '▶ Start'}</button>
-            <button className="btn" onClick={() => { setSecs(DUR[mode]); setRunning(false); }}>↺ Reset</button>
+            <button className={`btn ${running ? '' : 'btn-green'}`}
+              onClick={() => pomo.set(st => (st.running ? pomo.pause(st) : pomo.start(st)))}>
+              {running ? '❚❚ Pause' : '▶ Start'}
+            </button>
+            <button className="btn" onClick={() => pomo.set(st => pomo.reset(st))}>↺ Reset</button>
           </div>
-          <div className="small muted mt" style={{ textAlign: 'center' }}>🍅 {rounds} focus rounds today</div>
+          <div className="small muted mt" style={{ textAlign: 'center' }}>🍅 {rounds} focus rounds</div>
+          {/* A session that ran out while you were elsewhere. Said out loud,
+              because the alternative is a timer that silently presents a fresh
+              block as though the last one never happened. */}
+          {pomoState.finished && !running && (
+            <div className="small mt" style={{ textAlign: 'center', color: 'var(--green)' }}>
+              {pomo.MODE_LABEL[pomoState.finished.mode]} finished
+              {' '}{new Date(pomoState.finished.at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+              {' '}— {pomo.MODE_LABEL[mode].toLowerCase()} is loaded and waiting.
+            </div>
+          )}
         </Card>
 
         <Card title="Ambience" color="var(--cyan)">

@@ -64,8 +64,19 @@ export default function YieldDesk({ held = [], priceOf, onOpen = null }) {
 
   const active = ticker || payers[0] || '';
 
-  const divSeries = useMemo(
-    () => (active && divMeta?.[active] ? divSeriesFromMeta(divMeta[active]) : []),
+  // divSeriesFromMeta returns an ENVELOPE - {rows, source, note} - not a bare
+  // array, and this passed the envelope straight to YieldLens as its dividend
+  // series. Every screen under Yield then called .map on an object and the tab
+  // died with "map is not a function" before it drew anything.
+  //
+  // The envelope is kept, because `source` is the whole reason it exists: a
+  // declared payment history and a rate walked backwards produce yield lines
+  // that look identical and mean completely different things. It is unwrapped at
+  // the boundary and the source is stated on screen rather than thrown away.
+  const div = useMemo(
+    () => (active && divMeta?.[active]
+      ? divSeriesFromMeta(divMeta[active])
+      : { rows: [], source: 'none', note: null }),
     [active, divMeta],
   );
 
@@ -118,6 +129,22 @@ export default function YieldDesk({ held = [], priceOf, onOpen = null }) {
           yield number on its own cannot answer. A 4% yield is cheap for one stock
           and expensive for another; only its own past says which.
         </p>
+        {/* Which of the three sources this line is built from. Stated on the
+            screen rather than in a comment, because a modelled back-cast drawn
+            in the same ink as a payment record is the screen lying quietly. */}
+        {div.source === 'declared' && (
+          <p className="yd-src">Built from {div.rows.length} declared payments — this is history, not a model.</p>
+        )}
+        {div.source === 'modelled' && (
+          <p className="yd-warn">
+            No declared payment history saved for {active}, so the past dividend is
+            the current rate walked backwards at its stated growth. That is a smooth
+            curve no company ever paid — treat the shape, not the level.
+          </p>
+        )}
+        {div.source === 'flat' && (
+          <p className="yd-warn">{div.note}</p>
+        )}
         {priceSeries.length < 2 && (
           <p className="yd-warn">
             No price history saved for {active}, so the yield line cannot be drawn
@@ -131,7 +158,7 @@ export default function YieldDesk({ held = [], priceOf, onOpen = null }) {
         ticker={active}
         name={holding?.name || active}
         prices={priceSeries}
-        divSeries={divSeries}
+        divSeries={div.rows}
       />
     </>
   );

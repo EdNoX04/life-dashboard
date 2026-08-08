@@ -264,8 +264,25 @@ export const GROWTH_WINDOWS = [1, 3, 5];
  * date rather than an interpolation, because a dividend is a discrete event and
  * interpolating between two of them invents a payment that never happened.
  */
+// divSeriesFromMeta returns {rows, source, note} because the SOURCE of a
+// dividend history changes what it means — declared payments and a back-cast are
+// not the same evidence. Every consumer below wants only the points, and one
+// caller handed the whole envelope straight through: `(divSeries || []).map`
+// then threw "map is not a function" and took the Yield tab down with it.
+//
+// `|| []` does not catch that. It only replaces null and undefined, and an
+// object is neither — so the guard that looked like it covered a bad shape
+// covered exactly the two shapes that were never the problem. Unwrapping here
+// means the envelope is accepted anywhere the points are, and anything that is
+// neither becomes an empty series instead of a crashed screen.
+export function asPoints(series) {
+  if (Array.isArray(series)) return series;
+  if (series && Array.isArray(series.rows)) return series.rows;
+  return [];
+}
+
 export function growthTable(divSeries = [], { today = new Date(), windows = GROWTH_WINDOWS } = {}) {
-  const rows = (divSeries || [])
+  const rows = asPoints(divSeries)
     .map(p => ({ t: asDate(p.t ?? p.date), d: num(p.d ?? p.dividend) }))
     .filter(p => p.d !== null && !Number.isNaN(p.t.getTime()))
     .sort((a, b) => a.t - b.t);
@@ -334,11 +351,11 @@ export const SPECTRUM_HINT = '◀ Expensive (low yield) — Cheap (high yield) �
  * print.
  */
 export function buildYieldSeries(prices = [], divSeries = [], { basis = 'fwd' } = {}) {
-  const px = (prices || [])
+  const px = asPoints(prices)
     .map(p => ({ t: asDate(p.t ?? p.date), c: num(p.c ?? p.close ?? p.price) }))
     .filter(p => p.c !== null && p.c > 0 && !Number.isNaN(p.t.getTime()))
     .sort((a, b) => a.t - b.t);
-  const dv = (divSeries || [])
+  const dv = asPoints(divSeries)
     .map(p => ({ t: asDate(p.t ?? p.date), d: num(p.d ?? p.dividend) }))
     .filter(p => p.d !== null && p.d > 0 && !Number.isNaN(p.t.getTime()))
     .sort((a, b) => a.t - b.t);

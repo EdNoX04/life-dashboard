@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, StatTile, money } from '../ui.jsx';
 import VersusChart from './VersusChart.jsx';
-import { BENCHMARKS, benchmarkOf, fetchBenchmark, cachedBenchmark } from '../../lib/india.js';
+import { BENCHMARKS, benchmarkOf, fetchBenchmark, cachedBenchmark, sourceNote, whyEmpty } from '../../lib/india.js';
 import { align, normalise, analyse, sliceRange, benchmarkEquivalent } from '../../lib/analytics.js';
 
 // "Returns vs benchmark" — the centrepiece. Everything here is derived from two
@@ -292,9 +292,28 @@ export default function Benchmark({
                 </>
               )}
               {bench.source === 'cache' && ' · showing stored data while refreshing'}
-              {bench.stale && ' · live refresh failed, showing last stored closes'}
-              {tab === 'bench' && !bench.points.length && !bench.loading && ' · no index data yet — run the data self-test in Settings'}
+              {bench.stale && bench.points.length > 0 && ' · live refresh failed, showing last stored closes'}
             </div>
+
+            {/* Which series this actually is. A tracking fund standing in for a
+                licensed index is a substitution the reader is entitled to know
+                about, and it changes how the gap should be read. */}
+            {tab === 'bench' && sourceNote(benchKey, bench.source) && (
+              <p className="vsb-note">{sourceNote(benchKey, bench.source)}</p>
+            )}
+
+            {/* And when there is no line at all, the providers' own words. The
+                old text named no cause and pointed at a self-test that would
+                have repeated the same failure without explaining it. */}
+            {tab === 'bench' && !bench.points.length && !bench.loading && (
+              <p className="vsb-fail">
+                No closes for {bm.short} yet.
+                {whyEmpty(bench.tried) ? <> Every source refused: <code>{whyEmpty(bench.tried)}</code>.</> : null}
+                {bm.etf
+                  ? ' A Twelve Data key in Settings restores this line — it fetches the tracking fund, which the free tier does cover, even though the index level itself does not.'
+                  : ` No US-listed fund tracks ${bm.short} closely enough to stand in for it, so this index needs a data plan that carries index levels. The other indices in the list will still draw.`}
+              </p>
+            )}
           </>
         )}
       </Card>

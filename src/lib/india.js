@@ -27,14 +27,37 @@ const num = x => (Number.isFinite(Number(x)) ? Number(x) : 0);
 
 // ---------------------------------------------------------------- benchmarks
 
-// `td` = Twelve Data symbol, `stooq` = Stooq symbol. Both are tried in turn.
+// `td` = Twelve Data symbol, `stooq` = Stooq symbol, `etf` = a fund that tracks
+// the index.
+//
+// The ETF column is not a nicety, it is why this screen has any data at all.
+// Index LEVELS are licensed products: S&P charges for SPX, NSE charges for
+// NIFTY, and none of them appear on Twelve Data's free tier — every request
+// came back as an error. The keyless fallback is Stooq, which serves the closes
+// happily and sends no CORS header, so the browser refuses to read the response
+// it just received. Both providers therefore failed on every index, on every
+// render, and the chart drew nothing while saying only "no index data yet".
+//
+// A fund that tracks the index is not licensed the same way and is an ordinary
+// US-listed ticker, which the free tier does cover. Its RETURN is what this
+// screen compares against, and that is what a tracker is built to reproduce.
+//
+// Two honest caveats, both surfaced on screen rather than buried here:
+//   · A tracker's price return runs a little under the index because of fees
+//     and because index levels exclude dividends the fund actually pays out.
+//   · INDA is a US-listed, dollar-priced India fund, so its return carries the
+//     rupee-dollar move on top of the market's. Against a dollar portfolio that
+//     is arguably the more useful comparison, but it is NOT the NIFTY's own
+//     return and must never be labelled as though it were.
+// SENSEX and NIFTY Bank get no proxy: no fund tracks them closely enough from a
+// US listing, and a wrong benchmark is worse than a missing one.
 export const BENCHMARKS = [
-  { key: 'NIFTY50', label: 'NIFTY 50', short: 'NIFTY', region: 'IN', cur: '₹', color: 'var(--orange)', td: 'NIFTY 50', tdExchange: 'NSE', stooq: '^nsei' },
+  { key: 'NIFTY50', label: 'NIFTY 50', short: 'NIFTY', region: 'IN', cur: '₹', color: 'var(--orange)', td: 'NIFTY 50', tdExchange: 'NSE', stooq: '^nsei', etf: 'INDA', etfNote: 'INDA, a dollar-priced India fund — its return includes the ₹/$ move' },
   { key: 'SENSEX', label: 'BSE SENSEX', short: 'SENSEX', region: 'IN', cur: '₹', color: 'var(--yellow)', td: 'SENSEX', tdExchange: 'BSE', stooq: '^snx' },
   { key: 'NIFTYBANK', label: 'NIFTY Bank', short: 'BANKNIFTY', region: 'IN', cur: '₹', color: 'var(--pink)', td: 'NIFTY BANK', tdExchange: 'NSE', stooq: '^nsebank' },
-  { key: 'SPX', label: 'S&P 500', short: 'S&P 500', region: 'US', cur: '$', color: 'var(--cyan)', td: 'SPX', stooq: '^spx' },
-  { key: 'NDX', label: 'Nasdaq 100', short: 'NASDAQ', region: 'US', cur: '$', color: 'var(--purple)', td: 'NDX', stooq: '^ndx' },
-  { key: 'DJI', label: 'Dow Jones', short: 'DOW', region: 'US', cur: '$', color: 'var(--green)', td: 'DJI', stooq: '^dji' },
+  { key: 'SPX', label: 'S&P 500', short: 'S&P 500', region: 'US', cur: '$', color: 'var(--cyan)', td: 'SPX', stooq: '^spx', etf: 'SPY', etfNote: 'SPY, the ETF that tracks it' },
+  { key: 'NDX', label: 'Nasdaq 100', short: 'NASDAQ', region: 'US', cur: '$', color: 'var(--purple)', td: 'NDX', stooq: '^ndx', etf: 'QQQ', etfNote: 'QQQ, the ETF that tracks it' },
+  { key: 'DJI', label: 'Dow Jones', short: 'DOW', region: 'US', cur: '$', color: 'var(--green)', td: 'DJI', stooq: '^dji', etf: 'DIA', etfNote: 'DIA, the ETF that tracks it' },
 ];
 
 export const benchmarkOf = key => BENCHMARKS.find(b => b.key === key) || BENCHMARKS[0];
@@ -139,6 +162,22 @@ async function twelveSeries(bm, size = 2000) {
   return pts;
 }
 
+// The same call, aimed at the tracking fund instead of the index. No exchange
+// hint: these are plain US listings, which is exactly why they are reachable
+// when the index is not.
+async function etfSeries(bm, size = 2000) {
+  if (!bm.etf) throw new Error('no tracking fund for this index');
+  const key = (getConfig().twelveKey || '').trim();
+  if (!key) throw new Error('NO_KEY');
+  const q = new URLSearchParams({ symbol: bm.etf, interval: '1day', outputsize: String(size), order: 'ASC', apikey: key });
+  const j = await getJSON(`https://api.twelvedata.com/time_series?${q}`);
+  if (j.status === 'error') throw new Error(j.message || 'Twelve Data error');
+  const values = Array.isArray(j.values) ? j.values : [];
+  const pts = values.map(v => ({ d: String(v.datetime).slice(0, 10), v: num(v.close) })).filter(p => p.v > 0);
+  if (!pts.length) throw new Error('empty');
+  return pts;
+}
+
 async function stooqSeries(bm, { proxy = false } = {}) {
   if (!bm.stooq) throw new Error('no stooq symbol');
   const pts = parseStooqCsv(await getText(`https://stooq.com/q/d/l/?s=${encodeURIComponent(bm.stooq)}&i=d`, { proxy }));
@@ -149,6 +188,9 @@ async function stooqSeries(bm, { proxy = false } = {}) {
 function providerChain(bm) {
   const chain = [
     { name: 'twelvedata', run: () => twelveSeries(bm) },
+    // Before Stooq, because Stooq's response is unreadable from a browser and
+    // waiting for it to fail first only delays the series that works.
+    { name: `etf:${bm.etf || '-'}`, run: () => etfSeries(bm) },
     { name: 'stooq', run: () => stooqSeries(bm) },
   ];
   if (proxyEnabled()) chain.push({ name: 'stooq+proxy', run: () => stooqSeries(bm, { proxy: true }) });
@@ -173,7 +215,13 @@ export async function fetchBenchmark(key, { force = false } = {}) {
   for (const p of providerChain(bm)) {
     try {
       const pts = await p.run();
-      const merged = mergeSeries(hit?.points, pts);
+      // Only extend a stored series with points from the SAME provider. NIFTY
+      // closes near 24,000 and INDA trades near 50; unioning them on date would
+      // produce one series that steps by a factor of 500 wherever the source
+      // changed, and every return computed across that step would be nonsense.
+      // A provider switch throws the old points away and starts clean.
+      const compatible = hit?.source === p.name ? hit.points : null;
+      const merged = mergeSeries(compatible, pts);
       store[bm.key] = { at: Date.now(), source: p.name, points: merged };
       await saveBenchCache();
       return { key: bm.key, points: merged, source: p.name, at: Date.now(), stale: false, tried };
@@ -189,6 +237,28 @@ export async function fetchBenchmark(key, { force = false } = {}) {
     stale: true,
     tried,
   };
+}
+
+// What the reader is actually looking at. A tracker's line and the index's own
+// line are drawn identically and are not the same quantity, so the screen has
+// to say which one it got — silently substituting one for the other is the
+// exact dishonesty this whole detour was meant to avoid.
+export function sourceNote(key, source) {
+  const bm = benchmarkOf(key);
+  if (!source) return null;
+  if (String(source).startsWith('etf:')) {
+    return `Index levels aren't on the free data plan, so this line is ${bm.etfNote || bm.etf}. Its return tracks the index closely but not exactly — fees and dividends put a small, persistent gap between them.`;
+  }
+  if (source === 'cache') return 'Showing stored closes while the refresh runs.';
+  return null;
+}
+
+// Why nothing loaded, in the provider's own words. `tried` was collected on
+// every failure and never shown, so a chart that could not draw said only "no
+// index data yet" — which names no cause and suggests no fix.
+export function whyEmpty(tried = []) {
+  if (!tried?.length) return null;
+  return tried.map(t => `${t.provider}: ${t.error}`).join(' · ');
 }
 
 // Several at once, sequential — free tiers rate-limit hard (Twelve Data is 8

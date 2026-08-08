@@ -37,7 +37,21 @@ if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
 // secret printed at the end — Google decides the actual account from whoever you
 // are signed in as on the consent page.
 const WHICH = (process.argv[2] || 'personal').toLowerCase();
-const SECRET_NAME = WHICH === 'work' ? 'GOOGLE_WORK_REFRESH_TOKEN' : 'GOOGLE_REFRESH_TOKEN';
+// One mapping table rather than nested ternaries. Adding the third account
+// through a chain of `x === 'work' ? ... : ...` is how the calendar-id line
+// below would have kept saying GOOGLE_CALENDAR_ID for it — silently telling you
+// to store the third account's id under the first account's name.
+const SLOTS = {
+  personal: { token: 'GOOGLE_REFRESH_TOKEN', cal: 'GOOGLE_CALENDAR_ID' },
+  work: { token: 'GOOGLE_WORK_REFRESH_TOKEN', cal: 'GOOGLE_WORK_CALENDAR_ID' },
+  third: { token: 'GOOGLE_THIRD_REFRESH_TOKEN', cal: 'GOOGLE_THIRD_CALENDAR_ID' },
+};
+if (!SLOTS[WHICH]) {
+  console.error(`Unknown account "${WHICH}". Use one of: ${Object.keys(SLOTS).join(', ')}`);
+  process.exit(1);
+}
+const SECRET_NAME = SLOTS[WHICH].token;
+const CAL_NAME = SLOTS[WHICH].cal;
 
 // calendar.events writes meetings; gmail.readonly powers the unread strip. The
 // read-only Gmail scope is deliberate: the worker has no send path at all, so the
@@ -106,7 +120,7 @@ try {
   console.log('GOOGLE_CLIENT_ID'.padEnd(pad), '=', GOOGLE_CLIENT_ID);
   console.log('GOOGLE_CLIENT_SECRET'.padEnd(pad), '=', GOOGLE_CLIENT_SECRET);
   console.log(SECRET_NAME.padEnd(pad), '=', tok.refresh_token);
-  console.log((WHICH === 'work' ? 'GOOGLE_WORK_CALENDAR_ID' : 'GOOGLE_CALENDAR_ID').padEnd(pad), '= primary');
+  console.log(CAL_NAME.padEnd(pad), '= primary');
   console.log('=====================================================');
   console.log(`Account: ${WHICH}`);
   console.log(`Scopes granted: ${granted.map(x => x.split('/').pop()).join(', ') || '(none reported)'}`);
