@@ -57,13 +57,8 @@ import { pickProvider } from '../lib/ai.js';
 import * as db from '../lib/db.js';
 import Crypto from '../components/money/Crypto.jsx';
 import { MONEY_SECTIONS } from '../lib/moneynav.js';
-
-// live USD→INR (keyless, CORS-ok; frankfurter with er-api fallback)
-async function fetchUsdInr() {
-  try { const j = await (await fetch('https://api.frankfurter.app/latest?from=USD&to=INR')).json(); if (j?.rates?.INR) return j.rates.INR; } catch {}
-  try { const j = await (await fetch('https://open.er-api.com/v6/latest/USD')).json(); if (j?.rates?.INR) return j.rates.INR; } catch {}
-  return null;
-}
+import { portfolioTotals } from '../lib/holdings.js';
+import { fetchUsdInr } from '../lib/markets.js';
 
 const STOP = new Set(['inc', 'inc.', 'corp', 'corp.', 'corporation', 'ltd', 'ltd.', 'co', 'co.', 'company', 'holdings', 'group', 'the', 'and', 'plc', 'etf', 'trust', 'index', 'fund', 'class', 'common', 'stock', 'nv', 'sa', 'ag']);
 // company-name keywords used to match news to a holding
@@ -273,12 +268,11 @@ export default function Money() {
     if (currencyOf(h) !== 'INR') return v;
     return fx ? v / fx : null;
   };
-  const excludedInr = held.filter(h => currencyOf(h) === 'INR' && !fx).length;
 
-  const value = held.reduce((s, h) => s + (usdOf(h, priceOf(h)) ?? 0), 0);
-  const cost = held.reduce((s, h) => s + (usdOf(h, Number(h.avg_cost || 0)) ?? 0), 0);
-  const pnl = value - cost;
-  const pnlPct = cost ? (pnl / cost) * 100 : 0;
+  // The totals come from lib/holdings so the dashboard tile computes them the
+  // same way. They were worked out separately before and disagreed by the full
+  // rupee value of the GOLDBEES position.
+  const { value, cost, pnl, pnlPct, excludedInr } = portfolioTotals(held, { priceOf, fx, currencyOf });
 
   // today's 1D gain/loss from live change vs prev close
   const { dayGain, dayBase } = held.reduce((a, h) => {

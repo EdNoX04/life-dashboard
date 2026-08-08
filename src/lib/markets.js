@@ -485,3 +485,18 @@ export const DISCLAIMER =
   + 'nothing here is a view on any market and no level is a signal to act on.';
 
 export { BENCHMARKS, benchmarkOf, MARKETS, KINDS };
+
+
+// Live USD→INR. Keyless and CORS-friendly, with a second provider behind the
+// first because a rate that fails to load is not cosmetic here: every rupee
+// holding is EXCLUDED from the dollar totals until it arrives, rather than
+// counted at par.
+//
+// Lifted out of Money.jsx because the dashboard needs it too. That file's copy
+// being private is half of why the two portfolio tiles disagreed - HQ could not
+// convert even if it had wanted to.
+export async function fetchUsdInr() {
+  try { const j = await (await fetch('https://api.frankfurter.app/latest?from=USD&to=INR')).json(); if (j?.rates?.INR) return j.rates.INR; } catch { /* try the next one */ }
+  try { const j = await (await fetch('https://open.er-api.com/v6/latest/USD')).json(); if (j?.rates?.INR) return j.rates.INR; } catch { /* both refused */ }
+  return null;
+}

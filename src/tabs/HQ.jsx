@@ -8,6 +8,9 @@ import MiniCalendar from '../components/MiniCalendar.jsx';
 import NextMeeting from '../components/NextMeeting.jsx';
 import MailStrip from '../components/MailStrip.jsx';
 import { useLiveQuotes } from '../lib/live.js';
+import { portfolioTotals } from '../lib/holdings.js';
+import { currencyOf } from '../lib/indiabook.js';
+import { fetchUsdInr } from '../lib/markets.js';
 import { activeDay, ROLLOVER_HOUR } from '../lib/schedule.js';
 import DashAllocation from '../components/money/DashAllocation.jsx';
 
@@ -56,10 +59,20 @@ export default function HQ({ go }) {
   const classes = timetable.filter(t => t.day === viewDay.name);
   const [moneyVis, toggleMoney] = useMoneyVisible();
   const held = investments.filter(h => Number(h.qty) > 0);
+  // Needed to price the rupee holdings. Until it arrives they are excluded from
+  // the total rather than counted at par - the tile says so below.
+  const [fx, setFx] = useState(null);
+  useEffect(() => { fetchUsdInr().then(setFx); }, []);
   const { quotes } = useLiveQuotes(held.map(h => h.ticker));
-  const pValue = held.reduce((s, h) => s + Number(h.qty) * Number(quotes[h.ticker]?.price ?? h.last_price ?? h.avg_cost ?? 0), 0);
-  const pCost = held.reduce((s, h) => s + Number(h.qty) * Number(h.avg_cost || 0), 0);
-  const pPct = pCost ? ((pValue - pCost) / pCost) * 100 : 0;
+  // Same helper the Money tab uses. These two tiles used to compute the total
+  // independently, and disagreed by exactly the rupee value of the GOLDBEES
+  // position: this one multiplied qty by price with no currency check, so ₹122
+  // a unit entered a dollar total as $122.
+  const { value: pValue, pnlPct: pPct, excludedInr } = portfolioTotals(held, {
+    priceOf: h => Number(quotes[h.ticker]?.price ?? h.last_price ?? h.avg_cost ?? 0),
+    fx,
+    currencyOf,
+  });
 
   const hour = now.getHours();
   const greet = hour < 5 ? 'STILL UP?' : hour < 12 ? 'GOOD MORNING' : hour < 17 ? 'GOOD AFTERNOON' : 'GOOD EVENING';

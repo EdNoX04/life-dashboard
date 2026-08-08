@@ -362,3 +362,40 @@ export function toCSV(rows = [], total = null) {
   }
   return out.join('\n');
 }
+
+// ---------------------------------------------------------- portfolio totals
+
+// One implementation of "what is this book worth", because there were two and
+// they disagreed on screen: the dashboard tile read $7,307.85 while the Money
+// tab read $6,208.91. The gap was exactly ₹1,098.94 — nine units of GOLDBEES at
+// about ₹122 — counted by the dashboard as though ₹122 were $122.
+//
+// Money.jsx had been fixed; HQ.jsx still summed `qty × price` with no currency
+// check. That is the shape of this bug: it is not that one of them was wrong,
+// it is that the same question was answered twice in two files, so fixing one
+// left the other stating a different number with equal confidence. A user
+// looking at both has no way to tell which to believe.
+//
+// A rupee holding with no FX rate is EXCLUDED and counted in `excludedInr`,
+// never converted at 1.0. A total that quietly absorbs an account at the wrong
+// rate is indistinguishable from a correct one, which is worse than a total
+// that admits a gap.
+export function portfolioTotals(held = [], { priceOf, fx = null, currencyOf }) {
+  const per = (h, p) => {
+    const q = Number(h.qty) || 0;
+    const v = q * (Number(p) || 0);
+    if (currencyOf(h) !== 'INR') return v;
+    return fx ? v / fx : null;
+  };
+
+  let value = 0, cost = 0, excludedInr = 0;
+  for (const h of held) {
+    const v = per(h, priceOf(h));
+    const c = per(h, Number(h.avg_cost || 0));
+    if (v == null || c == null) { excludedInr++; continue; }
+    value += v;
+    cost += c;
+  }
+  const pnl = value - cost;
+  return { value, cost, pnl, pnlPct: cost ? (pnl / cost) * 100 : 0, excludedInr };
+}

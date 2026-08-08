@@ -127,9 +127,39 @@ const CACHE_KEY = 'bench_history';
 const FRESH_MS = 12 * 3600e3;
 
 let cache = null;
+// A second store, written by the monthly INDmoney read rather than by the app.
+//
+// The Indian indices have no working browser source at all: their levels are
+// licensed and absent from the free data tier, no US-listed fund tracks the
+// SENSEX or NIFTY Bank closely enough to stand in, and Stooq's response is
+// unreadable from a browser. INDmoney's own API does have them, but only a
+// server-side job can reach it — so the closes are fetched out-of-band and
+// deposited here.
+//
+// Kept SEPARATE from bench_history rather than written into it, because the app
+// overwrites bench_history on every successful fetch. A payload landing in the
+// same key would be erased by the next refresh of any other index, and the seed
+// would silently vanish some days and not others.
+const SEED_KEY = 'bench_seed';
+let seed = null;
+
+export async function loadBenchSeed() {
+  if (seed) return seed;
+  seed = (await memGet(SEED_KEY)) || {};
+  return seed;
+}
+
 export async function loadBenchCache() {
   if (cache) return cache;
-  cache = (await memGet(CACHE_KEY)) || {};
+  const live = (await memGet(CACHE_KEY)) || {};
+  const s = await loadBenchSeed();
+  // The seed only fills gaps. A live fetch is fresher and is never displaced by
+  // a monthly deposit — but an index the app cannot fetch at all now has data
+  // instead of an empty chart.
+  cache = { ...live };
+  for (const [k, v] of Object.entries(s)) {
+    if (!cache[k]?.points?.length && v?.points?.length) cache[k] = { ...v, source: 'indmoney' };
+  }
   return cache;
 }
 async function saveBenchCache() {
@@ -248,6 +278,9 @@ export function sourceNote(key, source) {
   if (!source) return null;
   if (String(source).startsWith('etf:')) {
     return `Index levels aren't on the free data plan, so this line is ${bm.etfNote || bm.etf}. Its return tracks the index closely but not exactly — fees and dividends put a small, persistent gap between them.`;
+  }
+  if (source === 'indmoney') {
+    return `Index closes read from INDmoney's own data, deposited monthly. No browser-reachable free source carries ${bm.label} levels, so this line is as fresh as the last deposit rather than live.`;
   }
   if (source === 'cache') return 'Showing stored closes while the refresh runs.';
   return null;
