@@ -22,6 +22,10 @@ const money = n => '$' + Number(n || 0).toLocaleString('en-US', { maximumFractio
 
 const ETF = new Set(['QQQ', 'QQQM', 'SCHD', 'SPMO', 'VOO', 'SPY', 'VTI', 'GLD']);
 
+import {
+  parseRss, dedupe, balance, cleanSummary, countByCategory,
+} from './lib/newsfeed.mjs';
+
 async function fetchNews(tickers = []) {
   const items = [];
   // Preferred: Finnhub COMPANY news for the stocks you actually own (most relevant)
@@ -34,7 +38,10 @@ async function fetchNews(tickers = []) {
         if (!r.ok) continue;
         const arr = await r.json();
         for (const n of (Array.isArray(arr) ? arr : []).slice(0, 2)) {
-          if (n.headline && n.url) items.push({ title: `[${t}] ${n.headline}`, url: n.url, source: n.source || 'Finnhub', category: 'stocks', summary: (n.summary || '').slice(0, 220), published_at: new Date((n.datetime || 0) * 1000 || Date.now()).toISOString() });
+          // The [TICKER] prefix stays in the stored title - splitTicker parses
+          // it back out in the UI - so that "which stock is this about" is
+          // answerable without adding a column to the news table.
+          if (n.headline && n.url) items.push({ title: `[${t}] ${n.headline}`, url: n.url, source: n.source || 'Finnhub', category: 'stocks', summary: cleanSummary(n.summary, n.headline, 220), published_at: new Date((n.datetime || 0) * 1000 || Date.now()).toISOString() });
         }
       } catch (e) { console.error('company-news', t, e.message); }
     }
@@ -43,7 +50,10 @@ async function fetchNews(tickers = []) {
       const r = await fetch(`https://finnhub.io/api/v1/news?category=general&token=${FINNHUB_KEY}`);
       const arr = await r.json();
       for (const n of (Array.isArray(arr) ? arr : []).slice(0, 3)) {
-        items.push({ title: n.headline, url: n.url, source: n.source || 'Finnhub', category: 'stocks', summary: (n.summary || '').slice(0, 240), published_at: new Date((n.datetime || 0) * 1000 || Date.now()).toISOString() });
+        // Filed as finance, not stocks. This is general market news about
+        // nobody's particular holding - miscategorising it as 'stocks' is what
+        // left the Finance tab with literally nothing in it.
+        items.push({ title: n.headline, url: n.url, source: n.source || 'Finnhub', category: 'finance', summary: cleanSummary(n.summary, n.headline, 240), published_at: new Date((n.datetime || 0) * 1000 || Date.now()).toISOString() });
       }
     } catch (e) { console.error('finnhub general', e.message); }
   }
@@ -51,23 +61,25 @@ async function fetchNews(tickers = []) {
   const rss = async (q, category) => {
     try {
       const r = await fetch(`https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-US&gl=US&ceid=US:en`);
-      const xml = await r.text();
-      const blocks = xml.split('<item>').slice(1, 6);
-      for (const b of blocks) {
-        const title = (b.match(/<title>([\s\S]*?)<\/title>/) || [])[1] || '';
-        const link = (b.match(/<link>([\s\S]*?)<\/link>/) || [])[1] || '';
-        const src = (b.match(/<source[^>]*>([\s\S]*?)<\/source>/) || [])[1] || 'Google News';
-        const pub = (b.match(/<pubDate>([\s\S]*?)<\/pubDate>/) || [])[1] || '';
-        const clean = s => s.replace(/<!\[CDATA\[|\]\]>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim();
-        if (title && link) items.push({ title: clean(title).replace(new RegExp(` - ${src}$`), ''), url: clean(link), source: clean(src), category, summary: '', published_at: pub ? new Date(pub).toISOString() : new Date().toISOString() });
-      }
+      // parseRss reads the <description> the old inline parser ignored, which
+      // is why every RSS-sourced headline used to arrive with summary: ''.
+      items.push(...parseRss(await r.text(), category, Date.now()).slice(0, 8));
     } catch (e) { console.error('rss', q, e.message); }
   };
-  if (items.length < 4) await rss('stock market finance', 'stocks');
+
+  // Both of these run unconditionally now. The finance search used to be
+  // gated behind `if (items.length < 4)`, so on any day Finnhub returned
+  // results - which is every day the key works - it never ran at all.
+  await rss('stock market finance economy', 'finance');
   await rss('technology AI', 'tech');
-  // dedupe by title, cap 8
-  const seen = new Set();
-  return items.filter(n => n.title && !seen.has(n.title) && seen.add(n.title)).slice(0, 8);
+  // A thin stocks list is topped up rather than left short.
+  if (items.filter(n => n.category === 'stocks').length < 3) {
+    await rss('stock market movers earnings', 'stocks');
+  }
+
+  const out = balance(dedupe(items), 8);
+  console.log('news by category:', JSON.stringify(countByCategory(out)));
+  return out;
 }
 
 async function run() {

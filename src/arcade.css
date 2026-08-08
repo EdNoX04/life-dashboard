@@ -4788,3 +4788,41 @@
   .ind-hold-head { display: none; }
   .ind-sip { grid-template-columns: 56px 1fr; row-gap: 4px; }
 }
+
+/* ------------------------------------------------------------------ news */
+/* A headline is a link you scan; a gist is prose you read. They get different
+   weights so the eye can skim the first without the second competing, and the
+   whole row gets a left rule so a three-line entry still reads as one item. */
+.news-row {
+  padding: 9px 0 9px 10px; border-bottom: 1px dotted var(--border);
+  border-left: 2px solid transparent;
+}
+.news-row:last-child { border-bottom: none; }
+.news-row:hover { border-left-color: var(--cyan); background: rgba(88,220,255,.04); }
+.news-head { display: flex; align-items: flex-start; gap: 8px; }
+.news-tick { flex: none; min-width: 52px; text-align: center; }
+.news-title {
+  flex: 1; color: var(--ink); font-size: 15px; line-height: 1.35;
+  text-decoration: none; border-bottom: 1px solid transparent;
+}
+.news-title:hover { color: var(--cyan); border-bottom-color: var(--cyan); }
+.news-gist {
+  margin: 5px 0 0; font-size: 13px; line-height: 1.45; color: var(--ink-2);
+  max-width: 78ch;
+}
+/* Dimmer and italic: this is a statement about the absence of a summary, not a
+   summary, and it must not be mistaken for one at a glance. */
+.news-gist-none { color: var(--ink-3); font-style: italic; }
+.news-meta { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+/* The per-tab count, kept small and inside the button so it reads as a badge
+   rather than as part of the label. */
+.news-count {
+  margin-left: 6px; padding: 0 4px; font-size: 11px;
+  border: 1px solid var(--border-bright); border-radius: 2px; color: var(--ink-3);
+}
+.btn-pink .news-count { color: var(--ink); border-color: var(--ink); }
+
+@media (max-width: 760px) {
+  .news-title { font-size: 14px; }
+  .news-gist { font-size: 12.5px; }
+}
