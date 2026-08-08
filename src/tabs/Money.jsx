@@ -44,7 +44,7 @@ import { aiNewsSummary, memGet, memSet } from '../lib/advisor.js';
 import { pickProvider } from '../lib/ai.js';
 import * as db from '../lib/db.js';
 import Crypto from '../components/money/Crypto.jsx';
-import { MONEY_SECTIONS, MONEY_VIEWS, sectionRecord } from '../lib/moneynav.js';
+import { MONEY_SECTIONS } from '../lib/moneynav.js';
 
 // live USD→INR (keyless, CORS-ok; frankfurter with er-api fallback)
 async function fetchUsdInr() {
@@ -177,7 +177,6 @@ export default function Money() {
   // once. It is off by default because the collapsed strip is the better daily
   // control; it exists so that "where is everything" has an answer on screen
   // rather than requiring you to click each section to find out.
-  const [allViews, setAllViews] = useState(false);
   // The Markets view holds two different questions that were previously one tab:
   // "what is the app able to see" (world) and "what did my own holdings do"
   // (movers). They were never the same screen — the leaderboard ranks things you
@@ -431,8 +430,6 @@ export default function Money() {
       ? <span className="rc-live"><span className="rc-dot" />LIVE · market open</span>
       : <span className="chip">market closed · last close</span>;
 
-  const activeSectionRec = sectionRecord(view);
-  const activeSection = activeSectionRec.id;
 
   return (
     <>
@@ -448,71 +445,37 @@ export default function Money() {
       </div>
       <p className="tab-sub money-sub">US stocks (INDmoney) + crypto — live prices, auto-refreshing. {liveTag}</p>
 
-      {/* Two-tier nav. The section row is derived from `view` rather than held
-          in its own state, so a restored or deep-linked view always lands with
-          its section already lit - see sectionOf() in lib/moneynav.js. Picking
-          a section jumps to its first view, which is the one worth landing on. */}
-      <div className="money-tabs">
-        <span className="seg money-sections">
-          {MONEY_SECTIONS.map(sec => (
-            <button
-              key={sec.id}
-              className={`seg-btn msec${sec.id === activeSection ? ' on' : ''}`}
-              style={sec.id === activeSection ? { '--msec': sec.color } : undefined}
-              // The count and the list are both here because the label alone
-              // does not tell you a section HAS anything in it. "RESEARCH" reads
-              // as one screen; "RESEARCH 7" reads as seven, which is the fact.
-              title={`${sec.hint} — ${sec.views.length} screens: ${sec.views.map(v => v.label.replace(/^[^A-Za-z]+/, '')).join(', ')}`}
-              onClick={() => setView(sec.views[0].id)}
-            >
-              {sec.label}
-              <b className="msec-n">{sec.views.length}</b>
-            </button>
-          ))}
-        </span>
-        <span className="seg seg-wrap money-views" style={{ '--msec': activeSectionRec.color }}>
-          {activeSectionRec.views.map(v => (
-            <button
-              key={v.id}
-              className={`seg-btn${view === v.id ? ' on' : ''}`}
-              onClick={() => setView(v.id)}
-            >{v.label}</button>
-          ))}
-          <button
-            className={`seg-btn mall-btn${allViews ? ' on' : ''}`}
-            aria-expanded={allViews}
-            onClick={() => setAllViews(a => !a)}
-            title={allViews ? 'Collapse back to this section' : `Show all ${MONEY_VIEWS.length} money screens`}
-          >{allViews ? '▴ fewer' : `▾ all ${MONEY_VIEWS.length}`}</button>
-        </span>
-      </div>
+      {/* The only nav. There used to be a two-tier strip above this - a row of
+          sections, then a row of that section's views, then a toggle that
+          revealed this panel. Three mechanisms to answer one question, and the
+          strip could only ever show one section's contents at a time, so
+          "what else is there" needed a click before it needed an answer.
 
-      {/* Every screen, grouped by the section it lives in rather than in one
-          flat list — the flat list is what the two-tier nav was built to escape,
-          and reintroducing it here would answer "where is everything" while
-          re-losing "and how is it organised". Each group wears its section's
-          colour, so this panel and the strip above teach the same map. */}
-      {allViews && (
-        <div className="money-all px">
-          {MONEY_SECTIONS.map(sec => (
-            <div className="mall-sec" key={sec.id} style={{ '--msec': sec.color }}>
-              <div className="mall-head">
-                <span className="mall-title">{sec.label}</span>
-                <span className="mall-hint">{sec.hint}</span>
-              </div>
-              <div className="mall-grid">
-                {sec.views.map(v => (
-                  <button
-                    key={v.id}
-                    className={`mall-item${view === v.id ? ' on' : ''}`}
-                    onClick={() => { setView(v.id); setAllViews(false); }}
-                  >{v.label}</button>
-                ))}
-              </div>
+          This panel already showed everything AND kept it grouped, so the strip
+          was the redundant half. Every screen is one click away, each group
+          wears its section's colour, and the hint line under each heading says
+          what the group is FOR - which a row of nine equal-weight buttons never
+          did. It stays open after a pick rather than collapsing: it is a map,
+          and a map you have to reopen is a menu. */}
+      <div className="money-all px money-nav">
+        {MONEY_SECTIONS.map(sec => (
+          <div className="mall-sec" key={sec.id} style={{ '--msec': sec.color }}>
+            <div className="mall-head">
+              <span className="mall-title">{sec.label}</span>
+              <span className="mall-hint">{sec.hint}</span>
             </div>
-          ))}
-        </div>
-      )}
+            <div className="mall-grid">
+              {sec.views.map(v => (
+                <button
+                  key={v.id}
+                  className={`mall-item${view === v.id ? ' on' : ''}`}
+                  onClick={() => setView(v.id)}
+                >{v.label}</button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
 
       {view === 'accounts' && <Accounts rows={accountRows} cur={cur} />}
 

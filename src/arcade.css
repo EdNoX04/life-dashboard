@@ -639,81 +639,19 @@
 /* ---- segmented toggle (retro / tradingview) ---- */
 .seg { display: inline-flex; border: 2px solid var(--border-bright); border-radius: 2px; overflow: hidden; }
 
-/* ---- Money header. The 24 view buttons used to sit in the same flex row as the
-       title, which forced the strip into a sideways scroll and pushed the last
-       tabs off-screen. Title keeps its own row; the tabs get the full width
-       below it and WRAP instead of scrolling, so every view is reachable
-       without dragging. `overflow: hidden` has to go with the wrap — it is what
-       clipped the second line. ---- */
+/* ---- Money header. The view buttons used to sit in the same flex row as the
+       title, which forced a sideways scroll; then they became a two-tier strip
+       above the grouped map. Both are gone - the grouped map is the nav now,
+       and it was always the clearer of the two. ---- */
 .money-head { margin-bottom: 2px; }
 .money-sub { margin-bottom: 10px; }
-.money-tabs { margin: 0 0 16px; display: flex; flex-direction: column; gap: 0; }
-
-/* ---- Two-tier money nav.
-   The section row is the cabinet's marquee: five wide, evenly split, always the
-   same five in the same order, so it becomes muscle memory. The view row below
-   it changes with the section and inherits the section's colour through --msec,
-   which is set inline on the row by the component - that is what makes the two
-   tiers read as one connected control rather than two stacked strips. The rows
-   share a border, so the join has no double line. ---- */
-.money-sections {
-  display: flex; width: 100%; overflow: visible;
-  border-radius: 3px 3px 0 0; border-bottom: none;
-}
-.money-sections .seg-btn.msec {
-  flex: 1 1 0; min-width: 0; text-align: center; white-space: nowrap;
-  font-size: 7px; letter-spacing: 1px; padding: 9px 6px;
-  border-right: 2px solid var(--border);
-  color: var(--ink-3);
-}
-.money-sections .seg-btn.msec:last-child { border-right: none; }
-.money-sections .seg-btn.msec:hover { color: var(--ink-2); background: var(--panel-2); }
-/* The lit section is the only place the section colour appears at full strength.
-   A top rule rather than a full outline, so it reads as a tab joined to the row
-   underneath instead of a button floating above it. */
-.money-sections .seg-btn.msec.on {
-  color: var(--msec); background: var(--panel-2);
-  box-shadow: inset 0 3px 0 var(--msec);
-  text-shadow: 0 0 8px var(--msec);
-}
-
-.money-views {
-  border-radius: 0 0 3px 3px;
-  border-top: 2px solid var(--border-bright);
-  background: rgba(0,0,0,.18);
-}
-/* The active view carries the section's colour too, which is the whole point of
-   threading --msec down: you can tell which section you are in from the view
-   row alone, without looking back up at the marquee. */
-.money-views .seg-btn.on {
-  border-color: var(--msec);
-  color: var(--msec);
-  text-shadow: 0 0 6px var(--msec);
-}
-.money-views .seg-btn.on::after {
-  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
-  background: var(--msec); box-shadow: 0 0 6px var(--msec);
-}
-.money-views .seg-btn { position: relative; }
-
-/* The count of screens in a section, on the section button. Small, dim and to
-   the right of the label rather than styled as a notification badge - it is a
-   fact about the cabinet's layout, not an alert, and a bright pill here would
-   read as "five unread things in RESEARCH". */
-.msec-n {
-  margin-left: 5px; font-weight: normal; font-size: 6px;
-  color: var(--ink-3); opacity: .8; vertical-align: top;
-}
-.money-sections .seg-btn.msec.on .msec-n { color: var(--msec); opacity: .95; }
-
-/* The all-screens toggle is pushed to the far end of the view row so it never
-   sits between two sibling views and gets clicked as if it were one. */
-.money-views .mall-btn { margin-left: auto; color: var(--ink-3); }
-.money-views .mall-btn:hover, .money-views .mall-btn.on { color: var(--ink-2); }
 
 /* ---- The whole money map, grouped by section ---- */
+/* Now the tab's only nav rather than a panel revealed beneath one, so the
+   negative top margin that tucked it under the old strip goes - there is
+   nothing above it to tuck under. */
 .money-all {
-  margin: -8px 0 16px; padding: 12px 14px;
+  margin: 0 0 16px; padding: 12px 14px;
   display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px;
   background: var(--panel); border-color: var(--border-bright);
 }
@@ -738,14 +676,6 @@
   box-shadow: inset 0 0 0 1px var(--msec), 0 0 8px -2px var(--msec);
 }
 
-@media (max-width: 760px) {
-  /* Five section labels will not fit across a phone, and shrinking them to fit
-     makes them unreadable. They scroll sideways instead - a deliberate exception
-     to the no-sideways-scroll rule that motivated this rebuild, because it is
-     five items on one line rather than twenty-four on three. */
-  .money-sections { overflow-x: auto; }
-  .money-sections .seg-btn.msec { flex: 0 0 auto; font-size: 6px; padding: 8px 10px; }
-}
 .seg.seg-wrap {
   display: flex; flex-wrap: wrap; overflow: visible;
   width: 100%; gap: 0; border-radius: 3px;
