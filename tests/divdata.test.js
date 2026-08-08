@@ -5,6 +5,7 @@
 import {
   STATUS, num, normalisePayment, normaliseHistory, ttm, runRate, cacheAge, TTL,
   BASE, LEGACY_BASE, isFetchable, FAIL_TTL, entryTtl, fmpSymbol,
+  ALPHA_BASE, alphaBlocked, normaliseAlpha,
   realisedGrowth, medianExOffset, toDivMeta, toDivMetaAll, CADENCE_TO_FREQ,
   byYear, completeYears, cagr, growthStreak, payoutRatios, payoutSummary,
   sharesBefore, holdingPeriod, receivedHistory, receivedTotals, projectForward,
@@ -496,6 +497,40 @@ eq(late.length, 4, 'four payments projected from a later vantage point');
 ok(late.every(f => f.pay > '2027-06-01'), 'and every one of them is in the future');
 eq(projectForward(H, 0, { asOf: new Date('2026-06-01T00:00:00Z') })[0].amount, 0,
   'holding nothing projects nothing, but still shows the schedule');
+
+// ------------------------------------------------- the second source
+// Alpha Vantage signals a premium-only endpoint with HTTP 200 and prose rather
+// than a status code — the same trap shape as FMP's 402. The prose is the only
+// thing that distinguishes it from an empty history, so it has to be read.
+ok(ALPHA_BASE.includes('alphavantage'), 'the fallback source is configured');
+eq(alphaBlocked({ data: [] }), null, 'a normal payload is not blocked');
+eq(alphaBlocked(null), null, 'a null payload is not blocked');
+ok(alphaBlocked({ Information: 'premium endpoint' }).includes('premium'),
+  'an Information note is surfaced');
+ok(alphaBlocked({ Note: 'rate limit reached' }).includes('rate limit'),
+  'a Note is surfaced too');
+ok(alphaBlocked({ 'Error Message': 'invalid symbol' }).includes('invalid'),
+  'and an Error Message');
+
+const AV = normaliseAlpha({ data: [
+  { ex_dividend_date: '2026-05-08', payment_date: '2026-05-29', record_date: '2026-05-09', amount: '0.26' },
+  { ex_dividend_date: '2026-02-06', payment_date: '2026-02-27', record_date: '2026-02-07', amount: '0.25' },
+] });
+eq(AV.length, 2, "the fallback's payment list parses");
+eq(AV[0].ex, '2026-05-08', 'newest first, same as the primary source');
+near(AV[0].amount, 0.26, 'amounts parse from strings');
+eq(AV[0].pay, '2026-05-29', 'and the pay date carries through');
+eq(AV[0].payEstimated, false, 'a real pay date is not flagged estimated');
+// The two sources must produce the SAME row shape, or every downstream
+// consumer needs to know which one answered.
+eq(Object.keys(AV[0]).sort().join(','), Object.keys(P).sort().join(','),
+  'both sources produce identically shaped rows');
+eq(normaliseAlpha({ Information: 'premium' }), null, 'a blocked payload is not an empty history');
+eq(normaliseAlpha(null), null, 'a null payload parses to null');
+eq(normaliseAlpha({ data: [] }).length, 0, 'an explicitly empty list IS empty');
+// A payment with no amount is dropped rather than counted as zero.
+eq(normaliseAlpha({ data: [{ ex_dividend_date: '2026-01-01', amount: '0' }] }).length, 0,
+  'a zero payment is not a payment here either');
 
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);

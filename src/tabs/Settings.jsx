@@ -86,6 +86,18 @@ export default function Settings() {
         <input placeholder="paste Twelve Data key" defaultValue={cfg.twelveKey || ''} onChange={upd('twelveKey')} />
         <label className="mt">Financial Modeling Prep key — dividend history, calendar and payout ratios (<a href="https://site.financialmodelingprep.com/developer/docs" target="_blank" rel="noreferrer" style={{ color: 'var(--cyan)' }}>financialmodelingprep.com</a>, free tier)</label>
         <input placeholder="paste FMP key" defaultValue={cfg.fmpKey || ''} onChange={upd('fmpKey')} />
+        <label className="mt">Alpha Vantage key — fallback for the ETFs FMP&#39;s free plan refuses (<a href="https://www.alphavantage.co/support/#api-key" target="_blank" rel="noreferrer" style={{ color: 'var(--cyan)' }}>alphavantage.co</a>, free)</label>
+        <input placeholder="paste Alpha Vantage key" defaultValue={cfg.alphaKey || ''} onChange={upd('alphaKey')} />
+        {/* Stated as a fallback, not a second primary. 25 requests a day cannot
+            carry twenty holdings; it is exactly enough for the handful the
+            first source refuses. */}
+        <div className="small muted" style={{ marginTop: 4, lineHeight: 1.5 }}>
+          Only used for tickers FMP declines — SCHD, VOO, QQQ, QQQM, SPMO and a few
+          others. 25 requests a day, which is ample for a handful of symbols whose
+          dividends change quarterly. Whether its free tier covers ETFs is not
+          documented clearly; the screen will name which source answered, so one
+          refresh settles it.
+        </div>
         {/* Said here rather than discovered later: the free plan's two real
             limits both change what the dividend screens can honestly show. */}
         <div className="small muted" style={{ marginTop: 4, lineHeight: 1.5 }}>

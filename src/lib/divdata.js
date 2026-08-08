@@ -582,7 +582,71 @@ export function entryTtl(entry) {
 
 const fresh = e => e && e.at && Date.now() - e.at < entryTtl(e);
 
-export const hasKey = () => !!(getConfig().fmpKey || '').trim();
+export const hasKey = () => !!(getConfig().fmpKey || '').trim() || !!(getConfig().alphaKey || '').trim();
+
+// ---------------------------------------------------------- second source
+//
+// FMP's free plan answers 402 for ETFs and some listings, which is a billing
+// boundary rather than anything a client can route around. SCHD, VOO, QQQ, QQQM
+// and SPMO are a third of the book and the ETFs are where most of the actual
+// dividend income sits, so one blocked source should not be the end of it.
+//
+// Alpha Vantage is added as a fallback rather than a replacement. Its free tier
+// is 25 requests a day - far too few to be the primary source for twenty
+// holdings - but dividends change about four times a year, so 25/day is ample
+// for the handful FMP refuses. Whether its DIVIDENDS function covers ETFs on
+// the free key is NOT documented clearly enough to promise; the fetcher records
+// which source answered, so one press settles it either way rather than another
+// round of inference.
+export const ALPHA_BASE = 'https://www.alphavantage.co/query';
+
+// Alpha Vantage signals a premium-only endpoint with HTTP 200 and an
+// "Information" note rather than a status code — the same shape of trap as
+// FMP's 402, and worth naming rather than letting it read as an empty history.
+export function alphaBlocked(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  const msg = payload.Information || payload.Note || payload['Error Message'];
+  if (!msg) return null;
+  return String(msg);
+}
+
+export function normaliseAlpha(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  const list = Array.isArray(payload.data) ? payload.data : null;
+  if (!list) return null;
+  return list
+    .map(d => normalisePayment({
+      date: d.ex_dividend_date,
+      paymentDate: d.payment_date,
+      declarationDate: d.declaration_date,
+      recordDate: d.record_date,
+      dividend: d.amount,
+    }))
+    .filter(Boolean)
+    .sort((a, b) => b.ex.localeCompare(a.ex));
+}
+
+async function fetchFromAlpha(sym) {
+  const key = (getConfig().alphaKey || '').trim();
+  if (!key) return null;
+  const r = await fetch(`${ALPHA_BASE}?function=DIVIDENDS&symbol=${encodeURIComponent(sym)}&apikey=${key}`);
+  if (!r.ok) return { status: STATUS.failed, rows: [], code: r.status, note: `Alpha Vantage returned ${r.status}.` };
+  const raw = await r.text();
+  let payload = null;
+  try { payload = JSON.parse(raw); } catch { return { status: STATUS.failed, rows: [], code: 200, note: `Alpha Vantage sent a body that was not JSON: ${raw.slice(0, 140)}` }; }
+  const blocked = alphaBlocked(payload);
+  if (blocked) {
+    // A rate-limit note is transient; a premium note is not. Both arrive as
+    // HTTP 200 with prose, so the prose is what has to be read.
+    const rate = /rate limit|frequency|25 requests|thank you for using/i.test(blocked);
+    return { status: rate ? STATUS.failed : STATUS.uncovered, rows: [], code: 200,
+      note: `Alpha Vantage: ${blocked.slice(0, 200)}` };
+  }
+  const rows = normaliseAlpha(payload);
+  if (rows === null) return { status: STATUS.failed, rows: [], code: 200, note: 'Alpha Vantage sent an unrecognised body.' };
+  if (!rows.length) return { status: STATUS.none, rows: [], code: 200, note: 'Alpha Vantage reports no payments for this symbol.' };
+  return { status: STATUS.ok, rows, code: 200, note: null, source: 'alphavantage' };
+}
 
 // FMP writes share classes with a HYPHEN: BRK-B, not BRK.B. INDmoney writes the
 // dot. One character, and it is the difference between a full dividend history
@@ -676,6 +740,23 @@ export async function fetchDividends(ticker, { force = false } = {}) {
   } catch (e) {
     entry = { status: STATUS.failed, rows: [], at: Date.now(), code: 0,
       note: 'Could not reach the dividend source — a network error or a blocked request, not a rejection.' };
+  }
+
+  // Fall back to the second source only when the first could not answer. A
+  // success is never second-guessed, and `none` is a real answer too - asking
+  // twice to be told the same thing spends a request from a 25/day budget.
+  if ((entry.status === STATUS.uncovered || entry.status === STATUS.failed)) {
+    try {
+      const alt = await fetchFromAlpha(fmpSymbol(t));
+      if (alt && (alt.status === STATUS.ok || alt.status === STATUS.none)) {
+        entry = { ...alt, at: Date.now(),
+          note: alt.note || 'Not on the FMP free plan; read from Alpha Vantage instead.' };
+      } else if (alt && entry.status === STATUS.uncovered) {
+        // Both refused. Keep the FMP verdict but say both were tried, so this
+        // does not read as one source being misconfigured.
+        entry = { ...entry, note: `${entry.note} Alpha Vantage was tried as a fallback and also declined: ${alt.note}` };
+      }
+    } catch { /* the fallback is a bonus; its failure must not lose the primary verdict */ }
   }
 
   cache = { ...(cache || {}), [t]: entry };

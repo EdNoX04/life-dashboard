@@ -44,7 +44,7 @@ export function isRemote() {
 // balances and history, so it lives in GitHub Secrets and never touches this
 // table or the browser.
 const SYNC_KEYS = [
-  'finnhubKey', 'twelveKey', 'fmpKey', 'tmdbKey',
+  'finnhubKey', 'twelveKey', 'fmpKey', 'alphaKey', 'tmdbKey',
   'leetcodeUser', 'claudeKey', 'openaiKey', 'geminiKey',
 ];
 
