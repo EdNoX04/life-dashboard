@@ -1,0 +1,183 @@
+{
+ "note": "Holdings read live from the INDmoney MCP on 2026-08-08. US figures were returned in RUPEES and are converted to dollars at the app's live FX rate of 95.24 so they match the USD base the book stores; GOLDBEES stays in rupees. This replaces the 2026-08-06 web scan, which had GOLDBEES at 3 units when the real position is 9.",
+ "goldbees": "9 units total - 5 through INDmoney (Rs 596.90 invested) and 4 through Groww, whose invested amount INDmoney reports as unknown. avg_cost is therefore NULL rather than a number: a basis for part of a position is not a basis for the position, and the book already excludes null-cost rows from returns rather than counting them as free.",
+ "fx_caveat": "avg_cost is derived by converting a rupee invested amount at TODAY'S rate, not the rate on each purchase date. It is right in aggregate and approximate per lot. The order ledger is the authority if exact per-trade cost matters.",
+ "ops": [
+  {
+   "table": "investments",
+   "method": "delete",
+   "match": "source=like.indmoney*"
+  },
+  {
+   "table": "investments",
+   "method": "delete",
+   "match": "ticker=eq.GOLDBEES"
+  },
+  {
+   "table": "investments",
+   "method": "insert",
+   "rows": [
+    {
+     "ticker": "NET",
+     "qty": 0.110556397,
+     "avg_cost": 162.1275,
+     "last_price": 293.0292,
+     "currency": "USD",
+     "source": "indmoney-mcp-2026-08-08"
+    },
+    {
+     "ticker": "AAPL",
+     "qty": 0.356236517,
+     "avg_cost": 269.0702,
+     "last_price": 312.4838,
+     "currency": "USD",
+     "source": "indmoney-mcp-2026-08-08"
+    },
+    {
+     "ticker": "MSFT",
+     "qty": 0.897961987,
+     "avg_cost": 418.3905,
+     "last_price": 499.9781,
+     "currency": "USD",
+     "source": "indmoney-mcp-2026-08-08"
+    },
+    {
+     "ticker": "SPOT",
+     "qty": 0.007898644,
+     "avg_cost": 631.9032,
+     "last_price": 482.3439,
+     "currency": "USD",
+     "source": "indmoney-mcp-2026-08-08"
+    },
+    {
+     "ticker": "QQQ",
+     "qty": 0.22397135,
+     "avg_cost": 618.9753,
+     "last_price": 714.8188,
+     "currency": "USD",
+     "source": "indmoney-mcp-2026-08-08"
+    },
+    {
+     "ticker": "PLTR",
+     "qty": 0.108151875,
+     "avg_cost": 138.3567,
+     "last_price": 155.9568,
+     "currency": "USD",
+     "source": "indmoney-mcp-2026-08-08"
+    },
+    {
+     "ticker": "META",
+     "qty": 0.287880679,
+     "avg_cost": 608.4513,
+     "last_price": 590.0394,
+     "currency": "USD",
+     "source": "indmoney-mcp-2026-08-08"
+    },
+    {
+     "ticker": "TSLA",
+     "qty": 0.019558193,
+     "avg_cost": 374.8675,
+     "last_price": 319.6055,
+     "currency": "USD",
+     "source": "indmoney-mcp-2026-08-08"
+    },
+    {
+     "ticker": "BRK.B",
+     "qty": 0.30331927,
+     "avg_cost": 480.0367,
+     "last_price": 518.9725,
+     "currency": "USD",
+     "source": "indmoney-mcp-2026-08-08"
+    },
+    {
+     "ticker": "NVDA",
+     "qty": 1.722689072,
+     "avg_cost": 173.903,
+     "last_price": 219.0417,
+     "currency": "USD",
+     "source": "indmoney-mcp-2026-08-08"
+    },
+    {
+     "ticker": "TSM",
+     "qty": 0.102821904,
+     "avg_cost": 332.8871,
+     "last_price": 418.2988,
+     "currency": "USD",
+     "source": "indmoney-mcp-2026-08-08"
+    },
+    {
+     "ticker": "AMD",
+     "qty": 0.030209567,
+     "avg_cost": 537.0428,
+     "last_price": 489.3956,
+     "currency": "USD",
+     "source": "indmoney-mcp-2026-08-08"
+    },
+    {
+     "ticker": "SPMO",
+     "qty": 6.267710557,
+     "avg_cost": 152.1152,
+     "last_price": 150.3055,
+     "currency": "USD",
+     "source": "indmoney-mcp-2026-08-08"
+    },
+    {
+     "ticker": "VOO",
+     "qty": 2.623828442,
+     "avg_cost": 686.2043,
+     "last_price": 706.5669,
+     "currency": "USD",
+     "source": "indmoney-mcp-2026-08-08"
+    },
+    {
+     "ticker": "AMZN",
+     "qty": 0.568154836,
+     "avg_cost": 243.8996,
+     "last_price": 272.3243,
+     "currency": "USD",
+     "source": "indmoney-mcp-2026-08-08"
+    },
+    {
+     "ticker": "GOOGL",
+     "qty": 1.214229996,
+     "avg_cost": 320.0397,
+     "last_price": 357.8345,
+     "currency": "USD",
+     "source": "indmoney-mcp-2026-08-08"
+    },
+    {
+     "ticker": "SOFI",
+     "qty": 3.471825172,
+     "avg_cost": 16.0069,
+     "last_price": 18.2543,
+     "currency": "USD",
+     "source": "indmoney-mcp-2026-08-08"
+    },
+    {
+     "ticker": "SCHD",
+     "qty": 12.270163756,
+     "avg_cost": 31.8379,
+     "last_price": 33.6479,
+     "currency": "USD",
+     "source": "indmoney-mcp-2026-08-08"
+    },
+    {
+     "ticker": "QQQM",
+     "qty": 2.591178679,
+     "avg_cost": 302.1305,
+     "last_price": 294.3295,
+     "currency": "USD",
+     "source": "indmoney-mcp-2026-08-08"
+    },
+    {
+     "ticker": "GOLDBEES",
+     "qty": 9,
+     "avg_cost": null,
+     "last_price": 123.4,
+     "currency": "INR",
+     "source": "indmoney-mcp-2026-08-08"
+    }
+   ]
+  }
+ ]
+}

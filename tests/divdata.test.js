@@ -176,6 +176,11 @@ eq(entryTtl({ status: STATUS.none }), TTL, 'so is a confirmed no-dividend answer
 // A missing key is a setup state, not a result, and must clear the moment one
 // is saved rather than a week later.
 eq(entryTtl({ status: STATUS.nokey }), 0, 'a no-key entry is never treated as fresh');
+// 402 is a settled fact about the plan, not a transient error. Caching it like
+// a failure would re-ask every five minutes to be told the same thing.
+eq(entryTtl({ status: STATUS.uncovered }), TTL, 'an uncovered listing caches like a success');
+ok(entryTtl({ status: STATUS.uncovered }) > entryTtl({ status: STATUS.failed }),
+  'and is not retried on the failure schedule');
 eq(entryTtl(null), 0, 'nothing cached is never fresh');
 
 // ------------------------------------------------- bridge to div_meta

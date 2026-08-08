@@ -573,6 +573,10 @@ export function entryTtl(entry) {
   // clear the instant a key is saved rather than a week later.
   if (entry.status === STATUS.nokey) return 0;
   if (entry.status === STATUS.failed) return FAIL_TTL;
+  // `uncovered` is a settled answer about the plan, not a transient error, so it
+  // caches like a success. Re-asking every five minutes spends requests to be
+  // told the same thing.
+  if (entry.status === STATUS.uncovered) return TTL;
   return TTL;
 }
 
@@ -616,9 +620,19 @@ export async function fetchDividends(ticker, { force = false } = {}) {
       r = await fetch(`${LEGACY_BASE}/historical-price-full/stock_dividend/${encodeURIComponent(sym)}?apikey=${key}`);
     }
     if (!r.ok) {
-      entry = { status: r.status === 401 ? STATUS.nokey : STATUS.failed, rows: [], at: Date.now(),
+      // 402 PAYMENT REQUIRED is a closed question, not a failure to retry. The
+      // free plan does not carry these symbols and no client change reaches
+      // them, so they are marked `uncovered` - orange and permanent rather than
+      // red and retried. Leaving them as FAILED made a settled billing fact
+      // look like a bug, which is why this took several rounds to pin down.
+      const uncovered = r.status === 402;
+      entry = { status: uncovered ? STATUS.uncovered
+        : r.status === 401 ? STATUS.nokey : STATUS.failed,
+        rows: [], at: Date.now(),
         code: r.status,
-        note: r.status === 403
+        note: uncovered
+          ? 'Not on the free plan (402). Financial Modeling Prep restricts ETFs and some listings to paid tiers - a billing boundary, not an error, and retrying cannot get past it.'
+          : r.status === 403
           ? 'Both dividend endpoints refused the key (403). Usually this means the key has not finished activating - confirm the signup email and try again in a few minutes - or that the plan does not cover this endpoint.'
           : r.status === 401 ? 'The dividend source rejected the key (401). Check it in Settings.'
             : r.status === 429 ? 'Rate limited (429). The free plan allows 250 requests a day; the cache holds for a week, so FETCH rather than FORCE next time.'
