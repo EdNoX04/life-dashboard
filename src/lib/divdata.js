@@ -130,6 +130,127 @@ export function runRate(rows = []) {
   };
 }
 
+// ------------------------------------------------- bridge to div_meta
+//
+// Every dividend screen in this app already reads `div_meta`, whose shape
+// predates having any dividend source at all: a rate, a frequency, an anchor
+// month, and a list of declared payments. Rather than rewrite five screens
+// around a new shape, the fetched history is translated INTO that shape. One
+// converter lights up the calendar, the income lists, the earnings screen, the
+// yield analyzer and the holdings table's total-return column at once.
+//
+// The translation is where the honesty lives, because div_meta was designed for
+// hand entry and cannot express everything the history knows:
+//
+//   The rate becomes the LATEST declared payment, not an average. div_meta's
+//   projection multiplies the rate by the frequency, so an averaged rate would
+//   under-project a company that has raised.
+//
+//   growthPct is the realised CAGR over the available history, floored at zero.
+//   A negative growth rate compounded forward would project a dividend shrinking
+//   to nothing, which is a forecast, not a record — and div_meta's projections
+//   are meant to be "what this pays now, repeated".
+//
+//   The declared list keeps only payments that will FALL IN the projection
+//   window, because that is all the consumer reads, and carrying ten years of
+//   history into a blob that gets re-read on every screen is waste.
+
+export const CADENCE_TO_FREQ = {
+  monthly: 'monthly',
+  quarterly: 'quarterly',
+  'semi-annual': 'semiannual',
+  annual: 'annual',
+};
+
+// Realised compound growth between the oldest and newest full years on record.
+// Returns null rather than 0 when there is not enough history to say — a
+// confident zero would read as "this dividend has never grown".
+export function realisedGrowth(rows = []) {
+  if (rows.length < 2) return null;
+  const byYear = new Map();
+  for (const r of rows) {
+    const y = Number(r.ex.slice(0, 4));
+    byYear.set(y, (byYear.get(y) || 0) + r.amount);
+  }
+  const years = [...byYear.keys()].sort((a, b) => a - b);
+  // Drop the first and last years: both are usually partial, and a partial year
+  // at either end turns a flat dividend into a spectacular rise or collapse.
+  //
+  // No explicit length guard. With fewer than four years on record the two
+  // survivors are the same year or inverted, so `span < 1` below already
+  // returns null — and with one year they are undefined, which fails the
+  // `a > 0` test. A separate length check could not be shown to matter while
+  // those stood, so it is not there.
+  const first = years[1], last = years[years.length - 2];
+  const a = byYear.get(first), b = byYear.get(last);
+  const span = last - first;
+  if (!(a > 0) || !(b > 0) || span < 1) return null;
+  return (Math.pow(b / a, 1 / span) - 1) * 100;
+}
+
+// Median gap between ex-date and pay-date, in days. div_meta stores the inverse
+// (exOffsetDays, counted back from the pay date), which is why this exists
+// rather than being read off any single payment.
+export function medianExOffset(rows = []) {
+  // No separate payEstimated filter: an estimated pay date IS the ex-date, so
+  // its gap is zero and `d > 0` already excludes it. A second guard doing the
+  // same job would be untestable — neither could be shown to matter while the
+  // other stood. `d > 0` is the one kept because it also catches a corrupt row
+  // whose pay date precedes its ex-date, which the flag would not.
+  const gaps = rows
+    .map(r => (Date.parse(r.pay) - Date.parse(r.ex)) / 864e5)
+    .filter(d => d > 0 && d < 120)
+    .sort((a, b) => a - b);
+  if (!gaps.length) return null;
+  return Math.round(gaps[Math.floor(gaps.length / 2)]);
+}
+
+export function toDivMeta(entry, { keepFrom = null } = {}) {
+  if (!entry || entry.status !== STATUS.ok || !entry.rows?.length) return null;
+  const rows = entry.rows;
+  const rate = runRate(rows);
+  const latest = rows[0];
+  const payDate = new Date(`${latest.pay}T00:00:00Z`);
+
+  const cutoff = keepFrom || `${new Date().getUTCFullYear() - 1}-01-01`;
+  const growth = realisedGrowth(rows);
+  const offset = medianExOffset(rows);
+
+  return {
+    perShare: latest.amount,
+    freq: CADENCE_TO_FREQ[rate?.cadence] || 'quarterly',
+    anchorMonth: payDate.getUTCMonth(),
+    payDay: Math.min(28, Math.max(1, payDate.getUTCDate())),
+    exOffsetDays: offset ?? 14,
+    // Negative growth is not projected forward. See the header: div_meta's
+    // projection is "what this pays now, repeated", and compounding a cut into
+    // the future would turn a record into a forecast.
+    growthPct: growth != null && growth > 0 ? Math.round(growth * 10) / 10 : 0,
+    baseYear: new Date().getUTCFullYear(),
+    declared: rows
+      .filter(r => r.pay >= cutoff)
+      .map(r => ({ ex: r.ex, pay: r.pay, perShare: r.amount, estimated: r.payEstimated }))
+      .sort((a, b) => a.pay.localeCompare(b.pay)),
+    note: `Imported from Financial Modeling Prep · ${rows.length} payments on record${
+      growth != null && growth <= 0 ? ' · realised growth is flat or negative, so no growth is projected' : ''}`,
+    source: 'fmp',
+    at: entry.at,
+  };
+}
+
+// The whole store at once, skipping anything that did not fetch cleanly. A
+// ticker whose fetch failed keeps whatever div_meta already held for it - the
+// caller merges rather than replaces, so a bad day at the API cannot erase
+// hand-entered data.
+export function toDivMetaAll(store = {}, opts = {}) {
+  const out = {};
+  for (const [t, entry] of Object.entries(store)) {
+    const m = toDivMeta(entry, opts);
+    if (m) out[t] = m;
+  }
+  return out;
+}
+
 let cache = null;
 let loading = null;
 

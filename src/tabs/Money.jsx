@@ -6,6 +6,7 @@ import PortfolioChart from '../components/PortfolioChart.jsx';
 import RangeBrush from '../components/money/RangeBrush.jsx';
 import Diversification from '../components/money/Diversification.jsx';
 import AccountTabs from '../components/money/AccountTabs.jsx';
+import DivSync from '../components/money/DivSync.jsx';
 import { loadAccounts, filterRows as filterByAccount } from '../lib/accounts.js';
 import YieldDesk from '../components/money/YieldDesk.jsx';
 import ValueDesk from '../components/money/ValueDesk.jsx';
@@ -647,6 +648,12 @@ export default function Money() {
       {view === 'tax' && (
         <TaxDesk held={held} orders={orders} priceOf={priceOf} cur={inr ? '\u20b9' : '$'} />
       )}
+
+      {/* The screen that turns the FMP key into working dividend screens. It
+          writes into div_meta, which every other dividend view already reads -
+          one import lights up the calendar, the income lists, the yield
+          analyzer and the holdings total-return column at once. */}
+      {view === 'divsync' && <DivSync held={held} cur={inr ? '\u20b9' : '$'} />}
 
       {/* Two screens that had been built, committed and never rendered. Both
           are pure given their inputs; the containers exist because the inputs

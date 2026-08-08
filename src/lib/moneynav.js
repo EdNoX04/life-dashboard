@@ -72,6 +72,7 @@ export const MONEY_SECTIONS = [
     hint: 'What pays you, and when',
     views: [
       { id: 'divs', label: 'Dividends' },
+      { id: 'divsync', label: 'Data' },
       { id: 'divlists', label: 'Lists' },
       { id: 'calendar', label: 'Calendar' },
       { id: 'earn', label: 'Earnings' },
