@@ -272,13 +272,12 @@ export default function PortfolioChart({ orders = [], invested: investedProp, va
 
   return (
     <div ref={wrapRef} style={{ width: '100%' }}>
-      {!mini && (
-        <div className="tf-row" style={{ marginBottom: 8 }}>
-          {rangeKeys.map(r => (
-            <button key={r} className={`tf-btn${range === r ? ' on' : ''}`} onClick={() => { setRange(r); setHover(null); }}>{r}</button>
-          ))}
-        </div>
-      )}
+      {/* No range strip here any more. The RangeBrush above this chart carries
+          one, and two strips controlling the same axis is worse than either
+          alone: they disagree the moment you touch one, and neither tells you
+          which is in charge. The brush wins because it also SHOWS the window
+          it is selecting, which a row of buttons cannot. `range` still exists
+          internally for the 1D intraday mode, which the brush does not cover. */}
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" style={{ display: 'block' }}
         onMouseLeave={() => setHover(null)}
         onMouseMove={!mini ? onMove : undefined}>

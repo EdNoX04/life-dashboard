@@ -417,6 +417,13 @@ export default function Money() {
     const dp = quotes[h.ticker]?.changePct;
     return { v, p, pp, dp };
   };
+  // The book split by the unit its prices are quoted in. Nothing here converts:
+  // the dollar table shows dollars, the rupee table shows rupees, and the two
+  // are never added together on this screen. The combined figure lives in the
+  // tiles above, which do convert, deliberately and in one place.
+  const usHeld = useMemo(() => held.filter(h => currencyOf(h) !== 'INR'), [held]);
+  const inHeld = useMemo(() => held.filter(h => currencyOf(h) === 'INR'), [held]);
+
   const sortedHeld = useMemo(() => {
     const arr = [...held];
     const m = new Map(arr.map(h => [h.id, metricsOf(h)]));
@@ -550,7 +557,20 @@ export default function Money() {
         ))}
       </div>
 
-      {view === 'accounts' && <Accounts rows={accountRows} cur={cur} />}
+      {/* The account switcher lives HERE rather than above the portfolio. On the
+          portfolio screen it was a second row of tabs stacked under the section
+          nav, and two tab strips in a column read as one confused control. This
+          is the screen that is about accounts, so this is where choosing one
+          belongs. */}
+      {view === 'accounts' && (
+        <>
+          <AccountTabs
+            rows={held.map(h => ({ ...h, ticker: h.ticker }))}
+            scope={scope} onScope={setScope} cur={cur}
+          />
+          <Accounts rows={accountRows} cur={cur} />
+        </>
+      )}
 
       {/* The Indian desk takes `held` raw rather than the display-currency
           totals the rest of the tab passes around. Its whole job is to keep
@@ -794,12 +814,6 @@ export default function Money() {
       {view === 'earn' && <EarningsCal held={held} watch={watched} cur="$" />}
 
       {view === 'portfolio' && <>
-      {/* The tabs scope the table below them, not the headline tiles. The tiles
-          are the portfolio; scoping them to one account would answer a question
-          nobody asked while looking exactly like the answer to the one they
-          did. */}
-      <AccountTabs rows={held.map(h => ({ ...h, ticker: h.ticker }))} scope={scope} onScope={setScope} cur={inr ? '\u20b9' : '$'} />
-
       <div className="tile-row">
         <StatTile label="Portfolio value" value={disp(value)} note={pctChip(pnlPct)} color="var(--green)" />
         <StatTile label="Invested" value={disp(cost)} color="var(--cyan)" />
@@ -861,20 +875,25 @@ export default function Money() {
         <PortfolioChart orders={orders} invested={investedFrom} value={chartFrom} intraday={intraday} currentValue={value} visible={visible} variant="full" />
       </Card>
 
-      <Card title="Holdings — stocks" color="var(--green)" right={held.length > 0 && (
+      {/* Rupee holdings are drawn separately. GOLDBEES was appearing in this
+          table with a DOLLAR value and a RUPEE average cost side by side, which
+          is not a rounding problem - it is two different currencies in one row
+          pretending to be one number. Splitting the table is the honest fix:
+          each box states its own unit and never converts. */}
+      <Card title="Holdings — stocks" color="var(--green)" right={usHeld.length > 0 && (
         <span className="flex" style={{ gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {SORTS.map(([k, label]) => (
             <button key={k} className={`tf-btn${sortBy === k ? ' on' : ''}`} onClick={() => setSortBy(k)}>{label}</button>
           ))}
         </span>
       )}>
-        {held.length === 0 && <Empty icon="$" text="No holdings yet — snapshot from INDmoney or add manually below." />}
-        {held.length > 0 && (
+        {usHeld.length === 0 && <Empty icon="$" text="No dollar holdings yet — the INDmoney sync fills this, or add one manually below." />}
+        {usHeld.length > 0 && (
           <div className="scroll-x">
             <table className="ptable">
               <thead><tr><th>Ticker</th><th>Qty</th><th>Avg</th><th>Last</th><th>Day</th><th>Value</th><th>P&L</th><th /></tr></thead>
               <tbody>
-                {sortedHeld.map(h => {
+                {sortedHeld.filter(h => currencyOf(h) !== 'INR').map(h => {
                   const q = quotes[h.ticker];
                   const price = priceOf(h);
                   const v = Number(h.qty) * price;
@@ -922,6 +941,51 @@ export default function Money() {
           )}
         </div>
       </Card>
+
+      {/* Rupees, stated as rupees. This box exists because converting a rupee
+          holding into the dollar table produced a row whose value and cost were
+          in different currencies - which looked like a small discrepancy and was
+          actually a factor of ninety. */}
+      {inHeld.length > 0 && (
+        <Card title="Holdings — Indian stocks (₹)" color="var(--orange)"
+          right={<span className="chip c-orange">INDstocks</span>}>
+          <div className="scroll-x">
+            <table className="ptable">
+              <thead><tr><th>Ticker</th><th>Qty</th><th>Avg ₹</th><th>Last ₹</th><th>Value ₹</th><th>P&L ₹</th><th /></tr></thead>
+              <tbody>
+                {inHeld.map(h => {
+                  const price = Number(quotes[h.ticker]?.price ?? h.last_price ?? h.avg_cost ?? 0);
+                  const q2 = Number(h.qty) || 0;
+                  const v = q2 * price;
+                  const ac = h.avg_cost == null ? null : Number(h.avg_cost);
+                  const c = ac == null ? null : q2 * ac;
+                  const p = c == null ? null : v - c;
+                  return (
+                    <tr key={h.id}>
+                      <td><b style={{ fontWeight: 'normal', color: 'var(--orange)' }}>{h.ticker}</b></td>
+                      <td>{q2}</td>
+                      {/* A null average is printed as "not set", never as zero:
+                          GOLDBEES is held across two brokers and one leg has no
+                          recorded cost, so the blended basis is genuinely unknown. */}
+                      <td>{ac == null ? <span className="muted">not set</span> : `₹${ac.toFixed(2)}`}</td>
+                      <td>₹{price.toFixed(2)}</td>
+                      <td>₹{v.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
+                      <td style={{ color: p == null ? undefined : p >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                        {p == null ? '—' : `₹${p.toFixed(2)}`}
+                      </td>
+                      <td><button className="btn btn-sm" onClick={() => del(h.id)}>✕</button></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="small muted mt">
+            Kept in rupees on purpose. These are never added to the dollar table above;
+            the combined figure in the tiles converts once, at the live rate.
+          </p>
+        </Card>
+      )}
 
       <CryptoHoldings visible={visible} />
 

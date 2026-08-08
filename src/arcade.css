@@ -5183,3 +5183,8 @@ th:hover .hold-info { color: var(--cyan); }
   font-size: 11px; line-height: 1.4; color: var(--red); opacity: .85;
   word-break: break-word;
 }
+
+/* The dollar equivalent under a rupee SIP amount. Dimmer and smaller: the rupee
+   figure is what leaves the account, the dollar figure is what it buys, and the
+   first is the one that matches a bank statement. */
+.sip-usd { display: block; font-style: normal; font-size: 10px; color: var(--ink-3); line-height: 1.1; }
