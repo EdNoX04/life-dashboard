@@ -1,0 +1,47 @@
+name: Binance sync
+
+# Pulls balances, P2P orders, deposits and withdrawals into Supabase so the
+# crypto side of the Money tab has a real cost basis instead of hand-entered
+# guesses.
+#
+# READ-ONLY. The key this expects must be created with "Enable Reading" only —
+# Spot Trading and Withdrawals left off. scripts/binance-sync.mjs makes only GET
+# requests, and the key restriction makes that true at Binance's end too.
+#
+# Do NOT add an IP allow-list to this key. GitHub Actions runners have no stable
+# egress address, so an IP-restricted key fails here intermittently and
+# confusingly. A read-only key is not worth much to anyone who steals it, which
+# is the mitigation that actually holds.
+
+on:
+  schedule:
+    # Twice a day is plenty: P2P settles in minutes but nobody needs it sooner,
+    # and the endpoints are windowed rather than incremental, so each run
+    # re-fetches the whole lookback anyway.
+    - cron: '0 3 * * *'    # ~08:30 IST
+    - cron: '0 15 * * *'   # ~20:30 IST
+  workflow_dispatch:
+
+concurrency:
+  group: binance-sync
+  cancel-in-progress: true
+
+jobs:
+  binance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Sync Binance
+        run: node scripts/binance-sync.mjs
+        env:
+          SUPABASE_URL: https://xroynvkzephebhcztvfo.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          BINANCE_API_KEY: ${{ secrets.BINANCE_API_KEY }}
+          BINANCE_API_SECRET: ${{ secrets.BINANCE_API_SECRET }}
+          # 120 days back. The C2C endpoint caps a single request at 30 days and
+          # capital history at 90, so the worker walks this in chunks.
+          BINANCE_LOOKBACK_DAYS: '120'

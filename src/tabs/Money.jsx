@@ -13,6 +13,7 @@ import YieldDesk from '../components/money/YieldDesk.jsx';
 import ValueDesk from '../components/money/ValueDesk.jsx';
 import { holdingRows } from '../lib/holdings.js';
 import { clampRange, sliceRange } from '../lib/range.js';
+import { currencyOf } from '../lib/indiabook.js';
 import CryptoHoldings from '../components/CryptoHoldings.jsx';
 import SipCard from '../components/SipCard.jsx';
 import IndiaDesk from '../components/money/IndiaDesk.jsx';
@@ -255,8 +256,26 @@ export default function Money() {
   // live price for a holding: streamed quote → stored last_price → avg cost
   const priceOf = h => Number(quotes[h.ticker]?.price ?? h.last_price ?? h.avg_cost ?? 0);
 
-  const value = held.reduce((s, h) => s + Number(h.qty) * priceOf(h), 0);
-  const cost = held.reduce((s, h) => s + Number(h.qty) * Number(h.avg_cost || 0), 0);
+  // Every total below is in DOLLARS, and getting there needs a currency check
+  // per holding rather than a bare multiply. GOLDBEES is priced at about 122
+  // RUPEES; summed as if it were 122 dollars it entered the portfolio at
+  // roughly ninety times its real weight. The display toggle then multiplied
+  // that already-wrong figure by the FX rate, which does not fix it - it
+  // scales it.
+  //
+  // A rupee holding with no FX rate loaded is EXCLUDED and counted, not
+  // converted at 1.0. A total that silently absorbs an account at the wrong
+  // rate looks exactly like a correct one.
+  const usdOf = (h, per) => {
+    const q = Number(h.qty) || 0;
+    const v = q * (Number(per) || 0);
+    if (currencyOf(h) !== 'INR') return v;
+    return fx ? v / fx : null;
+  };
+  const excludedInr = held.filter(h => currencyOf(h) === 'INR' && !fx).length;
+
+  const value = held.reduce((s, h) => s + (usdOf(h, priceOf(h)) ?? 0), 0);
+  const cost = held.reduce((s, h) => s + (usdOf(h, Number(h.avg_cost || 0)) ?? 0), 0);
   const pnl = value - cost;
   const pnlPct = cost ? (pnl / cost) * 100 : 0;
 
@@ -264,7 +283,11 @@ export default function Money() {
   const { dayGain, dayBase } = held.reduce((a, h) => {
     const q = quotes[h.ticker];
     const qty = Number(h.qty);
-    if (q?.change != null && q?.prevClose != null) { a.dayGain += qty * q.change; a.dayBase += qty * q.prevClose; }
+    if (q?.change != null && q?.prevClose != null) {
+      // Same conversion as the totals: a rupee move is not a dollar move.
+      const r = currencyOf(h) === 'INR' ? (fx || null) : 1;
+      if (r) { a.dayGain += (qty * q.change) / r; a.dayBase += (qty * q.prevClose) / r; }
+    }
     return a;
   }, { dayGain: 0, dayBase: 0 });
   const dayPct = dayBase ? (dayGain / dayBase) * 100 : 0;

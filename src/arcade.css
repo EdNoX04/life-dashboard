@@ -5156,3 +5156,10 @@ th:hover .hold-info { color: var(--cyan); }
   .ph-head { display: none; }
   .ph-bar-v { display: none; }
 }
+
+/* ------------------------------------------------------------- crypto */
+.cb-notice {
+  margin: 8px 0 0; padding: 6px 9px; font-size: 12px; line-height: 1.45;
+  color: var(--ink-2); border: 1px dashed var(--yellow); background: rgba(255,214,102,.05);
+}
+.cb-dim { border-color: var(--border); color: var(--ink-3); background: none; }

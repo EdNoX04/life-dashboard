@@ -98,6 +98,20 @@ export default function Settings() {
           <button className="btn btn-green" onClick={save}>{saved ? 'Saved ✓' : 'Save'}</button>
           <span className="small muted">Live prices stream only while the US market is open (9:30–16:00 ET).</span>
         </div>
+        {/* Where a key lives is a security decision, not a convenience one. The
+            keys above are read-only market-data keys and are safe in the
+            browser. A Binance key can see your balances and history, so it goes
+            into GitHub Secrets where only the scheduled worker can read it -
+            never into this page, and never into the database. */}
+        <div className="small muted mt" style={{ lineHeight: 1.55, borderTop: '1px dotted var(--border)', paddingTop: 8 }}>
+          <b style={{ color: 'var(--ink-2)', fontWeight: 'normal' }}>Binance is different.</b> It
+          does not go here. Add <code>BINANCE_API_KEY</code> and <code>BINANCE_API_SECRET</code> to
+          your repo&#39;s GitHub Secrets instead, so only the scheduled worker can read
+          them and they never reach the browser. Create the key with{' '}
+          <b style={{ color: 'var(--green)', fontWeight: 'normal' }}>Enable Reading only</b> —
+          Spot Trading and Withdrawals off, and no IP allow-list, because Actions
+          runners have no fixed address.
+        </div>
       </Card>
 
       <Card title="AI providers (any key works)" color="var(--purple)">
