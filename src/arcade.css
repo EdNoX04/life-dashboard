@@ -5035,3 +5035,48 @@ th:hover .hold-info { color: var(--cyan); }
   margin: 10px 0 0; padding: 7px 9px; font-size: 12.5px; line-height: 1.45;
   color: var(--ink-2); border: 1px dashed var(--yellow); background: rgba(255,214,102,.06);
 }
+
+/* ------------------------------------------------------ account tabs */
+.at { margin-bottom: 12px; }
+.at-row { display: flex; flex-wrap: wrap; gap: 0; border: 2px solid var(--border-bright); border-radius: 2px; }
+.at-tab {
+  flex: 1 1 auto; padding: 6px 12px; font-size: 11px; letter-spacing: .8px;
+  cursor: pointer; color: var(--ink-3); background: var(--bg-deep);
+  border: none; border-right: 1px solid var(--border);
+}
+.at-tab:last-child { border-right: none; }
+.at-tab:hover { color: var(--ink-2); background: var(--panel-2); }
+.at-tab.on {
+  color: var(--at-c, var(--cyan)); background: var(--panel-2);
+  box-shadow: inset 0 -2px 0 var(--at-c, var(--cyan));
+}
+/* The count is a fact about the layout, not an alert, so it stays dim and
+   small rather than being styled as a notification pill. */
+.at-n {
+  margin-left: 5px; padding: 0 4px; font-size: 10px;
+  border: 1px solid var(--border); color: var(--ink-3);
+}
+.at-tab.on .at-n { color: var(--at-c, var(--cyan)); border-color: var(--at-c, var(--cyan)); }
+
+.at-note {
+  margin: 7px 0 0; padding: 5px 8px; font-size: 12px; line-height: 1.4;
+  color: var(--ink-2); border-left: 2px solid var(--orange); background: rgba(255,146,43,.05);
+}
+/* An offer, not a banner: it reads as a sentence you can click, and it goes
+   away for good once there is nothing left unassigned. */
+.at-offer {
+  margin-top: 7px; padding: 5px 9px; width: 100%; text-align: left; cursor: pointer;
+  font-size: 12px; color: var(--yellow); background: rgba(255,214,102,.05);
+  border: 1px dashed var(--yellow);
+}
+.at-offer:hover { background: rgba(255,214,102,.11); }
+.at-seed {
+  margin-top: 7px; padding: 9px 10px;
+  border: 1px dashed var(--green); background: rgba(94,234,138,.05);
+}
+.at-seed-why { margin: 0 0 6px; font-size: 12.5px; line-height: 1.5; color: var(--ink-2); max-width: 80ch; }
+.at-seed-what { margin: 0 0 8px; font-size: 12.5px; color: var(--ink); }
+
+@media (max-width: 760px) {
+  .at-tab { flex: 1 1 40%; font-size: 10px; padding: 6px 8px; }
+}

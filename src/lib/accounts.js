@@ -269,6 +269,60 @@ export const filterRows = (rows = [], map = {}, scope = 'all') => {
   return rows.filter(r => map[r.ticker] === scope);
 };
 
+// ------------------------------------------------------------------ seeding
+
+// The cold-start problem this module otherwise has: accounts are useless until
+// every holding is assigned, and assigning twenty tickers by hand is a chore
+// nobody does, so the feature sits unused and the tabs stay empty forever.
+//
+// Currency is a good enough first guess for exactly one reason: a rupee-priced
+// holding cannot be sitting in a dollar brokerage account. It is not a general
+// rule — plenty of people hold US stock through an Indian broker, which is
+// precisely what the US account below IS — but it separates the two books
+// correctly for this setup, and every assignment it makes is editable.
+//
+// It is offered as a SUGGESTION with its reasoning attached, never applied
+// silently. An app that quietly decides where your money lives and then reports
+// totals per account has made a claim on your behalf.
+export const SEED_ACCOUNTS = [
+  { id: 'indstocks', label: 'INDstocks', kind: 'broker', currency: 'INR',
+    note: 'Indian equities and ETFs, priced in rupees.' },
+  { id: 'indmoney-us', label: 'INDmoney US', kind: 'broker', currency: 'USD',
+    note: 'US stock held through INDmoney, priced in dollars.' },
+];
+
+export function currencyOfRow(row) {
+  const c = String(row?.currency || row?.raw?.currency || '').toUpperCase();
+  return c === 'INR' ? 'INR' : 'USD';
+}
+
+// Returns what WOULD be created and assigned, plus the reasoning, so the caller
+// can show it before doing anything. Only accounts that would actually hold
+// something are proposed — offering an empty INDstocks account to someone with
+// no Indian holdings is clutter.
+export function suggestFromCurrency(rows = [], existing = []) {
+  const taken = new Set(existing.map(a => a.id));
+  const byCur = { INR: [], USD: [] };
+  for (const r of rows) byCur[currencyOfRow(r)].push(r.ticker);
+
+  const accounts = [];
+  const map = {};
+  for (const seed of SEED_ACCOUNTS) {
+    const tickers = byCur[seed.currency] || [];
+    if (!tickers.length) continue;
+    if (!taken.has(seed.id)) accounts.push(normaliseAccount(seed, existing));
+    for (const t of tickers) map[t] = seed.id;
+  }
+
+  if (!accounts.length && !Object.keys(map).length) return null;
+  return {
+    accounts,
+    map,
+    counts: { INR: byCur.INR.length, USD: byCur.USD.length },
+    reason: 'Split by the currency each holding is priced in: rupee-priced holdings to INDstocks, dollar-priced to INDmoney US. Every assignment is editable afterwards.',
+  };
+}
+
 // ------------------------------------------------------------------ reading
 
 // What the account split is actually telling you, in one sentence, or null when

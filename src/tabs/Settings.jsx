@@ -84,6 +84,16 @@ export default function Settings() {
         <input placeholder="paste Finnhub key" defaultValue={cfg.finnhubKey || ''} onChange={upd('finnhubKey')} />
         <label className="mt">Twelve Data API key — retro candlestick charts (<a href="https://twelvedata.com/pricing" target="_blank" rel="noreferrer" style={{ color: 'var(--cyan)' }}>twelvedata.com</a>, Basic/free)</label>
         <input placeholder="paste Twelve Data key" defaultValue={cfg.twelveKey || ''} onChange={upd('twelveKey')} />
+        <label className="mt">Financial Modeling Prep key — dividend history, calendar and payout ratios (<a href="https://site.financialmodelingprep.com/developer/docs" target="_blank" rel="noreferrer" style={{ color: 'var(--cyan)' }}>financialmodelingprep.com</a>, free tier)</label>
+        <input placeholder="paste FMP key" defaultValue={cfg.fmpKey || ''} onChange={upd('fmpKey')} />
+        {/* Said here rather than discovered later: the free plan's two real
+            limits both change what the dividend screens can honestly show. */}
+        <div className="small muted" style={{ marginTop: 4, lineHeight: 1.5 }}>
+          Free tier is 250 requests a day and US listings only. Dividend history is
+          cached for a week and refreshed behind a button, so twenty holdings costs
+          roughly eighty requests a month. An Indian holding will come back empty —
+          the screens report that as &ldquo;not covered&rdquo;, never as &ldquo;pays nothing&rdquo;.
+        </div>
         <div className="flex mt">
           <button className="btn btn-green" onClick={save}>{saved ? 'Saved ✓' : 'Save'}</button>
           <span className="small muted">Live prices stream only while the US market is open (9:30–16:00 ET).</span>

@@ -5,6 +5,8 @@ import StockDetail from '../components/StockDetail.jsx';
 import PortfolioChart from '../components/PortfolioChart.jsx';
 import RangeBrush from '../components/money/RangeBrush.jsx';
 import Diversification from '../components/money/Diversification.jsx';
+import AccountTabs from '../components/money/AccountTabs.jsx';
+import { loadAccounts, filterRows as filterByAccount } from '../lib/accounts.js';
 import YieldDesk from '../components/money/YieldDesk.jsx';
 import ValueDesk from '../components/money/ValueDesk.jsx';
 import { holdingRows } from '../lib/holdings.js';
@@ -171,6 +173,11 @@ export default function Money() {
   const [orders, setOrders] = useState([]);
   const [snapshots, setSnapshots] = useState([]);
   const [openStock, setOpenStock] = useState(null);
+  // Which account the holdings views are scoped to. Held here rather than in
+  // AccountTabs so the tabs and the table it scopes cannot disagree, and so the
+  // scope survives switching between views inside the section.
+  const [scope, setScope] = useState('all');
+  const [acctMap, setAcctMap] = useState({});
   const [sortBy, setSortBy] = useState('value');
   const [liveNews, setLiveNews] = useState([]);
   const [planSeed, setPlanSeed] = useState(null);   // monthly surplus handed over by the Cash tab
@@ -211,6 +218,9 @@ export default function Money() {
     });
     memGet('sips').then(v => { if (Array.isArray(v?.list)) setSips(v.list); });
     memGet('ind_meta').then(v => { if (v) setIndMeta(v); });
+    // The same map AccountTabs reads. Loaded here too so the scope can be
+    // applied to the book itself - the tabs own the UI, not the filtering.
+    loadAccounts().then(({ map }) => setAcctMap(map || {})).catch(() => {});
     return () => clearInterval(t);
   }, []);
 
@@ -283,6 +293,14 @@ export default function Money() {
   // ---- reconstructed value-over-time (orders × historical prices) ----
   const tickerKey = held.map(h => h.ticker).join(',');
   const histTickers = useMemo(() => held.map(h => String(h.ticker || '').toUpperCase()).filter(Boolean), [tickerKey]);
+  // The book, narrowed to the selected account. Derived from `held` rather than
+  // re-fetched, so a per-account total can never disagree with the combined one:
+  // they are partitions of the same array, not two answers to the same question.
+  const scopedHeld = useMemo(
+    () => filterByAccount(held, acctMap, scope),
+    [held, acctMap, scope],
+  );
+
   const livePrices = useMemo(() => {
     const m = {}; held.forEach(h => { m[String(h.ticker).toUpperCase()] = priceOf(h); }); return m;
   }, [tickerKey, quotes]);
@@ -533,7 +551,7 @@ export default function Money() {
       {view === 'crypto' && <Crypto />}
 
       {view === 'book' && (
-        <Book held={held} priceOf={priceOf} quotes={quotes} visible={visible}
+        <Book held={scopedHeld} priceOf={priceOf} quotes={quotes} visible={visible}
           onOpen={setOpenStock} fx={fx} inr={!!inr} />
       )}
       {view === 'vs' && (
@@ -737,6 +755,12 @@ export default function Money() {
       {view === 'earn' && <EarningsCal held={held} watch={watched} cur="$" />}
 
       {view === 'portfolio' && <>
+      {/* The tabs scope the table below them, not the headline tiles. The tiles
+          are the portfolio; scoping them to one account would answer a question
+          nobody asked while looking exactly like the answer to the one they
+          did. */}
+      <AccountTabs rows={held.map(h => ({ ...h, ticker: h.ticker }))} scope={scope} onScope={setScope} cur={inr ? '\u20b9' : '$'} />
+
       <div className="tile-row">
         <StatTile label="Portfolio value" value={disp(value)} note={pctChip(pnlPct)} color="var(--green)" />
         <StatTile label="Invested" value={disp(cost)} color="var(--cyan)" />
