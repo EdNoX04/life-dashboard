@@ -4906,3 +4906,46 @@
   .mu-srcs { grid-template-columns: 1fr 1fr; }
   .mu-vol { width: 70px; }
 }
+
+/* ------------------------------------------------------- range brush */
+.rb { border: 2px solid var(--border); background: var(--panel); padding: 9px 10px 8px; margin-bottom: 12px; }
+.rb-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.rb-label { font-family: var(--font-pixel); font-size: 7px; letter-spacing: 1px; color: var(--rb-c, var(--cyan)); }
+.rb-presets { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--border-bright); }
+.rb-preset {
+  padding: 3px 8px; font-size: 11px; cursor: pointer; color: var(--ink-3);
+  background: var(--bg-deep); border: none; border-right: 1px solid var(--border);
+}
+.rb-preset:last-child { border-right: none; }
+.rb-preset:hover { color: var(--ink); background: var(--panel-2); }
+.rb-preset.on {
+  color: var(--rb-c, var(--cyan)); background: var(--panel-2);
+  box-shadow: inset 0 -2px 0 var(--rb-c, var(--cyan));
+}
+
+.rb-svg { display: block; width: 100%; height: 54px; background: var(--bg-deep); border: 1px solid var(--border); touch-action: none; cursor: crosshair; }
+.rb-line { fill: none; stroke: var(--ink-3); stroke-width: 1; }
+/* The unselected sides dim; the selection keeps its true brightness, so you
+   read the shape you are choosing rather than a tinted copy of it. */
+.rb-mask { fill: rgba(6,3,12,.66); }
+.rb-win { fill: rgba(88,220,255,.10); cursor: grab; }
+.rb-win:active { cursor: grabbing; }
+.rb-handle { fill: var(--rb-c, var(--cyan)); filter: drop-shadow(0 0 4px var(--rb-c, var(--cyan))); pointer-events: none; }
+/* Invisible, and much wider than the bar it stands in for — a 3px target is
+   unhittable on a touchscreen. */
+.rb-grab { fill: transparent; cursor: ew-resize; }
+.rb-hover { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 2 2; pointer-events: none; }
+
+.rb-foot { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+.rb-date { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; color: var(--ink-3); letter-spacing: .5px; }
+.rb-date input { width: 132px; font-size: 12px; padding: 2px 4px; }
+.rb-cap { font-size: 11.5px; color: var(--ink-2); }
+.rb-trunc { color: var(--orange); font-style: normal; }
+.rb-hoverdate { margin-left: auto; font-size: 11px; color: var(--ink-3); }
+.rb-empty { margin: 6px 0 0; font-size: 12.5px; color: var(--ink-3); font-style: italic; }
+
+@media (max-width: 760px) {
+  .rb-head { flex-direction: column; align-items: flex-start; }
+  .rb-date input { width: 118px; }
+  .rb-hoverdate { margin-left: 0; }
+}

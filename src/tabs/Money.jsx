@@ -3,6 +3,8 @@ import { useCollection } from '../lib/hooks.js';
 import { Card, Empty, StatTile, EyeBtn, useMoneyVisible, money } from '../components/ui.jsx';
 import StockDetail from '../components/StockDetail.jsx';
 import PortfolioChart from '../components/PortfolioChart.jsx';
+import RangeBrush from '../components/money/RangeBrush.jsx';
+import { clampRange, sliceRange } from '../lib/range.js';
 import CryptoHoldings from '../components/CryptoHoldings.jsx';
 import SipCard from '../components/SipCard.jsx';
 import IndiaDesk from '../components/money/IndiaDesk.jsx';
@@ -283,6 +285,24 @@ export default function Money() {
   const { invested: invSeries, value: valSeries } = useMemo(
     () => buildDailySeries(orders, histTickers, priceHist.data || {}, livePrices),
     [orders, histTickers, priceHist, livePrices]
+  );
+
+  // The brush's selection. Held as indices into `valSeries` rather than as a
+  // pair of dates, because the series is the authority on which days exist -
+  // see lib/range.js. Null means "everything", so a portfolio whose history has
+  // just finished loading shows all of it rather than an empty window.
+  const [chartRange, setChartRange] = useState(null);
+  const chartFrom = useMemo(
+    () => (chartRange ? sliceRange(valSeries, chartRange) : valSeries),
+    [valSeries, chartRange],
+  );
+  // The invested line has to be cut to the SAME index window, not re-derived
+  // from dates: the two series are built in one pass over the same day list, so
+  // index i is the same day in both, and slicing them separately by date would
+  // let them drift apart on any day one of them skipped.
+  const investedFrom = useMemo(
+    () => (chartRange ? sliceRange(invSeries, chartRange) : invSeries),
+    [invSeries, chartRange],
   );
 
   // External cash moving in and out, per day. The value line jumps when a buy
@@ -734,7 +754,17 @@ export default function Money() {
 
       <Card title="Portfolio over time" color="var(--purple)"
         right={histState === 'loading' ? <span className="chip c-yellow">building line…</span> : histState === 'nokey' ? <span className="chip c-yellow">add Twelve Data key</span> : null}>
-        <PortfolioChart orders={orders} invested={invSeries} value={valSeries} intraday={intraday} currentValue={value} visible={visible} variant="full" />
+        {/* The brush sits above the chart it controls rather than inside it:
+            it is a control over the whole card, and the same component will sit
+            above the dividend screens, so it should read the same way in both. */}
+        <RangeBrush
+          series={valSeries}
+          valueOf={p => Number(p?.v ?? 0)}
+          range={chartRange || (valSeries.length ? clampRange(valSeries, 0, valSeries.length - 1) : null)}
+          onChange={setChartRange}
+          color="var(--purple)"
+        />
+        <PortfolioChart orders={orders} invested={investedFrom} value={chartFrom} intraday={intraday} currentValue={value} visible={visible} variant="full" />
       </Card>
 
       <Card title="Holdings — stocks" color="var(--green)" right={held.length > 0 && (
