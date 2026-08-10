@@ -61,9 +61,25 @@ async function reportStatus(patch) {
   } catch { /* the status line is a nicety; never fail the run over it */ }
 }
 
-// The same identity the app uses: a viewing is a title on a date. Not the
-// rating — re-rating a film edits the viewing rather than creating a second one.
-const keyOf = e => `${String(e.title || '').toLowerCase().trim()}|${e.on || 'undated'}`;
+// The identity of a viewing: a title on a date. Not the rating — re-rating a
+// film edits the viewing rather than creating a second one.
+//
+// The YEAR only enters the key for UNDATED entries, and it has to. Films-list
+// imports carry no date, so every one of them keyed to `title|undated` — and
+// this profile has two different films both called "Home Alone". They collapsed
+// into a single entry and the import silently came up one short: 57 where the
+// profile says 58. Nothing errored; the count was just quietly wrong, which is
+// the only kind of import bug that survives.
+//
+// A dated entry does NOT get the year, deliberately. Two different films with
+// the same title watched on the same day is vanishingly rare, while a year that
+// one source knows and another does not is common — putting it in the dated key
+// would break the dedupe that stops the daily sync duplicating your diary.
+const keyOf = e => {
+  const t = String(e.title || '').toLowerCase().trim();
+  if (e.on) return `${t}|${e.on}`;
+  return `${t}|undated:${e.year ?? '?'}`;
+};
 
 async function run() {
   const url = `https://letterboxd.com/${encodeURIComponent(LETTERBOXD_USER)}/rss/`;

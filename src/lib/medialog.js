@@ -68,7 +68,19 @@ export function viewingKey(e = {}) {
   const title = String(e.tmdb_id ?? e.title ?? '').toString().toLowerCase().trim();
   const s = e.season == null || e.season === '' ? '' : String(e.season);
   const ep = e.episode == null || e.episode === '' ? '' : String(e.episode);
-  return `${title}|${validDate(e.on) || 'undated'}|${s}|${ep}`;
+  const on = validDate(e.on);
+  // An UNDATED entry has no date to distinguish it, so the year does that job.
+  // Without this, two different films sharing a title fold into one: the
+  // Letterboxd films-list import hit exactly that on two separate "Home Alone"
+  // entries and came back one film short of the profile, with nothing to
+  // indicate anything had gone wrong.
+  //
+  // Dated entries keep the year OUT of the key on purpose. Two different films
+  // with the same title watched on the same day is vanishingly rare; a year one
+  // source knows and another does not is routine, and including it there would
+  // break the dedupe that keeps a daily re-import from doubling the diary.
+  if (!on) return `${title}|undated:${e.year ?? '?'}|${s}|${ep}`;
+  return `${title}|${on}|${s}|${ep}`;
 }
 
 let seq = 0;
@@ -117,6 +129,9 @@ export function normaliseEntry(e = {}) {
   return {
     title,
     tmdb_id: e.tmdb_id ?? null,
+    // Carried because viewingKey needs it to tell two same-titled films apart
+    // when neither has a date.
+    year: num(e.year),
     // `kind` is wider than the shelf's movie/tv because anime and sitcoms are
     // asked about separately and collapsing them into "tv" loses the only thing
     // that distinguishes them at a glance.

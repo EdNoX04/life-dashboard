@@ -193,5 +193,38 @@ eq(act[act.length - 1].date, '2026-07-05', 'ending today');
 eq(act.find(a => a.date === '2026-06-01').count, 2, 'the double-feature day reads 2');
 eq(act.find(a => a.date === '2026-06-02').count, 0, 'a quiet day is a zero, not a missing cell');
 
+// ------------------------------------------- two films, one title, no date
+
+// A real import bug, found by the counts disagreeing: the Letterboxd films list
+// carries two different films both called "Home Alone". Every films-list entry
+// is UNDATED, so both keyed to "home alone|undated", the second folded into the
+// first, and the import finished one film short of the profile — silently.
+//
+// The year is the only thing that can separate them, because neither has a date.
+
+let hl = [];
+hl = addViewing(hl, { title: 'Home Alone', year: 1990 });
+hl = addViewing(hl, { title: 'Home Alone', year: 2021 });
+eq(hl.length, 2, 'two different films with the same title are two entries');
+
+// And the same film offered twice still folds — the fix must not break dedupe.
+hl = addViewing(hl, { title: 'Home Alone', year: 1990, rating: 4 });
+eq(hl.length, 2, 'but re-importing one of them updates rather than appends');
+eq(hl.find(e => e.year === 1990).rating, 4, 'with the new field applied');
+
+// Dated entries deliberately ignore the year: one source knowing it and another
+// not must not create a duplicate viewing.
+let dt = [];
+dt = addViewing(dt, { title: 'Heat', on: '2026-06-01', year: 1995 });
+dt = addViewing(dt, { title: 'Heat', on: '2026-06-01' });
+eq(dt.length, 1, 'a dated viewing dedupes whether or not the year came along');
+
+// Both unknown years still collide, which is the honest limit of this — there
+// is nothing left to tell them apart.
+let unk = [];
+unk = addViewing(unk, { title: 'Untitled' });
+unk = addViewing(unk, { title: 'Untitled' });
+eq(unk.length, 1, 'with no date and no year on either, they are indistinguishable');
+
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);
