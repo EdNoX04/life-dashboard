@@ -34,6 +34,60 @@ export const num = v => {
 
 export const poster = (path, size = 'w185') => (path ? `${IMG}/${size}${path}` : null);
 
+// ------------------------------------------------------------------ auth
+
+// TMDB hands out TWO credentials from the same settings page and they are not
+// interchangeable:
+//
+//   API KEY (v3)          — 32 hex characters, sent as ?api_key=…
+//   READ ACCESS TOKEN (v4) — a ~230-character JWT, sent as
+//                            Authorization: Bearer …
+//
+// Nothing on that page says the second one will not work in the first one's
+// place, and it is the more prominent of the two. Passed as api_key it comes
+// back 401 with no hint as to why — which is exactly how the Discover rail
+// arrived: "TMDB refused: TMDB 401", key present, key wrong shape.
+//
+// So rather than require a particular one, detect which is which. A JWT starts
+// with "eyJ" because that is the base64 of {"alg" — a stable enough marker that
+// every TMDB client uses it.
+export const isBearer = key => String(key || '').trim().startsWith('eyJ');
+
+/**
+ * Turn a URL and a credential into the fetch arguments TMDB expects.
+ *
+ * Returned as a pair rather than mutating the URL because the two credentials
+ * travel in different places — one in the query string, one in a header — and a
+ * caller that only knows about the query string cannot support both.
+ */
+export function tmdbReq(url, key, init = {}) {
+  const k = String(key || '').trim();
+  if (!k) throw new Error('NO_KEY');
+  if (isBearer(k)) {
+    return [url, { ...init, headers: { ...(init.headers || {}), Authorization: `Bearer ${k}`, accept: 'application/json' } }];
+  }
+  const sep = url.includes('?') ? '&' : '?';
+  return [`${url}${sep}api_key=${encodeURIComponent(k)}`, init];
+}
+
+// One place that actually performs the call, so no screen has to remember which
+// credential it is holding.
+export async function tmdbFetch(url, key, init = {}) {
+  const [u, opts] = tmdbReq(url, key, init);
+  const r = await fetch(u, opts);
+  if (!r.ok) {
+    // 401 on a v3 key that looks like a token is the single most likely
+    // misconfiguration, and "TMDB 401" tells you nothing about how to fix it.
+    if (r.status === 401) {
+      throw new Error(isBearer(key)
+        ? 'TMDB 401 — the read access token was rejected. Check it is copied whole.'
+        : 'TMDB 401 — that key was rejected. TMDB gives you an "API Key" (32 characters) and a "Read Access Token" (long, starts with eyJ); either works here, but a truncated one does not.');
+    }
+    throw new Error(`TMDB ${r.status}`);
+  }
+  return r.json();
+}
+
 // Country codes to names without shipping a table. Intl.DisplayNames is in every
 // browser this app targets and in Node; the code itself is the fallback, which
 // is ugly but never wrong.
@@ -218,11 +272,8 @@ export function providerAge(fetchedAt, now = Date.now()) {
 // ------------------------------------------------------------------ fetch
 
 export async function fetchDetail(kind, id, key, { signal } = {}) {
-  if (!key) throw new Error('NO_KEY');
-  const url = `${detailPath(kind, id)}?api_key=${key}&append_to_response=credits,watch/providers,external_ids`;
-  const r = await fetch(url, { signal });
-  if (!r.ok) throw new Error(`TMDB ${r.status}`);
-  const j = await r.json();
+  const url = `${detailPath(kind, id)}?append_to_response=credits,watch/providers,external_ids`;
+  const j = await tmdbFetch(url, key, { signal });
   const d = normaliseDetail(j, kind);
   if (!d) throw new Error('empty');
   return { ...d, fetched_at: new Date().toISOString() };
@@ -231,10 +282,7 @@ export async function fetchDetail(kind, id, key, { signal } = {}) {
 // Trending, for batch 4's poster rail — defined here so every TMDB shape lives
 // in one file rather than being reinvented per screen.
 export async function fetchTrending(kind = 'all', key, { window = 'week', signal } = {}) {
-  if (!key) throw new Error('NO_KEY');
-  const r = await fetch(`${BASE}/trending/${kind}/${window}?api_key=${key}`, { signal });
-  if (!r.ok) throw new Error(`TMDB ${r.status}`);
-  const j = await r.json();
+  const j = await tmdbFetch(`${BASE}/trending/${kind}/${window}`, key, { signal });
   return j.results || [];
 }
 
@@ -260,12 +308,8 @@ export const RAILS = [
 export const railOf = key => RAILS.find(r => r.key === key) || RAILS[0];
 
 export async function fetchRail(key, apiKey, { signal } = {}) {
-  if (!apiKey) throw new Error('NO_KEY');
   const rail = railOf(key);
-  const sep = rail.path.includes('?') ? '&' : '?';
-  const r = await fetch(`${BASE}${rail.path}${sep}api_key=${apiKey}`, { signal });
-  if (!r.ok) throw new Error(`TMDB ${r.status}`);
-  const j = await r.json();
+  const j = await tmdbFetch(`${BASE}${rail.path}`, apiKey, { signal });
   return (j.results || []).map(x => normaliseCard(x, rail.key)).filter(Boolean);
 }
 
@@ -302,3 +346,19 @@ export function normaliseCard(r = {}, railKey = 'trending') {
 // appears in the anime rail's query and in the kind guess, and a bare 16 in two
 // places is two places to get it wrong.
 export const GENRE_ANIMATION = 16;
+
+
+// Search and season lookups, so no component builds a TMDB URL by hand and
+// re-invents the credential question.
+export async function searchTmdb(term, key, { signal } = {}) {
+  const j = await tmdbFetch(`${BASE}/search/multi?query=${encodeURIComponent(term)}`, key, { signal });
+  return j.results || [];
+}
+
+export async function fetchSeason(tvId, season, key, { signal } = {}) {
+  return tmdbFetch(`${BASE}/tv/${tvId}/season/${season}`, key, { signal });
+}
+
+export async function fetchRaw(kind, id, key, { signal } = {}) {
+  return tmdbFetch(detailPath(kind, id), key, { signal });
+}

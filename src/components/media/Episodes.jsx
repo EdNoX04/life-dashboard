@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Empty } from '../ui.jsx';
 import { getConfig } from '../../lib/db.js';
-import { BASE } from '../../lib/tmdb.js';
+import { fetchSeason } from '../../lib/tmdb.js';
 import { kindOf } from '../../lib/kinds.js';
 import {
   normaliseSeason, seasonList, watchedSet, isWatched, seasonProgress, nextUp,
@@ -63,8 +63,7 @@ export default function Episodes({ open, title = '', tmdbId = null, kind = 'tv',
     if (!open || active == null || !tmdbId || !key || loaded[active]) return undefined;
     const ac = new AbortController();
     setBusy(true); setErr(null);
-    fetch(`${BASE}/tv/${tmdbId}/season/${active}?api_key=${key}`, { signal: ac.signal })
-      .then(r => (r.ok ? r.json() : Promise.reject(new Error(`TMDB ${r.status}`))))
+    fetchSeason(tmdbId, active, key, { signal: ac.signal })
       .then(j => setLoaded(p => ({ ...p, [active]: normaliseSeason(j) })))
       .catch(e => { if (e.name !== 'AbortError') setErr(e.message); })
       .finally(() => setBusy(false));

@@ -13,6 +13,7 @@ import Preview from '../components/media/Preview.jsx';
 import Episodes from '../components/media/Episodes.jsx';
 import Discover from '../components/media/Discover.jsx';
 import Lists, { AddToList } from '../components/media/Lists.jsx';
+import { searchTmdb, fetchRaw } from '../lib/tmdb.js';
 import { KINDS, kindOf, isEpisodic, guessKind, progressFor } from '../lib/kinds.js';
 
 // The media shelf.
@@ -214,6 +215,7 @@ export default function Movies() {
   const [detailCache, setDetailCache] = useState({});
   const [lists, setLists] = useState([]);
   const [listFor, setListFor] = useState(null);   // title being filed
+  const [searchErr, setSearchErr] = useState(null);
   const tmdbKey = (getConfig().tmdbKey || '').trim();
 
   useEffect(() => {
@@ -292,10 +294,15 @@ export default function Movies() {
     }
     setBusy(true);
     try {
-      const r = await fetch(`https://api.themoviedb.org/3/search/multi?query=${encodeURIComponent(term)}&api_key=${tmdbKey}`);
-      const j = await r.json();
-      setResults(normalizeResults(j.results || []).slice(0, 8));
-    } catch { setResults([]); }
+      setResults(normalizeResults(await searchTmdb(term, tmdbKey)).slice(0, 8));
+      setSearchErr(null);
+    } catch (e) {
+      setResults([]);
+      // Named rather than swallowed. A search that silently returns nothing is
+      // indistinguishable from a search with no matches, and the difference here
+      // was a credential in the wrong format.
+      setSearchErr(String(e.message || e));
+    }
     finally { setBusy(false); }
   }
 
@@ -334,9 +341,7 @@ export default function Movies() {
     setEpisodes({ title: row.title, tmdbId: row.tmdb_id, kind: meta[row.id]?.kind || row.type, poster: row.poster_url, detail: detailCache[row.tmdb_id] || null });
     if (!tmdbKey || !row.tmdb_id || detailCache[row.tmdb_id]) return;
     try {
-      const r = await fetch(`https://api.themoviedb.org/3/tv/${row.tmdb_id}?api_key=${tmdbKey}`);
-      if (!r.ok) return;
-      const j = await r.json();
+      const j = await fetchRaw('tv', row.tmdb_id, tmdbKey);
       setDetailCache(c => ({ ...c, [row.tmdb_id]: j }));
       setEpisodes(e => (e ? { ...e, detail: j } : e));
     } catch { /* the grid shows its own empty state */ }
@@ -459,6 +464,7 @@ export default function Movies() {
             {busy ? '…' : tmdbKey ? 'SEARCH' : '+ ADD'}
           </button>
         </div>
+        {searchErr && <p className="ls-warn">{searchErr}</p>}
         {results.length > 0 && (
           <div className="mv-results">
             {results.map(r => (

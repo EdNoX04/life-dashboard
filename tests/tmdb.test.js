@@ -196,5 +196,50 @@ ok(card.poster_url.includes('w342'), 'posters come at grid size, not thumbnail s
 eq(normaliseCard({}, 'trending'), null, 'an empty row is not a card');
 eq(normaliseCard({ id: 8 }, 'trending'), null, 'and neither is one with no title');
 
+// ------------------------------------------------------ two credentials, one API
+
+// The Discover rail came back "TMDB refused: TMDB 401" with a key present and
+// non-empty. The cause: TMDB's settings page hands out TWO credentials and the
+// more prominent one does not work where the other does.
+//
+//   API Key (v3)           32 hex chars   ?api_key=…
+//   Read Access Token (v4) ~230-char JWT  Authorization: Bearer …
+//
+// Nothing warns you, and a token sent as api_key returns a bare 401. Rather than
+// demand a particular one, both are detected and routed correctly.
+
+import { isBearer, tmdbReq } from '../src/lib/tmdb.js';
+
+const V3 = 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6';
+const V4 = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIxMjMifQ.signature';
+
+eq(isBearer(V4), true, 'a JWT is recognised — it starts eyJ, the base64 of {"alg');
+eq(isBearer(V3), false, 'a 32-char hex key is not');
+eq(isBearer(''), false, 'and neither is nothing');
+eq(isBearer('  eyJabc'), true, 'leading whitespace from a paste does not fool it');
+
+const [u3, o3] = tmdbReq('https://api.themoviedb.org/3/movie/949', V3);
+ok(u3.includes(`api_key=${V3}`), 'a v3 key goes in the query string');
+ok(!o3.headers, 'and adds no Authorization header');
+
+const [u4, o4] = tmdbReq('https://api.themoviedb.org/3/movie/949', V4);
+eq(u4, 'https://api.themoviedb.org/3/movie/949', 'a v4 token does NOT go in the URL');
+eq(o4.headers.Authorization, `Bearer ${V4}`, 'it goes in the Authorization header');
+ok(!u4.includes('api_key'), 'and the query string stays clean — sending both is what 401s');
+
+// The separator has to respect a URL that already has a query, or the key lands
+// as part of the previous parameter's value and TMDB sees no key at all.
+const [u5] = tmdbReq('https://api.themoviedb.org/3/discover/tv?with_genres=16', V3);
+ok(u5.includes('?with_genres=16&api_key='), 'an existing query string gets & rather than a second ?');
+
+// Existing headers are preserved rather than replaced — an abort signal or an
+// accept header set by the caller must survive.
+const [, o6] = tmdbReq('https://x/y', V4, { headers: { 'X-Test': '1' } });
+eq(o6.headers['X-Test'], '1', 'caller headers are kept alongside the auth header');
+
+let threw = null;
+try { tmdbReq('https://x/y', ''); } catch (e) { threw = e.message; }
+eq(threw, 'NO_KEY', 'no credential at all is a named error, not a silent 401');
+
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);
