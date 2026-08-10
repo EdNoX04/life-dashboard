@@ -11,6 +11,7 @@ import Diary from '../components/media/Diary.jsx';
 import LogSheet from '../components/media/LogSheet.jsx';
 import Preview from '../components/media/Preview.jsx';
 import Episodes from '../components/media/Episodes.jsx';
+import Discover from '../components/media/Discover.jsx';
 import { KINDS, kindOf, isEpisodic, guessKind, progressFor } from '../lib/kinds.js';
 
 // The media shelf.
@@ -345,13 +346,44 @@ export default function Movies() {
       <p className="tab-sub">Your own Letterboxd — movies & TV, tracked.</p>
 
       <div className="mv-screens">
-        {[['shelf', 'SHELF'], ['diary', 'DIARY']].map(([k, l]) => (
+        {[['shelf', 'SHELF'], ['diary', 'DIARY'], ['discover', 'DISCOVER']].map(([k, l]) => (
           <button key={k} className={`seg-btn${screen === k ? ' on' : ''}`} onClick={() => setScreen(k)}>{l}</button>
         ))}
         <span className="muted small" style={{ marginLeft: 8 }}>
-          {screen === 'shelf' ? 'what you own and plan to watch' : `${log.length} viewing${log.length === 1 ? '' : 's'} on record`}
+          {screen === 'shelf' ? 'what you own and plan to watch'
+            : screen === 'diary' ? `${log.length} viewing${log.length === 1 ? '' : 's'} on record`
+              : 'what is out there — no typing required'}
         </span>
       </div>
+
+      {screen === 'discover' && (
+        <>
+          <Discover
+            log={log}
+            onOpen={c => setPreview({ kind: c.kind, tmdbId: c.tmdb_id, fallback: c })}
+            onAdd={c => addFrom({ ...c, type: c.kind })}
+          />
+          <Preview
+            open={!!preview}
+            kind={preview?.kind || 'movie'}
+            tmdbId={preview?.tmdbId ?? null}
+            fallback={preview?.fallback || null}
+            onAdd={async d => { await addFrom({ ...d, type: d.kind }); setPreview(null); }}
+            onLog={d => { setPreview(null); setSheet({ title: d.title, kind: d.kind, poster: d.poster_url, tmdbId: d.tmdb_id }); }}
+            onClose={() => setPreview(null)}
+          />
+          <LogSheet
+            open={!!sheet}
+            entry={sheet?.entry || null}
+            title={sheet?.title || ''}
+            kind={sheet?.kind || 'movie'}
+            poster={sheet?.poster || null}
+            tmdbId={sheet?.tmdbId ?? null}
+            onSave={saveViewing}
+            onClose={() => setSheet(null)}
+          />
+        </>
+      )}
 
       {screen === 'diary' && (
         <>

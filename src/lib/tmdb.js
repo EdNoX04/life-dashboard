@@ -237,3 +237,68 @@ export async function fetchTrending(kind = 'all', key, { window = 'week', signal
   const j = await r.json();
   return j.results || [];
 }
+
+// ---------------------------------------------------------------- discovery
+
+// The rails on the discovery screen. Trending first because it is the one that
+// answers "what is everyone watching right now" — the question that sends you
+// to a search box in the first place.
+//
+// Anime gets its own rail rather than being left inside popular TV, where it
+// never surfaces: TMDB's popularity is global and anime loses to English-language
+// drama on volume alone. `with_original_language=ja` + the animation genre is
+// the same test guessKind uses, kept identical on purpose so a title cannot be
+// discovered as anime here and filed as plain TV on the shelf.
+export const RAILS = [
+  { key: 'trending', label: 'TRENDING', path: '/trending/all/week', note: 'what everyone is watching this week' },
+  { key: 'movies', label: 'FILMS', path: '/movie/popular', note: 'popular films right now' },
+  { key: 'tv', label: 'SERIES', path: '/tv/popular', note: 'popular series right now' },
+  { key: 'anime', label: 'ANIME', path: '/discover/tv?with_original_language=ja&with_genres=16&sort_by=popularity.desc', note: 'Japanese animation, by popularity' },
+  { key: 'india', label: 'INDIA', path: '/discover/movie?with_original_language=hi&sort_by=popularity.desc&vote_count.gte=20', note: 'Hindi-language films' },
+];
+
+export const railOf = key => RAILS.find(r => r.key === key) || RAILS[0];
+
+export async function fetchRail(key, apiKey, { signal } = {}) {
+  if (!apiKey) throw new Error('NO_KEY');
+  const rail = railOf(key);
+  const sep = rail.path.includes('?') ? '&' : '?';
+  const r = await fetch(`${BASE}${rail.path}${sep}api_key=${apiKey}`, { signal });
+  if (!r.ok) throw new Error(`TMDB ${r.status}`);
+  const j = await r.json();
+  return (j.results || []).map(x => normaliseCard(x, rail.key)).filter(Boolean);
+}
+
+// A rail card is a poster, a title and enough to open the preview — not a full
+// detail. Fetching details for forty posters to draw forty thumbnails would
+// spend the rate limit on cards nobody taps.
+export function normaliseCard(r = {}, railKey = 'trending') {
+  if (!r || r.media_type === 'person') return null;
+  const title = r.title || r.name;
+  if (!title) return null;
+  // The rail knows what it asked for; media_type is only present on /trending.
+  const isTv = r.media_type === 'tv'
+    || (!r.media_type && (railKey === 'tv' || railKey === 'anime'))
+    || (!r.media_type && !!r.first_air_date);
+  const date = r.release_date || r.first_air_date || '';
+  return {
+    tmdb_id: r.id ?? null,
+    title,
+    kind: isTv ? 'tv' : 'movie',
+    year: /^\d{4}/.test(date) ? Number(date.slice(0, 4)) : null,
+    poster_url: poster(r.poster_path, 'w342'),
+    overview: (r.overview || '').trim() || null,
+    tmdb_score: num(r.vote_average),
+    tmdb_votes: num(r.vote_count),
+    // Carried so the shelf can file it correctly the moment it is added, rather
+    // than guessing from the title alone.
+    languages: r.original_language ? [r.original_language] : [],
+    countries: r.origin_country || [],
+    genre_ids: r.genre_ids || [],
+  };
+}
+
+// TMDB genre 16 is Animation. Kept as a named constant because the number
+// appears in the anime rail's query and in the kind guess, and a bare 16 in two
+// places is two places to get it wrong.
+export const GENRE_ANIMATION = 16;

@@ -146,5 +146,55 @@ eq(countryName('in'), 'India', 'case-insensitively');
 eq(countryName(''), '', 'an empty code is empty');
 eq(countryName('ZZ'), 'ZZ', 'and an unknown code falls back to itself rather than blanking');
 
+// --------------------------------------------------- discovery rails (batch 4)
+
+// The poster wall exists because search assumes you already know what you want,
+// and most of the time you do not. Two things it must get right:
+//
+//   Anime and Hindi films need their OWN rails. TMDB popularity is global, so
+//   both lose to English-language drama on volume and effectively never appear
+//   in a "popular" list — a rail each is the only way they surface at all.
+//   A rail card must know its KIND. /trending returns media_type; /tv/popular
+//   does not, and a series filed as a film gets no episode grid.
+
+import { RAILS, railOf, normaliseCard, GENRE_ANIMATION } from '../src/lib/tmdb.js';
+
+ok(RAILS.some(r => r.key === 'anime'), 'anime has its own rail');
+ok(RAILS.some(r => r.key === 'india'), 'and Hindi films do too');
+ok(railOf('anime').path.includes('with_original_language=ja'),
+  'the anime rail asks for Japanese originals');
+ok(railOf('anime').path.includes(`with_genres=${GENRE_ANIMATION}`),
+  'and for animation — the same two-part test the shelf uses to file it');
+ok(railOf('india').path.includes('vote_count.gte='),
+  'the India rail requires a minimum vote count, or it fills with unreleased noise');
+eq(railOf('nonsense').key, 'trending', 'an unknown rail falls back rather than throwing');
+
+// /trending says what each row is.
+eq(normaliseCard({ id: 1, name: 'House', media_type: 'tv' }, 'trending').kind, 'tv',
+  'trending rows carry their own media_type');
+eq(normaliseCard({ id: 2, title: 'Heat', media_type: 'movie' }, 'trending').kind, 'movie',
+  'in both directions');
+eq(normaliseCard({ id: 3, name: 'Person', media_type: 'person' }, 'trending'), null,
+  'people are not titles and are dropped');
+
+// /tv/popular does NOT. The rail is then the only thing that knows.
+eq(normaliseCard({ id: 4, name: 'Some Series', first_air_date: '2024-01-01' }, 'tv').kind, 'tv',
+  'a popular-TV row is a series even with no media_type');
+eq(normaliseCard({ id: 5, name: 'Some Anime' }, 'anime').kind, 'tv',
+  'and so is an anime row with no dates at all — the rail knows what it asked for');
+eq(normaliseCard({ id: 6, title: 'Some Film' }, 'movies').kind, 'movie',
+  'while the films rail yields films');
+
+const card = normaliseCard({
+  id: 7, title: 'Dhurandhar', release_date: '2025-12-05', vote_average: 7.2, vote_count: 340,
+  original_language: 'hi', genre_ids: [28], poster_path: '/d.jpg',
+}, 'india');
+eq(card.year, 2025, 'the year is read');
+eq(card.tmdb_score, 7.2, 'the score comes across');
+eq(card.languages.join(''), 'hi', 'and the language, so the shelf can file it without guessing again');
+ok(card.poster_url.includes('w342'), 'posters come at grid size, not thumbnail size');
+eq(normaliseCard({}, 'trending'), null, 'an empty row is not a card');
+eq(normaliseCard({ id: 8 }, 'trending'), null, 'and neither is one with no title');
+
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);
