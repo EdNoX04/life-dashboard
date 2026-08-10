@@ -331,3 +331,95 @@ export function activity(list = [], { days = 120, to = new Date() } = {}) {
   }
   return out;
 }
+
+// ------------------------------------------------- the shelf, from the diary
+
+/**
+ * Titles you have watched but never put on a shelf.
+ *
+ * The shelf reads the `movies` table and the diary reads `media_log`, and after
+ * the Letterboxd import those disagreed completely: 58 films watched, an empty
+ * shelf, and "0 titles · 0.0h · nothing rated yet" on a screen where the diary
+ * one tab over knew all of it. Two stores answering the same question, and the
+ * one the landing screen reads was the empty one.
+ *
+ * The fix is NOT to copy 58 rows into `movies`. That creates a second source of
+ * truth immediately: rate a film in the diary and the shelf copy is stale, edit
+ * the shelf copy and the diary disagrees, and a re-import has to reconcile two
+ * places instead of one. Every bug in this project so far has been two things
+ * that should have been one.
+ *
+ * So the shelf is a VIEW: real rows, plus derived rows for anything in the diary
+ * that has no row. Derived rows are marked, so the screen can be honest that
+ * they came from a viewing rather than from you filing something.
+ */
+export function shelfFromLog(rows = [], log = []) {
+  const have = new Set();
+  for (const r of rows) {
+    if (r.tmdb_id != null && r.tmdb_id !== '') have.add(`id:${r.tmdb_id}`);
+    if (r.title) have.add(`t:${String(r.title).toLowerCase().trim()}`);
+  }
+
+  // One derived row per TITLE, not per viewing — three viewings of Heat are one
+  // film on a shelf. The best rating you ever gave it wins, because a shelf
+  // shows what you think of a film, not what you thought on one particular
+  // Tuesday.
+  const byTitle = new Map();
+  for (const e of log) {
+    if (!e.title) continue;
+    const idKey = e.tmdb_id != null && e.tmdb_id !== '' ? `id:${e.tmdb_id}` : null;
+    const tKey = `t:${String(e.title).toLowerCase().trim()}`;
+    if ((idKey && have.has(idKey)) || have.has(tKey)) continue;
+
+    const key = idKey || tKey;
+    const prev = byTitle.get(key);
+    const rating = num(e.rating);
+    const on = validDate(e.on);
+    if (!prev) {
+      byTitle.set(key, {
+        id: `derived:${key}`,
+        title: e.title,
+        type: String(e.kind) === 'movie' ? 'movie' : 'tv',
+        kind: e.kind || 'movie',
+        status: 'completed',
+        tmdb_id: e.tmdb_id ?? null,
+        poster_url: e.poster_url || null,
+        rating,
+        year: num(e.year),
+        runtime: num(e.runtime),
+        last_watched: on,
+        viewings: 1,
+        // The flag the UI needs to avoid offering "delete" on something that is
+        // not a row it can delete.
+        derived: true,
+      });
+      continue;
+    }
+    prev.viewings += 1;
+    if (rating != null && (prev.rating == null || rating > prev.rating)) prev.rating = rating;
+    if (on && (!prev.last_watched || on > prev.last_watched)) prev.last_watched = on;
+    if (!prev.poster_url && e.poster_url) prev.poster_url = e.poster_url;
+    if (prev.runtime == null && num(e.runtime) != null) prev.runtime = num(e.runtime);
+    if (prev.year == null && num(e.year) != null) prev.year = num(e.year);
+  }
+
+  // Real rows first: a title you actually filed outranks one inferred from a
+  // viewing, and if both somehow exist the real one is the one you edited.
+  return [...rows, ...byTitle.values()];
+}
+
+// The metadata a derived row would otherwise have nowhere to put. Shaped like a
+// media_meta entry so the shelf's existing readers need no special case.
+export function derivedMeta(shelf = []) {
+  const out = {};
+  for (const r of shelf) {
+    if (!r.derived) continue;
+    out[r.id] = {
+      year: r.year ?? null,
+      runtime: r.type === 'movie' ? r.runtime ?? null : null,
+      episode_runtime: r.type === 'movie' ? null : r.runtime ?? null,
+      kind: r.kind,
+    };
+  }
+  return out;
+}

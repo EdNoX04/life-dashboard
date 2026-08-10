@@ -226,5 +226,69 @@ unk = addViewing(unk, { title: 'Untitled' });
 unk = addViewing(unk, { title: 'Untitled' });
 eq(unk.length, 1, 'with no date and no year on either, they are indistinguishable');
 
+// --------------------------------------------- the shelf, filled from the diary
+
+// The landing screen read "0 titles · 0.0h · nothing rated yet" while the diary
+// one tab across held 58 films. Two stores answering the same question, and the
+// screen people open first was reading the empty one.
+//
+// The fix is a VIEW, not a copy. Copying 58 rows into the movies table would
+// create a second source of truth on the spot: rate a film in the diary and the
+// shelf copy is stale; edit the shelf copy and the diary disagrees. Every bug in
+// this project so far has been two things that should have been one.
+
+import { shelfFromLog, derivedMeta } from '../src/lib/medialog.js';
+
+const ROWS = [
+  { id: 'r1', title: 'Severance', type: 'tv', status: 'watching' },
+  { id: 'r2', title: 'Dune', type: 'movie', status: 'watchlist', tmdb_id: 438631 },
+];
+const LOG2 = [
+  { title: 'Heat', tmdb_id: 949, rating: 4, on: '2026-01-01', runtime: 170, year: 1995, kind: 'movie' },
+  { title: 'Heat', tmdb_id: 949, rating: 5, on: '2026-02-01', runtime: 170, kind: 'movie' },
+  { title: 'Tamasha', rating: 5, on: null, year: 2015, kind: 'movie' },
+  // Already on the shelf, by id and by title respectively — must NOT be doubled.
+  { title: 'Dune', tmdb_id: 438631, rating: 4, on: '2026-03-01', kind: 'movie' },
+  { title: 'severance', season: 1, episode: 1, on: '2026-03-02', kind: 'tv' },
+];
+
+const view = shelfFromLog(ROWS, LOG2);
+eq(view.length, 4, 'two real rows plus two derived — nothing already shelved is duplicated');
+eq(view.filter(r => r.derived).length, 2, 'exactly two came from the diary');
+ok(!view.some(r => r.derived && r.title === 'Dune'), 'a title matched by TMDB id is not re-added');
+ok(!view.some(r => r.derived && /severance/i.test(r.title)), 'nor one matched by name, case-insensitively');
+
+// Three viewings of one film are ONE shelf entry. A shelf lists films.
+const heat = view.find(r => r.title === 'Heat');
+eq(heat.viewings, 2, 'both viewings are counted');
+eq(heat.status, 'completed', 'a watched film lands on the completed shelf');
+eq(heat.rating, 5, 'and carries the BEST rating you gave it, not the first or last');
+eq(heat.year, 1995, 'the year is picked up from whichever viewing had it');
+eq(heat.last_watched, '2026-02-01', 'along with the most recent date');
+
+// An undated viewing still puts the film on the shelf — 33 of this library has
+// no date, and they are no less watched for it.
+const tamasha = view.find(r => r.title === 'Tamasha');
+eq(tamasha.status, 'completed', 'an undated viewing still means watched');
+eq(tamasha.last_watched, null, 'with no date to show');
+
+// Real rows come first, so anything you actually filed outranks an inference.
+eq(view[0].id, 'r1', 'real rows lead');
+ok(view.slice(0, 2).every(r => !r.derived), 'and are not interleaved with derived ones');
+
+eq(shelfFromLog([], []).length, 0, 'nothing in, nothing out');
+eq(shelfFromLog(ROWS, []).length, 2, 'an empty diary leaves the shelf exactly as it was');
+eq(shelfFromLog([], LOG2).filter(r => r.derived).length, 4,
+  'an empty shelf derives every distinct title in the diary');
+
+// Runtimes have to reach the stats, or "time watched" stays at 0.0h — which is
+// the symptom that started this.
+const dm = derivedMeta(view);
+eq(dm[heat.id].runtime, 170, 'a film runtime lands in the movie field');
+const showRows = shelfFromLog([], [{ title: 'Show', kind: 'tv', runtime: 42, on: '2026-01-01' }]);
+eq(derivedMeta(showRows)[showRows[0].id].episode_runtime, 42, 'and a series runtime in the episode field');
+eq(derivedMeta(showRows)[showRows[0].id].runtime, null, 'not both — that would double-count the hours');
+eq(Object.keys(derivedMeta(ROWS)).length, 0, 'real rows get no derived metadata');
+
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);

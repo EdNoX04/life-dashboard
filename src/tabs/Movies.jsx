@@ -6,7 +6,7 @@ import {
   STATUSES, statusOf, normalizeResults, progressOf, statusDisagreement,
   shelfStats, SORTS, sortRows, filterRows,
 } from '../lib/media.js';
-import { addViewing, removeViewing } from '../lib/medialog.js';
+import { addViewing, removeViewing, shelfFromLog, derivedMeta } from '../lib/medialog.js';
 import Diary from '../components/media/Diary.jsx';
 import LogSheet from '../components/media/LogSheet.jsx';
 import Preview from '../components/media/Preview.jsx';
@@ -64,7 +64,8 @@ function Poster({ row, meta, onPatch, onMeta, onDel, onLog, onPreview, onEpisode
         <span className="mv-badge" style={{ color: kindOf(m.kind || row.type).color }}>
           {kindOf(m.kind || row.type).label}
         </span>
-        {row.rating ? <span className="mv-rate">{'★'.repeat(row.rating)}</span> : null}
+        {row.rating ? <span className="mv-rate">{'★'.repeat(Math.round(row.rating))}</span> : null}
+        {row.derived && <span className="mv-from" title="On the shelf because it is in your diary">◷</span>}
       </button>
 
       <div className="mv-name" title={row.title}>{row.title}</div>
@@ -181,7 +182,12 @@ function Poster({ row, meta, onPatch, onMeta, onDel, onLog, onPreview, onEpisode
             {m.tmdb_score
               ? <span className="chip c-purple">TMDB {Number(m.tmdb_score).toFixed(1)}</span>
               : <span />}
-            <button className="btn btn-sm" onClick={onDel}>REMOVE</button>
+            {/* A derived row is not a row — there is nothing to delete. Removing
+                it means removing the viewing, which belongs in the diary where
+                the consequence is visible. */}
+            {row.derived
+              ? <span className="muted small">from your diary · remove it there</span>
+              : <button className="btn btn-sm" onClick={onDel}>REMOVE</button>}
           </div>
         </div>
       )}
@@ -353,10 +359,44 @@ export default function Movies() {
     } catch { /* the grid shows its own empty state */ }
   }
 
-  const stats = useMemo(() => shelfStats(items, meta), [items, meta]);
+  // The shelf is a VIEW over two stores, not one of them. Anything in the diary
+  // with no shelf row appears as a completed title — otherwise the landing
+  // screen reads "0 titles" while the diary one tab over knows about 58 films.
+  // See lib/medialog.js for why these are not copied into the movies table.
+  const shelfRows = useMemo(() => shelfFromLog(items, log), [items, log]);
+  const allMeta = useMemo(() => ({ ...derivedMeta(shelfRows), ...meta }), [shelfRows, meta]);
+  const derivedCount = shelfRows.filter(r => r.derived).length;
+
+  // Land on a shelf that has something on it. The default was "watching", which
+  // is empty for most people and made the whole tab look broken on first open —
+  // 58 films watched and a screen saying "Empty shelf." Runs once, and never
+  // fights a choice the user has made.
+  const [pickedShelf, setPickedShelf] = useState(false);
+  useEffect(() => {
+    if (pickedShelf || !shelfRows.length) return;
+    if (filterRows(shelfRows, { status: shelf }).length) { setPickedShelf(true); return; }
+    const firstFull = STATUSES.find(st => filterRows(shelfRows, { status: st.key }).length);
+    if (firstFull) setShelf(firstFull.key);
+    setPickedShelf(true);
+  }, [shelfRows, shelf, pickedShelf]);
+
+  // Editing something that came from the diary turns it into a real shelf row
+  // first. The alternative — quietly writing to a row that does not exist —
+  // looks like it worked and is gone on reload.
+  async function adopt(r, patchObj = {}) {
+    const row = await add({
+      title: r.title, type: r.type, status: patchObj.status || 'completed',
+      tmdb_id: r.tmdb_id, poster_url: r.poster_url, rating: patchObj.rating ?? r.rating ?? null,
+    });
+    const id = row?.id || row?.[0]?.id;
+    if (id) await writeMeta(id, { year: r.year, kind: r.kind, ...(r.runtime ? (r.type === 'movie' ? { runtime: r.runtime } : { episode_runtime: r.runtime }) : {}) });
+    refresh?.();
+  }
+
+  const stats = useMemo(() => shelfStats(shelfRows, allMeta), [shelfRows, allMeta]);
   const shown = useMemo(
-    () => sortRows(filterRows(items, { status: shelf, q: find }), sort, meta),
-    [items, shelf, find, sort, meta],
+    () => sortRows(filterRows(shelfRows, { status: shelf, q: find }), sort, allMeta),
+    [shelfRows, shelf, find, sort, allMeta],
   );
 
   const hours = stats.time.exact
@@ -533,6 +573,14 @@ export default function Movies() {
         </div>
       </div>
 
+      {derivedCount > 0 && shelf === 'completed' && (
+        <p className="mv-derived">
+          {derivedCount} of these come from your diary rather than from anything
+          you filed here — they are on the shelf because you watched them. Edit
+          one and it becomes a normal shelf entry.
+        </p>
+      )}
+
       <Card title={`${statusOf(shelf).label} (${shown.length})`} color={statusOf(shelf).color}>
         {shown.length === 0
           ? <Empty icon="▶" text={find ? `Nothing on this shelf matches “${find}”.` : 'Empty shelf.'} />
@@ -544,9 +592,9 @@ export default function Movies() {
                     key={r.id} row={r} meta={meta}
                     expanded={open === r.id}
                     onExpand={() => setOpen(open === r.id ? null : r.id)}
-                    onPatch={p => patch(r.id, p)}
-                    onMeta={p => writeMeta(r.id, p)}
-                    onDel={() => del(r.id)}
+                    onPatch={p => (r.derived ? adopt(r, p) : patch(r.id, p))}
+                    onMeta={p => (r.derived ? adopt(r, {}) : writeMeta(r.id, p))}
+                    onDel={() => (r.derived ? null : del(r.id))}
                     onLog={() => setSheet({
                       title: r.title, kind: r.type, poster: r.poster_url, tmdbId: r.tmdb_id,
                     })}
