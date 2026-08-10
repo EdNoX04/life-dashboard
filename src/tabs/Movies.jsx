@@ -15,6 +15,7 @@ import Discover from '../components/media/Discover.jsx';
 import Lists, { AddToList } from '../components/media/Lists.jsx';
 import Import from '../components/media/Import.jsx';
 import Backfill from '../components/media/Backfill.jsx';
+import AddSheet from '../components/media/AddSheet.jsx';
 import { searchTmdb, fetchRaw } from '../lib/tmdb.js';
 import Ally from '../components/Ally.jsx';
 import { KINDS, kindOf, isEpisodic, guessKind, progressFor } from '../lib/kinds.js';
@@ -225,6 +226,7 @@ export default function Movies() {
   const [lists, setLists] = useState([]);
   const [listFor, setListFor] = useState(null);   // title being filed
   const [searchErr, setSearchErr] = useState(null);
+  const [adding, setAdding] = useState(null);
   const [loadErr, setLoadErr] = useState(null);
   const tmdbKey = (getConfig().tmdbKey || '').trim();
 
@@ -318,6 +320,46 @@ export default function Movies() {
       setSearchErr(String(e.message || e));
     }
     finally { setBusy(false); }
+  }
+
+  // Every add goes through here, whichever screen asked for it, so the date is
+  // never captured on one path and forgotten on another. `plan` is the answer
+  // from the add sheet: a status, a date, and whether that date is a VIEWING.
+  async function addPlanned(plan) {
+    const row = await add({
+      title: plan.title, type: plan.type, status: plan.status,
+      tmdb_id: plan.tmdb_id, poster_url: plan.poster_url,
+      rating: plan.rating ?? null,
+    });
+    const id = row?.id || row?.[0]?.id;
+    if (id) {
+      await writeMeta(id, {
+        year: plan.year, kind: plan.kind,
+        ...(plan.runtime ? (plan.type === 'movie'
+          ? { runtime: plan.runtime } : { episode_runtime: plan.runtime }) : {}),
+        ...(plan.episodes ? { episodes_total: plan.episodes } : {}),
+        // The shelf date, named for what it means. A plan-to-watch date is when
+        // it joined the queue; a watching date is when you started. Neither is a
+        // viewing and neither belongs in the diary.
+        ...(plan.status === 'watchlist' ? { added_on: plan.date } : {}),
+        ...(plan.status === 'watching' ? { started_on: plan.date } : {}),
+      });
+    }
+
+    // Only a completed add writes a viewing. This is the whole reason the sheet
+    // asks: adding something you have not watched must not put a date in your
+    // diary, and adding something you watched last night must.
+    if (plan.log) {
+      await writeLog(addViewing(log, {
+        title: plan.title, tmdb_id: plan.tmdb_id, kind: plan.kind,
+        poster_url: plan.poster_url, year: plan.year, runtime: plan.runtime,
+        on: plan.date, rating: plan.rating, review: plan.review,
+        season: plan.season, episode: plan.episode,
+        source: 'added',
+      }));
+    }
+    setAdding(null);
+    refresh?.();
   }
 
   async function addFrom(r) {
@@ -448,14 +490,20 @@ export default function Movies() {
           <Discover
             log={log}
             onOpen={c => setPreview({ kind: c.kind, tmdbId: c.tmdb_id, fallback: c })}
-            onAdd={c => addFrom({ ...c, type: c.kind })}
+            onAdd={c => setAdding({
+              title: c.title, kind: c.kind, year: c.year,
+              poster: c.poster_url, tmdbId: c.tmdb_id, meta: c,
+            })}
           />
           <Preview
             open={!!preview}
             kind={preview?.kind || 'movie'}
             tmdbId={preview?.tmdbId ?? null}
             fallback={preview?.fallback || null}
-            onAdd={async d => { await addFrom({ ...d, type: d.kind }); setPreview(null); }}
+            onAdd={d => { setPreview(null); setAdding({
+              title: d.title, kind: d.kind, year: d.year,
+              poster: d.poster_url, tmdbId: d.tmdb_id, meta: d,
+            }); }}
             onLog={d => { setPreview(null); setSheet({ title: d.title, kind: d.kind, poster: d.poster_url, tmdbId: d.tmdb_id }); }}
             onClose={() => setPreview(null)}
           />
@@ -550,7 +598,10 @@ export default function Movies() {
                 <button className="btn btn-sm" onClick={() => setPreview({ kind: r.type, tmdbId: r.tmdb_id, fallback: r })}>
                   PREVIEW
                 </button>
-                <button className="btn btn-sm btn-green" onClick={() => addFrom(r)}>+ ADD</button>
+                <button className="btn btn-sm btn-green" onClick={() => setAdding({
+                  title: r.title, kind: r.type, year: r.year,
+                  poster: r.poster_url, tmdbId: r.tmdb_id, meta: r,
+                })}>+ ADD</button>
               </div>
             ))}
           </div>
@@ -679,6 +730,18 @@ export default function Movies() {
         // immediately marking it done is three taps to record one fact.
         onLog={d => { setPreview(null); setSheet({ title: d.title, kind: d.kind, poster: d.poster_url, tmdbId: d.tmdb_id }); }}
         onClose={() => setPreview(null)}
+      />
+
+      <AddSheet
+        open={!!adding}
+        title={adding?.title || ''}
+        kind={adding?.kind || 'movie'}
+        year={adding?.year ?? null}
+        poster={adding?.poster || null}
+        tmdbId={adding?.tmdbId ?? null}
+        meta={adding?.meta || null}
+        onAdd={addPlanned}
+        onClose={() => setAdding(null)}
       />
 
       {listFor && (

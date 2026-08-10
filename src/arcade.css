@@ -5709,3 +5709,18 @@ th:hover .hold-info { color: var(--cyan); }
   font-family: 'VT323', monospace; font-size: 15px; letter-spacing: 1.4px;
   color: var(--pink); border-bottom: 1px solid var(--border);
 }
+
+/* --------------------------------------------------- the add sheet's modes */
+/* Three buttons rather than a dropdown: the choice decides what the date MEANS,
+   so it has to be visible with its explanation, not folded into a select. */
+.as-modes { display: flex; flex-direction: column; gap: 5px; }
+.as-mode {
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+  padding: 8px 10px; cursor: pointer; text-align: left;
+  background: var(--bg-deep); border: 1px solid var(--border); color: var(--ink-2);
+}
+.as-mode:hover { border-color: var(--border-bright); }
+.as-mode.on { border-color: var(--green); background: rgba(70,220,130,.1); }
+.as-mode b { font-family: 'VT323', monospace; font-size: 14px; letter-spacing: 1px; }
+.as-mode.on b { color: var(--green); }
+.as-mode i { font-style: normal; font-size: 11px; color: var(--ink-3); line-height: 1.4; }

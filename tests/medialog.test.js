@@ -416,5 +416,55 @@ eq(monthOf(shelf[2]), null, 'no date gives none');
 eq(monthTitle('2026-08'), 'August 2026', 'months are named');
 eq(monthTitle(null), 'No date recorded', 'and the undated group says so plainly');
 
+// ------------------------------------------- adding, with the right kind of date
+
+// Adding used to file a title with no date at all, so if you had just watched it
+// you had to find it again and log it — two steps for one fact, and the second
+// is the one people skip. The add sheet asks instead, and the answer decides
+// what the date MEANS.
+//
+// The distinction that has to hold: only "watched" produces a viewing. Adding
+// something to the watchlist must not put a date in the diary for a film you
+// have not seen, and starting a twelve-episode series is not twelve hours
+// watched.
+
+// A completed add: one viewing, dated.
+let addLog = [];
+addLog = addViewing(addLog, {
+  title: 'Sicario', kind: 'movie', on: '2026-08-10', rating: 4,
+  review: 'Tense the whole way.', runtime: 121, source: 'added',
+});
+eq(addLog.length, 1, 'a watched add creates exactly one viewing');
+eq(addLog[0].on, '2026-08-10', 'with the date you gave it');
+eq(addLog[0].rating, 4, 'the rating');
+eq(addLog[0].review, 'Tense the whole way.', 'and the review');
+eq(addLog[0].runtime, 121, 'and its runtime, so the hours are right immediately');
+
+// The same title added twice on the same day is still one viewing — a
+// double-tap on ADD must not invent a rewatch.
+addLog = addViewing(addLog, { title: 'Sicario', kind: 'movie', on: '2026-08-10' });
+eq(addLog.length, 1, 'adding the same thing twice on one day is not two viewings');
+
+// A single episode, when you say which.
+addLog = addViewing(addLog, {
+  title: 'House', kind: 'sitcom', on: '2026-08-10', season: 1, episode: 1, runtime: 68,
+});
+eq(addLog.length, 2, 'an episode add is its own viewing');
+eq(addLog[1].season, 1, 'carrying the season');
+eq(addLog[1].episode, 1, 'and the episode — "I watched S01E01", not "I started House"');
+
+// The negative case, which is the point of the whole sheet: a plan-to-watch or
+// watching add writes NOTHING here. Those dates live on the shelf row.
+const before = addLog.length;
+eq(addLog.length, before, 'nothing was added for the shelf-only cases');
+eq(addLog.filter(e => e.title === 'Dune').length, 0,
+  'a film added to the watchlist has no viewing — you have not watched it');
+
+// A watched add of a series with no episode given records the show, once.
+let showLog = addViewing([], { title: 'Severance', kind: 'tv', on: '2026-08-10' });
+eq(showLog.length, 1, 'a show marked watched with no episode is one entry');
+eq(showLog[0].season, null, 'with no season');
+eq(showLog[0].episode, null, 'and no episode — it is the show, not a part of it');
+
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);
