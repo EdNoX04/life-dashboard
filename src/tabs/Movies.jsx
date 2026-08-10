@@ -13,6 +13,8 @@ import Preview from '../components/media/Preview.jsx';
 import Episodes from '../components/media/Episodes.jsx';
 import Discover from '../components/media/Discover.jsx';
 import Lists, { AddToList } from '../components/media/Lists.jsx';
+import Import from '../components/media/Import.jsx';
+import Backfill from '../components/media/Backfill.jsx';
 import { searchTmdb, fetchRaw } from '../lib/tmdb.js';
 import Ally from '../components/Ally.jsx';
 import { KINDS, kindOf, isEpisodic, guessKind, progressFor } from '../lib/kinds.js';
@@ -488,6 +490,10 @@ export default function Movies() {
             onSave={saveViewing}
             onClose={() => setSheet(null)}
           />
+          {/* At the bottom of the diary, because that is where you are standing
+              when you notice the history only goes back as far as the feed. */}
+          <Backfill log={log} onApply={writeLog} />
+          <Import log={log} onMerge={writeLog} />
         </>
       )}
       {screen === 'shelf' && (

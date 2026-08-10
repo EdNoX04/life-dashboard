@@ -57,6 +57,11 @@ export function normalizeTmdb(r) {
   return {
     tmdb_id: r.id ?? null,
     title,
+    // Carried for the backfill matcher: Indian and Japanese films are routinely
+    // listed under one title and searched under the other, and vote count is
+    // what breaks a tie between two films of the same name.
+    original_title: r.original_title || r.original_name || null,
+    tmdb_votes: num(r.vote_count),
     type: isTv ? 'tv' : 'movie',
     year: /^\d{4}/.test(date) ? Number(date.slice(0, 4)) : null,
     poster_url: r.poster_path ? `https://image.tmdb.org/t/p/w185${r.poster_path}` : null,

@@ -97,22 +97,31 @@ function makeId(e) {
  * viewing key is merged rather than appended, so importing the same Letterboxd
  * feed twice does not double your diary.
  */
-export function addViewing(list = [], entry = {}, { id = null } = {}) {
+export function addViewing(list = [], entry = {}, { id = null, fill = false } = {}) {
   const clean = normaliseEntry(entry);
   if (!clean) return list.slice();
   const key = viewingKey(clean);
   const out = list.slice();
   const at = out.findIndex(e => viewingKey(e) === key);
   if (at >= 0) {
-    // Later information wins field by field, but a field the new entry does not
-    // mention must not erase what is already recorded. An import that carries no
-    // note should not wipe a note you wrote by hand.
     const prev = out[at];
-    out[at] = {
-      ...prev,
-      ...Object.fromEntries(Object.entries(clean).filter(([, v]) => v != null && v !== '')),
-      id: prev.id,
-    };
+    // Two different merges, because two different acts arrive here.
+    //
+    // EDITING (default): you opened the sheet and changed the rating, so the new
+    // value wins. Anything you did not mention is left alone — an edit that
+    // omits a note should not delete the note.
+    //
+    // IMPORTING (`fill`): a file is telling you about a viewing you may already
+    // have annotated. It fills EMPTY fields only. Without this an import would
+    // silently replace a rating you set here with the one Letterboxd had, which
+    // is a quiet way to lose an opinion you changed on purpose — and the import
+    // screen promised it would not.
+    const incoming = Object.entries(clean).filter(([k, v]) => {
+      if (v == null || v === '') return false;
+      if (!fill) return true;
+      return prev[k] == null || prev[k] === '';
+    });
+    out[at] = { ...prev, ...Object.fromEntries(incoming), id: prev.id };
     return out;
   }
   out.push({ ...clean, id: id || makeId(clean) });
