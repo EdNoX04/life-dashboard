@@ -12,6 +12,7 @@ import LogSheet from '../components/media/LogSheet.jsx';
 import Preview from '../components/media/Preview.jsx';
 import Episodes from '../components/media/Episodes.jsx';
 import Discover from '../components/media/Discover.jsx';
+import Lists, { AddToList } from '../components/media/Lists.jsx';
 import { KINDS, kindOf, isEpisodic, guessKind, progressFor } from '../lib/kinds.js';
 
 // The media shelf.
@@ -44,7 +45,7 @@ function Stars({ value, onChange }) {
   );
 }
 
-function Poster({ row, meta, onPatch, onMeta, onDel, onLog, onPreview, onEpisodes, expanded, onExpand }) {
+function Poster({ row, meta, onPatch, onMeta, onDel, onLog, onPreview, onEpisodes, onList, expanded, onExpand }) {
   const m = meta[row.id] || {};
   const p = progressOf(row, meta);
   const dis = statusDisagreement(row, meta);
@@ -167,6 +168,7 @@ function Poster({ row, meta, onPatch, onMeta, onDel, onLog, onPreview, onEpisode
           <div className="mv-line">
             <button className="btn btn-sm btn-green" onClick={onLog}>+ LOG A VIEWING</button>
             {row.tmdb_id && <button className="btn btn-sm" onClick={onPreview}>DETAILS</button>}
+            <button className="btn btn-sm" onClick={onList}>ADD TO LIST</button>
             {row.type === 'tv' && row.tmdb_id && (
               <button className="btn btn-sm btn-cyan" onClick={onEpisodes}>EPISODES</button>
             )}
@@ -210,6 +212,8 @@ export default function Movies() {
   // is opened with whatever DETAILS already fetched rather than refetching.
   const [episodes, setEpisodes] = useState(null);
   const [detailCache, setDetailCache] = useState({});
+  const [lists, setLists] = useState([]);
+  const [listFor, setListFor] = useState(null);   // title being filed
   const tmdbKey = (getConfig().tmdbKey || '').trim();
 
   useEffect(() => {
@@ -223,8 +227,16 @@ export default function Movies() {
     list('memory', { filter: 'key=eq.media_log' })
       .then(rows => { if (!dead && Array.isArray(rows?.[0]?.value?.entries)) setLog(rows[0].value.entries); })
       .catch(() => {});
+    list('memory', { filter: 'key=eq.media_lists' })
+      .then(rows => { if (!dead && Array.isArray(rows?.[0]?.value?.lists)) setLists(rows[0].value.lists); })
+      .catch(() => {});
     return () => { dead = true; };
   }, []);
+
+  async function writeLists(next) {
+    setLists(next);
+    try { await upsertMemory('media_lists', { lists: next }); } catch { /* offline: local state stands */ }
+  }
 
   async function writeLog(next) {
     setLog(next);
@@ -346,15 +358,25 @@ export default function Movies() {
       <p className="tab-sub">Your own Letterboxd — movies & TV, tracked.</p>
 
       <div className="mv-screens">
-        {[['shelf', 'SHELF'], ['diary', 'DIARY'], ['discover', 'DISCOVER']].map(([k, l]) => (
+        {[['shelf', 'SHELF'], ['diary', 'DIARY'], ['discover', 'DISCOVER'], ['lists', 'LISTS']].map(([k, l]) => (
           <button key={k} className={`seg-btn${screen === k ? ' on' : ''}`} onClick={() => setScreen(k)}>{l}</button>
         ))}
         <span className="muted small" style={{ marginLeft: 8 }}>
           {screen === 'shelf' ? 'what you own and plan to watch'
             : screen === 'diary' ? `${log.length} viewing${log.length === 1 ? '' : 's'} on record`
-              : 'what is out there — no typing required'}
+              : screen === 'lists' ? `${lists.length} list${lists.length === 1 ? '' : 's'}`
+                : 'what is out there — no typing required'}
         </span>
       </div>
+
+      {screen === 'lists' && (
+        <Lists
+          lists={lists}
+          log={log}
+          onChange={writeLists}
+          onOpenTitle={i => setPreview({ kind: i.kind, tmdbId: i.tmdb_id, fallback: i })}
+        />
+      )}
 
       {screen === 'discover' && (
         <>
@@ -509,6 +531,10 @@ export default function Movies() {
                       fallback: { title: r.title, poster_url: r.poster_url, kind: r.type },
                     })}
                     onEpisodes={() => openEpisodes(r)}
+                    onList={() => setListFor({
+                      tmdb_id: r.tmdb_id, title: r.title, year: meta[r.id]?.year,
+                      kind: meta[r.id]?.kind || r.type, poster_url: r.poster_url,
+                    })}
                   />
                 ))}
               </div>
@@ -563,6 +589,15 @@ export default function Movies() {
         onLog={d => { setPreview(null); setSheet({ title: d.title, kind: d.kind, poster: d.poster_url, tmdbId: d.tmdb_id }); }}
         onClose={() => setPreview(null)}
       />
+
+      {listFor && (
+        <AddToList
+          lists={lists}
+          title={listFor}
+          onChange={writeLists}
+          onClose={() => setListFor(null)}
+        />
+      )}
 
       <Episodes
         open={!!episodes}

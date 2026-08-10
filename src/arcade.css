@@ -5521,3 +5521,55 @@ th:hover .hold-info { color: var(--cyan); }
 }
 .dc-sub { display: flex; align-items: center; justify-content: space-between; gap: 4px; font-size: 10.5px; color: var(--ink-3); }
 .dc-sub .btn { padding: 0 7px; line-height: 18px; }
+
+/* =================================================== media: lists (batch 5) */
+.ml-new { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
+.ml-new input { flex: 1 1 200px; }
+.ml-check { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--ink-3); }
+.ml-hint { margin: 0 0 12px; font-size: 11.5px; line-height: 1.5; color: var(--ink-3); }
+.ml-desc { margin: 0 0 8px; font-size: 12.5px; color: var(--ink-2); }
+.ml-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+
+.ml-row {
+  display: flex; align-items: center; gap: 8px; padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+}
+.ml-row:last-child { border-bottom: none; }
+.ml-rank {
+  min-width: 22px; font-family: 'VT323', monospace; font-size: 17px;
+  color: var(--yellow); text-align: right;
+}
+.ml-art { width: 26px; height: 38px; flex: none; display: grid; place-items: center;
+  background: var(--bg-deep); border: 1px solid var(--border); overflow: hidden; }
+.ml-art img { width: 100%; height: 100%; object-fit: cover; }
+.ml-t { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ml-t i { font-style: normal; font-size: 10.5px; }
+.ml-note { color: var(--ink-3); }
+.ml-link {
+  background: none; border: none; padding: 0; text-align: left; cursor: pointer;
+  color: var(--ink-2); font-size: 13px;
+}
+.ml-link:hover { color: var(--cyan); }
+.ml-name { display: flex; align-items: center; gap: 6px; flex: 1; }
+
+/* Watched share of a list, as a bar. Progress against a list is most of why
+   anyone keeps one. */
+.ml-prog {
+  position: relative; display: inline-flex; align-items: center; gap: 6px;
+  min-width: 120px; height: 10px; background: var(--bg-deep); border: 1px solid var(--border);
+}
+.ml-prog i { position: absolute; inset: 0 auto 0 0; background: var(--green); box-shadow: 0 0 6px var(--green); }
+.ml-prog b {
+  position: absolute; left: calc(100% + 6px); top: -3px;
+  font-family: 'VT323', monospace; font-size: 12px; color: var(--ink-3); white-space: nowrap;
+}
+
+.ml-pick {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px;
+  margin-bottom: 4px; cursor: pointer; text-align: left;
+  background: var(--bg-deep); border: 1px solid var(--border); color: var(--ink-2); font-size: 12.5px;
+}
+.ml-pick:hover { border-color: var(--border-bright); }
+.ml-pick.on { border-color: var(--green); background: rgba(70,220,130,.1); }
+.ml-pick b { font-family: 'VT323', monospace; font-size: 15px; color: var(--green); width: 12px; }
+.ml-pick span { flex: 1; }

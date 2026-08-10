@@ -264,8 +264,41 @@ export function hasNextPage(html = '') {
  * precisely because the whole point is that one side has no date.
  */
 export function onlyMissing(films = [], existing = []) {
-  const known = new Set(
-    existing.map(e => String(e.title || '').toLowerCase().trim()).filter(Boolean),
-  );
-  return films.filter(f => !known.has(String(f.title).toLowerCase().trim()));
+  const t = v => String(v || '').toLowerCase().trim();
+
+  // Two sets, because "already known" means different things depending on how
+  // much the existing entry knows about itself.
+  //
+  // The first version matched on TITLE ALONE, which was right for the diary —
+  // a dated viewing and its films-list twin are the same film — and wrong the
+  // moment two different films share a title. This profile has two called
+  // "Home Alone". The first import added one of them; every import after that
+  // filtered BOTH out as already-present, so the second was permanently
+  // unreachable and the count sat one short of the profile forever.
+  //
+  // Fixing the merge key alone did not help: nothing that gets filtered here
+  // ever reaches the merge.
+  const exact = new Set();      // title|year — enough to tell the two apart
+  const titleOnly = new Set();  // title, for entries with no year to compare
+
+  for (const e of existing) {
+    const title = t(e.title);
+    if (!title) continue;
+    if (e.year) exact.add(`${title}|${e.year}`);
+    // An entry with no year cannot be distinguished from a same-titled film, so
+    // it blocks the title outright. Conservative on purpose: a missing film is
+    // recoverable by adding the year, a duplicated one quietly inflates counts.
+    else titleOnly.add(title);
+  }
+
+  return films.filter(f => {
+    const title = t(f.title);
+    if (titleOnly.has(title)) return false;
+    if (f.year && exact.has(`${title}|${f.year}`)) return false;
+    // A films-list entry with no year, when everything known carries one: let it
+    // through and let the merge key decide. It will fold into any existing
+    // entry that also lacks a year.
+    if (!f.year && [...exact].some(k => k.startsWith(`${title}|`))) return false;
+    return true;
+  });
 }

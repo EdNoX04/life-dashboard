@@ -191,9 +191,40 @@ eq(missing.length, 2, 'films already in the diary are not added again');
 eq(missing.map(f => f.title).sort().join(','), 'Rang De Basanti,Tamasha',
   'only the ones with no diary entry come through');
 ok(!missing.some(f => f.title === 'Interstellar'),
-  'matched on title alone — the whole point is that one side has no date to match on');
+  'a diary entry with no year blocks its title outright — nothing can tell them apart');
 eq(onlyMissing(films, []).length, 4, 'with an empty diary, everything is missing');
 eq(onlyMissing([], diary).length, 0, 'and no films means nothing to add');
+
+// TWO FILMS, ONE TITLE — the bug that survived the first fix.
+//
+// Fixing the merge key was necessary and did nothing on its own, because this
+// filter runs FIRST: with a title-only match, the second "Home Alone" was
+// removed before the merge ever saw it. One import added one of them and every
+// import afterwards filtered both out, so the second was permanently
+// unreachable and the total sat one short of the profile — forever, silently.
+const twoHomes = [
+  { title: 'Home Alone', year: 1990, on: null },
+  { title: 'Home Alone', year: 2021, on: null },
+];
+eq(onlyMissing(twoHomes, []).length, 2, 'with nothing on record, both come through');
+
+const oneImported = [{ title: 'Home Alone', year: 1990, on: null }];
+const rest = onlyMissing(twoHomes, oneImported);
+eq(rest.length, 1, 'once one is imported, the OTHER is still missing');
+eq(rest[0].year, 2021, 'and it is the one that has not been seen');
+
+eq(onlyMissing(twoHomes, twoHomes).length, 0, 'with both on record, neither is missing');
+
+// The conservative case: an existing entry with no year blocks the title, since
+// there is nothing to distinguish it by. A film you can recover by adding a
+// year beats a duplicate that quietly inflates every count.
+eq(onlyMissing(twoHomes, [{ title: 'Home Alone', on: '2026-01-01' }]).length, 0,
+  'a dated entry with no year blocks both — undercounting is the safer failure');
+
+// A films-list entry with no year, against a record that has one: folded rather
+// than added, since the merge key would collapse them anyway.
+eq(onlyMissing([{ title: 'Home Alone', year: null }], oneImported).length, 0,
+  'a yearless film does not duplicate a known one');
 
 eq(hasNextPage('<a class="next" href="/ednox/films/page/2/">Next</a>'), true, 'pagination is detected');
 eq(hasNextPage('<div>no more</div>'), false, 'and its absence too');
