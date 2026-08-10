@@ -292,5 +292,36 @@ const altOnly = parseFilmsHtml('<li><div data-film-slug="tamasha"><img alt="Tama
 eq(altOnly[0].title, 'Tamasha', 'the alt fallback still works');
 eq(altOnly[0].year, 2015, 'and carries the year');
 
+// -------------------------------------------------------------- reviews
+
+// Letterboxd packs the poster and the review into one escaped HTML blob. The
+// image lives in its own <p>, and stripping tags before removing it puts the
+// poster URL at the top of every review you import.
+
+import { reviewOf } from '../scripts/lib/letterboxd.mjs';
+
+const DESC = '<p><img src="https://a.ltrbxd.com/k.jpg"/></p> <p>Really intuitive spy movie would love if you like spy movies</p>';
+eq(reviewOf(DESC), 'Really intuitive spy movie would love if you like spy movies',
+  'the review comes through without the poster');
+ok(!reviewOf(DESC).includes('http'), 'and with no image URL smuggled into the text');
+
+eq(reviewOf('<p><img src="x"/></p>'), null, 'a poster with no words is not a review');
+eq(reviewOf(''), null, 'and neither is nothing');
+eq(reviewOf('<p>Watched on 26 Apr 2026.</p>'), null,
+  "Letterboxd's own footer is not something you wrote");
+
+eq(reviewOf('<p>One.</p><p>Two.</p>'), 'One.\n\nTwo.', 'paragraphs survive as blank lines');
+eq(reviewOf('<p>A<br/>B</p>'), 'A\nB', 'and line breaks as line breaks');
+eq(reviewOf('<p>Tom &amp; Jerry, basically</p>'), 'Tom & Jerry, basically', 'entities decode');
+
+const withReview = parseRss(`<rss><channel><item>
+  <letterboxd:filmTitle>Kingsman: The Secret Service</letterboxd:filmTitle>
+  <letterboxd:watchedDate>2026-04-26</letterboxd:watchedDate>
+  <letterboxd:memberRating>4.0</letterboxd:memberRating>
+  <description>&lt;p&gt;&lt;img src="https://a.ltrbxd.com/k.jpg"/&gt;&lt;/p&gt; &lt;p&gt;Really intuitive spy movie&lt;/p&gt;</description>
+</item></channel></rss>`);
+eq(withReview[0].review, 'Really intuitive spy movie', 'a real feed entry carries its review through');
+eq(withReview[0].poster_url, 'https://a.ltrbxd.com/k.jpg', 'and still finds the poster');
+
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);

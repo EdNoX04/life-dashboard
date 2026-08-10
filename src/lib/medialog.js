@@ -142,7 +142,12 @@ export function normaliseEntry(e = {}) {
     rating: num(e.rating),
     runtime: num(e.runtime),
     rewatch: e.rewatch === true,
+    // NOTE and REVIEW are different things and collapsing them loses one.
+    // A note is a line for yourself — "with Ma", "rewatch for the score". A
+    // review is writing you would stand behind, and it wants a paragraph, its
+    // own display, and to survive an import that carries one.
     note: String(e.note ?? '').trim() || null,
+    review: String(e.review ?? '').trim() || null,
     poster_url: e.poster_url || null,
     source: e.source || 'manual',
   };

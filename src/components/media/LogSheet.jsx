@@ -35,6 +35,7 @@ export default function LogSheet({ open, entry = null, title = '', kind = 'movie
   const [season, setSeason] = useState('');
   const [episode, setEpisode] = useState('');
   const [note, setNote] = useState('');
+  const [review, setReview] = useState('');
   const [runtime, setRuntime] = useState('');
 
   // Editing an existing viewing loads it; logging a new one starts clean at
@@ -47,6 +48,7 @@ export default function LogSheet({ open, entry = null, title = '', kind = 'movie
     setSeason(entry?.season ?? '');
     setEpisode(entry?.episode ?? '');
     setNote(entry?.note ?? '');
+    setReview(entry?.review ?? '');
     setRuntime(entry?.runtime ?? '');
   }, [open, entry]);
 
@@ -70,6 +72,7 @@ export default function LogSheet({ open, entry = null, title = '', kind = 'movie
       episode: episode === '' ? null : Number(episode),
       runtime: runtime === '' ? null : Number(runtime),
       note: note.trim() || null,
+      review: review.trim() || null,
     });
   };
 
@@ -136,7 +139,20 @@ export default function LogSheet({ open, entry = null, title = '', kind = 'movie
         </p>
 
         <label className="ls-lbl">NOTE</label>
-        <input placeholder="Who you watched it with, what you thought…" value={note} onChange={e => setNote(e.target.value)} />
+        <input placeholder="Who you watched it with — one line" value={note} onChange={e => setNote(e.target.value)} />
+
+        <label className="ls-lbl">REVIEW</label>
+        <textarea
+          className="ls-review" rows={5}
+          placeholder="What did you actually think of it?"
+          value={review} onChange={e => setReview(e.target.value)}
+        />
+        {/* The count is not a limit, it is a nudge. Letterboxd's best reviews
+            are three lines; a box that looks like an essay field gets left
+            empty. */}
+        <p className="ls-hint">
+          {review.trim() ? `${review.trim().split(/\s+/).length} words` : 'A line or two is a review. It shows in your diary and the AI reads it to learn your taste.'}
+        </p>
 
         <div className="ls-acts">
           <button className="btn" onClick={onClose}>CANCEL</button>

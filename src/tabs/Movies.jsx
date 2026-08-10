@@ -14,6 +14,7 @@ import Episodes from '../components/media/Episodes.jsx';
 import Discover from '../components/media/Discover.jsx';
 import Lists, { AddToList } from '../components/media/Lists.jsx';
 import { searchTmdb, fetchRaw } from '../lib/tmdb.js';
+import Ally from '../components/Ally.jsx';
 import { KINDS, kindOf, isEpisodic, guessKind, progressFor } from '../lib/kinds.js';
 
 // The media shelf.
@@ -366,6 +367,11 @@ export default function Movies() {
     <>
       <h1 className="tab-title">MEDIA</h1>
       <p className="tab-sub">Your own Letterboxd — movies & TV, tracked.</p>
+
+      {/* Handed exactly three stores, by name. It cannot reach anything else in
+          the app because nothing else is passed — the scoping in lib/ally.js is
+          the rule, and this call site is where it is honoured. */}
+      <Ally tab="media" data={{ log, shelf: items, lists }} />
 
       {loadErr && (
         <p className="ls-warn">

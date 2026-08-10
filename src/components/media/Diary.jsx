@@ -70,6 +70,10 @@ function Row({ e, onEdit, onDelete }) {
         )}
         {e.rewatch && <i className="md-rewatch" title="You had seen this before">↻ rewatch</i>}
         {e.note && <i className="md-note">{e.note}</i>}
+        {/* Reviews get their own block rather than being squeezed onto the
+            title line — a paragraph truncated to one line is a paragraph
+            nobody reads. */}
+        {e.review && <i className="md-review">{e.review}</i>}
       </span>
       <span className="md-rating">{e.rating ? '★'.repeat(e.rating) : ''}</span>
       <span className="md-acts">

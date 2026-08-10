@@ -48,6 +48,26 @@ const posterOf = html => {
   return m ? decodeEntities(m[1]) : null;
 };
 
+// The review text, out of the same description block.
+//
+// Letterboxd packs the poster and the review into one escaped HTML blob:
+// <p><img …/></p><p>Really intuitive spy movie…</p>. The paragraph holding the
+// image is the poster, everything after it is what you wrote. Dropping the
+// <img> paragraph before stripping tags is the whole trick — strip first and
+// the image URL ends up as the first line of your review.
+export function reviewOf(html) {
+  const withoutPoster = String(html || '').replace(/<p>\s*<img[^>]*>\s*<\/p>/gi, '');
+  const text = withoutPoster
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>\s*<p>/gi, '\n\n')
+    .replace(/<[^>]*>/g, '')
+    .trim();
+  // "Watched on 26 Apr 2026." is Letterboxd's own footer on entries with no
+  // review, not something you wrote.
+  if (!text || /^watched on /i.test(text)) return null;
+  return decodeEntities(text).trim() || null;
+}
+
 /**
  * Diary entries out of the RSS feed.
  *
@@ -76,6 +96,7 @@ export function parseRss(xml = '') {
       rewatch: String(tag(it, 'letterboxd:rewatch')).toLowerCase() === 'true',
       tmdb_id: Number(tag(it, 'tmdb:movieId')) || null,
       poster_url: posterOf(decodeEntities(desc)),
+      review: reviewOf(decodeEntities(desc)),
       letterboxd_uri: tag(it, 'link'),
       kind: 'movie',
       source: 'letterboxd-rss',

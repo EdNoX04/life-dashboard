@@ -5573,3 +5573,101 @@ th:hover .hold-info { color: var(--cyan); }
 .ml-pick.on { border-color: var(--green); background: rgba(70,220,130,.1); }
 .ml-pick b { font-family: 'VT323', monospace; font-size: 15px; color: var(--green); width: 12px; }
 .ml-pick span { flex: 1; }
+
+/* ------------------------------------------------------- reviews */
+.ls-review {
+  width: 100%; resize: vertical; min-height: 84px; line-height: 1.5;
+  font-family: inherit; font-size: 13px;
+}
+.md-review {
+  font-style: normal; font-size: 12px; line-height: 1.5; color: var(--ink-2);
+  border-left: 2px solid var(--pink); padding-left: 8px; margin-top: 4px;
+  white-space: pre-wrap;
+}
+
+/* ==================================================== ALLY — floating terminal */
+/* A CRT window, not a chat bubble. The difference is behavioural: a terminal
+   with a block cursor and a > prompt invites short commands; a chat UI invites
+   paragraphs at a thing that answers better when asked briefly. */
+
+.al-fab {
+  position: fixed; right: 18px; bottom: 18px; z-index: 70;
+  display: flex; align-items: center; gap: 7px; padding: 9px 13px; cursor: pointer;
+  background: var(--bg-panel); border: 2px solid var(--purple);
+  box-shadow: 0 0 0 2px var(--bg-deep), 0 0 16px rgba(180,120,255,.45);
+  font-family: 'VT323', monospace; font-size: 15px; letter-spacing: 1.5px;
+  color: var(--purple);
+}
+.al-fab:hover { box-shadow: 0 0 0 2px var(--bg-deep), 0 0 24px rgba(180,120,255,.8); }
+.al-fab-i { animation: al-blink 1.1s steps(1) infinite; }
+@keyframes al-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+
+.al {
+  position: fixed; right: 18px; bottom: 18px; z-index: 70;
+  width: min(430px, calc(100vw - 36px)); max-height: min(640px, calc(100vh - 40px));
+  display: flex; flex-direction: column;
+  background: var(--bg-panel); border: 2px solid var(--purple);
+  box-shadow: 0 0 0 2px var(--bg-deep), 0 0 26px rgba(0,0,0,.7), 0 0 18px rgba(180,120,255,.3);
+}
+
+.al-bar {
+  display: flex; align-items: center; gap: 8px; padding: 7px 9px;
+  border-bottom: 2px solid var(--purple); background: var(--bg-deep);
+  font-family: 'VT323', monospace; font-size: 14px; letter-spacing: 1.2px;
+}
+.al-dot { width: 8px; height: 8px; background: var(--green); box-shadow: 0 0 6px var(--green); }
+.al-title { color: var(--purple); }
+.al-scope { color: var(--cyan); font-size: 12px; }
+.al-sp { flex: 1; }
+.al-prov { color: var(--ink-3); font-size: 11px; }
+.al-x {
+  background: none; border: none; color: var(--ink-3); cursor: pointer;
+  font-size: 13px; padding: 0 2px;
+}
+.al-x:hover { color: var(--red); }
+
+.al-screen {
+  position: relative; flex: 1; overflow-y: auto; padding: 10px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(180,120,255,.07), transparent 70%), var(--bg-deep);
+  font-size: 12.5px; line-height: 1.55;
+}
+/* Scanlines, fixed over the scrolling text rather than scrolling with it —
+   they are the glass, not the content. */
+.al-scan {
+  position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(180deg, rgba(0,0,0,.22) 0 1px, transparent 1px 3px);
+  opacity: .5;
+}
+.al-boot { font-family: 'VT323', monospace; font-size: 13px; color: var(--ink-3); letter-spacing: 1px; }
+.al-sys {
+  margin: 8px 0; padding: 6px 8px; font-size: 11.5px; line-height: 1.5;
+  color: var(--ink-2); border-left: 2px solid var(--yellow); background: rgba(255,214,102,.06);
+}
+.al-line { margin: 10px 0; display: flex; gap: 8px; align-items: flex-start; }
+.al-who {
+  flex: none; width: 42px; font-family: 'VT323', monospace; font-size: 12px;
+  letter-spacing: 1px; padding-top: 1px;
+}
+.al-user .al-who { color: var(--cyan); }
+.al-assistant .al-who { color: var(--purple); }
+.al-body { flex: 1; color: var(--ink-2); white-space: pre-wrap; }
+.al-user .al-body { color: var(--ink-1, #fff); }
+.al-cur {
+  display: inline-block; width: 7px; height: 12px; margin-left: 2px;
+  background: var(--purple); animation: al-blink 1.1s steps(1) infinite; vertical-align: -1px;
+}
+
+.al-quick { display: flex; flex-wrap: wrap; gap: 5px; padding: 8px 9px 0; }
+.al-chip {
+  padding: 4px 8px; cursor: pointer; font-family: 'VT323', monospace;
+  font-size: 12px; letter-spacing: .8px;
+  background: var(--bg-deep); border: 1px solid var(--border); color: var(--ink-3);
+}
+.al-chip:hover { border-color: var(--purple); color: var(--purple); }
+
+.al-input {
+  display: flex; align-items: center; gap: 7px; padding: 8px 9px;
+  border-top: 2px solid var(--border-bright); background: var(--bg-panel);
+}
+.al-caret { font-family: 'VT323', monospace; font-size: 16px; color: var(--green); }
+.al-input input { flex: 1; }
