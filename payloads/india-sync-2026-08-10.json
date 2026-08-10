@@ -1,0 +1,106 @@
+{
+ "ops": [
+  {
+   "table": "investments",
+   "method": "delete",
+   "match": {
+    "ticker": "GOLDBEES"
+   }
+  },
+  {
+   "table": "investments",
+   "method": "insert",
+   "rows": [
+    {
+     "ticker": "GOLDBEES",
+     "name": "Nippon India ETF Gold Bees",
+     "qty": 12,
+     "avg_cost": 121.2025,
+     "last_price": 124.58,
+     "currency": "INR"
+    }
+   ]
+  },
+  {
+   "table": "memory",
+   "method": "upsert",
+   "rows": [
+    {
+     "key": "ind_meta",
+     "value": {
+      "GOLDBEES": {
+       "name": "Nippon India ETF Gold Bees",
+       "ind_stock_id": "INDS19240",
+       "isin": "INF204KB17I5",
+       "asset_class": "Gold",
+       "units_total": 12,
+       "brokers": [
+        {
+         "broker": "Indmoney",
+         "units": 8,
+         "invested": 969.62,
+         "market_value": 996.64
+        },
+        {
+         "broker": "Groww",
+         "units": 4,
+         "invested": null,
+         "market_value": 498.32,
+         "invested_note": "INDmoney reports this linked holding's cost as unknown"
+        }
+       ],
+       "cost_known_units": 8,
+       "cost_unknown_units": 4,
+       "invested_floor": 969.62,
+       "market_value": 1494.96,
+       "caveat": "4 of 12 units are held at Groww and INDmoney does not report what they cost, so invested is a floor and P&L on those units is unknown rather than zero.",
+       "source": "INDmoney MCP",
+       "as_of": "2026-08-10"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "table": "memory",
+   "method": "upsert",
+   "rows": [
+    {
+     "key": "sips",
+     "value": {
+      "list": [
+       {
+        "id": 2913745,
+        "ticker": "GOLDBEES",
+        "name": "Nippon India ETF Gold Bees",
+        "amount": 123,
+        "freq": "daily",
+        "frequency": "DAILY",
+        "status": "REGISTERED",
+        "active": true,
+        "next": "2026-08-11",
+        "account": "indstocks",
+        "asset_currency": "INR",
+        "currency": "INR",
+        "month": {
+         "scheduled": 24,
+         "done": 8,
+         "in_progress": 0,
+         "upcoming": 1,
+         "failed": 1,
+         "remaining": 14,
+         "invested": 969.63,
+         "deducted": 998,
+         "upcoming_amount": 128,
+         "failed_amount": 123
+        },
+        "source": "INDmoney MCP",
+        "as_of": "2026-08-10"
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ]
+}
