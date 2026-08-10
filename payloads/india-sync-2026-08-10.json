@@ -3,9 +3,7 @@
   {
    "table": "investments",
    "method": "delete",
-   "match": {
-    "ticker": "GOLDBEES"
-   }
+   "match": "ticker=eq.GOLDBEES"
   },
   {
    "table": "investments",

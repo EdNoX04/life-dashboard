@@ -44,13 +44,23 @@ for (const f of files) {
       ok(Array.isArray(op.rows) && op.rows.length > 0, `${at} carries rows`);
     }
     if (op.method === 'update') {
-      ok(!!op.match, `${at} has a match — an unfiltered update rewrites the table`);
       ok(!!op.row, `${at} has a row to write`);
     }
     // The one that can destroy data. A delete with no filter empties a table,
     // and PostgREST will happily do it.
-    if (op.method === 'delete') {
-      ok(!!op.match, `${at} has a match — a delete with no filter EMPTIES the table`);
+    //
+    // The SHAPE matters as much as the presence, which this test learned the
+    // hard way. `match` is pasted straight into the query string, so it has to
+    // be a PostgREST filter — "ticker=eq.GOLDBEES". An OBJECT satisfies a
+    // truthiness check and stringifies to "[object Object]", producing a URL
+    // that matches nothing: the delete quietly does nothing, the insert that
+    // follows adds a row anyway, and you get a duplicate holding with two
+    // different quantities. That is exactly what happened.
+    if (op.method === 'delete' || op.method === 'update') {
+      ok(typeof op.match === 'string' && op.match.length > 0,
+        `${at} match is a PostgREST filter STRING like "col=eq.value", not an object`);
+      ok(typeof op.match === 'string' && /^[^=]+=[a-z]+\./.test(op.match),
+        `${at} match looks like col=op.value (got ${JSON.stringify(op.match)})`);
     }
 
     // memory rows are key/value; a memory upsert missing `key` silently writes
