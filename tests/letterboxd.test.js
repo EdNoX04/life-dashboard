@@ -229,5 +229,68 @@ eq(onlyMissing([{ title: 'Home Alone', year: null }], oneImported).length, 0,
 eq(hasNextPage('<a class="next" href="/ednox/films/page/2/">Next</a>'), true, 'pagination is detected');
 eq(hasNextPage('<div>no more</div>'), false, 'and its absence too');
 
+// ------------------------------------------- the off-by-one that mispaired all
+
+// The first parser split on `data-film-slug="`, so every chunk ran from one slug
+// to the NEXT — and Letterboxd emits a poster's name BEFORE its slug. The first
+// name after slug[i] therefore belonged to film[i+1].
+//
+// What makes this worth a permanent test is how it hid. The SET of titles was
+// completely correct, so diffing titles against the profile found nothing. The
+// counts disagreed by exactly one, and only because two neighbours happened to
+// share a name once the year was stripped. Meanwhile every star rating was
+// attached to the wrong film — the one error nobody was looking for.
+
+const REAL_SHAPE = `<ul class="poster-list">
+<li class="griditem">
+  <div class="react-component" data-item-name="The Odyssey (2026)" data-item-slug="the-odyssey-2026">
+    <div class="poster film-poster"><img alt="The Odyssey"/></div>
+  </div>
+  <p class="poster-viewingdata"><span class="rating rated-9">★★★★½</span></p>
+</li>
+<li class="griditem">
+  <div class="react-component" data-item-name="Aladdin (1992)" data-item-slug="aladdin">
+    <div class="poster film-poster"><img alt="Aladdin"/></div>
+  </div>
+  <p class="poster-viewingdata"><span class="rating rated-8">★★★★</span></p>
+</li>
+<li class="griditem">
+  <div class="react-component" data-item-name="Home Alone (1990)" data-item-slug="home-alone">
+    <div class="poster film-poster"><img alt="Home Alone"/></div>
+  </div>
+  <p class="poster-viewingdata"><span class="rating rated-7">★★★½</span></p>
+</li>
+</ul>`;
+
+const real = parseFilmsHtml(REAL_SHAPE);
+eq(real.length, 3, 'three posters, three films');
+
+// The assertions that would have caught it: title, year, rating and slug must
+// all belong to the SAME poster.
+eq(real[0].title, 'The Odyssey', 'first title is its own');
+eq(real[0].letterboxd_slug, 'the-odyssey-2026', 'paired with its own slug');
+eq(real[0].year, 2026, 'and its own year');
+eq(real[0].rating, 4.5, 'and its own rating — rated-9 is four and a half');
+
+eq(real[1].title, 'Aladdin', 'the second is Aladdin');
+eq(real[1].letterboxd_slug, 'aladdin', 'not shifted onto its neighbour');
+eq(real[1].rating, 4, 'with Aladdin\'s rating, not The Odyssey\'s');
+
+eq(real[2].title, 'Home Alone', 'and the third is Home Alone');
+eq(real[2].year, 1990, 'with its year read off the name attribute');
+eq(real[2].rating, 3.5, 'and its own stars');
+
+// The shape of the bug, stated directly: no title may carry a neighbour's slug.
+ok(real.every((f, i) => f.letterboxd_slug !== (real[i + 1] || {}).letterboxd_slug),
+  'no two entries share a slug');
+ok(!real.some(f => f.title === 'Home Alone' && f.letterboxd_slug === 'aladdin'),
+  'the exact mispairing that was live — Home Alone filed under aladdin — cannot recur');
+
+// A poster with no name attribute at all falls back to the img alt, still from
+// inside its own <li>.
+const altOnly = parseFilmsHtml('<li><div data-film-slug="tamasha"><img alt="Tamasha (2015)"/></div></li>');
+eq(altOnly[0].title, 'Tamasha', 'the alt fallback still works');
+eq(altOnly[0].year, 2015, 'and carries the year');
+
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);

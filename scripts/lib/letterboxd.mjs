@@ -214,27 +214,43 @@ export function mergeInto(existing = [], incoming = [], { keyOf }) {
 // know when you watched them either. They land in the app's undated bucket,
 // where they count toward totals and stay out of the diary.
 export function parseFilmsHtml(html = '') {
+  // ONE CHUNK PER LIST ITEM. This is the whole correctness argument.
+  //
+  // The first version split on `data-film-slug="`, which looks equivalent and is
+  // not: each chunk then ran from one slug to the NEXT, and Letterboxd emits the
+  // poster's name BEFORE its slug —
+  //
+  //   <li> <div ... data-item-name="Aladdin (1992)" data-item-slug="aladdin">
+  //        <img alt="Aladdin"> <span class="rating rated-8"> </li>
+  //
+  // — so the first `data-item-name` after slug[i] belonged to film[i+1]. Every
+  // title was attached to the wrong film while the rating came from the right
+  // one, which is the worst possible combination: the set of titles was correct,
+  // so a diff of titles found nothing wrong, and the counts only disagreed by
+  // one because two neighbours happened to share a name after the year was
+  // stripped. Meanwhile every star rating was silently on the wrong film.
+  //
+  // Splitting on the element makes the mistake structurally impossible: a name
+  // and a slug can only pair if they are inside the same <li>.
+  const items = String(html).split(/<li\b/i).slice(1);
   const out = [];
   const seen = new Set();
-  // Each poster is one <li>. Splitting on the slug attribute rather than on <li>
-  // keeps this working when Letterboxd changes the wrapper element, which it
-  // does more often than it changes the data contract.
-  const chunks = String(html).split(/data-(?:film|item)-slug="/).slice(1);
-  for (const c of chunks) {
-    const slug = c.slice(0, c.indexOf('"'));
+  for (const it of items) {
+    const slug = (it.match(/data-(?:film|item)-slug="([^"]+)"/) || [])[1];
     if (!slug || seen.has(slug)) continue;
+    const raw = (it.match(/data-(?:film|item)-name="([^"]*)"/) || [])[1]
+      || (it.match(/alt="([^"]*)"/) || [])[1] || '';
+    if (!raw) continue;
     seen.add(slug);
-    const name = (c.match(/data-(?:film|item)-name="([^"]*)"/) || [])[1]
-      || (c.match(/alt="([^"]*)"/) || [])[1] || '';
-    if (!name) continue;
-    // The alt text is "Title (2014)" when the name attribute is absent.
-    const inline = name.match(/^(.*?)\s*\((\d{4})\)\s*$/);
-    const title = decodeEntities(inline ? inline[1] : name).trim();
-    const year = Number(
-      (c.match(/data-(?:film|item)-release-year="(\d{4})"/) || [])[1] || (inline ? inline[2] : ''),
-    ) || null;
-    const rated = (c.match(/rated-(\d+)/) || [])[1];
+    // The name attribute carries "Title (Year)"; the img alt carries the bare
+    // title. Either is accepted, and the year is taken from whichever has it.
+    const inline = decodeEntities(raw).match(/^(.*?)\s*\((\d{4})\)\s*$/);
+    const title = (inline ? inline[1] : decodeEntities(raw)).trim();
     if (!title) continue;
+    const year = Number(
+      (it.match(/data-(?:film|item)-release-year="(\d{4})"/) || [])[1] || (inline ? inline[2] : ''),
+    ) || null;
+    const rated = (it.match(/rated-(\d+)/) || [])[1];
     out.push({
       title,
       year,

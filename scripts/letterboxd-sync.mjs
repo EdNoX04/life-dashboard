@@ -136,6 +136,25 @@ async function run() {
       // change that breaks the pagination check must not spin ten requests.
       if (!batch.length || !hasNextPage(html)) break;
     }
+    // Films-list entries are fully DERIVED: title, year and rating all come off
+    // the page, and nothing on this screen is user-edited. So they are rebuilt
+    // rather than merged into.
+    //
+    // This is not tidiness, it is repair. An earlier parser paired each title
+    // with the NEXT poster's slug, which meant every imported star rating sat on
+    // the wrong film. Merging would preserve that forever, because the titles
+    // themselves were all present and correct as a set — only their attachments
+    // were wrong, and no diff of titles could see it. Dropping and re-adding is
+    // the only thing that fixes data already written.
+    //
+    // Dated diary entries are untouched: those carry your ratings and notes.
+    if (films.length) {
+      const before = merged.length;
+      merged = merged.filter(e => !(e.source === 'letterboxd-films' && !e.on));
+      const dropped = before - merged.length;
+      if (dropped) console.log(`rebuilding ${dropped} films-list entries`);
+    }
+
     const fresh = onlyMissing(films, merged);
     if (fresh.length) {
       const res = mergeInto(merged, fresh, { keyOf });
