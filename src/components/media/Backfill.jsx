@@ -57,11 +57,16 @@ export default function Backfill({ log = [], onApply }) {
           // The search result has a poster but no runtime — runtime only exists
           // on the detail endpoint. One extra call, and only for titles that
           // actually matched, so a miss costs one request rather than two.
+          // The detail endpoint differs by kind, and asking the wrong one 404s.
+          // A series' length also lives in a different field AND means something
+          // different: `episode_run_time` is one episode, not the whole show.
           let runtime = null;
           try {
-            const d = await fetchRaw('movie', hit.tmdb_id, key);
-            // TV carries episode_run_time as an array; films carry a number.
-            runtime = d?.runtime ?? d?.episode_run_time?.[0] ?? null;
+            const isTv = (g.kind || hit.kind) === 'tv' || hit.type === 'tv';
+            const d = await fetchRaw(isTv ? 'tv' : 'movie', hit.tmdb_id, key);
+            runtime = isTv
+              ? (d?.episode_run_time?.[0] ?? d?.last_episode_to_air?.runtime ?? null)
+              : (d?.runtime ?? null);
           } catch { /* poster alone is still worth having */ }
           next = applyMatch(next, g.ids, { ...hit, runtime });
         } else {

@@ -398,6 +398,8 @@ export function shelfFromLog(rows = [], log = []) {
         runtime: num(e.runtime),
         last_watched: on,
         viewings: 1,
+        minutes_exact: num(e.runtime) > 0 ? num(e.runtime) : 0,
+        measured: num(e.runtime) > 0 ? 1 : 0,
         // The flag the UI needs to avoid offering "delete" on something that is
         // not a row it can delete.
         derived: true,
@@ -405,6 +407,11 @@ export function shelfFromLog(rows = [], log = []) {
       continue;
     }
     prev.viewings += 1;
+    // Every logged runtime for this title, added up. For a series this is the
+    // real total: forty-one episodes at their own lengths, not forty-one times
+    // one guess.
+    const rt = num(e.runtime);
+    if (rt != null && rt > 0) { prev.minutes_exact = (prev.minutes_exact || 0) + rt; prev.measured += 1; }
     if (rating != null && (prev.rating == null || rating > prev.rating)) prev.rating = rating;
     if (on && (!prev.last_watched || on > prev.last_watched)) prev.last_watched = on;
     if (!prev.poster_url && e.poster_url) prev.poster_url = e.poster_url;
@@ -427,6 +434,16 @@ export function derivedMeta(shelf = []) {
       year: r.year ?? null,
       runtime: r.type === 'movie' ? r.runtime ?? null : null,
       episode_runtime: r.type === 'movie' ? null : r.runtime ?? null,
+      // The measured part and HOW MUCH of it is measured, kept together.
+      //
+      // An all-or-nothing "exact" flag was the first attempt and it was wrong in
+      // both directions: with one episode unmeasured out of three it either
+      // discarded two real measurements, or multiplied a guess across all three
+      // and called the result exact. Neither is what is known. What IS known is
+      // "155 minutes across three of four episodes", so that is what travels.
+      minutes_measured: r.type !== 'movie' && r.minutes_exact > 0 ? r.minutes_exact : null,
+      episodes_measured: r.type === 'movie' ? null : r.measured,
+      episodes_watched: r.type === 'movie' ? null : r.viewings,
       kind: r.kind,
     };
   }

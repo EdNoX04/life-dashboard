@@ -5700,3 +5700,12 @@ th:hover .hold-info { color: var(--cyan); }
 .bf-run { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
 .bf-bar { flex: 1; height: 10px; background: var(--bg-deep); border: 1px solid var(--border); position: relative; }
 .bf-bar i { position: absolute; inset: 0 auto 0 0; background: var(--cyan); box-shadow: 0 0 6px var(--cyan); transition: width .2s; }
+
+/* A month heading inside the poster grid. Spans every column so the grid reads
+   as a timeline rather than a wall — which is the entire reason for sorting by
+   when you watched something. */
+.mv-month {
+  grid-column: 1 / -1; margin: 6px 0 2px; padding-bottom: 4px;
+  font-family: 'VT323', monospace; font-size: 15px; letter-spacing: 1.4px;
+  color: var(--pink); border-bottom: 1px solid var(--border);
+}

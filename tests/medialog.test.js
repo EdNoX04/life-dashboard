@@ -352,5 +352,69 @@ const series = timeWatched(
 eq(series.unknownTitles.join(''), 'House', 'a part-watched series with no episode length is named');
 eq(series.unknownEpisodes, 4, 'and its watched episodes counted');
 
+// ------------------------------------- episode lengths, and what RECENT means
+
+// Two complaints with one root: numbers that were modelled where a measurement
+// existed, and an ordering that was alphabetical while claiming to be recent.
+
+import { sortRows, monthOf, monthTitle } from '../src/lib/media.js';
+
+// A series' episodes are NOT all the same length. One `episode_runtime`
+// multiplied by a count reports every difference as zero — pilots run long,
+// finales are double, and a season of specials is not the season average.
+const houseLog = [
+  { title: 'House', kind: 'tv', on: '2026-01-01', season: 1, episode: 1, runtime: 68 },  // long pilot
+  { title: 'House', kind: 'tv', on: '2026-01-02', season: 1, episode: 2, runtime: 44 },
+  { title: 'House', kind: 'tv', on: '2026-01-03', season: 1, episode: 3, runtime: 43 },
+];
+const houseShelf = shelfFromLog([], houseLog);
+const hm = derivedMeta(houseShelf);
+const row = houseShelf[0];
+eq(row.viewings, 3, 'three episodes logged');
+eq(row.minutes_exact, 155, 'their real lengths sum to 155, not 3 x 44');
+eq(hm[row.id].minutes_measured, 155, 'and that sum reaches the stats');
+eq(hm[row.id].episodes_measured, 3, 'along with how many episodes it covers');
+eq(timeWatched(houseShelf, hm).minutes, 155, 'so the total is measured, not modelled');
+eq(timeWatched(houseShelf, hm).exact, true, 'and can honestly be called exact');
+
+// A partial sum must NOT be offered as exact — a smaller number wearing a
+// confident label is worse than an estimate that admits it.
+const partial = shelfFromLog([], [
+  { title: 'Show', kind: 'tv', on: '2026-01-01', season: 1, episode: 1, runtime: 44 },
+  { title: 'Show', kind: 'tv', on: '2026-01-02', season: 1, episode: 2 },
+]);
+const pm = derivedMeta(partial);
+eq(pm[partial[0].id].minutes_measured, 44, 'the measured episode still counts');
+eq(pm[partial[0].id].episodes_measured, 1, 'and it is known to be one of two');
+const pt = timeWatched(partial, pm);
+eq(pt.minutes, 44, 'the total is what was actually measured — not 2 x 44');
+eq(pt.unknownEpisodes, 1, 'the unmeasured episode is counted as unknown');
+eq(pt.exact, false, 'so the figure is NOT claimed as exact');
+ok(pt.estHours > pt.hours, 'and the estimate sits above the measured floor');
+
+// ---- RECENT meant alphabetical ----
+
+// Derived rows carry no created_at, so the "added" sort fell through to
+// comparing id strings — "derived:t:zootopia 2" against "derived:t:aladdin".
+// That is alphabetical order presented under the label RECENT, on a shelf of
+// 58 films, with nothing on screen to suggest anything was wrong.
+const shelf = [
+  { id: 'derived:t:aladdin', title: 'Aladdin', last_watched: '2026-02-01' },
+  { id: 'derived:t:zootopia', title: 'Zootopia', last_watched: '2026-08-09' },
+  { id: 'derived:t:none', title: 'Undated' },
+  { id: 'r9', title: 'Filed', created_at: '2026-05-01' },
+];
+const recent = sortRows(shelf, 'added');
+eq(recent[0].title, 'Zootopia', 'the most recently WATCHED comes first');
+eq(recent[1].title, 'Filed', 'a filed row sorts by when it was added');
+eq(recent[2].title, 'Aladdin', 'then the older viewing');
+eq(recent[3].title, 'Undated', 'and anything with no date at all sorts last');
+
+// Month headings, so a long completed shelf reads as a timeline.
+eq(monthOf(shelf[1]), '2026-08', 'a watched date gives a month');
+eq(monthOf(shelf[2]), null, 'no date gives none');
+eq(monthTitle('2026-08'), 'August 2026', 'months are named');
+eq(monthTitle(null), 'No date recorded', 'and the undated group says so plainly');
+
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);

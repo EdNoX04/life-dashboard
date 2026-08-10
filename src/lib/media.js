@@ -150,6 +150,27 @@ export function timeWatched(rows = [], meta = {}) {
       minutes += rt;
     } else {
       if (p.watched <= 0) continue;
+      // MEASURED BEATS MODELLED, EPISODE BY EPISODE.
+      //
+      // The multiply at the bottom is a model and a coarse one: a single
+      // `episode_runtime` assumes every episode of a show is the same length,
+      // which is false in the ordinary case. Modern Family runs 22 minutes and
+      // House 44, but within each show the pilot is longer, finales are
+      // double-length, and a season of specials is not the season average.
+      // Multiplying one number by a count reports all of that as zero.
+      //
+      // So where the diary recorded real lengths, those are added as they are —
+      // and the episodes it did NOT record are counted as unknown rather than
+      // filled in with the average. Three measured episodes and one unmeasured
+      // is "155 minutes plus one unknown", not 4 x 44, and not 155 called exact.
+      const measured = num(m.minutes_measured);
+      const nMeasured = num(m.episodes_measured) ?? 0;
+      if (measured !== null && measured > 0) {
+        minutes += measured;
+        const gap = Math.max(0, p.watched - nMeasured);
+        if (gap > 0) { unknownEpisodes += gap; unknownTitles.push(r.title); }
+        continue;
+      }
       const rt = num(m.episode_runtime);
       if (rt === null || rt <= 0) { unknownEpisodes += p.watched; unknownTitles.push(r.title); continue; }
       minutes += rt * p.watched;
@@ -198,6 +219,21 @@ export const SORTS = [
   { key: 'progress', label: 'PROGRESS' },
 ];
 
+// The month a row belongs to on a watched-ordered shelf, or null when it has no
+// date. Used to draw a heading between groups so a long completed shelf reads
+// as a timeline instead of an undifferentiated wall of posters.
+export function monthOf(row) {
+  const d = String(row?.last_watched || row?.created_at || '');
+  return /^\d{4}-\d{2}/.test(d) ? d.slice(0, 7) : null;
+}
+
+export function monthTitle(key) {
+  if (!key) return 'No date recorded';
+  const [y, m] = key.split('-').map(Number);
+  return `${['January', 'February', 'March', 'April', 'May', 'June', 'July',
+    'August', 'September', 'October', 'November', 'December'][m - 1]} ${y}`;
+}
+
 export function sortRows(rows = [], key = 'added', meta = {}) {
   const out = rows.slice();
   if (key === 'title') {
@@ -209,7 +245,21 @@ export function sortRows(rows = [], key = 'added', meta = {}) {
   } else if (key === 'progress') {
     out.sort((a, b) => (progressOf(b, meta).pct ?? -1) - (progressOf(a, meta).pct ?? -1));
   } else {
-    out.sort((a, b) => String(b.created_at || b.id || '').localeCompare(String(a.created_at || a.id || '')));
+    // RECENT means recently WATCHED where that is known, and recently added
+    // otherwise. Rows derived from the diary carry no created_at, so this used
+    // to fall through to comparing id strings — "derived:t:zootopia 2" against
+    // "derived:t:aladdin" — which is alphabetical order wearing the label
+    // RECENT. A shelf of 58 films in the wrong order, sorted confidently.
+    const when = r => String(r.last_watched || r.created_at || '');
+    out.sort((a, b) => {
+      const wa = when(a), wb = when(b);
+      if (wa && wb) return wb.localeCompare(wa);
+      // Anything dated outranks anything undated: a known date is more recent
+      // information than no date at all.
+      if (wa) return -1;
+      if (wb) return 1;
+      return String(a.title || '').localeCompare(String(b.title || ''));
+    });
   }
   return out;
 }

@@ -116,7 +116,12 @@ export function backfillGroups(log = []) {
   const groups = new Map();
   for (const e of needsBackfill(log)) {
     const key = `${normTitle(e.title)}|${e.year ?? ''}`;
-    if (!groups.has(key)) groups.set(key, { title: e.title, year: e.year ?? null, ids: [] });
+    // The KIND travels with the group: a series' detail lives at /tv/{id} and
+    // asking /movie/{id} for it returns a 404, which the catch below would
+    // record as "no runtime" rather than as the wrong question.
+    if (!groups.has(key)) {
+      groups.set(key, { title: e.title, year: e.year ?? null, kind: e.kind || 'movie', ids: [] });
+    }
     groups.get(key).ids.push(e.id);
   }
   return [...groups.values()];

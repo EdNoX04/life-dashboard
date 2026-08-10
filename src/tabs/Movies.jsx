@@ -4,7 +4,7 @@ import { Card, Empty, StatTile } from '../components/ui.jsx';
 import { getConfig, upsertMemory, list } from '../lib/db.js';
 import {
   STATUSES, statusOf, normalizeResults, progressOf, statusDisagreement,
-  shelfStats, SORTS, sortRows, filterRows,
+  shelfStats, SORTS, sortRows, filterRows, monthOf, monthTitle,
 } from '../lib/media.js';
 import { addViewing, removeViewing, shelfFromLog, derivedMeta } from '../lib/medialog.js';
 import Diary from '../components/media/Diary.jsx';
@@ -597,9 +597,17 @@ export default function Movies() {
           : view === 'grid'
             ? (
               <div className="mv-grid">
-                {shown.map(r => (
+                {shown.map((r, i) => (
+                  <React.Fragment key={r.id}>
+                    {/* A month heading whenever the month changes, but only on
+                        the RECENT sort — under A–Z or RATED the rows are not in
+                        date order and a date heading would be a lie about what
+                        follows it. */}
+                    {sort === 'added' && monthOf(r) !== monthOf(shown[i - 1] || {}) && (
+                      <div className="mv-month">{monthTitle(monthOf(r))}</div>
+                    )}
                   <Poster
-                    key={r.id} row={r} meta={meta}
+                    row={r} meta={allMeta}
                     expanded={open === r.id}
                     onExpand={() => setOpen(open === r.id ? null : r.id)}
                     onPatch={p => (r.derived ? adopt(r, p) : patch(r.id, p))}
@@ -618,6 +626,7 @@ export default function Movies() {
                       kind: meta[r.id]?.kind || r.type, poster_url: r.poster_url,
                     })}
                   />
+                  </React.Fragment>
                 ))}
               </div>
             )
