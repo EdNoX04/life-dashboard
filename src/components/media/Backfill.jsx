@@ -3,7 +3,7 @@ import { Card } from '../ui.jsx';
 import { getConfig } from '../../lib/db.js';
 import { searchTmdb, fetchRaw } from '../../lib/tmdb.js';
 import { normalizeTmdb } from '../../lib/media.js';
-import { backfillGroups, pickMatch, applyMatch, markUnmatched, pending } from '../../lib/backfill.js';
+import { backfillGroups, pickMatch, applyMatch, markUnmatched, resetChecks } from '../../lib/backfill.js';
 
 // Posters and runtimes, from TMDB.
 //
@@ -27,7 +27,7 @@ export default function Backfill({ log = [], onApply }) {
   const [now, setNow] = useState(null);
   const key = (getConfig().tmdbKey || '').trim();
 
-  const groups = useMemo(() => backfillGroups(log.filter(e => !e.tmdb_miss)), [log]);
+  const groups = useMemo(() => backfillGroups(log), [log]);
   const todo = groups.length;
   const missingPosters = log.filter(e => !e.poster_url).length;
   const missingRuntime = log.filter(e => e.runtime == null).length;
@@ -69,7 +69,10 @@ export default function Backfill({ log = [], onApply }) {
           next = markUnmatched(next, g.ids);
         }
       } catch {
+        // Marked as well as counted. An entry that only gets counted is an entry
+        // the next run tries again, and again — the queue never empties.
         misses.push(g.title);
+        next = markUnmatched(next, g.ids);
       }
       n += 1;
       setDone(n);
@@ -117,7 +120,18 @@ export default function Backfill({ log = [], onApply }) {
         <button className="btn btn-green" onClick={run}>FILL {todo} TITLES</button>
       )}
       {!busy && todo === 0 && (
-        <p className="im-ok">Everything that can be matched has been. Nothing left to fetch.</p>
+        <>
+          <p className="im-ok">
+            Everything has been looked up. A few may still have no poster or
+            runtime — TMDB simply does not carry one for them, and asking again
+            gets the same answer.
+          </p>
+          {/* Not automatic. Re-running is for when TMDB has since added a title,
+              or a match came out wrong — both worth a deliberate press. */}
+          <button className="btn btn-sm" onClick={() => onApply(resetChecks(log))}>
+            ASK AGAIN FOR ALL
+          </button>
+        </>
       )}
 
       {/* Named, not hidden. A title TMDB does not carry is a real outcome, and

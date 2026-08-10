@@ -77,7 +77,16 @@ export function pickMatch(candidates = [], { title, year = null } = {}) {
 }
 
 function best(list) {
-  return list.slice().sort((a, b) => (num(b.votes) ?? 0) - (num(a.votes) ?? 0))[0] || null;
+  // Artwork first, then votes. A real feature almost always has a poster on
+  // TMDB; the entries without one are overwhelmingly shorts, festival stubs and
+  // duplicates. "Obsession (2025)" matched one of those and came back with an
+  // 18-minute runtime and no image — technically within the rules, obviously
+  // not the film that was watched.
+  return list.slice().sort((a, b) => {
+    const art = (b.poster_url ? 1 : 0) - (a.poster_url ? 1 : 0);
+    if (art) return art;
+    return (num(b.votes) ?? 0) - (num(a.votes) ?? 0);
+  })[0] || null;
 }
 
 /**
@@ -89,7 +98,13 @@ function best(list) {
  */
 export function needsBackfill(log = []) {
   return log
-    .filter(e => e.title && (!e.poster_url || e.runtime == null))
+    // `tmdb_checked` is the difference between "still missing" and "already
+    // asked". Without it, a film TMDB carries with no artwork stays in the queue
+    // permanently: the gap can never close, so every run offers to fill it
+    // again and the counter never reaches zero. That is what "1 TO LOOK UP"
+    // that refuses to go away actually was.
+    .filter(e => e.title && !e.tmdb_checked && !e.tmdb_miss
+      && (!e.poster_url || e.runtime == null))
     .slice()
     .sort((a, b) => String(b.on || '').localeCompare(String(a.on || '')));
 }
@@ -121,6 +136,8 @@ export function applyMatch(log = [], ids = [], match = null) {
     if (!set.has(e.id)) return e;
     return {
       ...e,
+      // Asked and answered — even if the answer left a field empty.
+      tmdb_checked: true,
       poster_url: e.poster_url || match.poster_url || null,
       runtime: e.runtime ?? match.runtime ?? null,
       tmdb_id: e.tmdb_id ?? match.tmdb_id ?? null,
@@ -138,5 +155,16 @@ export function markUnmatched(log = [], ids = []) {
 }
 
 export function pending(log = []) {
-  return backfillGroups(log.filter(e => !e.tmdb_miss)).length;
+  return backfillGroups(log).length;
+}
+
+// Clears the "already asked" marks so a run can be repeated — for when a title
+// TMDB did not have last month has since been added, or a match came out wrong
+// and you want another go.
+export function resetChecks(log = []) {
+  return log.map(e => {
+    if (!e.tmdb_checked && !e.tmdb_miss) return e;
+    const { tmdb_checked, tmdb_miss, ...rest } = e;
+    return rest;
+  });
 }
