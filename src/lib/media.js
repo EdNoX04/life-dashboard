@@ -135,18 +135,23 @@ export const DEFAULT_EPISODE_MIN = 42;
 
 export function timeWatched(rows = [], meta = {}) {
   let minutes = 0, unknownItems = 0, unknownEpisodes = 0;
+  // WHICH titles, not just how many. "2 films unmeasured" is a number you can
+  // do nothing with: it names no film, so there is nothing to go and fix, and
+  // the only way to find them was to open every card in turn. Naming them turns
+  // a complaint into a task.
+  const unknownTitles = [];
   for (const r of rows) {
     const m = meta[r.id] || {};
     const p = progressOf(r, meta);
     if (p.kind === 'movie') {
       if (!p.done) continue;
       const rt = num(m.runtime);
-      if (rt === null || rt <= 0) { unknownItems++; continue; }
+      if (rt === null || rt <= 0) { unknownItems++; unknownTitles.push(r.title); continue; }
       minutes += rt;
     } else {
       if (p.watched <= 0) continue;
       const rt = num(m.episode_runtime);
-      if (rt === null || rt <= 0) { unknownEpisodes += p.watched; continue; }
+      if (rt === null || rt <= 0) { unknownEpisodes += p.watched; unknownTitles.push(r.title); continue; }
       minutes += rt * p.watched;
     }
   }
@@ -157,6 +162,7 @@ export function timeWatched(rows = [], meta = {}) {
     estHours: estMinutes / 60,
     unknownItems,
     unknownEpisodes,
+    unknownTitles,
     // `exact` is the only claim this function is willing to make confidently.
     exact: unknownItems === 0 && unknownEpisodes === 0,
   };

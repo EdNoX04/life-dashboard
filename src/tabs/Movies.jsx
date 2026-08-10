@@ -506,7 +506,11 @@ export default function Movies() {
           label="Time watched" value={hours}
           // Never a bare number when runtimes are missing — the tilde and the
           // note are the difference between a measurement and a guess.
-          note={stats.time.exact ? 'from recorded runtimes' : `estimated · ${stats.time.unknownEpisodes} eps, ${stats.time.unknownItems} films unmeasured`}
+          note={stats.time.exact
+            ? 'from recorded runtimes'
+            // Named rather than counted. Two unmeasured films is a number you
+            // can act on only once you know which two.
+            : `estimated · no runtime for ${stats.time.unknownTitles.slice(0, 3).join(', ')}${stats.time.unknownTitles.length > 3 ? ` +${stats.time.unknownTitles.length - 3}` : ''}`}
           color="var(--orange)"
         />
         <StatTile

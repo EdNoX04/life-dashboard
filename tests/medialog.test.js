@@ -290,5 +290,67 @@ eq(derivedMeta(showRows)[showRows[0].id].episode_runtime, 42, 'and a series runt
 eq(derivedMeta(showRows)[showRows[0].id].runtime, null, 'not both — that would double-count the hours');
 eq(Object.keys(derivedMeta(ROWS)).length, 0, 'real rows get no derived metadata');
 
+// --------------------------------------------- editing versus importing
+
+// Both arrive at addViewing and they want opposite things. Editing means the
+// new value wins — you opened the sheet and changed it. Importing means fill
+// the gaps — a file should not overwrite an opinion you changed on purpose.
+// Getting this wrong made the Import screen's promise false, and a test caught
+// it before it shipped rather than after.
+
+const held = [{ id: 'k', title: 'Heat', on: '2026-06-01', rating: 5, review: 'Mine.', year: null }];
+
+const edited = addViewing(held, { title: 'Heat', on: '2026-06-01', rating: 3 });
+eq(edited[0].rating, 3, 'an EDIT overwrites the rating');
+eq(edited[0].review, 'Mine.', 'while leaving a field it did not mention alone');
+
+const imported = addViewing(held, { title: 'Heat', on: '2026-06-01', rating: 4.5, year: 1995 }, { fill: true });
+eq(imported[0].rating, 5, 'an IMPORT does not overwrite the rating you set');
+eq(imported[0].review, 'Mine.', 'nor your review');
+eq(imported[0].year, 1995, 'but it does fill a field that was empty');
+eq(imported.length, 1, 'and it is still one viewing, not two');
+
+// ------------------------------------------------- naming the unmeasured
+
+// "2 films unmeasured" is a number nobody can act on: it names no film, so the
+// only way to find them was to open every card in turn. The count is also the
+// one figure on that tile that goes UP when something is fixed — clearing a
+// wrong 18-minute runtime took it from 1 to 2, which reads as a regression and
+// is the opposite.
+
+import { timeWatched } from '../src/lib/media.js';
+
+const SHELF = [
+  { id: 'm1', title: 'Heat', type: 'movie', status: 'completed' },
+  { id: 'm2', title: 'Obsession', type: 'movie', status: 'completed' },
+  { id: 'm3', title: 'A Modern Farewell', type: 'movie', status: 'completed' },
+];
+const META = { m1: { runtime: 170 } };
+
+const t = timeWatched(SHELF, META);
+eq(t.minutes, 170, 'only the measured film contributes');
+eq(t.unknownItems, 2, 'two are unmeasured');
+eq(t.unknownTitles.join(', '), 'Obsession, A Modern Farewell',
+  'and the screen can now say WHICH two');
+eq(t.exact, false, 'so the total is not claimed as exact');
+
+eq(timeWatched(SHELF, { ...META, m2: { runtime: 105 }, m3: { runtime: 90 } }).unknownTitles.length, 0,
+  'once every runtime is known, nothing is named');
+eq(timeWatched(SHELF, { ...META, m2: { runtime: 105 }, m3: { runtime: 90 } }).exact, true,
+  'and the figure becomes exact');
+
+// An unwatched film is not "unmeasured" — you have not watched it, so its
+// runtime is irrelevant and naming it would be noise.
+eq(timeWatched([{ id: 'x', title: 'Unseen', type: 'movie', status: 'watchlist' }], {}).unknownTitles.length, 0,
+  'a film on the watchlist is not counted as missing a runtime');
+
+// A series with no episode runtime is named too, once you have watched any of it.
+const series = timeWatched(
+  [{ id: 's1', title: 'House', type: 'tv', status: 'watching' }],
+  { s1: { episodes_watched: 4, episodes_total: 176 } },
+);
+eq(series.unknownTitles.join(''), 'House', 'a part-watched series with no episode length is named');
+eq(series.unknownEpisodes, 4, 'and its watched episodes counted');
+
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);
