@@ -216,22 +216,27 @@ export default function Movies() {
   const [lists, setLists] = useState([]);
   const [listFor, setListFor] = useState(null);   // title being filed
   const [searchErr, setSearchErr] = useState(null);
+  const [loadErr, setLoadErr] = useState(null);
   const tmdbKey = (getConfig().tmdbKey || '').trim();
 
   useEffect(() => {
     let dead = false;
-    list('memory', { filter: 'key=eq.media_meta' })
+    list('memory', { filter: 'key=eq.media_meta', order: 'key' })
       .then(rows => { if (!dead && rows?.[0]?.value) setMeta(rows[0].value); })
-      .catch(() => {});
+      .catch(e => { if (!dead) setLoadErr(String(e.message || e)); });
     // The viewing log. A blob rather than a table, like media_meta, but shaped
     // like rows - every entry carries its own id and nothing depends on array
     // position, so it can become a real table later without touching a caller.
-    list('memory', { filter: 'key=eq.media_log' })
+    list('memory', { filter: 'key=eq.media_log', order: 'key' })
       .then(rows => { if (!dead && Array.isArray(rows?.[0]?.value?.entries)) setLog(rows[0].value.entries); })
-      .catch(() => {});
-    list('memory', { filter: 'key=eq.media_lists' })
+      // NOT swallowed. A caught-and-ignored read turns "the request was
+      // rejected" into "you have watched nothing", which is a lie the screen
+      // then repeats confidently — and is exactly how a 400 hid behind an empty
+      // diary while 58 viewings sat in the database.
+      .catch(e => { if (!dead) setLoadErr(String(e.message || e)); });
+    list('memory', { filter: 'key=eq.media_lists', order: 'key' })
       .then(rows => { if (!dead && Array.isArray(rows?.[0]?.value?.lists)) setLists(rows[0].value.lists); })
-      .catch(() => {});
+      .catch(e => { if (!dead) setLoadErr(String(e.message || e)); });
     return () => { dead = true; };
   }, []);
 
@@ -361,6 +366,13 @@ export default function Movies() {
     <>
       <h1 className="tab-title">MEDIA</h1>
       <p className="tab-sub">Your own Letterboxd — movies & TV, tracked.</p>
+
+      {loadErr && (
+        <p className="ls-warn">
+          Could not read your saved media data: <code>{loadErr}</code>. The
+          screens below will look empty — that is this error, not an empty diary.
+        </p>
+      )}
 
       <div className="mv-screens">
         {[['shelf', 'SHELF'], ['diary', 'DIARY'], ['discover', 'DISCOVER'], ['lists', 'LISTS']].map(([k, l]) => (

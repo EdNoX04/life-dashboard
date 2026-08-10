@@ -108,7 +108,19 @@ function lwrite(table, rows) {
 }
 
 // ---------- public API ----------
-export async function list(table, { order = 'created_at', asc = false, filter = '' } = {}) {
+// `memory` is a key/value table with no `created_at` column, so the default
+// order below is a 400 for it — PostgREST rejects the whole query and the row
+// never arrives. Every existing caller worked around this by passing
+// order:'key', which meant the workaround looked like a style choice rather than
+// a requirement, and the three calls that omitted it failed silently: the media
+// diary read 0 viewings while Supabase held 58, and the shelf's runtime blob had
+// been failing the same way since long before.
+//
+// Defaulting per table fixes it for every future caller instead of asking each
+// one to remember.
+const DEFAULT_ORDER = { memory: 'key' };
+
+export async function list(table, { order = DEFAULT_ORDER[table] || 'created_at', asc = false, filter = '' } = {}) {
   if (!isRemote()) {
     const rows = lread(table);
     return [...rows].sort((a, b) => {
