@@ -5303,3 +5303,72 @@ th:hover .hold-info { color: var(--cyan); }
    not a number anyone can check. */
 .risk-win { display: flex; gap: 4px; justify-content: center; margin-top: 8px; }
 .risk-drift { margin-top: 8px; line-height: 1.5; color: var(--ink-2); }
+
+/* ==================================================== media: diary (batch 1) */
+/* Same palette and the same hard 2px edges as the rest of the arcade — a diary
+   is a new screen, not a new visual language. */
+
+.mv-screens { display: flex; align-items: center; gap: 0; margin-bottom: 12px; }
+.mv-screens .seg-btn { min-width: 92px; }
+
+/* --- activity heat strip --- */
+.md-heat { display: flex; gap: 6px; align-items: flex-start; overflow-x: auto; padding-bottom: 4px; }
+.md-heat-dow {
+  display: grid; grid-template-rows: repeat(7, 12px); gap: 3px;
+  font-size: 9px; color: var(--ink-3); font-family: 'VT323', monospace; padding-top: 1px;
+}
+.md-heat-grid { display: flex; gap: 3px; }
+.md-heat-week { display: grid; grid-template-rows: repeat(7, 12px); gap: 3px; }
+.md-heat-week i {
+  width: 12px; height: 12px; display: block;
+  border: 1px solid var(--border); border-radius: 1px;
+}
+
+/* --- day blocks --- */
+.md-day { border-left: 2px solid var(--border-bright); padding-left: 10px; margin-bottom: 12px; }
+.md-dayhead { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.md-dayhead b {
+  font-family: 'VT323', monospace; font-size: 22px; line-height: 1;
+  color: var(--pink); text-shadow: 0 0 6px var(--pink);
+}
+
+.md-row {
+  display: flex; align-items: center; gap: 8px; padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+}
+.md-row:last-child { border-bottom: none; }
+.md-art { width: 30px; height: 44px; flex: none; display: grid; place-items: center;
+  background: var(--bg-deep); border: 1px solid var(--border); overflow: hidden; }
+.md-art img { width: 100%; height: 100%; object-fit: cover; }
+.md-title { flex: 1; display: flex; flex-direction: column; gap: 1px; font-size: 13px; }
+.md-ep { font-style: normal; font-size: 11px; color: var(--cyan); letter-spacing: .5px; }
+.md-rewatch { font-style: normal; font-size: 10.5px; color: var(--yellow); }
+.md-note { font-style: normal; font-size: 11px; color: var(--ink-3); }
+.md-rating { color: var(--yellow); font-size: 12px; letter-spacing: 1px; }
+.md-acts { display: flex; gap: 4px; }
+
+/* --- the log sheet --- */
+.ls-back {
+  position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.72);
+  display: grid; place-items: center; padding: 16px;
+}
+.ls {
+  width: min(440px, 100%); max-height: 88vh; overflow-y: auto;
+  background: var(--bg-panel); border: 2px solid var(--border-bright);
+  box-shadow: 0 0 0 2px var(--bg-deep), 0 0 24px rgba(0,0,0,.6);
+  padding: 14px;
+}
+.ls-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.ls-title { font-family: 'VT323', monospace; font-size: 19px; color: var(--pink); letter-spacing: .5px; }
+.ls-lbl {
+  display: block; margin: 12px 0 4px; font-size: 10.5px; letter-spacing: 1.2px;
+  color: var(--ink-3); font-family: 'VT323', monospace;
+}
+.ls-quick { display: flex; gap: 0; margin-bottom: 6px; }
+.ls-quick .seg-btn { flex: 1; }
+.ls-hint { margin: 5px 0 0; font-size: 11px; line-height: 1.45; color: var(--ink-3); }
+.ls-warn {
+  margin: 6px 0 0; padding: 6px 8px; font-size: 11.5px; line-height: 1.45;
+  color: var(--ink-2); border: 1px dashed var(--yellow); background: rgba(255,214,102,.06);
+}
+.ls-acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }

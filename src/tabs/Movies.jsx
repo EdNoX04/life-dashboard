@@ -6,6 +6,9 @@ import {
   STATUSES, statusOf, normalizeResults, progressOf, statusDisagreement,
   shelfStats, SORTS, sortRows, filterRows,
 } from '../lib/media.js';
+import { addViewing, removeViewing } from '../lib/medialog.js';
+import Diary from '../components/media/Diary.jsx';
+import LogSheet from '../components/media/LogSheet.jsx';
 
 // The media shelf.
 //
@@ -37,7 +40,7 @@ function Stars({ value, onChange }) {
   );
 }
 
-function Poster({ row, meta, onPatch, onMeta, onDel, expanded, onExpand }) {
+function Poster({ row, meta, onPatch, onMeta, onDel, onLog, expanded, onExpand }) {
   const m = meta[row.id] || {};
   const p = progressOf(row, meta);
   const dis = statusDisagreement(row, meta);
@@ -135,6 +138,15 @@ function Poster({ row, meta, onPatch, onMeta, onDel, expanded, onExpand }) {
             </div>
           )}
 
+          {/* The one action that turns this shelf into a diary. Placed with the
+              other controls rather than hidden behind the status dropdown,
+              because "I watched this tonight" is the thing you came here to
+              say - and if it costs a hunt, it stops getting said. */}
+          <div className="mv-line">
+            <button className="btn btn-sm btn-green" onClick={onLog}>+ LOG A VIEWING</button>
+            <span className="muted small">records the date you watched it</span>
+          </div>
+
           <div className="mv-line" style={{ justifyContent: 'space-between' }}>
             {m.tmdb_score
               ? <span className="chip c-purple">TMDB {Number(m.tmdb_score).toFixed(1)}</span>
@@ -158,6 +170,12 @@ export default function Movies() {
   const [find, setFind] = useState('');
   const [open, setOpen] = useState(null);
   const [view, setView] = useState('grid');
+  // SHELF is what you own and plan to watch. DIARY is what you actually
+  // watched, and when. They answer different questions off different data, so
+  // they are separate screens rather than a filter on one.
+  const [screen, setScreen] = useState('shelf');
+  const [log, setLog] = useState([]);
+  const [sheet, setSheet] = useState(null);   // {entry} | {title, kind, ...}
   const tmdbKey = (getConfig().tmdbKey || '').trim();
 
   useEffect(() => {
@@ -165,8 +183,33 @@ export default function Movies() {
     list('memory', { filter: 'key=eq.media_meta' })
       .then(rows => { if (!dead && rows?.[0]?.value) setMeta(rows[0].value); })
       .catch(() => {});
+    // The viewing log. A blob rather than a table, like media_meta, but shaped
+    // like rows - every entry carries its own id and nothing depends on array
+    // position, so it can become a real table later without touching a caller.
+    list('memory', { filter: 'key=eq.media_log' })
+      .then(rows => { if (!dead && Array.isArray(rows?.[0]?.value?.entries)) setLog(rows[0].value.entries); })
+      .catch(() => {});
     return () => { dead = true; };
   }, []);
+
+  async function writeLog(next) {
+    setLog(next);
+    try { await upsertMemory('media_log', { entries: next }); } catch { /* offline: local state stands */ }
+  }
+
+  // Logging a viewing does two things, and doing only the first is the bug this
+  // avoids: it records WHEN you watched it, and it moves the shelf row to
+  // completed. A diary entry sitting behind a title still filed as "watching"
+  // is two screens disagreeing about the same evening.
+  async function saveViewing(entry) {
+    await writeLog(addViewing(log, entry, { id: entry.id }));
+    const row = items.find(r => (entry.tmdb_id != null && r.tmdb_id === entry.tmdb_id)
+      || String(r.title).toLowerCase() === String(entry.title).toLowerCase());
+    if (row && row.status !== 'completed' && String(row.type) !== 'tv') {
+      await patch(row.id, { status: 'completed', ...(entry.rating ? { rating: entry.rating } : {}) });
+    }
+    setSheet(null);
+  }
 
   // Written straight back to the blob rather than accumulated locally: a half
   // saved episode count is worse than an unsaved one, because it looks saved.
@@ -218,6 +261,38 @@ export default function Movies() {
     <>
       <h1 className="tab-title">MEDIA</h1>
       <p className="tab-sub">Your own Letterboxd — movies & TV, tracked.</p>
+
+      <div className="mv-screens">
+        {[['shelf', 'SHELF'], ['diary', 'DIARY']].map(([k, l]) => (
+          <button key={k} className={`seg-btn${screen === k ? ' on' : ''}`} onClick={() => setScreen(k)}>{l}</button>
+        ))}
+        <span className="muted small" style={{ marginLeft: 8 }}>
+          {screen === 'shelf' ? 'what you own and plan to watch' : `${log.length} viewing${log.length === 1 ? '' : 's'} on record`}
+        </span>
+      </div>
+
+      {screen === 'diary' && (
+        <>
+          <Diary
+            log={log}
+            onEdit={e => setSheet({ entry: e })}
+            onDelete={e => writeLog(removeViewing(log, e.id))}
+            onAdd={() => setSheet({ title: '', kind: 'movie' })}
+          />
+          <LogSheet
+            open={!!sheet}
+            entry={sheet?.entry || null}
+            title={sheet?.title || ''}
+            kind={sheet?.kind || 'movie'}
+            poster={sheet?.poster || null}
+            tmdbId={sheet?.tmdbId ?? null}
+            onSave={saveViewing}
+            onClose={() => setSheet(null)}
+          />
+        </>
+      )}
+      {screen === 'shelf' && (
+        <>
 
       <div className="tile-row">
         <StatTile label="Titles" value={stats.total} note={`${stats.movies} film · ${stats.tv} tv`} color="var(--cyan)" />
@@ -307,6 +382,9 @@ export default function Movies() {
                     onPatch={p => patch(r.id, p)}
                     onMeta={p => writeMeta(r.id, p)}
                     onDel={() => del(r.id)}
+                    onLog={() => setSheet({
+                      title: r.title, kind: r.type, poster: r.poster_url, tmdbId: r.tmdb_id,
+                    })}
                   />
                 ))}
               </div>
@@ -323,6 +401,10 @@ export default function Movies() {
                         <span className="chip c-cyan">{p.known ? `${p.watched}/${p.total}` : `${p.watched} ep`}</span>
                       )}
                       <Stars value={Number(r.rating) || 0} onChange={v => patch(r.id, { rating: v })} />
+                      <button className="btn btn-sm btn-green" title="Log a viewing with a date"
+                        onClick={() => setSheet({ title: r.title, kind: r.type, poster: r.poster_url, tmdbId: r.tmdb_id })}>
+                        + LOG
+                      </button>
                       <select value={r.status} onChange={e => patch(r.id, { status: e.target.value })} style={{ width: 130 }}>
                         {STATUSES.map(s => <option key={s.key} value={s.key}>{s.label.toLowerCase()}</option>)}
                       </select>
@@ -333,6 +415,19 @@ export default function Movies() {
               </div>
             )}
       </Card>
+
+      <LogSheet
+        open={!!sheet}
+        entry={sheet?.entry || null}
+        title={sheet?.title || ''}
+        kind={sheet?.kind || 'movie'}
+        poster={sheet?.poster || null}
+        tmdbId={sheet?.tmdbId ?? null}
+        onSave={saveViewing}
+        onClose={() => setSheet(null)}
+      />
+        </>
+      )}
     </>
   );
 }
