@@ -9,6 +9,7 @@ import {
 import { addViewing, removeViewing } from '../lib/medialog.js';
 import Diary from '../components/media/Diary.jsx';
 import LogSheet from '../components/media/LogSheet.jsx';
+import Preview from '../components/media/Preview.jsx';
 
 // The media shelf.
 //
@@ -40,7 +41,7 @@ function Stars({ value, onChange }) {
   );
 }
 
-function Poster({ row, meta, onPatch, onMeta, onDel, onLog, expanded, onExpand }) {
+function Poster({ row, meta, onPatch, onMeta, onDel, onLog, onPreview, expanded, onExpand }) {
   const m = meta[row.id] || {};
   const p = progressOf(row, meta);
   const dis = statusDisagreement(row, meta);
@@ -144,7 +145,8 @@ function Poster({ row, meta, onPatch, onMeta, onDel, onLog, expanded, onExpand }
               say - and if it costs a hunt, it stops getting said. */}
           <div className="mv-line">
             <button className="btn btn-sm btn-green" onClick={onLog}>+ LOG A VIEWING</button>
-            <span className="muted small">records the date you watched it</span>
+            {row.tmdb_id && <button className="btn btn-sm" onClick={onPreview}>DETAILS</button>}
+            <span className="muted small">date watched · cast · where to stream</span>
           </div>
 
           <div className="mv-line" style={{ justifyContent: 'space-between' }}>
@@ -176,6 +178,10 @@ export default function Movies() {
   const [screen, setScreen] = useState('shelf');
   const [log, setLog] = useState([]);
   const [sheet, setSheet] = useState(null);   // {entry} | {title, kind, ...}
+  // The preview sheet. Opened from a search result BEFORE adding, which is the
+  // whole point of it: two films share a title and a series has four spin-offs,
+  // and a poster alone was never enough to tell them apart.
+  const [preview, setPreview] = useState(null);
   const tmdbKey = (getConfig().tmdbKey || '').trim();
 
   useEffect(() => {
@@ -242,7 +248,18 @@ export default function Movies() {
       tmdb_id: r.tmdb_id, poster_url: r.poster_url, rating: null,
     });
     const id = row?.id || row?.[0]?.id;
-    if (id) await writeMeta(id, { year: r.year, overview: r.overview, tmdb_score: r.tmdb_score });
+    // Everything the preview already fetched is stored with the row. Without
+    // this the runtime is thrown away and "time watched" goes back to guessing
+    // at a title we had the exact length of two seconds ago.
+    if (id) {
+      await writeMeta(id, {
+        year: r.year, overview: r.overview, tmdb_score: r.tmdb_score,
+        ...(r.runtime ? (r.kind === 'tv' || r.type === 'tv'
+          ? { episode_runtime: r.runtime } : { runtime: r.runtime }) : {}),
+        ...(r.episodes ? { episodes_total: r.episodes } : {}),
+        ...(r.genres?.length ? { genres: r.genres } : {}),
+      });
+    }
     setResults([]); setQ('');
     refresh?.();
   }
@@ -335,6 +352,11 @@ export default function Movies() {
                   {r.overview && <div className="small muted mv-res-over">{r.overview.slice(0, 140)}{r.overview.length > 140 ? '…' : ''}</div>}
                 </span>
                 <span className="chip c-purple">{r.type}</span>
+                {/* Preview first. Adding straight from a search row is how the
+                    wrong Dune ends up on the shelf. */}
+                <button className="btn btn-sm" onClick={() => setPreview({ kind: r.type, tmdbId: r.tmdb_id, fallback: r })}>
+                  PREVIEW
+                </button>
                 <button className="btn btn-sm btn-green" onClick={() => addFrom(r)}>+ ADD</button>
               </div>
             ))}
@@ -385,6 +407,10 @@ export default function Movies() {
                     onLog={() => setSheet({
                       title: r.title, kind: r.type, poster: r.poster_url, tmdbId: r.tmdb_id,
                     })}
+                    onPreview={() => setPreview({
+                      kind: r.type, tmdbId: r.tmdb_id,
+                      fallback: { title: r.title, poster_url: r.poster_url, kind: r.type },
+                    })}
                   />
                 ))}
               </div>
@@ -425,6 +451,19 @@ export default function Movies() {
         tmdbId={sheet?.tmdbId ?? null}
         onSave={saveViewing}
         onClose={() => setSheet(null)}
+      />
+
+      <Preview
+        open={!!preview}
+        kind={preview?.kind || 'movie'}
+        tmdbId={preview?.tmdbId ?? null}
+        fallback={preview?.fallback || null}
+        onAdd={async d => { await addFrom({ ...d, type: d.kind, poster_url: d.poster_url }); setPreview(null); }}
+        // "Already seen it" goes straight to the log rather than to the shelf.
+        // Adding something you watched years ago as plan-to-watch and then
+        // immediately marking it done is three taps to record one fact.
+        onLog={d => { setPreview(null); setSheet({ title: d.title, kind: d.kind, poster: d.poster_url, tmdbId: d.tmdb_id }); }}
+        onClose={() => setPreview(null)}
       />
         </>
       )}

@@ -5372,3 +5372,78 @@ th:hover .hold-info { color: var(--cyan); }
   color: var(--ink-2); border: 1px dashed var(--yellow); background: rgba(255,214,102,.06);
 }
 .ls-acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+/* ================================================= media: preview (batch 2) */
+.pv {
+  position: relative; width: min(560px, 100%); max-height: 88vh; overflow-y: auto;
+  background: var(--bg-panel); border: 2px solid var(--border-bright);
+  box-shadow: 0 0 0 2px var(--bg-deep), 0 0 24px rgba(0,0,0,.6);
+  padding: 14px;
+}
+/* The backdrop sits behind the header at low opacity — atmosphere without
+   costing legibility, which a full-bleed image would. */
+.pv-back {
+  position: absolute; inset: 0 0 auto 0; height: 150px; background-size: cover;
+  background-position: center; opacity: .16; pointer-events: none;
+  mask-image: linear-gradient(180deg, #000 0%, transparent 100%);
+}
+.pv-head { position: relative; display: flex; gap: 12px; align-items: flex-start; }
+.pv-art {
+  width: 84px; height: 124px; flex: none; display: grid; place-items: center;
+  background: var(--bg-deep); border: 2px solid var(--border-bright); overflow: hidden;
+}
+.pv-art img { width: 100%; height: 100%; object-fit: cover; }
+.pv-id { flex: 1; min-width: 0; }
+.pv-title {
+  margin: 0; font-family: 'VT323', monospace; font-size: 24px; line-height: 1.1;
+  color: var(--pink); text-shadow: 0 0 8px var(--pink);
+}
+.pv-meta { font-size: 12px; color: var(--ink-3); margin-top: 3px; }
+.pv-tag { font-size: 12px; color: var(--ink-2); font-style: italic; margin-top: 5px; }
+.pv-genres { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+.pv-over { font-size: 13px; line-height: 1.55; color: var(--ink-2); margin: 12px 0 0; }
+.pv-crew { font-size: 12px; color: var(--ink-2); margin: 6px 0 0; }
+.pv-crew b { color: var(--ink-3); font-weight: normal; letter-spacing: .5px; }
+
+.pv-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.pv-stat {
+  flex: 1 1 110px; padding: 6px 8px; background: var(--bg-deep);
+  border: 1px solid var(--border); display: flex; flex-direction: column; gap: 1px;
+}
+.pv-stat-l { font-size: 9.5px; letter-spacing: 1.1px; color: var(--ink-3); font-family: 'VT323', monospace; }
+.pv-stat-v { font-size: 15px; color: var(--cyan); font-family: 'VT323', monospace; }
+.pv-stat-n { font-size: 10px; color: var(--ink-3); }
+
+.pv-h {
+  margin: 16px 0 7px; font-family: 'VT323', monospace; font-size: 14px;
+  letter-spacing: 1.4px; color: var(--ink-3);
+  display: flex; align-items: center; gap: 8px;
+}
+.pv-cast { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.pv-actor { flex: none; width: 66px; display: flex; flex-direction: column; gap: 2px; text-align: center; }
+.pv-actor img, .pv-actor b {
+  width: 66px; height: 84px; object-fit: cover; background: var(--bg-deep);
+  border: 1px solid var(--border); display: grid; place-items: center;
+  font-family: 'VT323', monospace; color: var(--ink-3);
+}
+.pv-a-n { font-style: normal; font-size: 10.5px; color: var(--ink-2); line-height: 1.25; }
+.pv-a-c { font-style: normal; font-size: 9.5px; color: var(--ink-3); line-height: 1.25; }
+
+.pv-offers { display: flex; flex-direction: column; gap: 8px; }
+.pv-offer { display: flex; flex-direction: column; gap: 5px; }
+.pv-offer-t { font-size: 11px; color: var(--ink-2); letter-spacing: .6px; }
+.pv-offer-t i { font-style: normal; color: var(--ink-3); margin-left: 6px; font-size: 10.5px; }
+.pv-logos { display: flex; flex-wrap: wrap; gap: 6px; }
+.pv-prov { display: flex; align-items: center; gap: 5px; padding: 3px 6px;
+  background: var(--bg-deep); border: 1px solid var(--border); }
+.pv-prov img, .pv-prov b {
+  width: 22px; height: 22px; object-fit: cover; display: grid; place-items: center;
+  font-size: 10px; font-family: 'VT323', monospace; color: var(--ink-3);
+}
+.pv-prov i { font-style: normal; font-size: 11px; color: var(--ink-2); }
+.pv-none { font-size: 12px; line-height: 1.5; color: var(--ink-3); margin: 6px 0 0; }
+.pv-abroad { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.pv-ab-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.pv-ab-row b { color: var(--cyan); }
+.pv-ab-c { color: var(--ink-3); font-size: 11px; flex: 1; }
+.pv-fine { font-size: 10.5px; line-height: 1.5; color: var(--ink-3); margin: 10px 0 0; }
