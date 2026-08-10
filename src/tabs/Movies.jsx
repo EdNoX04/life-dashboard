@@ -10,6 +10,8 @@ import { addViewing, removeViewing } from '../lib/medialog.js';
 import Diary from '../components/media/Diary.jsx';
 import LogSheet from '../components/media/LogSheet.jsx';
 import Preview from '../components/media/Preview.jsx';
+import Episodes from '../components/media/Episodes.jsx';
+import { KINDS, kindOf, isEpisodic, guessKind, progressFor } from '../lib/kinds.js';
 
 // The media shelf.
 //
@@ -41,7 +43,7 @@ function Stars({ value, onChange }) {
   );
 }
 
-function Poster({ row, meta, onPatch, onMeta, onDel, onLog, onPreview, expanded, onExpand }) {
+function Poster({ row, meta, onPatch, onMeta, onDel, onLog, onPreview, onEpisodes, expanded, onExpand }) {
   const m = meta[row.id] || {};
   const p = progressOf(row, meta);
   const dis = statusDisagreement(row, meta);
@@ -53,7 +55,11 @@ function Poster({ row, meta, onPatch, onMeta, onDel, onLog, onPreview, expanded,
         {row.poster_url
           ? <img src={row.poster_url} alt="" style={{ imageRendering: 'pixelated' }} />
           : <span className="mv-noart">{row.type === 'tv' ? '📺' : '▶'}</span>}
-        <span className="mv-badge">{row.type === 'tv' ? 'TV' : 'FILM'}</span>
+        {/* The badge carries the finer kind now. A sitcom and a drama are both
+            "TV" and are not the same thing to track. */}
+        <span className="mv-badge" style={{ color: kindOf(m.kind || row.type).color }}>
+          {kindOf(m.kind || row.type).label}
+        </span>
         {row.rating ? <span className="mv-rate">{'★'.repeat(row.rating)}</span> : null}
       </button>
 
@@ -85,6 +91,20 @@ function Poster({ row, meta, onPatch, onMeta, onDel, onLog, onPreview, expanded,
           <div className="mv-line">
             <span className="mv-lbl">Rating</span>
             <Stars value={Number(row.rating) || 0} onChange={v => onPatch({ rating: v })} />
+          </div>
+
+          <div className="mv-line">
+            <span className="mv-lbl">Kind</span>
+            <select value={m.kind || row.type} onChange={e => onMeta({ kind: e.target.value })}>
+              {KINDS.filter(k => k.type === row.type).map(k => (
+                <option key={k.key} value={k.key}>{k.label.toLowerCase()}</option>
+              ))}
+            </select>
+            <span className="muted small">
+              {kindOf(m.kind || row.type).progress === 'position'
+                ? 'tracked by where you are, not how much is left'
+                : 'tracked toward finishing it'}
+            </span>
           </div>
 
           <div className="mv-line">
@@ -146,6 +166,9 @@ function Poster({ row, meta, onPatch, onMeta, onDel, onLog, onPreview, expanded,
           <div className="mv-line">
             <button className="btn btn-sm btn-green" onClick={onLog}>+ LOG A VIEWING</button>
             {row.tmdb_id && <button className="btn btn-sm" onClick={onPreview}>DETAILS</button>}
+            {row.type === 'tv' && row.tmdb_id && (
+              <button className="btn btn-sm btn-cyan" onClick={onEpisodes}>EPISODES</button>
+            )}
             <span className="muted small">date watched · cast · where to stream</span>
           </div>
 
@@ -182,6 +205,10 @@ export default function Movies() {
   // whole point of it: two films share a title and a series has four spin-offs,
   // and a poster alone was never enough to tell them apart.
   const [preview, setPreview] = useState(null);
+  // The episode grid. Needs the TMDB detail payload for its season list, so it
+  // is opened with whatever DETAILS already fetched rather than refetching.
+  const [episodes, setEpisodes] = useState(null);
+  const [detailCache, setDetailCache] = useState({});
   const tmdbKey = (getConfig().tmdbKey || '').trim();
 
   useEffect(() => {
@@ -207,6 +234,23 @@ export default function Movies() {
   // avoids: it records WHEN you watched it, and it moves the shelf row to
   // completed. A diary entry sitting behind a title still filed as "watching"
   // is two screens disagreeing about the same evening.
+  // Several viewings at once — a season fill, or one episode click. Written in
+  // a single round trip rather than one per episode: filling a 24-episode season
+  // as 24 sequential writes is 24 chances to half-succeed, and a half-filled
+  // season looks exactly like one you half-watched.
+  async function logMany(entries) {
+    let next = log;
+    for (const e of entries) next = addViewing(next, e);
+    await writeLog(next);
+  }
+
+  async function unlog({ tmdb_id, title, season, episode }) {
+    const hit = log.find(e => (tmdb_id != null ? e.tmdb_id === tmdb_id
+      : String(e.title).toLowerCase() === String(title).toLowerCase())
+      && e.season === season && e.episode === episode);
+    if (hit) await writeLog(removeViewing(log, hit.id));
+  }
+
   async function saveViewing(entry) {
     await writeLog(addViewing(log, entry, { id: entry.id }));
     const row = items.find(r => (entry.tmdb_id != null && r.tmdb_id === entry.tmdb_id)
@@ -254,6 +298,12 @@ export default function Movies() {
     if (id) {
       await writeMeta(id, {
         year: r.year, overview: r.overview, tmdb_score: r.tmdb_score,
+        // A SUGGESTION, stored so the shelf has something sensible on day one.
+        // Every card can override it, and the selector shows what it picked.
+        kind: guessKind({
+          title: r.title, type: r.type || r.kind,
+          genres: r.genres || [], countries: r.countries || [], languages: r.languages || [],
+        }),
         ...(r.runtime ? (r.kind === 'tv' || r.type === 'tv'
           ? { episode_runtime: r.runtime } : { runtime: r.runtime }) : {}),
         ...(r.episodes ? { episodes_total: r.episodes } : {}),
@@ -262,6 +312,21 @@ export default function Movies() {
     }
     setResults([]); setQ('');
     refresh?.();
+  }
+
+  // The season list lives on the RAW detail payload - normaliseDetail folds it
+  // away, deliberately, because the preview sheet has no use for it. So the
+  // grid fetches the raw shape once per show and caches it for the session.
+  async function openEpisodes(row) {
+    setEpisodes({ title: row.title, tmdbId: row.tmdb_id, kind: meta[row.id]?.kind || row.type, poster: row.poster_url, detail: detailCache[row.tmdb_id] || null });
+    if (!tmdbKey || !row.tmdb_id || detailCache[row.tmdb_id]) return;
+    try {
+      const r = await fetch(`https://api.themoviedb.org/3/tv/${row.tmdb_id}?api_key=${tmdbKey}`);
+      if (!r.ok) return;
+      const j = await r.json();
+      setDetailCache(c => ({ ...c, [row.tmdb_id]: j }));
+      setEpisodes(e => (e ? { ...e, detail: j } : e));
+    } catch { /* the grid shows its own empty state */ }
   }
 
   const stats = useMemo(() => shelfStats(items, meta), [items, meta]);
@@ -411,6 +476,7 @@ export default function Movies() {
                       kind: r.type, tmdbId: r.tmdb_id,
                       fallback: { title: r.title, poster_url: r.poster_url, kind: r.type },
                     })}
+                    onEpisodes={() => openEpisodes(r)}
                   />
                 ))}
               </div>
@@ -464,6 +530,19 @@ export default function Movies() {
         // immediately marking it done is three taps to record one fact.
         onLog={d => { setPreview(null); setSheet({ title: d.title, kind: d.kind, poster: d.poster_url, tmdbId: d.tmdb_id }); }}
         onClose={() => setPreview(null)}
+      />
+
+      <Episodes
+        open={!!episodes}
+        title={episodes?.title || ''}
+        tmdbId={episodes?.tmdbId ?? null}
+        kind={episodes?.kind || 'tv'}
+        poster={episodes?.poster || null}
+        detail={episodes?.detail || null}
+        log={log}
+        onLogMany={logMany}
+        onUnlog={unlog}
+        onClose={() => setEpisodes(null)}
       />
         </>
       )}

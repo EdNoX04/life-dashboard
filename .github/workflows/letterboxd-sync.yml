@@ -1,0 +1,29 @@
+name: Letterboxd sync
+
+# Once a day. The RSS feed carries the last ~50 diary entries, so a daily read
+# cannot miss anything short of watching fifty films between runs — and the feed
+# is a static file, so there is no rate limit worth pacing around.
+on:
+  schedule:
+    - cron: '30 2 * * *'    # 08:00 IST
+  workflow_dispatch:
+
+concurrency:
+  group: letterboxd-sync
+  cancel-in-progress: true
+
+jobs:
+  letterboxd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - name: Sync Letterboxd diary
+        run: node scripts/letterboxd-sync.mjs
+        env:
+          SUPABASE_URL: https://xroynvkzephebhcztvfo.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          LETTERBOXD_USER: ednox
