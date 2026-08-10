@@ -19,7 +19,7 @@
 //   SUPABASE_URL, SUPABASE_SERVICE_KEY
 //   LETTERBOXD_USER   (defaults to the profile on file)
 
-import { parseRss, mergeInto } from './lib/letterboxd.mjs';
+import { parseRss, parseFilmsHtml, onlyMissing, hasNextPage, mergeInto } from './lib/letterboxd.mjs';
 
 const {
   SUPABASE_URL, SUPABASE_SERVICE_KEY,
@@ -90,7 +90,48 @@ async function run() {
 
   const blob = (await memGet('media_log')) || {};
   const existing = Array.isArray(blob.entries) ? blob.entries : [];
-  const { entries: merged, added, updated } = mergeInto(existing, entries, { keyOf });
+  let { entries: merged, added, updated } = mergeInto(existing, entries, { keyOf });
+
+  // The other half of the profile.
+  //
+  // A Letterboxd account has two counts and they are not the same: the DIARY is
+  // films logged with a date, the FILMS list is everything ever marked watched.
+  // On this profile that is 25 against 58. Importing the diary alone is correct
+  // and leaves 33 films you have seen missing from the app, with nothing
+  // anywhere to say so — which is the kind of gap you only notice months later
+  // when a recommendation suggests something you watched in 2023.
+  //
+  // These come in WITHOUT a date, because Letterboxd does not know one either.
+  // They count toward totals and sit in the app's undated bucket rather than
+  // being stamped with a fabricated day.
+  let filmsAdded = 0;
+  try {
+    const films = [];
+    for (let page = 1; page <= 10; page++) {
+      const u = page === 1
+        ? `https://letterboxd.com/${encodeURIComponent(LETTERBOXD_USER)}/films/`
+        : `https://letterboxd.com/${encodeURIComponent(LETTERBOXD_USER)}/films/page/${page}/`;
+      const fr = await fetch(u, { headers: { 'User-Agent': 'life-dashboard/1.0 (personal diary sync)' } });
+      if (!fr.ok) break;
+      const html = await fr.text();
+      const batch = parseFilmsHtml(html);
+      films.push(...batch);
+      // Stop on an empty page as well as on a missing "next" link: a layout
+      // change that breaks the pagination check must not spin ten requests.
+      if (!batch.length || !hasNextPage(html)) break;
+    }
+    const fresh = onlyMissing(films, merged);
+    if (fresh.length) {
+      const res = mergeInto(merged, fresh, { keyOf });
+      merged = res.entries;
+      filmsAdded = res.added;
+    }
+    console.log(`films list: ${films.length} watched · ${filmsAdded} added with no date`);
+  } catch (e) {
+    // The diary is the important half. A films-page failure is reported and
+    // does not lose the import that already succeeded.
+    console.error(`films list unavailable (${e.message}) — diary import stands`);
+  }
 
   await memSet('media_log', { entries: merged });
 
@@ -99,17 +140,19 @@ async function run() {
   // floor, not a total.
   const oldest = entries.map(e => e.on).filter(Boolean).sort()[0] || null;
 
-  console.log(`+${added} new · ${updated} filled in · ${merged.length} viewings total`);
+  console.log(`+${added} dated · +${filmsAdded} undated · ${updated} filled in · ${merged.length} viewings total`);
   console.log(`feed reaches back to ${oldest}`);
-  if (existing.length === 0) {
-    console.log('FIRST IMPORT: the RSS feed is capped at ~50 entries, so anything');
-    console.log('older than the date above is NOT here. Export diary.csv from');
-    console.log('Letterboxd (Settings → Import & Export) for the full history.');
+  if (existing.length === 0 && entries.length >= 45) {
+    // Only warn when the feed plausibly hit its cap. Saying "this may be
+    // incomplete" after a complete import teaches you to ignore the warning.
+    console.log('FIRST IMPORT: the feed returned ~50 entries, which is its cap, so');
+    console.log('older DATED viewings may be missing. Export diary.csv from');
+    console.log('Letterboxd (Settings → Import & Export) to fill them in.');
   }
 
   await reportStatus({
     ok: true, configured: true, reason: '',
-    added, updated, total: merged.length, oldest, user: LETTERBOXD_USER,
+    added, updated, filmsAdded, total: merged.length, oldest, user: LETTERBOXD_USER,
   });
 }
 

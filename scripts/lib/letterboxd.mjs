@@ -194,3 +194,78 @@ export function mergeInto(existing = [], incoming = [], { keyOf }) {
   }
   return { entries: [...byKey.values()], added, updated };
 }
+
+// ------------------------------------------------------- the films page
+
+// The gap the RSS feed cannot close.
+//
+// A Letterboxd profile has TWO counts and they are not the same number. The
+// diary holds films you logged with a date; the films list holds everything you
+// have ever marked watched. On this profile that is 25 against 58 — so a diary
+// import alone, however correct, leaves 33 films you have seen missing from the
+// app entirely, with no error anywhere to say so.
+//
+// letterboxd.com/<user>/films/ is public HTML and carries the film name, year
+// and your rating in data attributes. Parsed with a regex rather than a DOM
+// because this runs on a runner with no browser, and because the attributes are
+// stable in a way the surrounding markup is not.
+//
+// These arrive with NO DATE, and that is the honest outcome: Letterboxd does not
+// know when you watched them either. They land in the app's undated bucket,
+// where they count toward totals and stay out of the diary.
+export function parseFilmsHtml(html = '') {
+  const out = [];
+  const seen = new Set();
+  // Each poster is one <li>. Splitting on the slug attribute rather than on <li>
+  // keeps this working when Letterboxd changes the wrapper element, which it
+  // does more often than it changes the data contract.
+  const chunks = String(html).split(/data-(?:film|item)-slug="/).slice(1);
+  for (const c of chunks) {
+    const slug = c.slice(0, c.indexOf('"'));
+    if (!slug || seen.has(slug)) continue;
+    seen.add(slug);
+    const name = (c.match(/data-(?:film|item)-name="([^"]*)"/) || [])[1]
+      || (c.match(/alt="([^"]*)"/) || [])[1] || '';
+    if (!name) continue;
+    // The alt text is "Title (2014)" when the name attribute is absent.
+    const inline = name.match(/^(.*?)\s*\((\d{4})\)\s*$/);
+    const title = decodeEntities(inline ? inline[1] : name).trim();
+    const year = Number(
+      (c.match(/data-(?:film|item)-release-year="(\d{4})"/) || [])[1] || (inline ? inline[2] : ''),
+    ) || null;
+    const rated = (c.match(/rated-(\d+)/) || [])[1];
+    if (!title) continue;
+    out.push({
+      title,
+      year,
+      on: null,                       // Letterboxd does not know either
+      rating: rated ? Number(rated) / 2 : null,
+      rewatch: false,
+      tmdb_id: null,
+      letterboxd_slug: slug,
+      kind: 'movie',
+      source: 'letterboxd-films',
+    });
+  }
+  return out;
+}
+
+// Whether the films page has another page after this one.
+export function hasNextPage(html = '') {
+  return /class="[^"]*next[^"]*"[^>]*href="([^"]+)"/i.test(String(html));
+}
+
+/**
+ * Films from the list that are NOT already in the diary.
+ *
+ * Without this, every film you logged with a date would be added a SECOND time
+ * as an undated viewing — the diary entry and the films-list entry are the same
+ * film seen once, and they have different keys. Matched on title, not on date,
+ * precisely because the whole point is that one side has no date.
+ */
+export function onlyMissing(films = [], existing = []) {
+  const known = new Set(
+    existing.map(e => String(e.title || '').toLowerCase().trim()).filter(Boolean),
+  );
+  return films.filter(f => !known.has(String(f.title).toLowerCase().trim()));
+}

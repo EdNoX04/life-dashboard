@@ -141,5 +141,62 @@ const r2 = mergeInto(r1.entries, d, { keyOf });
 eq(r2.added, 0, 'a re-run adds nothing');
 eq(r2.entries.length, 3, 'and the log does not grow');
 
+// ------------------------------------------------- the films page (the gap)
+
+// A profile has TWO counts: the diary (films logged with a date) and the films
+// list (everything ever marked watched). On the real profile this import was
+// built against those are 25 and 58 — so a diary-only import silently omits 33
+// films that were watched, with nothing anywhere reporting the omission.
+
+import { parseFilmsHtml, onlyMissing, hasNextPage } from '../scripts/lib/letterboxd.mjs';
+
+const FILMS_HTML = `
+<ul class="poster-list">
+<li><div data-film-slug="the-dark-knight" data-film-name="The Dark Knight" data-film-release-year="2008">
+  <span class="rating rated-10">★★★★★</span></div></li>
+<li><div data-film-slug="interstellar" data-film-name="Interstellar" data-film-release-year="2014">
+  <span class="rating rated-9">★★★★½</span></div></li>
+<li><div data-film-slug="tamasha"><img alt="Tamasha (2015)" /></div></li>
+<li><div data-film-slug="rang-de-basanti" data-film-name="Rang De Basanti" data-film-release-year="2006"></div></li>
+<li><div data-film-slug="the-dark-knight" data-film-name="The Dark Knight"></div></li>
+</ul>`;
+
+const films = parseFilmsHtml(FILMS_HTML);
+eq(films.length, 4, 'the repeated poster is counted once — grids often render a title twice');
+eq(films[0].title, 'The Dark Knight', 'the name comes off the data attribute');
+eq(films[0].year, 2008, 'with its year');
+eq(films[0].rating, 5, 'rated-10 is five stars — the scale is halves');
+eq(films[1].rating, 4.5, 'and rated-9 is four and a half');
+
+// The fallback path: no name attribute, only the image alt "Title (Year)".
+eq(films[2].title, 'Tamasha', 'the alt text is split into title…');
+eq(films[2].year, 2015, '…and year');
+
+eq(films[3].rating, null, 'an unrated film is null, not zero stars');
+
+// The honest part. Letterboxd does not know when these were watched either.
+ok(films.every(f => f.on === null), 'films-list entries carry NO date, because none exists');
+ok(films.every(f => f.source === 'letterboxd-films'), 'and are labelled by where they came from');
+
+eq(parseFilmsHtml('').length, 0, 'an empty page yields nothing');
+eq(parseFilmsHtml('<ul></ul>').length, 0, 'and so does a page with no posters');
+
+// The dedupe that stops every dated viewing gaining an undated twin.
+const diary = [
+  { title: 'The Dark Knight', on: '2026-01-05' },
+  { title: 'interstellar', on: '2025-11-02' },
+];
+const missing = onlyMissing(films, diary);
+eq(missing.length, 2, 'films already in the diary are not added again');
+eq(missing.map(f => f.title).sort().join(','), 'Rang De Basanti,Tamasha',
+  'only the ones with no diary entry come through');
+ok(!missing.some(f => f.title === 'Interstellar'),
+  'matched on title alone — the whole point is that one side has no date to match on');
+eq(onlyMissing(films, []).length, 4, 'with an empty diary, everything is missing');
+eq(onlyMissing([], diary).length, 0, 'and no films means nothing to add');
+
+eq(hasNextPage('<a class="next" href="/ednox/films/page/2/">Next</a>'), true, 'pagination is detected');
+eq(hasNextPage('<div>no more</div>'), false, 'and its absence too');
+
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);
