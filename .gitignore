@@ -4,3 +4,10 @@ dist
 scripts/.binance.env
 _to_delete/
 .claude/
+
+# Python bytecode from scripts/quant
+__pycache__/
+*.pyc
+
+# Commit message drafts handed over for you to run
+.commitmsg

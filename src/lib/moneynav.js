@@ -44,6 +44,7 @@ export const MONEY_SECTIONS = [
       { id: 'risk', label: 'Risk' },
       { id: 'factors', label: 'Factors' },
       { id: 'divers', label: 'Spread' },
+      { id: 'xray', label: '◎ X-ray' },
       { id: 'rebal', label: 'Rebalance' },
       { id: 'report', label: 'Report' },
     ],

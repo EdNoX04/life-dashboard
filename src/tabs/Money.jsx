@@ -5,6 +5,7 @@ import StockDetail from '../components/StockDetail.jsx';
 import PortfolioChart from '../components/PortfolioChart.jsx';
 import RangeBrush from '../components/money/RangeBrush.jsx';
 import Diversification from '../components/money/Diversification.jsx';
+import Xray from '../components/money/Xray.jsx';
 import AccountTabs from '../components/money/AccountTabs.jsx';
 import DivSync from '../components/money/DivSync.jsx';
 import DivReceived from '../components/money/DivReceived.jsx';
@@ -727,6 +728,16 @@ export default function Money() {
           rows={holdingRows(held, { priceOf, quotes, fx: inr && fx ? fx : 1 })}
           cur={inr ? '\u20b9' : '$'}
         />
+      )}
+
+      {/* The X-ray is handed the RAW book, not holdingRows, because it is the
+          one screen that has to know a position's currency and whether the
+          position is a fund at all - and both of those are facts about the
+          holding record, not about the derived row. It converts to dollars
+          itself, once, and excludes anything it cannot convert rather than
+          letting a rupee figure into a dollar total. */}
+      {view === 'xray' && (
+        <Xray held={held} priceOf={priceOf} fx={fx} inr={!!inr} />
       )}
 
       {/* The factor desk needs only the book and a price — it measures companies,

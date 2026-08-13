@@ -5724,3 +5724,113 @@ th:hover .hold-info { color: var(--cyan); }
 .as-mode b { font-family: 'VT323', monospace; font-size: 14px; letter-spacing: 1px; }
 .as-mode.on b { color: var(--green); }
 .as-mode i { font-style: normal; font-size: 11px; color: var(--ink-3); line-height: 1.4; }
+
+/* ---------------------------------------------------------------- X-ray ---
+   Look-through exposure. The coverage bar is deliberately the widest, loudest
+   element on the screen: every number under it describes only its first
+   segment, and a reader who misses that misreads everything else. */
+
+.xr-lead { margin: 0 0 12px; font-size: 13px; line-height: 1.6; color: var(--ink-2); max-width: 86ch; }
+.xr-lead strong { color: var(--ink); }
+
+.xr-cov-bar {
+  display: flex; height: 16px; width: 100%; overflow: hidden;
+  border: 1px solid var(--border-bright); background: var(--bg-deep);
+  image-rendering: pixelated;
+}
+.xr-cov-seg { display: block; height: 100%; border-right: 1px solid var(--bg-deep); }
+.xr-cov-seg:last-child { border-right: none; }
+
+.xr-cov-key { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; }
+.xr-cov-item { display: inline-flex; align-items: baseline; gap: 6px; font-size: 12px; color: var(--ink-3); }
+.xr-cov-item b { color: var(--ink-2); font-weight: 500; }
+.xr-dot { width: 9px; height: 9px; display: inline-block; border: 1px solid var(--border-bright); align-self: center; }
+.xr-cov-p { color: var(--ink); font-variant-numeric: tabular-nums; }
+.xr-cov-v { font-size: 11px; }
+
+.xr-warn {
+  margin: 12px 0 0; padding: 8px 10px; font-size: 12px; line-height: 1.55;
+  color: var(--ink-2); background: var(--panel-2); border-left: 3px solid var(--orange);
+  max-width: 86ch;
+}
+.xr-warn strong { color: var(--ink); }
+
+.xr-note { margin: 0 0 10px; font-size: 12.5px; line-height: 1.55; color: var(--ink-3); max-width: 86ch; }
+.xr-note strong { color: var(--ink-2); }
+.xr-rest { margin: 10px 0 0; font-size: 12px; }
+
+/* The table is a grid rather than a <table> so the exposure bar can sit behind
+   the name cell without a positioned overlay fighting the row height. */
+.xr-table { display: flex; flex-direction: column; gap: 1px; }
+.xr-head, .xr-row {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 66px 66px 92px minmax(0, 168px);
+  gap: 8px; align-items: center; padding: 5px 6px;
+}
+.xr-head {
+  font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1px;
+  color: var(--ink-3); border-bottom: 1px solid var(--border-bright); padding-bottom: 7px;
+}
+.xr-head span:nth-child(3), .xr-head span:nth-child(4), .xr-head span:nth-child(5) { text-align: right; }
+.xr-row { background: var(--panel); font-size: 12.5px; color: var(--ink-2); }
+.xr-row:hover { background: var(--panel-2); }
+.xr-row.xr-direct { box-shadow: inset 3px 0 0 var(--green); }
+
+.xr-rank { color: var(--ink-3); font-size: 11px; font-variant-numeric: tabular-nums; }
+.xr-name { position: relative; min-width: 0; display: flex; align-items: baseline; gap: 7px; }
+.xr-name b { color: var(--ink); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xr-name i { font-style: normal; font-size: 10.5px; color: var(--ink-3); flex: none; }
+.xr-bar {
+  position: absolute; left: 0; bottom: -4px; height: 2px;
+  background: var(--cyan); opacity: .5; pointer-events: none;
+}
+.xr-true, .xr-shelf, .xr-val { text-align: right; font-variant-numeric: tabular-nums; }
+.xr-true { color: var(--ink); }
+.xr-shelf { color: var(--ink-3); }
+.xr-val { color: var(--ink-2); font-size: 11.5px; }
+
+.xr-via { display: flex; flex-wrap: wrap; gap: 3px; justify-content: flex-end; }
+.xr-chip {
+  font-style: normal; font-size: 9.5px; letter-spacing: .5px; padding: 1px 5px;
+  border: 1px solid var(--border-bright); color: var(--ink-3); background: var(--bg-deep);
+}
+.xr-chip i { font-style: normal; color: var(--ink-2); }
+.xr-chip.xr-own { color: var(--green); border-color: var(--green); }
+
+.xr-pairs { display: flex; flex-direction: column; gap: 3px; }
+.xr-pair { border: 1px solid var(--border-bright); background: var(--panel); }
+.xr-pair-hd {
+  display: grid; grid-template-columns: minmax(0, 150px) 1fr 62px 18px;
+  gap: 10px; align-items: center; width: 100%;
+  padding: 7px 9px; background: none; border: none; cursor: pointer;
+  color: var(--ink-2); font-size: 12.5px; text-align: left;
+}
+.xr-pair-hd:hover { background: var(--panel-2); }
+.xr-pair-t { color: var(--ink); white-space: nowrap; }
+.xr-pair-t i { font-style: normal; color: var(--ink-3); }
+.xr-pair-bar { display: block; height: 9px; background: var(--bg-deep); border: 1px solid var(--border-bright); }
+.xr-pair-bar span { display: block; height: 100%; background: var(--orange); }
+.xr-pair-p { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+.xr-pair-x { text-align: center; color: var(--ink-3); }
+.xr-pair-names { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 9px 9px; align-items: center; }
+.xr-pair-cov { font-size: 11px; color: var(--ink-3); margin-left: 4px; }
+
+.xr-src { display: flex; flex-direction: column; gap: 1px; }
+.xr-src-row {
+  display: grid; grid-template-columns: 62px minmax(0, 1fr) 116px 116px 128px;
+  gap: 8px; align-items: center; padding: 5px 6px;
+  background: var(--panel); font-size: 12px; color: var(--ink-3);
+}
+.xr-src-row b { color: var(--ink); font-weight: 500; }
+.xr-src-n { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xr-src-d { text-align: right; }
+
+@media (max-width: 860px) {
+  .xr-head, .xr-row { grid-template-columns: 22px minmax(0, 1fr) 58px 58px; }
+  .xr-head span:nth-child(5), .xr-head span:nth-child(6),
+  .xr-row .xr-val, .xr-row .xr-via { display: none; }
+  .xr-src-row { grid-template-columns: 54px minmax(0, 1fr); }
+  .xr-src-row span:nth-child(3), .xr-src-row span:nth-child(4) { display: none; }
+  .xr-pair-hd { grid-template-columns: minmax(0, 1fr) 56px 18px; }
+  .xr-pair-bar { display: none; }
+}
