@@ -174,6 +174,13 @@ export function groupRows(rows = [], map = {}, accounts = []) {
 }
 
 const sum = (rows, k) => rows.reduce((a, r) => a + (Number.isFinite(r[k]) ? r[k] : 0), 0);
+// Missing stays missing. A book total that silently became 0 would make every
+// share-of-book figure below it read as 0% rather than as unknown.
+const num = v => {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
 
 // Money is summed; percentages are derived from the sums afterwards. Averaging
 // the per-row percentages would weight a ₹500 position the same as a ₹5,00,000
@@ -268,6 +275,107 @@ export const filterRows = (rows = [], map = {}, scope = 'all') => {
   if (scope === UNASSIGNED) return rows.filter(r => !map[r.ticker]);
   return rows.filter(r => map[r.ticker] === scope);
 };
+
+// ------------------------------------------------------------------ dossier
+
+/**
+ * Everything the single-account screen shows, as one object.
+ *
+ * WHY THIS IS A FUNCTION AND NOT FIFTEEN LINES IN THE COMPONENT
+ *
+ * The accounts screen had TWO scope controls — one in the tab strip above it,
+ * one inside the card — with separate state that never spoke. Picking INDstocks
+ * at the top left the card showing every account, including the US one, and
+ * printing "INDmoney US holds 81% of everything" underneath a header that said
+ * you were looking at INDstocks. Two sources of truth for one question, which
+ * is the same failure as two derivations of a total: they disagree, and the
+ * reader has no way to tell which half is lying.
+ *
+ * So the selection is now owned in one place and the screen is a function of
+ * it. This computes what a chosen account IS, once, from the same rows every
+ * other screen reads.
+ *
+ * TWO WEIGHTS, ALWAYS BOTH
+ *
+ * A holding is some share of its account and some share of the book, and those
+ * are different numbers that a single "weight" column silently picks between.
+ * GOLDBEES is 100% of INDstocks and about 0.4% of everything — quoting either
+ * one alone is a true sentence that reads as the other.
+ *
+ * `rows` must already be in ONE currency. This function does not convert and
+ * cannot detect that it should: a rupee marketValue and a dollar one are both
+ * just numbers here. The caller converts, and `currencies` below reports what
+ * the account is *priced* in so a mixed account is at least visible as mixed.
+ */
+export function accountDossier(rows = [], map = {}, accounts = [], scope = 'all', { bookTotal = null } = {}) {
+  if (!scope || scope === 'all') return null;
+
+  const mine = filterRows(rows, map, scope);
+  const totals = accountTotals(mine);
+  const grand = num(bookTotal) != null
+    ? num(bookTotal)
+    : rows.reduce((a, r) => a + (Number.isFinite(r.marketValue) ? r.marketValue : 0), 0);
+
+  const found = accounts.find(a => a.id === scope);
+  const account = scope === UNASSIGNED
+    ? { id: UNASSIGNED, label: 'Unassigned', kind: 'other', color: 'var(--ink-3)',
+        note: 'Holdings that have not been put in an account yet. They are still in every total.',
+        unassigned: true }
+    : (found || { id: scope, label: 'Unknown account', kind: 'other', color: 'var(--ink-3)',
+        note: 'This account is no longer in your list. Its holdings are shown so nothing disappears.',
+        missing: true });
+
+  const holdings = [...mine]
+    .sort((a, b) => (b.marketValue || 0) - (a.marketValue || 0))
+    .map(r => ({
+      ...r,
+      weightInAccount: totals.marketValue > 0 ? (r.marketValue / totals.marketValue) * 100 : null,
+      weightOfBook: grand > 0 ? (r.marketValue / grand) * 100 : null,
+    }));
+
+  // What the account is priced in. Not a conversion — a description. An account
+  // holding both is worth knowing about, because every per-account return figure
+  // then contains an exchange-rate movement nobody asked for.
+  const byCcy = new Map();
+  for (const r of mine) {
+    const c = currencyOfRow(r);
+    const e = byCcy.get(c) || { code: c, value: 0, count: 0 };
+    e.value += Number.isFinite(r.marketValue) ? r.marketValue : 0;
+    e.count += 1;
+    byCcy.set(c, e);
+  }
+  const currencies = [...byCcy.values()]
+    .map(c => ({ ...c, pct: totals.marketValue > 0 ? (c.value / totals.marketValue) * 100 : null }))
+    .sort((a, b) => b.value - a.value);
+
+  // Concentration WITHIN the account. An account holding one thing is 100%
+  // concentrated and that is not a criticism — it is the first fact about it,
+  // and a screen that omits it lets a one-holding account read like a portfolio.
+  const weights = holdings
+    .map(h => (totals.marketValue > 0 ? h.marketValue / totals.marketValue : 0))
+    .filter(w => w > 0);
+  const hhi = weights.reduce((s, w) => s + w * w, 0);
+
+  return {
+    account,
+    scope,
+    totals,
+    holdings,
+    currencies,
+    mixed: currencies.length > 1,
+    shareOfBook: grand > 0 ? (totals.marketValue / grand) * 100 : null,
+    bookTotal: grand,
+    empty: mine.length === 0,
+    concentration: {
+      count: holdings.length,
+      top1: holdings.length ? holdings[0].weightInAccount : null,
+      top1Ticker: holdings.length ? holdings[0].ticker : null,
+      hhi: hhi || null,
+      effectiveN: hhi > 0 ? 1 / hhi : null,
+    },
+    kind: kindOf(account.kind),
+  };
+}
 
 // ------------------------------------------------------------------ seeding
 

@@ -1,5 +1,21 @@
 // The accounts screen: where your money sits, and what that changes about it.
 //
+// REBUILT, because it had two scope controls. The tab strip above it set one
+// selection and a second row inside this card set another, and they never
+// spoke — so choosing INDstocks at the top left this card listing every
+// account, including the US one, under a header that said INDstocks. Two
+// sources of truth for one question is the same failure as two derivations of a
+// total: they disagree and the reader cannot tell which half is lying.
+//
+// There is now ONE selection, owned by the tab. This card is a function of it,
+// and it renders one of two entirely different screens:
+//
+//   ALL      — every account side by side, plus the tools to create and assign.
+//   ONE      — a dossier for that account and NOTHING about any other. Not a
+//              filtered version of the overview: a different screen, because
+//              the questions are different. "How is my money split" and "what
+//              is in this account" do not want the same layout.
+//
 // Three rendering decisions, each one guarding a specific way this screen could
 // mislead:
 //
@@ -29,6 +45,7 @@ import {
   loadAccounts, saveAccounts, saveMap,
   addAccount, editAccount, removeAccount, assign,
   accountSummary, concentrationNote, scopeLabel, scopeNote, filterRows, accountTotals,
+  accountDossier,
 } from '../../lib/accounts.js';
 
 const pct = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`);
@@ -85,7 +102,7 @@ export function AccountForm({ initial, existingCount, onSave, onCancel }) {
 
 // ------------------------------------------------------------- account card
 
-export function AccountCard({ acct, visible, cur, onEdit, onDelete, expanded, onToggle }) {
+export function AccountCard({ acct, visible, cur, onEdit, onDelete, expanded, onToggle, onOpen }) {
   const t = acct.totals;
   const [confirming, setConfirming] = useState(false);
   const k = kindOf(acct.kind);
@@ -95,7 +112,10 @@ export function AccountCard({ acct, visible, cur, onEdit, onDelete, expanded, on
       className={`acc-card${acct.unassigned ? ' acc-card-loose' : ''}`}
       style={{ borderLeftColor: acct.color }}
     >
-      <button className="acc-card-head" onClick={onToggle}>
+      {/* The card body still expands in place — a quick look without leaving
+          the comparison. The label opens the account's own screen, which is the
+          thing that was missing entirely: there was nowhere to go. */}
+      <button className="acc-card-head" onClick={onOpen || onToggle}>
         <span className="acc-card-id">
           <span className="acc-card-label" style={{ color: acct.color }}>{acct.label}</span>
           <span className="acc-card-kind">
@@ -114,7 +134,10 @@ export function AccountCard({ acct, visible, cur, onEdit, onDelete, expanded, on
             ? <span className="acc-card-nocost">no cost basis</span>
             : pct(t.unrealisedPct)}
         </span>
-        <span className="acc-card-caret">{expanded ? '▾' : '▸'}</span>
+      </button>
+      <button className="acc-card-caret" onClick={onToggle}
+        title={expanded ? 'collapse' : 'peek without leaving this screen'}>
+        {expanded ? '▾' : '▸'}
       </button>
 
       {expanded && (
@@ -231,9 +254,124 @@ export function Assigner({ rows, accounts, map, onAssign, visible, cur }) {
   );
 }
 
+// ------------------------------------------------------------------ dossier
+
+// One account, in full. Deliberately not a filtered overview — a reader who has
+// picked an account is asking "what is IN this", and the answer is a holdings
+// table, not a card that has to be expanded.
+export function AccountDossier({ d, visible, cur, onBack, onEdit, onAssign }) {
+  const { account, totals, holdings, currencies, concentration: conc, kind } = d;
+
+  return (
+    <>
+      <div className="acd-head" style={{ borderColor: account.color || kind.color }}>
+        <button className="acd-back" onClick={onBack}>← all accounts</button>
+        <h3 className="acd-name" style={{ color: account.color || kind.color }}>{account.label}</h3>
+        <span className="acd-kind" style={{ color: kind.color, borderColor: kind.color }}>{kind.label}</span>
+        {!account.unassigned && !account.missing && onEdit && (
+          <button className="btn btn-sm acd-edit" onClick={onEdit}>edit</button>
+        )}
+      </div>
+
+      {account.note && <p className="acd-note">{account.note}</p>}
+      {/* What the TYPE means for this money — tax, access, lock-in. The reason
+          the kinds are about rules rather than brand names is lost if it is
+          only ever shown in the create form. */}
+      {kind.note && <p className="acd-kindnote" style={{ borderColor: kind.color }}>{kind.note}</p>}
+
+      {account.missing && (
+        <p className="acc-warn">
+          This account is not in your list any more. Its holdings are shown so nothing
+          silently disappears — reassign them, or recreate the account.
+        </p>
+      )}
+
+      {d.empty ? (
+        <Empty
+          icon="◇"
+          text={account.unassigned
+            ? 'Nothing is unassigned — every holding is in an account.'
+            : 'No holdings in this account yet. Use “Assign holdings” to put something in it.'}
+        />
+      ) : (
+        <>
+          <div className="tile-row">
+            <StatTile label="Value" value={money(totals.marketValue, visible, cur)}
+              note={d.shareOfBook == null ? '' : `${d.shareOfBook.toFixed(1)}% of everything you own`}
+              color="var(--cyan)" />
+            <StatTile label="Unrealised" color={gainColor(totals.unrealised)}
+              value={totals.unrealised == null ? '—' : money(totals.unrealised, visible, cur)}
+              note={totals.unrealisedPct == null ? 'no cost basis recorded' : pct(totals.unrealisedPct)} />
+            <StatTile label="Today" color={gainColor(totals.dayGain)}
+              value={totals.dayGain == null ? '—' : money(totals.dayGain, visible, cur)}
+              note={totals.dayPct == null ? 'no quotes yet' : pct(totals.dayPct)} />
+            <StatTile label="Holdings" value={String(totals.count)}
+              note={conc.effectiveN == null ? '' : `spreading like ${conc.effectiveN.toFixed(1)} equal ones`}
+              color="var(--ink-2)" />
+          </div>
+
+          {totals.costNote && <p className="acd-caveat">{totals.costNote}</p>}
+
+          {/* An account priced in two currencies carries an exchange-rate
+              movement inside every return figure above. Worth saying once. */}
+          {d.mixed && (
+            <p className="acd-caveat">
+              This account holds {currencies.map(c => `${c.count} ${c.code}`).join(' and ')} priced
+              positions ({currencies.map(c => `${c.code} ${c.pct.toFixed(0)}%`).join(', ')}), so the
+              return figures above contain an exchange-rate movement as well as a price movement.
+            </p>
+          )}
+
+          <div className="acd-table">
+            <div className="acd-h">
+              <span>Holding</span><span>Qty</span><span>Value</span>
+              <span>Of account</span><span>Of book</span><span>Today</span><span>Unrealised</span>
+            </div>
+            {holdings.map(h => (
+              <div key={h.ticker} className="acd-r">
+                <span className="acd-t">
+                  <b>{h.ticker}</b>
+                  {h.currency && String(h.currency).toUpperCase() === 'INR' && <i className="acd-ccy">₹</i>}
+                </span>
+                <span className="acd-n">{h.qty == null ? '—' : Number(h.qty).toFixed(4).replace(/\.?0+$/, '')}</span>
+                <span className="acd-n">{money(h.marketValue, visible, cur)}</span>
+                {/* Two weights, always both. Either alone is a true number that
+                    reads as the other one. */}
+                <span className="acd-n acd-strong">{h.weightInAccount == null ? '—' : `${h.weightInAccount.toFixed(1)}%`}</span>
+                <span className="acd-n acd-dim">{h.weightOfBook == null ? '—' : `${h.weightOfBook.toFixed(2)}%`}</span>
+                <span className="acd-n" style={{ color: gainColor(h.dayPct) }}>
+                  {h.dayPct == null ? '—' : pct(h.dayPct)}
+                </span>
+                <span className="acd-n" style={{ color: gainColor(h.unrealisedPct) }}>
+                  {h.unrealisedPct == null ? '—' : pct(h.unrealisedPct)}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <p className="acd-conc">
+            {conc.count === 1
+              ? <>This account holds one position, so it is {conc.top1 == null ? '' : `${conc.top1.toFixed(0)}% `}
+                concentrated by definition. That is a description, not a criticism — a
+                single-holding account is a normal thing to have.</>
+              : <><strong>{conc.top1Ticker}</strong> is {conc.top1 == null ? '—' : `${conc.top1.toFixed(0)}%`} of
+                this account, and its {conc.count} holdings spread like{' '}
+                {conc.effectiveN == null ? '—' : conc.effectiveN.toFixed(1)} equal ones. Both figures
+                describe THIS account only; the whole book is on the Spread screen.</>}
+          </p>
+
+          {onAssign && (
+            <button className="btn btn-sm acd-move" onClick={onAssign}>move holdings in or out →</button>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
 // ------------------------------------------------------------------ screen
 
-export default function Accounts({ rows = [], cur = '$' }) {
+export default function Accounts({ rows = [], cur = '$', scope = 'all', onScope = null, bookTotal = null, dropped = 0 }) {
   const [visible, toggleVisible] = useMoneyVisible();
   const [accounts, setAccounts] = useState([]);
   const [map, setMap] = useState({});
@@ -242,16 +380,18 @@ export default function Accounts({ rows = [], cur = '$' }) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [openId, setOpenId] = useState(null);
-  const [scope, setScope] = useState('all');
   const [tab, setTab] = useState('accounts');
+
+  // NOTE: there is no `scope` state here any more, and that absence is the fix.
+  // It used to be local, which meant this card and the tab strip above it held
+  // two different answers to "which account am I looking at". The selection now
+  // arrives as a prop and leaves through onScope; there is exactly one.
 
   useEffect(() => {
     let alive = true;
     loadAccounts().then(({ accounts: a, map: m, orphans: o }) => {
       if (!alive) return;
       setAccounts(a); setMap(m); setOrphans(o); setLoaded(true);
-      // An orphan clean-up is a change to stored state, so it is written back
-      // rather than being re-derived on every open.
       if (o.length) saveMap(m);
     }).catch(() => setLoaded(true));
     return () => { alive = false; };
@@ -259,19 +399,49 @@ export default function Accounts({ rows = [], cur = '$' }) {
 
   const persistAccounts = next => { setAccounts(next); saveAccounts(next); };
   const persistMap = next => { setMap(next); saveMap(next); };
+  const setScope = id => onScope && onScope(id);
 
   const summary = accountSummary(rows, map, accounts);
   const conc = concentrationNote(summary);
-
-  // Scoped rows and the sentence that has to accompany them. Both derived here
-  // so they cannot get out of step: there is no path that renders scoped numbers
-  // without also having the note in hand.
-  const scoped = filterRows(rows, map, scope);
-  const scopedTotals = accountTotals(scoped);
-  const note = scopeNote(accounts, scope, scopedTotals);
+  const dossier = useMemo(
+    () => accountDossier(rows, map, accounts, scope, { bookTotal }),
+    [rows, map, accounts, scope, bookTotal],
+  );
 
   if (!loaded) return <Card title="Accounts" color="var(--cyan)"><p className="acc-loading">Reading your accounts…</p></Card>;
 
+  // ---------------------------------------------------------------- one
+  // A chosen account gets its own screen. Nothing about any other account is
+  // rendered here — not a card, not a share, not a comparison sentence. The bug
+  // being fixed was precisely that "showing INDstocks" still talked about the
+  // US account, so the guarantee has to be structural rather than a filter
+  // somebody remembers to apply.
+  if (dossier && tab === 'accounts') {
+    return (
+      <div className="acc-wrap">
+        <Card title={dossier.account.label} color={dossier.account.color || dossier.kind.color}
+          right={<EyeBtn visible={visible} onClick={toggleVisible} />}>
+          <AccountDossier
+            d={dossier} visible={visible} cur={cur}
+            onBack={() => setScope('all')}
+            onEdit={dossier.account.unassigned || dossier.account.missing ? null
+              : () => { setScope('all'); setEditingId(dossier.account.id); }}
+            onAssign={() => setTab('assign')}
+          />
+          {editingId === dossier.account.id && (
+            <AccountForm
+              initial={accounts.find(a => a.id === editingId)}
+              existingCount={accounts.length}
+              onCancel={() => setEditingId(null)}
+              onSave={draft => { persistAccounts(editAccount(accounts, editingId, draft)); setEditingId(null); }}
+            />
+          )}
+        </Card>
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------- all
   return (
     <div className="acc-wrap">
       <p className="acc-disclaimer">{DISCLAIMER}</p>
@@ -281,6 +451,15 @@ export default function Accounts({ rows = [], cur = '$' }) {
         color="var(--cyan)"
         right={<EyeBtn visible={visible} onClick={toggleVisible} />}
       >
+        {dropped > 0 && (
+          <p className="acc-warn">
+            {dropped} holding{dropped === 1 ? ' is' : 's are'} missing from this screen because no
+            exchange rate has loaded for {dropped === 1 ? 'its' : 'their'} currency. They are excluded
+            rather than counted at par — a rupee added to a dollar total is wrong by about ninety,
+            and a total that has absorbed one looks exactly like a correct total.
+          </p>
+        )}
+
         {accounts.length === 0 && !adding ? (
           <div className="acc-zero">
             <p className="acc-zero-txt">
@@ -297,40 +476,18 @@ export default function Accounts({ rows = [], cur = '$' }) {
               <button className={`seg-btn${tab === 'assign' ? ' on' : ''}`} onClick={() => setTab('assign')}>Assign holdings</button>
             </span>
 
-            {/* Decision 2: above the numbers. */}
-            {note && <p className="acc-scope-note">{note}</p>}
+            {/* The assign tab is deliberately NOT scoped. Moving a holding
+                between accounts requires seeing both ends of the move, and a
+                scoped list would hide the destination. */}
+            {tab === 'assign' && scope !== 'all' && (
+              <p className="acc-scope-note">
+                Showing every holding, not just {scopeLabel(accounts, scope)} — you cannot
+                move something into an account you cannot see.
+              </p>
+            )}
 
             {tab === 'accounts' && (
               <>
-                <div className="acc-scope">
-                  <button className={`seg-btn${scope === 'all' ? ' on' : ''}`} onClick={() => setScope('all')}>All accounts</button>
-                  {accounts.map(a => (
-                    <button
-                      key={a.id}
-                      className={`seg-btn${scope === a.id ? ' on' : ''}`}
-                      onClick={() => setScope(a.id)}
-                    >{a.label}</button>
-                  ))}
-                  {summary.some(s => s.unassigned) && (
-                    <button
-                      className={`seg-btn${scope === UNASSIGNED ? ' on' : ''}`}
-                      onClick={() => setScope(UNASSIGNED)}
-                    >Unassigned</button>
-                  )}
-                </div>
-
-                {scope !== 'all' && (
-                  <div className="acc-scoped">
-                    <StatTile label={`${scopeLabel(accounts, scope)} — value`} value={money(scopedTotals.marketValue, visible, cur)} color="var(--cyan)" />
-                    <StatTile
-                      label="Unrealised" color={gainColor(scopedTotals.unrealised)}
-                      value={scopedTotals.unrealised == null ? '—' : money(scopedTotals.unrealised, visible, cur)}
-                      note={scopedTotals.unrealisedPct == null ? 'no cost basis' : pct(scopedTotals.unrealisedPct)}
-                    />
-                    <StatTile label="Holdings" value={String(scopedTotals.count)} color="var(--ink-2)" />
-                  </div>
-                )}
-
                 {orphans.length > 0 && (
                   <p className="acc-warn">
                     {orphans.length} holding{orphans.length === 1 ? ' was' : 's were'} assigned to an
@@ -340,12 +497,15 @@ export default function Accounts({ rows = [], cur = '$' }) {
                   </p>
                 )}
 
+                <p className="acc-pick">Pick an account above to see everything in it.</p>
+
                 <div className="acc-cards">
                   {summary.map(a => (
                     <AccountCard
                       key={a.id} acct={a} visible={visible} cur={cur}
                       expanded={openId === a.id}
                       onToggle={() => setOpenId(openId === a.id ? null : a.id)}
+                      onOpen={() => setScope(a.id)}
                       onEdit={() => { setEditingId(a.id); setAdding(false); }}
                       onDelete={() => {
                         const res = removeAccount(accounts, map, a.id);

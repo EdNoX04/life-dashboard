@@ -299,18 +299,55 @@ export default function Money() {
   // for nothing", which reads as infinite profit; null means "we don't know",
   // and accountTotals is built to carry that through to a sentence instead of a
   // percentage.
+  //
+  // CURRENCY. These rows used to be built with a bare `qty * priceOf(h)` while
+  // every other total on this tab went through usdOf. So a GOLDBEES position
+  // worth about sixteen dollars entered the accounts screen as one thousand
+  // four hundred and fifty-five, and INDstocks reported itself as a fifth of
+  // the book. Nothing looked broken: a rupee and a dollar are both just numbers
+  // once the symbol is gone, so they summed without complaint and the total was
+  // wrong by roughly the exchange rate. This is the same bug lib/indiabook.js
+  // exists to kill, in a screen nobody had checked.
+  //
+  // A holding that cannot be converted is EXCLUDED and reported, never
+  // converted at 1.0 — decision 2 of indiabook, made real at the call site.
+  //
+  // Every figure here is in the DISPLAY currency, converted exactly once. Two
+  // steps, and collapsing them is how this goes wrong: native -> dollars using
+  // the holding's OWN currency, then dollars -> whatever the toggle says. The
+  // second step must use the same factor the header uses or the account shares
+  // will not add up to the portfolio total sitting above them.
+  const toDisp = inr && fx ? fx : 1;
   const accountRows = useMemo(() => held.map(h => {
     const qty = Number(h.qty) || 0;
     const q = quotes[h.ticker];
     const avg = Number(h.avg_cost);
+    const inrRow = currencyOf(h) === 'INR';
+    const rate = inrRow ? (fx || null) : 1;       // native -> USD
+    if (!rate) return null;                       // no rate: excluded, never converted at 1.0
+    const f = toDisp / rate;                      // native -> display, in one multiply
+    const px = priceOf(h);
+    const marketValue = qty * px * f;
+    const invested = Number.isFinite(avg) && avg > 0 ? qty * avg * f : null;
     return {
       ticker: h.ticker,
+      name: h.name || h.ticker,
       qty,
-      marketValue: qty * priceOf(h),
-      invested: Number.isFinite(avg) && avg > 0 ? qty * avg : null,
-      dayGain: q?.change != null ? qty * Number(q.change) : 0,
+      currency: inrRow ? 'INR' : 'USD',
+      price: px * f,
+      marketValue,
+      invested,
+      dayGain: q?.change != null ? qty * Number(q.change) * f : 0,
+      // Percentages are ratios and carry no currency — converting one would be
+      // as wrong as failing to convert a total.
+      dayPct: q?.changePct == null ? null : Number(q.changePct),
+      unrealisedPct: invested != null && invested > 0 ? ((marketValue - invested) / invested) * 100 : null,
     };
-  }), [held.map(h => h.ticker).join(','), quotes]);
+  }).filter(Boolean), [held.map(h => h.ticker).join(','), quotes, fx, toDisp]);
+
+  // Holdings the accounts screen had to drop for want of a rate. Named, because
+  // a total quietly missing a position looks exactly like a correct one.
+  const accountsDropped = held.length - accountRows.length;
 
   // ---- reconstructed value-over-time (orders × historical prices) ----
   const tickerKey = held.map(h => h.ticker).join(',');
@@ -569,9 +606,19 @@ export default function Money() {
             rows={held.map(h => ({ ...h, ticker: h.ticker }))}
             scope={scope} onScope={setScope} cur={cur}
           />
-          {/* `cur` here is the MODE ('usd'/'inr'), not a symbol — passing it
-              straight through is what rendered "usd367.44". */}
-          <Accounts rows={accountRows} cur={inr ? '\u20b9' : '$'} />
+          {/* ONE selection. `scope` lives here, the tabs set it, and the card
+              below is a function of it — it used to keep a second copy of its
+              own, which is why choosing INDstocks still showed the US account.
+              `cur` here is the MODE ('usd'/'inr'), not a symbol; passing it
+              straight through is what once rendered "usd367.44".
+              `value` is the same converted book total the header prints, so the
+              account shares cannot disagree with the portfolio total. */}
+          <Accounts
+            rows={accountRows} cur={inr ? '\u20b9' : '$'}
+            scope={scope} onScope={setScope}
+            bookTotal={inr && fx ? value * fx : value}
+            dropped={accountsDropped}
+          />
         </>
       )}
 

@@ -6013,3 +6013,62 @@ th:hover .hold-info { color: var(--cyan); }
   .dk-flag { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .dk-scan-n { margin-left: 0; width: 100%; }
 }
+
+/* ------------------------------------------- Accounts, single-account view ---
+   The card that lists accounts and the screen for ONE account are deliberately
+   different layouts, not one layout with a filter. A reader who has picked an
+   account is asking "what is in this", and the answer is a table. */
+
+.acd-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-bottom: 10px; border-bottom: 1px solid var(--border-bright); margin-bottom: 12px; }
+.acd-back { background: none; border: none; cursor: pointer; color: var(--ink-3); font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; padding: 0; }
+.acd-back:hover { color: var(--ink); }
+.acd-name { margin: 0; font-family: var(--font-pixel); font-size: 13px; letter-spacing: 1px; }
+.acd-kind { padding: 1px 6px; border: 1px solid currentColor; font-family: var(--font-pixel); font-size: 7px; letter-spacing: 1px; }
+.acd-edit { margin-left: auto; }
+
+.acd-note { margin: 0 0 8px; font-size: 12.5px; line-height: 1.5; color: var(--ink-2); max-width: 86ch; }
+.acd-kindnote { margin: 0 0 12px; padding-left: 9px; border-left: 2px solid var(--ink-3); font-size: 12px; line-height: 1.5; color: var(--ink-3); max-width: 86ch; }
+.acd-caveat { margin: 10px 0 0; padding: 7px 9px; background: var(--panel-2); border-left: 3px solid var(--orange); font-size: 12px; line-height: 1.5; color: var(--ink-2); max-width: 86ch; }
+
+.acd-table { display: flex; flex-direction: column; gap: 1px; margin-top: 14px; }
+.acd-h, .acd-r {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) 74px 92px 82px 74px 72px 82px;
+  gap: 8px; align-items: center; padding: 5px 6px;
+}
+.acd-h { font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1px; color: var(--ink-3); border-bottom: 1px solid var(--border-bright); padding-bottom: 7px; }
+.acd-h span:not(:first-child) { text-align: right; }
+.acd-r { background: var(--panel); font-size: 12.5px; color: var(--ink-2); }
+.acd-r:hover { background: var(--panel-2); }
+.acd-t { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.acd-t b { color: var(--ink); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acd-ccy { font-style: normal; font-size: 11px; color: var(--yellow); }
+.acd-n { text-align: right; font-variant-numeric: tabular-nums; }
+.acd-strong { color: var(--ink); }
+.acd-dim { color: var(--ink-3); font-size: 11.5px; }
+
+.acd-conc { margin: 12px 0 0; font-size: 12.5px; line-height: 1.55; color: var(--ink-2); max-width: 86ch; }
+.acd-conc strong { color: var(--ink); }
+.acd-move { margin-top: 12px; }
+
+.acc-pick { margin: 0 0 10px; font-size: 12px; color: var(--ink-3); }
+
+/* The card head and the expand caret are now two separate buttons — the label
+   opens the account's own screen, the caret peeks in place. They sit on one
+   row and the body wraps beneath, which needs flex-wrap rather than the
+   plain block the card used when the whole head was one button. */
+.acc-card { display: flex; flex-wrap: wrap; align-items: stretch; }
+.acc-card-head { flex: 1 1 auto; width: auto; min-width: 0; }
+.acc-card-caret {
+  flex: 0 0 30px; background: none; border: 0; border-left: 1px solid var(--border);
+  color: var(--ink-3); cursor: pointer; font-size: 12px;
+}
+.acc-card-caret:hover { background: color-mix(in srgb, var(--cyan) 6%, transparent); color: var(--ink); }
+.acc-card-body { flex: 1 1 100%; }
+
+@media (max-width: 860px) {
+  .acd-h, .acd-r { grid-template-columns: minmax(0, 1fr) 78px 74px 66px; }
+  .acd-h span:nth-child(2), .acd-r .acd-n:nth-of-type(1),
+  .acd-h span:nth-child(5), .acd-h span:nth-child(6),
+  .acd-r .acd-dim, .acd-r .acd-n:nth-of-type(4) { display: none; }
+}
