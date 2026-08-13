@@ -6,6 +6,7 @@ import PortfolioChart from '../components/PortfolioChart.jsx';
 import RangeBrush from '../components/money/RangeBrush.jsx';
 import Diversification from '../components/money/Diversification.jsx';
 import Xray from '../components/money/Xray.jsx';
+import Desk from '../components/money/Desk.jsx';
 import AccountTabs from '../components/money/AccountTabs.jsx';
 import DivSync from '../components/money/DivSync.jsx';
 import DivReceived from '../components/money/DivReceived.jsx';
@@ -742,6 +743,19 @@ export default function Money() {
           letting a rupee figure into a dollar total. */}
       {view === 'xray' && (
         <Xray held={held} priceOf={priceOf} fx={fx} inr={!!inr} />
+      )}
+
+      {/* The Desk is handed the briefing RESULT rather than being allowed to
+          run the rules itself. Two computations of "what is past a threshold"
+          is two chances for the Desk and the Briefing to print different
+          answers to one question, with no way for a reader to tell which is
+          wrong — the same reason useBriefing is a hook shared with the overview
+          strip rather than a body each screen repeats. */}
+      {view === 'desk' && (
+        <Desk
+          held={held} priceOf={priceOf} quotes={quotes} orders={orders}
+          fx={fx} inr={!!inr} briefResult={briefResult} onGo={setView}
+        />
       )}
 
       {/* The factor desk needs only the book and a price — it measures companies,

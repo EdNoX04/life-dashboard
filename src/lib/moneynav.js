@@ -91,6 +91,12 @@ export const MONEY_SECTIONS = [
     color: 'var(--pink)',
     hint: 'Where this is all going',
     views: [
+      // The Desk leads this section because it is the screen you open when you
+      // are about to do something, and everything else here — Next buy, Tax,
+      // FinBoy — is downstream of that same moment. PERFORMANCE and MY MONEY
+      // answer "what is true"; PLAN answers "what am I about to do about it",
+      // and the scan belongs with the second question.
+      { id: 'desk', label: '◈ Desk' },
       { id: 'plan', label: 'Plan' },
       { id: 'levers', label: 'Levers' },
       { id: 'nextbuy', label: '✦ Next buy' },
