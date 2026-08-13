@@ -204,6 +204,10 @@ export default function Expenses({ fx = null, onContribution }) {
     cur: DEFAULT_CUR, person: '', ledger: null,
   });
   const [newPerson, setNewPerson] = useState('');
+  // Which row the form is currently editing, or null for a new entry. Held as
+  // an id rather than as a copy of the row, so the form cannot end up saving
+  // over a transaction that was deleted underneath it.
+  const [editing, setEditing] = useState(null);
   const [tidy, setTidy] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [allMonths, setAllMonths] = useState(false);
@@ -256,6 +260,39 @@ export default function Expenses({ fx = null, onContribution }) {
   const foreign = useMemo(() => txns.filter(t => (t.cur || DEFAULT_CUR) !== base), [txns, base]);
   const stranded = !fx && foreign.length > 0;
   const assumedRows = useMemo(() => txns.filter(t => t.curAssumed).length, [txns]);
+
+  // Load a row back into the form. Everything comes back, including the
+  // currency and the person — an edit that silently dropped a field would be a
+  // deletion wearing a correction's clothes.
+  const startEdit = t => {
+    setEditing(t.id);
+    setForm({
+      date: t.date || todayISO(),
+      amount: String(t.amount ?? ''),
+      kind: t.kind || 'out',
+      category: t.category || 'food',
+      note: t.note || '',
+      fixed: !!t.fixed,
+      cur: t.cur || DEFAULT_CUR,
+      person: t.person || '',
+      ledger: t.ledger || null,
+    });
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelEdit = () => {
+    setEditing(null);
+    setForm(f => ({ ...f, amount: '', note: '', person: '', ledger: null, date: todayISO() }));
+  };
+
+  const save = () => {
+    if (!Number(form.amount) || !editing) return;
+    // The id is preserved. A save that minted a new id would leave the old row
+    // orphaned in anything that referenced it and would look like a duplicate.
+    const t = normaliseTxn({ ...form, id: editing });
+    commit({ ...data, txns: txns.map(x => (x.id === editing ? t : x)) });
+    cancelEdit();
+  };
 
   const add = () => {
     if (!Number(form.amount)) return;
@@ -341,13 +378,36 @@ export default function Expenses({ fx = null, onContribution }) {
           note={split.fixedPct == null ? 'nothing spent' : `${compact(split.fixed, cur)} you cannot skip`} />
       </div>
 
-      <Card title="Log it" color="var(--green)">
+      {/* Money that left the account without being spent. Both of these used to
+          sit inside SPENT THIS MONTH, which made a month of saving look like a
+          month of splurging and pulled the savings rate down by exactly the
+          amount saved. */}
+      {(mt.invested > 0 || mt.lent > 0 || mt.borrowed > 0 || mt.repaidIn > 0 || mt.repaidOut > 0) && (
+        <div className="exp-flows">
+          <span className="exp-flows-h">NOT SPENDING, IN {allMonths ? 'TOTAL' : month}</span>
+          {mt.invested > 0 && (
+            <span className="exp-flow">
+              <b style={{ color: 'var(--green)' }}>{fmt(mt.invested, cur)}</b> invested
+              {mt.investedShare != null && <i> · {pctTxt(mt.investedShare, 0)} of what you kept</i>}
+            </span>
+          )}
+          {mt.lent > 0 && <span className="exp-flow"><b style={{ color: 'var(--cyan)' }}>{fmt(mt.lent, cur)}</b> lent out</span>}
+          {mt.repaidIn > 0 && <span className="exp-flow"><b style={{ color: 'var(--cyan)' }}>{fmt(mt.repaidIn, cur)}</b> paid back to you</span>}
+          {mt.borrowed > 0 && <span className="exp-flow"><b style={{ color: 'var(--orange)' }}>{fmt(mt.borrowed, cur)}</b> borrowed</span>}
+          {mt.repaidOut > 0 && <span className="exp-flow"><b style={{ color: 'var(--orange)' }}>{fmt(mt.repaidOut, cur)}</b> you paid back</span>}
+          <span className="exp-flow muted">
+            cash actually out {fmt(mt.cashOut, cur)} — spending is {fmt(mt.spend, cur)} of it
+          </span>
+        </div>
+      )}
+
+      <Card title={editing ? 'Edit this entry' : 'Log it'} color={editing ? 'var(--cyan)' : 'var(--green)'}>
         <div className="flex" style={{ flexWrap: 'wrap', gap: 6 }}>
           <input style={{ width: 140 }} type="date" value={form.date}
             onChange={e => setForm({ ...form, date: e.target.value })} />
           <input style={{ width: 110 }} type="number" placeholder={`Amount ${symbolOf(form.cur)}`} value={form.amount}
             onChange={e => setForm({ ...form, amount: e.target.value })}
-            onKeyDown={e => e.key === 'Enter' && add()} />
+            onKeyDown={e => e.key === 'Enter' && (editing ? save() : add())} />
           {/* Saved ON the transaction, not applied at display time. What you
               picked here is what this row will always have been. */}
           <select value={form.cur} onChange={e => setForm({ ...form, cur: e.target.value })}
@@ -366,7 +426,7 @@ export default function Expenses({ fx = null, onContribution }) {
           )}
           <input style={{ width: 170 }} placeholder="Note (e.g. Spotify)" value={form.note}
             onChange={e => setForm({ ...form, note: e.target.value })}
-            onKeyDown={e => e.key === 'Enter' && add()} />
+            onKeyDown={e => e.key === 'Enter' && (editing ? save() : add())} />
           {/* Who it was with, as a field rather than as something typed into the
               note in brackets. The bracket convention worked — it just could
               not be totalled. */}
@@ -395,8 +455,22 @@ export default function Expenses({ fx = null, onContribution }) {
               fixed
             </label>
           )}
-          <button className="btn btn-sm btn-green" onClick={add}>+ Add</button>
+          {editing ? (
+            <>
+              <button className="btn btn-sm btn-cyan" onClick={save}>Save changes</button>
+              <button className="btn btn-sm" onClick={cancelEdit}>Cancel</button>
+            </>
+          ) : (
+            <button className="btn btn-sm btn-green" onClick={add}>+ Add</button>
+          )}
         </div>
+        {editing && (
+          <div className="exp-editing">
+            Editing an entry you already logged. Saving replaces it in place —
+            every total, chart and balance on this screen recomputes from the
+            entries, so there is nothing else to correct afterwards.
+          </div>
+        )}
         <div className="small muted mt">
           Mark a transfer as a transfer and it stays out of both totals — moving your
           own money between accounts is not income, and counting it as such is the
@@ -788,8 +862,11 @@ export default function Expenses({ fx = null, onContribution }) {
                         </div>
                       )}
                     </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button className="btn btn-sm" onClick={() => drop(t.id)}>✕</button>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <button className={`btn btn-sm${editing === t.id ? ' btn-cyan' : ''}`}
+                        title="edit this entry" onClick={() => startEdit(t)}>✎</button>
+                      {' '}
+                      <button className="btn btn-sm" title="delete this entry" onClick={() => drop(t.id)}>✕</button>
                     </td>
                   </tr>
                 ))}

@@ -111,10 +111,24 @@ export const KINDS = ['in', 'out', 'transfer'];
 // a running balance, and writing it as four branches is how three of them end
 // up with the wrong sign.
 export const LEDGER = ['lend', 'borrow', 'settle'];
+
+// INVESTING IS NOT SPENDING EITHER, AND FOR THE SAME REASON.
+//
+// ₹500 into QQQ leaves your account exactly like ₹500 on dinner and is
+// nothing like it: the dinner is gone, the QQQ is on the next tab of this app
+// with a price against it. Counted as spending it is DOUBLE-COUNTED — once as
+// money consumed here and once as an asset owned there — and it drags the
+// savings rate down by precisely the amount you saved, which is about as
+// backwards as a number can be while still looking plausible.
+//
+// So the invest category is a flow, not a spend. It leaves `spend`, keeps its
+// own line, and lands in `net` where it belongs: money you did not consume.
+export const INVEST_CATEGORY = 'invest';
 export const LEDGER_LABEL = {
   lend: 'Lent', borrow: 'Borrowed', settle: 'Settling up',
 };
 export const isLedger = t => LEDGER.includes(t?.ledger);
+export const isInvest = t => t?.kind === 'out' && t?.category === INVEST_CATEGORY && !isLedger(t);
 /** Change to what this person owes you. Money out increases it; money in reduces it. */
 export const ledgerDelta = (t = {}) =>
   (isLedger(t) ? (t.kind === 'out' ? 1 : -1) * Math.abs(num(t.amount)) : 0);
@@ -201,7 +215,7 @@ export function inMonth(txns = [], key) {
 // deliberately kept out of income and spend.
 export function totals(txns = [], { base = DEFAULT_CUR, fx = null } = {}) {
   let income = 0, spend = 0, transfers = 0, unconverted = 0;
-  let lent = 0, borrowed = 0, repaidIn = 0, repaidOut = 0;
+  let lent = 0, borrowed = 0, repaidIn = 0, repaidOut = 0, invested = 0;
   for (const t of txns) {
     const a = amountIn(t, base, fx);
     if (a == null) { unconverted += 1; continue; }
@@ -215,6 +229,9 @@ export function totals(txns = [], { base = DEFAULT_CUR, fx = null } = {}) {
       else repaidOut += a;
       continue;
     }
+    // Same argument as the ledger rows above: this money is not gone, it is
+    // somewhere else with your name on it.
+    if (isInvest(t)) { invested += a; continue; }
     if (t.kind === 'in') income += a;
     else if (t.kind === 'transfer') transfers += a;
     else spend += a;
@@ -222,15 +239,22 @@ export function totals(txns = [], { base = DEFAULT_CUR, fx = null } = {}) {
   const net = income - spend;
   return {
     income, spend, transfers, net, base, unconverted,
-    lent, borrowed, repaidIn, repaidOut,
+    lent, borrowed, repaidIn, repaidOut, invested,
     // What actually left or entered your hands, including the lending. Kept
     // apart from `net` because one answers "how am I doing" and the other
     // answers "where did the balance go", and they are different questions
     // that a single figure would have to pick between.
-    cashOut: spend + lent + repaidOut,
+    cashOut: spend + lent + repaidOut + invested,
     cashIn: income + transfers + borrowed + repaidIn,
     // Unknown, not zero: with nothing coming in there is no rate to quote.
+    // `net` is income minus what you CONSUMED, so money moved into investments
+    // now counts as kept rather than against you. Reporting it the other way
+    // was subtracting your saving from your savings rate.
     savingsRate: income > 0 ? (net / income) * 100 : null,
+    // How much of what you kept actually went somewhere rather than sitting in
+    // the account. Null, not 0, when nothing was kept — a share of nothing is
+    // undefined, not zero percent.
+    investedShare: net > 0 ? (invested / net) * 100 : null,
     count: txns.length,
   };
 }
@@ -239,7 +263,10 @@ export function byCategory(txns = [], { base = DEFAULT_CUR, fx = null } = {}) {
   const out = new Map();
   let spend = 0;
   for (const t of txns) {
-    if (t.kind !== 'out' || isLedger(t)) continue;
+    // Investing stays out of the spending breakdown for the same reason it
+    // stays out of `spend`: reported on its own, where it cannot be mistaken
+    // for money that is gone.
+    if (t.kind !== 'out' || isLedger(t) || isInvest(t)) continue;
     const k = CATEGORY[t.category] ? t.category : 'other';
     const a = amountIn(t, base, fx);
     if (a == null) continue;

@@ -101,7 +101,11 @@ export const MONEY_SECTIONS = [
       { id: 'levers', label: 'Levers' },
       { id: 'nextbuy', label: '✦ Next buy' },
       { id: 'tax', label: 'Tax' },
-      { id: 'finboy', label: 'FinBoy' },
+      // FinBoy is deliberately NOT here any more. It was a view you navigated
+      // to, which meant leaving whatever you were looking at in order to ask
+      // about it — and it only ever knew the slice of data that view happened
+      // to be handed. It is a dock now, reachable from every screen on the tab,
+      // built from the whole book rather than from one section's props.
     ],
   },
 ];

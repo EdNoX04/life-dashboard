@@ -12,7 +12,12 @@ import { riskProfile } from '../../lib/risk.js';
 import { portfolioTilt, tiltSummary } from '../../lib/factors.js';
 import { calendarForYear, incomeSummary, perHolding, bookYield } from '../../lib/dividends.js';
 import { DEFAULT_RATES, fyBounds, realised, taxPosition } from '../../lib/tax.js';
-import { monthlySeries, averages, fixedSplit, inMonth, thisMonthKey, normaliseTxn } from '../../lib/expenses.js';
+import {
+  monthlySeries, averages, fixedSplit, inMonth, thisMonthKey, normaliseTxn,
+  totals as cashTotals, peopleBalances, ledgerSummary,
+} from '../../lib/expenses.js';
+import { xrayFromBook } from '../../lib/xray.js';
+import { loadAccounts, accountSummary } from '../../lib/accounts.js';
 import { EMPTY_GOALS, goalProgress, projectAll, DEFAULT_PLAN } from '../../lib/plan.js';
 
 // FinBoy — the money-scoped assistant (spec item 8), screen half.
@@ -175,7 +180,7 @@ export function Turn({ turn }) {
 export default function FinBoy({
   held = [], priceOf = h => Number(h.last_price ?? h.avg_cost ?? 0), orders = [],
   series = [], benchmark = [], flowsByDay = {}, currentValue = null, crypto = [],
-  cur = '$',
+  cur = '$', fx = null,
 }) {
   const [blobs, setBlobs] = useState(null);
   const [q, setQ] = useState('');
@@ -187,7 +192,7 @@ export default function FinBoy({
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [meta, fi, div, rates, exp, goals, fund] = await Promise.all([
+      const [meta, fi, div, rates, exp, goals, fund, acct] = await Promise.all([
         loadAssetMeta().catch(() => ({})),
         loadFixedIncome().catch(() => null),
         memGet('div_meta').catch(() => null),
@@ -195,8 +200,9 @@ export default function FinBoy({
         memGet('expenses').catch(() => null),
         memGet('goals_money').catch(() => null),
         memGet('fundamentals').catch(() => null),
+        loadAccounts().catch(() => null),
       ]);
-      if (alive) setBlobs({ meta: meta || {}, fi, div, rates, exp, goals, fund: fund || {} });
+      if (alive) setBlobs({ meta: meta || {}, fi, div, rates, exp, goals, fund: fund || {}, acct });
     })();
     return () => { alive = false; };
   }, []);
@@ -254,9 +260,29 @@ export default function FinBoy({
       cash: txns.length ? { avgs: averages(monthlySeries(txns)), fixed: fixedSplit(inMonth(txns, thisMonthKey(now))) } : null,
       plan: goal ? goalProgress(goal, { value, rows }) : null,
       tilt,
+      // Everything built after this file was. Each of these was a question it
+      // used to answer confidently from a book it could not see all of.
+      xray: xrayFromBook(held, { priceOf, fx }),
+      accounts: b.acct
+        ? accountSummary(
+          held.map(h => ({
+            ticker: h.ticker,
+            marketValue: Number(h.qty || 0) * priceOf(h),
+            invested: Number(h.avg_cost) > 0 ? Number(h.qty || 0) * Number(h.avg_cost) : null,
+          })),
+          b.acct.map || {}, b.acct.accounts || [],
+        )
+        : null,
+      ledger: txns.length
+        ? (() => {
+          const balances = peopleBalances(txns, b.exp?.people || []);
+          return { balances, ...ledgerSummary(balances) };
+        })()
+        : null,
+      cashFlows: txns.length ? cashTotals(txns) : null,
       asOf: now, seriesAsOf, factorAsOf: fStamps.length ? new Date(Math.min(...fStamps)) : undefined,
     });
-  }, [blobs, held, series, orders, crypto, cur]);
+  }, [blobs, held, series, orders, crypto, cur, fx]);
 
   // Decision 4: what a press would cost, worked out before the press exists.
   const preview = useMemo(() => {

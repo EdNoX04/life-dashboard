@@ -44,7 +44,7 @@ import Rebalance from '../components/money/Rebalance.jsx';
 import TaxDesk from '../components/money/TaxDesk.jsx';
 import FactorDesk from '../components/money/FactorDesk.jsx';
 import ReportDesk from '../components/money/ReportDesk.jsx';
-import FinBoy from '../components/money/FinBoy.jsx';
+import FinBoyDock from '../components/money/FinBoyDock.jsx';
 import Scanner from '../components/money/Scanner.jsx';
 import Sentiment from '../components/money/Sentiment.jsx';
 import Briefing, { useBriefing, BriefStrip } from '../components/money/Briefing.jsx';
@@ -182,6 +182,7 @@ export default function Money() {
   const [sortBy, setSortBy] = useState('value');
   const [liveNews, setLiveNews] = useState([]);
   const [planSeed, setPlanSeed] = useState(null);   // monthly surplus handed over by the Cash tab
+  const [finboy, setFinboy] = useState(false);     // the dock, open on any view
   const [view, setView] = useState('portfolio');
   // The two-tier nav shows one section's views at a time, which is what stopped
   // twenty-six buttons wrapping onto three unreadable lines. The cost of that is
@@ -823,18 +824,6 @@ export default function Money() {
         />
       )}
 
-      {/* FinBoy is handed exactly what the Report is handed, for the same reason:
-          a sentence about a figure and the screen showing that figure must not be
-          able to disagree. It builds its index from the saved blobs and never
-          fetches a price of its own. */}
-      {view === 'finboy' && (
-        <FinBoy
-          held={held} priceOf={priceOf} orders={orders}
-          series={valSeries} flowsByDay={flowsByDay} currentValue={value}
-          cur={inr ? '\u20b9' : '$'}
-        />
-      )}
-
       {/* The scanner is handed a TICKER-keyed price function, not the holding-keyed
           one the rest of this file uses, because most of its universe is not held
           and there is no holding object to look a price up from. */}
@@ -1111,6 +1100,20 @@ export default function Money() {
       </>}
 
       <StockDetail holding={openStock} orders={orders} visible={visible} onClose={() => setOpenStock(null)} />
+
+      {/* Outside every view branch, so it is reachable from all thirty-five of
+          them. It is handed exactly what the Report is handed, for the reason
+          the Report is: a sentence about a figure and the screen showing that
+          figure must not be able to disagree. It builds its index from the
+          saved blobs and never fetches a price of its own. */}
+      <FinBoyDock
+        open={finboy}
+        onOpen={() => setFinboy(true)}
+        onClose={() => setFinboy(false)}
+        held={held} priceOf={priceOf} orders={orders}
+        series={valSeries} flowsByDay={flowsByDay} currentValue={value}
+        fx={fx} cur={inr ? '\u20b9' : '$'}
+      />
     </>
   );
 }

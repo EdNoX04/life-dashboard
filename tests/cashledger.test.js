@@ -16,7 +16,7 @@
 
 import {
   normaliseTxn, totals, byCategory, CATEGORY, CATEGORIES,
-  isLedger, ledgerDelta, LEDGER,
+  isLedger, ledgerDelta, LEDGER, isInvest, INVEST_CATEGORY,
   addPerson, removePerson, personId, normalisePerson,
   peopleBalances, ledgerSummary, detectPeople,
   suggestCategory, suggestRecategorise, applyRecategorise,
@@ -202,6 +202,52 @@ eq(normaliseTxn({ kind: 'out', amount: 10, category: 'nonsense' }).category, 'ot
   'while an unknown spending category still falls back to other');
 eq(normaliseTxn({ kind: 'out', amount: 10, category: 'auto' }).category, 'auto',
   'and a real one survives');
+
+// ------------------------------------------ investing is not spending either
+
+// Fifteen real rows, ₹5,578, noted "QQQ", "Gold", "IND Money" — money that is
+// sitting on the next tab of this app with a price against it, and was being
+// counted here as though it had been eaten.
+{
+  const inv = T([
+    { kind: 'out', amount: 500, category: 'invest', note: 'QQQ', cur: 'INR' },
+    { kind: 'out', amount: 123, category: 'invest', note: 'Gold', cur: 'INR' },
+    { kind: 'out', amount: 150, category: 'auto', note: 'Auto', cur: 'INR' },
+    { kind: 'in', amount: 5000, note: 'stipend', cur: 'INR' },
+  ]);
+  const ti = totals(inv);
+
+  eq(ti.spend, 150, 'only the auto is spending — the ₹623 invested is not');
+  eq(ti.invested, 623, 'investing gets its own line');
+  eq(ti.net, 4850, 'and lands in net, because it is money you kept');
+  eq(ti.cashOut, 773, 'while cash out still counts it, because the money did leave the account');
+
+  // The double count, stated as arithmetic. This is the number that was wrong.
+  const wrong = (5000 - 773) / 5000 * 100;      // invest treated as spending
+  const right = ti.savingsRate;
+  ok(right > wrong + 10,
+    'counted as spending, the savings rate was lower by exactly the amount saved');
+  near(right, 97, 'the true rate is 97%, not 84.5%');
+
+  // And it must not appear in the spending breakdown, where it would read as
+  // a category of consumption.
+  const ci = byCategory(inv);
+  ok(!ci.some(c => c.key === 'invest'), 'investing is not a spending category');
+  eq(ci.length, 1, 'the chart shows only what was actually spent');
+
+  near(ti.investedShare, 12.85, 'and the share of what you kept that went somewhere is reported');
+  eq(totals(T([{ kind: 'out', amount: 100, category: 'invest', cur: 'INR' }])).investedShare, null,
+    'with nothing kept there is no share to quote — null, not 0%');
+}
+
+eq(isInvest({ kind: 'out', category: 'invest' }), true, 'an outgoing invest row is investing');
+eq(isInvest({ kind: 'in', category: 'invest' }), false, 'money coming IN is not — that is a sale, not a purchase');
+eq(isInvest({ kind: 'out', category: 'food' }), false, 'and dinner is not investing');
+// A row that is both marked invest and marked as a loan is a loan. Lending
+// somebody money to invest is still lending.
+eq(isInvest({ kind: 'out', category: 'invest', ledger: 'lend' }), false,
+  'a loan tagged invest is still a loan, and is not counted twice');
+eq(INVEST_CATEGORY, 'invest', 'the category key is what the existing rows already use');
 
 // ------------------------------------------------------------ hostile
 

@@ -263,6 +263,12 @@ export function buildIndex({
   alloc = null, conc = null, stats = null, drawdownInfo = null, profile = null,
   income = null, yieldInfo = null, taxInfo = null, cash = null, plan = null,
   tilt = null, asOf = undefined, seriesAsOf = undefined, factorAsOf = undefined,
+  // Everything built after FinBoy was. Each one was a question it would answer
+  // confidently and wrongly — "how much NVIDIA do I own" got the direct line
+  // and missed the four funds holding it; "who owes me money" got nothing at
+  // all. A partial index is worse than a missing one, because the gaps are
+  // invisible from inside an answer.
+  xray = null, accounts = null, ledger = null, cashFlows = null,
 } = {}) {
   const F = [];
   const money = v => `${cur}${Math.round(v).toLocaleString('en-IN')}`;
@@ -293,6 +299,70 @@ export function buildIndex({
       F.push(fact('pos.largest', 'positions', `Your largest position is ${ranked[0].t}.`,
         { tags: ['largest', 'biggest', 'top', 'concentration'], asOf }));
     }
+  }
+
+  // --- look-through, which is a different answer from the shelf
+  if (xray?.exposures?.length) {
+    const top = xray.exposures[0];
+    F.push(fact('xray.top', 'look-through',
+      `After decomposing every fund, your largest single company exposure is ${top.name} at ${pc(top.pct)} of the whole book.`,
+      { tags: ['really', 'actually', 'true', 'exposure', 'look through', 'lookthrough', 'largest', 'concentration', String(top.sym).toLowerCase()], asOf }));
+    F.push(fact('xray.count', 'look-through',
+      `Your positions resolve to ${xray.exposures.length} distinct companies once the funds are unpacked, and ${pc(xray.coverage)} of the book could be decomposed.`,
+      { tags: ['companies', 'how many', 'look through', 'coverage', 'unpacked', 'funds'], asOf }));
+    for (const e of xray.exposures.slice(0, 6)) {
+      const via = (e.via || []).map(v => v.fund).join(', ');
+      F.push(fact(`xray.${e.sym}`, 'look-through',
+        `Counting what the funds hold, you own ${pc(e.pct)} of the book in ${e.name}${via ? `, arriving through ${via}` : ''}${e.direct ? ' as well as directly' : ' without holding it directly'}.`,
+        { tags: [String(e.sym).toLowerCase(), String(e.name || '').toLowerCase(), 'exposure', 'really own', 'through', 'fund'], asOf }));
+    }
+    if (xray.conc?.effective != null) {
+      F.push(fact('xray.spread', 'look-through',
+        `Those companies spread like ${n1(xray.conc.effective)} equally sized ones, measured across the ${pc(xray.conc.basis)} of the book that could be decomposed.`,
+        { tags: ['diversified', 'spread', 'concentration', 'effective', 'look through'], asOf }));
+    }
+    const worst = xray.pairs?.[0];
+    if (worst) {
+      F.push(fact('xray.overlap', 'look-through',
+        `${worst.a} and ${worst.b} are at least ${pc(worst.pct)} the same fund — a floor, since it is computed from published top-25 lists.`,
+        { tags: ['overlap', 'same', 'duplicate', 'similar', 'funds', String(worst.a).toLowerCase(), String(worst.b).toLowerCase()], asOf }));
+    }
+    if (xray.unknown?.funds?.length) {
+      F.push(fact('xray.unknown', 'look-through',
+        `${pc(xray.unknown.pct)} of the book sits in funds with no composition on file (${xray.unknown.funds.map(f => f.sym).join(', ')}), so the figures above describe the rest.`,
+        { tags: ['unknown', 'missing', 'coverage', 'gap', 'look through'], asOf }));
+    }
+  }
+
+  // --- accounts
+  for (const a of (accounts || []).slice(0, 6)) {
+    F.push(fact(`acct.${a.id}`, 'accounts',
+      `${a.label} holds ${money(a.totals?.marketValue || 0)} across ${a.totals?.count || 0} holding${a.totals?.count === 1 ? '' : 's'}, which is ${pc(a.share || 0)} of everything you own.`,
+      { tags: ['account', 'broker', 'where', String(a.label || '').toLowerCase(), 'held', 'split'], asOf }));
+  }
+
+  // --- who owes whom
+  if (ledger?.balances?.length) {
+    const open = ledger.balances.filter(b => !b.settledUp);
+    if (open.length) {
+      for (const b of open.slice(0, 6)) {
+        F.push(fact(`lend.${b.id}`, 'lending',
+          b.balance > 0
+            ? `${b.name} owes you ${money(Math.abs(b.balance))}${b.last ? `, last movement ${b.last}` : ''}.`
+            : `You owe ${b.name} ${money(Math.abs(b.balance))}${b.last ? `, last movement ${b.last}` : ''}.`,
+          { tags: [String(b.name || '').toLowerCase(), 'owe', 'owes', 'lent', 'borrowed', 'debt', 'lending', 'friend'], asOf }));
+      }
+    }
+    F.push(fact('lend.total', 'lending',
+      `Across everyone, ${money(ledger.owedToYou || 0)} is owed to you and ${money(ledger.youOwe || 0)} is owed by you, over ${ledger.open || 0} open balance${ledger.open === 1 ? '' : 's'}.`,
+      { tags: ['owe', 'owed', 'lending', 'borrowed', 'debt', 'total', 'who'], asOf }));
+  }
+
+  // --- cash flows that are not spending
+  if (cashFlows && (cashFlows.invested > 0 || cashFlows.lent > 0)) {
+    F.push(fact('cash.flows', 'cash',
+      `In the period logged you moved ${money(cashFlows.invested || 0)} into investments and lent out ${money(cashFlows.lent || 0)}. Neither counts as spending — that money is not gone.`,
+      { tags: ['invested', 'investing', 'saved', 'lent', 'spending', 'not spending', 'cash'], asOf }));
   }
 
   // --- allocation
