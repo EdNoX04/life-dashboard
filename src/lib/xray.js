@@ -34,7 +34,8 @@
 //    half size and falls out of the top five — the same flattering direction as
 //    every other mistake here.
 
-import { normSym } from './etfdata.js';
+import { normSym, bookPositions, seedCompositions, mergeCompositions } from './etfdata.js';
+import { currencyOf } from './indiabook.js';
 
 export const num = v => {
   if (v == null || v === '') return null;
@@ -281,4 +282,37 @@ export function bySector(exposures = [], compositions = {}, sectors = {}) {
   const rows = [...out.entries()].map(([sector, value]) => ({ sector, value }))
     .sort((a, b) => b.value - a.value);
   return { rows, unknown };
+}
+
+/**
+ * The whole look-through, from a raw book to everything a caller needs.
+ *
+ * This exists as a function rather than as fifteen lines inside a React
+ * component for one reason: the briefing's five look-through rules read it, and
+ * a rule that cannot be tested is a rule that quietly stops firing. The
+ * component version was untestable in this repo — it lives in a .jsx file that
+ * needs a bundler — so the logic moved here where a plain test can reach it.
+ *
+ * `fx` is USD -> INR and is NOT defaulted to 1. Defaulting would convert a
+ * rupee position at par and understate the book by the exchange rate; passing
+ * null instead excludes those positions and names them, which the caller can
+ * then report.
+ */
+export function xrayFromBook(held = [], { priceOf, fx = null, saved = null, comps = null } = {}) {
+  const compositions = comps || mergeCompositions(seedCompositions(), saved || {});
+  const { positions, excluded } = bookPositions(held, { priceOf, fx, currencyOf, comps: compositions });
+  if (!positions.length) return null;
+
+  const base = lookThrough(positions, compositions);
+  const heldFunds = positions.filter(p => p.isFund && compositions[p.ticker]).map(p => p.ticker);
+
+  return {
+    ...base,
+    positions,
+    excluded,
+    shelf: shelfWeights(positions),
+    conc: concentration(base.exposures, base.total),
+    pairs: overlapMatrix(heldFunds, compositions),
+    funds: heldFunds,
+  };
 }

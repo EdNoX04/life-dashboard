@@ -367,9 +367,13 @@ export default function Money() {
   // context — one hook, called here, handed to both. A strip that assembled its
   // own context could disagree with the screen it links to, and the reader would
   // have no way to tell which of the two was wrong.
+  // fx goes in raw, NOT the inr display toggle. The look-through rules convert
+  // every position to one currency before summing, and they need the rate even
+  // when the screen is showing dollars — a rupee holding is a rupee holding
+  // whichever symbol is on the button.
   const briefResult = useBriefing({
     held, priceOf, orders, series: valSeries, flowsByDay,
-    currentValue: value, cur: inr ? '\u20b9' : '$',
+    currentValue: value, cur: inr ? '\u20b9' : '$', fx,
   });
 
   // load cached daily closes; fetch missing/stale tickers in the background
@@ -810,7 +814,7 @@ export default function Money() {
         <Briefing
           held={held} priceOf={priceOf} orders={orders}
           series={valSeries} flowsByDay={flowsByDay} currentValue={value}
-          cur={inr ? '\u20b9' : '$'} onGo={setView}
+          cur={inr ? '\u20b9' : '$'} onGo={setView} fx={fx}
         />
       )}
       {view === 'fin' && <FinMetric held={held} cur="$" />}

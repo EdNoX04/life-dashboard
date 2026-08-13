@@ -15,22 +15,55 @@ let pass = 0, fail = 0;
 const ok = (cond, name) => { if (cond) { pass++; } else { fail++; console.log('FAIL ' + name); } };
 const eq = (a, b, name) => ok(a === b, `${name} (got ${JSON.stringify(a)}, want ${JSON.stringify(b)})`);
 
+// AN EMPTY QUEUE IS THE NORMAL RESTING STATE, NOT A FAILURE.
+//
+// This used to assert `files.length > 0`, which was wrong in both directions.
+// The apply-payloads workflow archives every file it applies into processed/,
+// so the queue is empty most of the time — the test therefore failed on a
+// perfectly healthy repo. Worse, when the queue WAS empty none of the shape
+// checks below ran at all, so the run that reported "0/1" was also the run
+// doing the least work. A guard that only fires when there is nothing to guard
+// is not a guard.
+//
+// So both directories are read. The queue is checked in full. The archive is
+// checked too, because it is the only place the shape rules can be exercised
+// against payloads that really existed — including the delete-with-an-object
+// `match` that produced a duplicate holding.
 const dir = new URL('../payloads/', import.meta.url);
+const archive = new URL('../payloads/processed/', import.meta.url);
 const files = readdirSync(dir).filter(f => f.endsWith('.json'));
+const archived = readdirSync(archive).filter(f => f.endsWith('.json'));
 
-ok(files.length > 0, 'there are payloads to check');
+ok(archived.length > 0, 'the archive is not empty, so the apply pipeline has really run');
+if (files.length === 0) {
+  console.log(`queue empty (${archived.length} archived) — nothing pending, which is the normal state`);
+}
 
 // The four methods apply-payloads understands. Anything else is a typo that
 // would be discovered in CI rather than here.
 const METHODS = new Set(['upsert', 'insert', 'update', 'delete']);
 
-for (const f of files) {
+// Three payloads from before the ops-array format exist in the archive. They are
+// raw blobs the applier of the day understood, they have already been applied,
+// and nothing can be done to them now — so they are counted and named rather
+// than failed. Every NEW payload passes through the queue above, where the full
+// check runs, so nothing can reach the archive without having been checked.
+let legacy = 0;
+const targets = [
+  ...files.map(f => ({ f, url: new URL(f, dir), queued: true })),
+  ...archived.map(f => ({ f, url: new URL(f, archive), queued: false })),
+];
+
+for (const { f, url, queued } of targets) {
   let doc = null;
-  try { doc = JSON.parse(readFileSync(new URL(f, dir), 'utf8')); }
+  try { doc = JSON.parse(readFileSync(url, 'utf8')); }
   catch (e) { ok(false, `${f} is valid JSON (${e.message})`); continue; }
 
-  ok(Array.isArray(doc?.ops), `${f} has an ops array — a raw blob applies as nothing`);
-  if (!Array.isArray(doc?.ops)) continue;
+  if (!Array.isArray(doc?.ops)) {
+    if (queued) ok(false, `${f} has an ops array — a raw blob applies as nothing`);
+    else legacy++;
+    continue;
+  }
   ok(doc.ops.length > 0, `${f} has at least one op — an empty ops list is a file doing nothing`);
 
   doc.ops.forEach((op, i) => {
@@ -92,6 +125,8 @@ for (const f of files) {
     }
   }
 }
+
+if (legacy) console.log(`${legacy} archived payloads predate the ops format and were not shape-checked`);
 
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);

@@ -24,6 +24,7 @@
 import fs from 'fs';
 import path from 'path';
 import { RULES, BASIS, brief, SEVERITY, termCrossings } from '../src/lib/briefing.js';
+import { xrayFromBook } from '../src/lib/xray.js';
 import { MONEY_VIEWS, MONEY_SECTIONS, sectionOf } from '../src/lib/moneynav.js';
 
 let pass = 0, fail = 0;
@@ -68,7 +69,11 @@ ok('an unknown view falls back to a real section',
 // ---------------------------------------------------------------------------
 // Shape.
 // ---------------------------------------------------------------------------
-ok('there are twenty rules', RULES.length === 20, String(RULES.length));
+// The literal lives HERE and nowhere else. Every other count below derives from
+// it, so adding a rule is one edit rather than six — but a rule appearing by
+// accident still breaks this line, which is the point of pinning it at all.
+ok('there are twenty-five rules', RULES.length === 25, String(RULES.length));
+const TOTAL = RULES.length;
 ok('every id is unique', new Set(RULES.map(r => r.id)).size === RULES.length);
 
 for (const r of RULES) {
@@ -98,7 +103,7 @@ for (const r of RULES) {
   const b = brief({});
   ok('an empty context produces no findings', b.flags.length === 0, String(b.flags.length));
   ok('an empty context produces no clear results', b.clear.length === 0, String(b.clear.length));
-  ok('an empty context skips every rule', b.skipped.length === 20, String(b.skipped.length));
+  ok('an empty context skips every rule', b.skipped.length === TOTAL, String(b.skipped.length));
   ok('an empty context reports zero coverage', b.coverage === 0, String(b.coverage));
   ok('and reports that nothing ran', b.ran === 0, String(b.ran));
   ok('every abstention says what it needed',
@@ -122,8 +127,34 @@ const HELD_PRICED = [
   { ticker: 'D', qty: 10, last_price: 400, avg_cost: 500, __px: 400 },
 ];
 
+// The look-through halves of the two fixtures are BUILT, not written out. Every
+// bug this file was created to catch was a context field whose shape no writer
+// actually produces, so a hand-authored `xray: {...}` here would be the same
+// mistake in a new place. These call the same function the component calls.
+//
+// FIRING: a book concentrated in one name, holding two funds that track the
+// same index, one fund with no composition, and a rupee position with no rate
+// loaded — which is all five look-through rules tripped at once.
+const XRAY_FIRING = xrayFromBook([
+  { ticker: 'MSFT', qty: 1000, last_price: 430 },
+  { ticker: 'VOO', qty: 100, last_price: 714.84 },
+  { ticker: 'QQQM', qty: 100, last_price: 301.55 },
+  { ticker: 'QQQ', qty: 30, last_price: 610 },
+  { ticker: 'ARKK', qty: 200, last_price: 60 },
+  { ticker: 'GOLDBEES', qty: 12, last_price: 122, currency: 'INR' },
+], { priceOf: h => h.last_price, fx: null });
+
+// HEALTHY: a dividend fund and a broad index fund, which genuinely barely
+// overlap — 0.0% on the holdings either publishes — plus an exchange rate, so
+// nothing is dropped and nothing is unresolved.
+const XRAY_HEALTHY = xrayFromBook([
+  { ticker: 'SCHD', qty: 2000, last_price: 34.39 },
+  { ticker: 'VOO', qty: 50, last_price: 714.84 },
+], { priceOf: h => h.last_price, fx: 88 });
+
 const FIRING = {
   cur: '₹',
+  xray: XRAY_FIRING,
   held: [...HELD_PRICED.slice(0, 3), { ticker: 'D', qty: 10, last_price: null, avg_cost: 500, __px: 500 }],
   conc: { top1: 42, effectiveN: 1.4 },
   drift: { targeted: 3, untargeted: 2, actionable: 2, band: 5, turnoverPct: 12,
@@ -148,6 +179,7 @@ const FIRING = {
 
 const HEALTHY = {
   cur: '₹',
+  xray: XRAY_HEALTHY,
   held: HELD_PRICED,
   conc: { top1: 18, effectiveN: 3.6 },
   drift: { targeted: 4, untargeted: 0, actionable: 0, band: 5, turnoverPct: 2,
@@ -186,7 +218,7 @@ const FIREABLE = RULES.map(r => r.id).filter(id => !ALWAYS_OK.includes(id));
 
 {
   const b = brief(FIRING);
-  ok('a fully populated context runs every rule', b.ran === 20, `${b.ran} of ${b.total}`);
+  ok('a fully populated context runs every rule', b.ran === TOTAL, `${b.ran} of ${b.total}`);
   ok('and abstains from none', b.skipped.length === 0,
     b.skipped.map(s => s.id).join(', '));
   ok('and reports full coverage', Math.round(b.coverage) === 100, String(b.coverage));
@@ -210,9 +242,9 @@ const FIREABLE = RULES.map(r => r.id).filter(id => !ALWAYS_OK.includes(id));
 
 {
   const b = brief(HEALTHY);
-  ok('a healthy context runs every rule', b.ran === 20, `${b.ran} of ${b.total}`);
+  ok('a healthy context runs every rule', b.ran === TOTAL, `${b.ran} of ${b.total}`);
   ok('and finds nothing', b.flags.length === 0, b.flags.map(f => f.id).join(', '));
-  ok('and reports all twenty as clear', b.clear.length === 20, String(b.clear.length));
+  ok('and reports every rule as clear', b.clear.length === TOTAL, String(b.clear.length));
   ok('the always-report rules still appear when clear',
     ALWAYS_OK.every(id => b.clear.some(c => c.id === id)));
   ok('a reachable crossing prints a date rather than a shortfall',
@@ -240,7 +272,7 @@ const FIREABLE = RULES.map(r => r.id).filter(id => !ALWAYS_OK.includes(id));
   const rows = [...brief(FIRING).flags, ...brief(FIRING).clear,
     ...brief(HEALTHY).flags, ...brief(HEALTHY).clear];
   ok('both states between them produced text for every rule',
-    new Set(rows.map(r => r.id)).size === 20, String(new Set(rows.map(r => r.id)).size));
+    new Set(rows.map(r => r.id)).size === TOTAL, String(new Set(rows.map(r => r.id)).size));
   for (const r of rows) {
     const text = `${r.headline} ${r.detail}`;
     const hit = BANNED.find(re => re.test(text));
@@ -280,18 +312,18 @@ const FIREABLE = RULES.map(r => r.id).filter(id => !ALWAYS_OK.includes(id));
   RULES.push(poison);
   try {
     const b = brief(HEALTHY);
-    ok('a throwing rule does not take the others down', b.clear.length === 20, String(b.clear.length));
+    ok('a throwing rule does not take the others down', b.clear.length === TOTAL, String(b.clear.length));
     const broken = b.skipped.find(s => s.id === 'test.poison');
     ok('a throwing rule lands in skipped', broken != null);
     ok('and is marked as broken rather than as merely lacking data', broken?.broke === true);
     ok('and carries the error text', /deliberate/.test(broken?.why || ''), broken?.why);
-    ok('and is not counted as having run', b.ran === 20, String(b.ran));
+    ok('and is not counted as having run', b.ran === TOTAL, String(b.ran));
     ok('and drags coverage down rather than being excused',
       b.coverage < 100 && b.coverage > 90, String(b.coverage));
   } finally {
     RULES.pop();
   }
-  ok('the poison rule was removed again', RULES.length === 20, String(RULES.length));
+  ok('the poison rule was removed again', RULES.length === TOTAL, String(RULES.length));
 }
 
 // ---------------------------------------------------------------------------

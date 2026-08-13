@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Empty, StatTile } from '../ui.jsx';
 import { memGet } from '../../lib/advisor.js';
-import { brief, termCrossings, BASIS, SEVERITY } from '../../lib/briefing.js';
+import { brief, termCrossings, BASIS, SEVERITY, RULES } from '../../lib/briefing.js';
 import { allocationBreakdown, concentration, loadAssetMeta, loadFixedIncome, metaOf, fdValue, bondValue } from '../../lib/assets.js';
 import { analyse } from '../../lib/analytics.js';
 import { riskProfile } from '../../lib/risk.js';
@@ -12,6 +12,7 @@ import { averages, fixedSplit, inMonth, monthlySeries, normaliseTxn, thisMonthKe
 import { DEFAULT_PLAN, EMPTY_GOALS, fireNumber, goalProgress, projectAll } from '../../lib/plan.js';
 import { driftRows, normaliseTargets, summarise as rebalSummary, DEFAULT_BAND } from '../../lib/rebalance.js';
 import { crossing } from '../../lib/levers.js';
+import { xrayFromBook } from '../../lib/xray.js';
 
 // The briefing — screen half.
 //
@@ -90,24 +91,94 @@ export function Row({ row, onGo }) {
   );
 }
 
-export function Skipped({ rows }) {
+// The absences, as a job list rather than a wall of excuses.
+//
+// Decision 1 of the library says a skipped rule is never collapsed, and that
+// still holds: every one of them is on screen, at full weight, with the reason
+// it could not run. What changed is the shape. Nine stacked paragraphs each
+// saying "needs transactions logged" is technically honest and practically
+// unreadable — the reader skims it, concludes the app is broken, and the
+// absences stop being information.
+//
+// So they are split by whether you can do anything about them. That is the only
+// question a reader actually has here, and the old panel made you work it out
+// yourself sixteen times.
+export function Waiting({ rows, onGo }) {
   if (!rows?.length) return null;
+  const yours = rows.filter(r => r.enable?.view);
+  const time = rows.filter(r => !r.enable?.view);
+
+  const line = r => (
+    <div key={r.id} className={`bf-wait${r.broke ? ' bf-broke' : ''}`}>
+      <span className="bf-wait-topic">{r.topic}</span>
+      <span className="bf-wait-txt">
+        {r.enable?.action || r.why}
+        {r.broke && <b className="bf-skip-bad"> this one failed rather than abstained</b>}
+      </span>
+      {r.enable?.view && onGo && (
+        <button className="btn btn-sm bf-go" onClick={() => onGo(r.enable.view)}>enter it →</button>
+      )}
+    </div>
+  );
+
   return (
-    // Decision 1: its own panel, open, at full weight.
-    <Card title={`Not checked (${rows.length})`} color="var(--ink-3)">
+    <Card title={`Waiting on data (${rows.length})`} color="var(--ink-3)">
       <div className="bf-skip-why">
-        These rules had nothing to run on. They are listed rather than counted as
-        passing, because a check that never ran is not a check that found nothing.
+        These are listed rather than counted as passing, because a check that
+        never ran is not a check that found nothing.
       </div>
-      <div className="bf-skips">
-        {rows.map(s => (
-          <div key={s.id} className={`bf-skip${s.broke ? ' bf-broke' : ''}`}>
-            <span className="bf-skip-topic">{s.topic}</span>
-            <span className="bf-skip-txt">{s.why}</span>
-            {s.broke && <span className="bf-skip-bad">this one failed rather than abstained</span>}
-          </div>
+      {yours.length > 0 && (
+        <>
+          <div className="bf-wait-hd">{yours.length} you can fill in</div>
+          <div className="bf-waits">{yours.map(line)}</div>
+        </>
+      )}
+      {time.length > 0 && (
+        <>
+          <div className="bf-wait-hd">{time.length} nothing to enter</div>
+          <div className="bf-waits">{time.map(line)}</div>
+        </>
+      )}
+    </Card>
+  );
+}
+
+// The rules that ran and found nothing.
+//
+// This is the least important content on the screen and it was the bulk of its
+// height — eight full rows, each with a headline, a threshold, a citation and a
+// button, all to say that nothing happened. Folded to one chip per topic, which
+// still states the count and still opens to the full working, because the point
+// of a passing check is that you can go and verify it passed.
+export function ClearByTopic({ rows, onGo }) {
+  const [open, setOpen] = useState(null);
+  if (!rows?.length) return null;
+
+  const byTopic = new Map();
+  for (const r of rows) {
+    if (!byTopic.has(r.topic)) byTopic.set(r.topic, []);
+    byTopic.get(r.topic).push(r);
+  }
+  const topics = [...byTopic.entries()];
+
+  return (
+    <Card title={`Ran and found nothing (${rows.length})`} color="var(--ok)">
+      <div className="bf-chips">
+        {topics.map(([topic, list]) => (
+          <button
+            key={topic}
+            className={`bf-chip${open === topic ? ' on' : ''}`}
+            onClick={() => setOpen(open === topic ? null : topic)}
+          >
+            <i>{open === topic ? '−' : '+'}</i>{topic}<b>{list.length}</b>
+          </button>
         ))}
       </div>
+      {open && (
+        <div className="bf-rows bf-chip-open">
+          {byTopic.get(open).map(c => <Row key={c.id} row={c} onGo={onGo} />)}
+        </div>
+      )}
     </Card>
   );
 }
@@ -137,7 +208,7 @@ export function Header({ result }) {
 // invisible because they produced a quiet abstention or a silent default rather than
 // a throw, and nothing tested the shapes the WRITERS actually write. The suite now
 // feeds this the literal output of the Planner's own save calls.
-export function buildContext({ blobs, held, priceOf, orders, series, benchmark, flowsByDay, currentValue, crypto, cur }) {
+export function buildContext({ blobs, held, priceOf, orders, series, benchmark, flowsByDay, currentValue, crypto, cur, fx = null }) {
     const b = blobs;
     const now = new Date();
     const withPx = held.map(h => ({ ...h, __px: priceOf(h) }));
@@ -145,6 +216,21 @@ export function buildContext({ blobs, held, priceOf, orders, series, benchmark, 
 
     const alloc = allocationBreakdown({ held, priceOf, saved: b.meta, fi: b.fi || undefined, crypto });
     const conc = held.length ? concentration(held, priceOf) : null;
+
+    // Look-through. Five rules read this and none of them needs anything typed,
+    // which is the point: on a new install every other rule in the file abstains
+    // and these still have something true to say.
+    //
+    // `fx` is threaded in rather than defaulted to 1, because defaulting would
+    // convert a rupee position at par and quietly understate the book by the
+    // exchange rate. With no rate loaded, bookPositions excludes those positions
+    // and names them — and data.currency exists to report exactly that, so the
+    // omission surfaces as a flag instead of as a wrong total.
+    // One call, in a plain .js module, so the five rules that read it can be
+    // tested. The previous shape of this was fifteen lines inline here — which
+    // is a .jsx file that no test in this repo can import without a bundler,
+    // and a rule nothing tests is a rule that quietly stops firing.
+    const xray = xrayFromBook(held, { priceOf, fx, saved: b.etf || {} });
 
     // Book value carrying no asset class. metaOf falls back to an inferred kind,
     // so 'unknown' here means genuinely unclassified rather than merely untyped.
@@ -221,7 +307,7 @@ export function buildContext({ blobs, held, priceOf, orders, series, benchmark, 
     const annualSpend = avgs?.spend != null ? avgs.spend * 12 : null;
 
     return {
-      cur, held: withPx, bookValue, conc, alloc, untagged, drift, tilt, stats,
+      cur, held: withPx, bookValue, conc, alloc, untagged, drift, tilt, stats, xray,
       profile: (stats || alloc?.total) ? riskProfile({ stats: stats || {}, conc: conc || {}, alloc }) : null,
       income: payments.length ? incomeSummary(payments) : null,
       divLines,
@@ -253,14 +339,14 @@ export function buildContext({ blobs, held, priceOf, orders, series, benchmark, 
 export function useBriefing({
   held = [], priceOf = h => Number(h.last_price ?? h.avg_cost ?? 0), orders = [],
   series = [], benchmark = [], flowsByDay = {}, currentValue = null, crypto = [],
-  cur = '\u20b9',
+  cur = '\u20b9', fx = null,
 } = {}) {
   const [blobs, setBlobs] = useState(null);
 
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [meta, fi, div, rates, exp, goals, fund, targets, savedPlan] = await Promise.all([
+      const [meta, fi, div, rates, exp, goals, fund, targets, savedPlan, etf] = await Promise.all([
         loadAssetMeta().catch(() => ({})),
         loadFixedIncome().catch(() => null),
         memGet('div_meta').catch(() => null),
@@ -271,16 +357,19 @@ export function useBriefing({
         memGet('rebal_targets').catch(() => null),
         // The Planner persists the plan under its own key; see buildContext.
         memGet('money_plan').catch(() => null),
+        // Composition overrides for the look-through. Absent is fine — the
+        // checked-in seed carries five funds on its own.
+        memGet('etf_holdings').catch(() => null),
       ]);
-      if (alive) setBlobs({ meta: meta || {}, fi, div, rates, exp, goals, fund: fund || {}, targets: targets?.targets || null, savedPlan });
+      if (alive) setBlobs({ meta: meta || {}, fi, div, rates, exp, goals, fund: fund || {}, targets: targets?.targets || null, savedPlan, etf: etf || {} });
     })();
     return () => { alive = false; };
   }, []);
 
   const ctx = useMemo(() => {
     if (!blobs) return null;
-    return buildContext({ blobs, held, priceOf, orders, series, benchmark, flowsByDay, currentValue, crypto, cur });
-  }, [blobs, held, series, orders, crypto, cur]);
+    return buildContext({ blobs, held, priceOf, orders, series, benchmark, flowsByDay, currentValue, crypto, cur, fx });
+  }, [blobs, held, series, orders, crypto, cur, fx]);
 
   return useMemo(() => (ctx ? brief(ctx) : null), [ctx]);
 }
@@ -347,60 +436,71 @@ export function BriefStrip({ result, onOpen, limit = 3 }) {
 export default function Briefing({
   held = [], priceOf = h => Number(h.last_price ?? h.avg_cost ?? 0), orders = [],
   series = [], benchmark = [], flowsByDay = {}, currentValue = null, crypto = [],
-  cur = '₹', onGo = null,
+  cur = '₹', onGo = null, fx = null,
 }) {
-  const result = useBriefing({ held, priceOf, orders, series, benchmark, flowsByDay, currentValue, crypto, cur });
+  const result = useBriefing({ held, priceOf, orders, series, benchmark, flowsByDay, currentValue, crypto, cur, fx });
+  // Closed by default. The legend is read once and then never again, and it was
+  // occupying a full card at the bottom of every visit.
+  const [legend, setLegend] = useState(false);
 
   if (!result) {
     return <Card title="Briefing" color="var(--purple)"><Empty icon="..." text="Reading your saved figures." /></Card>;
   }
 
-  const byTopic = [];
-  for (const f of result.flags) {
-    const last = byTopic[byTopic.length - 1];
-    if (last && last.topic === f.topic) last.rows.push(f);
-    else byTopic.push({ topic: f.topic, rows: [f] });
-  }
-
+  // The screen reads top to bottom in order of how much it wants your
+  // attention: what fired, then what is waiting on you, then — folded away —
+  // what ran and was fine, then the legend. The previous order put eight
+  // passing checks between the flags and the absences, which is the two things
+  // worth reading separated by the one that is not.
   return (
     <div className="bf">
       <Card title="Briefing" color="var(--purple)">
         <div className="bf-intro">
-          Eighteen rules read across every other screen in this tab. Each one states
+          {RULES.length} rules read across every other screen in this tab. Each states
           what is true and where its threshold came from, and stops there — nothing
           here tells you what to do about any of it.
         </div>
         <Header result={result} />
       </Card>
 
-      {result.flags.length > 0 && (
+      {result.flags.length > 0 ? (
         <Card title={`Past a threshold (${result.flags.length})`} color="var(--orange)"
           right={<span className="bf-sortnote">ordered by distance past, not by topic</span>}>
           <div className="bf-rows">
             {result.flags.map(f => <Row key={f.id} row={f} onGo={onGo} />)}
           </div>
         </Card>
-      )}
-
-      {result.clear.length > 0 && (
-        <Card title={`Ran and found nothing (${result.clear.length})`} color="var(--ok)">
-          <div className="bf-rows">
-            {result.clear.map(c => <Row key={c.id} row={c} onGo={onGo} />)}
+      ) : result.ran > 0 && (
+        <Card title="Past a threshold (0)" color="var(--ok)">
+          <div className="bf-intro">
+            Nothing that ran is past its threshold. That is a statement about the{' '}
+            {result.ran} rules that had data, not about the {result.total - result.ran}{' '}
+            that did not.
           </div>
         </Card>
       )}
 
-      <Skipped rows={result.skipped} />
+      {/* Decision 1 of the library: never collapsed, and now placed ABOVE the
+          passing checks rather than below them, because an absence is closer in
+          importance to a flag than to a pass. */}
+      <Waiting rows={result.skipped} onGo={onGo} />
+
+      <ClearByTopic rows={result.clear} onGo={onGo} />
 
       <Card title="Where the numbers come from" color="var(--cyan)">
-        <div className="bf-legend">
-          {Object.values(BASIS).map(b => (
-            <div key={b.key} className="bf-legend-row">
-              <span className="bf-basis" style={{ color: b.color, borderColor: b.color }}>{b.label}</span>
-              <span className="bf-legend-txt">{b.note}</span>
-            </div>
-          ))}
-        </div>
+        <button className="bf-legend-tog" onClick={() => setLegend(l => !l)}>
+          {legend ? '−' : '+'} what the three chips on each row mean
+        </button>
+        {legend && (
+          <div className="bf-legend">
+            {Object.values(BASIS).map(b => (
+              <div key={b.key} className="bf-legend-row">
+                <span className="bf-basis" style={{ color: b.color, borderColor: b.color }}>{b.label}</span>
+                <span className="bf-legend-txt">{b.note}</span>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="bf-foot-note">
           Nothing on this screen is stored. It is recomputed from the same saved
           figures every other screen reads, so it cannot go stale — and it cannot

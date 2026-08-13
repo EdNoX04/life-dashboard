@@ -5834,3 +5834,59 @@ th:hover .hold-info { color: var(--cyan); }
   .xr-pair-hd { grid-template-columns: minmax(0, 1fr) 56px 18px; }
   .xr-pair-bar { display: none; }
 }
+
+/* ------------------------------------------------- Briefing, second pass ---
+   The old screen was honest and unreadable: twenty rules as twenty full blocks,
+   with the eight that found nothing sitting between the flags and the absences.
+   These rules fold the passing checks and compress the absences to one line
+   each — WITHOUT hiding either count, which is the whole point of the panel. */
+
+.bf-wait-hd {
+  font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1px;
+  color: var(--ink-3); margin: 12px 0 6px;
+}
+.bf-wait-hd:first-of-type { margin-top: 6px; }
+.bf-waits { display: flex; flex-direction: column; gap: 3px; }
+.bf-wait {
+  display: grid; grid-template-columns: 104px minmax(0, 1fr) auto;
+  gap: 10px; align-items: center;
+  padding: 6px 9px; background: var(--panel); border-left: 3px solid var(--ink-3);
+}
+.bf-wait.bf-broke { border-left-color: var(--red); }
+.bf-wait-topic {
+  font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1px;
+  color: var(--ink-3); text-transform: uppercase;
+}
+.bf-wait-txt {
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px; line-height: 1.35;
+  color: var(--ink-2); min-width: 0;
+}
+.bf-wait-txt b { color: var(--red); font-weight: 400; }
+
+.bf-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.bf-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 9px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--border-bright); color: var(--ink-2);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px;
+}
+.bf-chip:hover { background: var(--panel-2); color: var(--ink); }
+.bf-chip.on { background: var(--panel-2); color: var(--ink); border-color: var(--ok); }
+.bf-chip i { font-style: normal; color: var(--ink-3); font-size: 12px; }
+.bf-chip b {
+  font-weight: 400; color: var(--ok);
+  font-family: var(--font-pixel); font-size: 8px;
+}
+.bf-chip-open { margin-top: 10px; }
+
+.bf-legend-tog {
+  background: none; border: none; cursor: pointer; padding: 0 0 2px;
+  color: var(--ink-3); font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px;
+}
+.bf-legend-tog:hover { color: var(--ink); }
+.bf-legend { margin-top: 10px; }
+
+@media (max-width: 760px) {
+  .bf-wait { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .bf-wait .bf-go { justify-self: start; }
+}

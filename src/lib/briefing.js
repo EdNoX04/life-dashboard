@@ -142,6 +142,110 @@ export const RULES = [
     },
   },
 
+  // --- look-through -------------------------------------------------------
+  //
+  // Five rules that need nothing from you. Every other rule in this file waits
+  // on a figure you have to type; these run on the book itself the day the app
+  // is installed, which is when the briefing is emptiest and least useful.
+  //
+  // None of them introduces a threshold I picked. Two reuse a convention this
+  // file already cites, two derive their limit from the data's own shape the way
+  // conc.spread does, and one has a threshold of zero — which needs no
+  // justification, because "some of your money is missing from the total" is not
+  // a matter of degree.
+  {
+    id: 'xray.top1', topic: 'Concentration', view: 'xray', basis: 'convention',
+    needs: 'at least one holding with a price',
+    cite: 'The same 20–25% single-position convention conc.top1 cites, applied to true exposure instead of to the ticker. No new number: the only thing that changed is that the funds have been unpacked first.',
+    run: ({ xray, cur }) => {
+      const top = xray?.exposures?.[0];
+      if (!top || !fin(xray.total) || xray.total <= 0) return null;
+      const LIMIT = 25, BAND = 5;
+      const shelf = fin(xray.shelf?.[top.sym]);
+      const where = shelf == null
+        ? `and its own ticker is not on your shelf at all`
+        : `while its own line reads ${pc(shelf)}`;
+      if (top.pct <= LIMIT) {
+        return { ok: true,
+          headline: `After unpacking every fund, your largest single company is ${top.name} at ${pc(top.pct)} of the book.`,
+          detail: `Under the ${LIMIT}% single-position convention, ${where}.` };
+      }
+      return { ok: false, over: top.pct - LIMIT, band: BAND,
+        headline: `${top.name} is ${pc(top.pct)} of everything you own once the funds are unpacked, ${where}.`,
+        detail: `That is ${pp(top.pct - LIMIT)} past the ${LIMIT}% single-position convention. The X-ray screen shows which funds it arrives through.` };
+    },
+  },
+  {
+    id: 'xray.spread', topic: 'Concentration', view: 'xray', basis: 'stated',
+    needs: 'at least two companies after the funds are unpacked',
+    cite: 'The same effective-N arithmetic conc.spread uses, over companies instead of positions. The X-ray prints it beside the coverage figure it is measured across, because an effective count over two-thirds of a book is not a fact about the book.',
+    run: ({ xray }) => {
+      const eff = fin(xray?.conc?.effective);
+      const n = xray?.exposures?.length ?? 0;
+      if (eff == null || n < 2) return null;
+      // Derived from the data, exactly as conc.spread derives its own: the point
+      // at which the company count stops describing the book.
+      const LIMIT = n / 2, BAND = Math.max(1, n / 6);
+      const basis = fin(xray?.conc?.basis);
+      const across = basis == null ? '' : ` Measured across the ${pc(basis)} of the book that could be decomposed.`;
+      if (eff >= LIMIT) {
+        return { ok: true, headline: `${plural(n, 'company', 'companies')} spread like ${n1(eff)} equal ones.`,
+          detail: `At least half the company count.${across}` };
+      }
+      return { ok: false, over: LIMIT - eff, band: BAND,
+        headline: `Your funds resolve to ${plural(n, 'company', 'companies')}, but they spread like ${n1(eff)} equal ones.`,
+        detail: `Under half the company count, which means counting names overstates how spread the book is.${across}` };
+    },
+  },
+  {
+    id: 'xray.overlap', topic: 'Concentration', view: 'xray', basis: 'stated',
+    needs: 'two funds held with published compositions',
+    cite: 'Overlap is the sum of the smaller weight in every company two funds share, and it fires at 50% — the point at which two funds are literally more than half the same fund. That is a statement of arithmetic, not a view about whether owning both is wise. The figure is a FLOOR: it is computed from top-25 lists, so the unlisted remainders overlap further by an amount nothing can see.',
+    run: ({ xray }) => {
+      const pairs = xray?.pairs;
+      if (!pairs?.length) return null;
+      const LIMIT = 50, BAND = 10;
+      const worst = pairs[0];
+      if (worst.pct <= LIMIT) {
+        return { ok: true, headline: `Your most similar pair of funds, ${worst.a} and ${worst.b}, share at least ${pc(worst.pct)} of themselves.`,
+          detail: `No pair is more than half the same fund on the holdings we can see.` };
+      }
+      const others = pairs.filter(p => p.pct > LIMIT).length;
+      return { ok: false, over: worst.pct - LIMIT, band: BAND,
+        headline: `${worst.a} and ${worst.b} are at least ${pc(worst.pct)} the same fund${others > 1 ? `, and ${others - 1} other pair${others > 2 ? 's are' : ' is'} also past half` : ''}.`,
+        detail: `Past the point where two funds are more than half identical. The X-ray lists the shared names and their weights.` };
+    },
+  },
+  {
+    id: 'data.currency', topic: 'Records', view: 'portfolio', basis: 'stated',
+    needs: 'holdings with prices',
+    cite: 'Threshold zero, which needs no source: a position left out of a total makes the total smaller by exactly its own value. The app excludes rather than converting at 1.0, because a rupee figure added to a dollar one is wrong by about ninety and a total that has absorbed one looks exactly like a correct total.',
+    run: ({ xray }) => {
+      const ex = xray?.excluded;
+      if (!ex) return null;
+      if (!ex.length) return { ok: true, headline: 'Every position is in a currency the totals can convert.', detail: 'Nothing is being left out of the book value.' };
+      return { ok: false, over: ex.length, band: 1,
+        headline: `${plural(ex.length, 'position is', 'positions are')} missing from the book value for want of an exchange rate: ${ex.map(e => e.ticker).join(', ')}.`,
+        detail: `The totals are understated by whatever those are worth. They are excluded rather than converted at 1.0, which would be wrong by the exchange rate instead of merely incomplete.` };
+    },
+  },
+  {
+    id: 'data.lookthrough', topic: 'Records', view: 'xray', basis: 'stated',
+    needs: 'at least one fund held',
+    cite: 'The X-ray publishes its own coverage on screen and refuses to spread an unknown fund across the names it does know. This rule reports the same figure the screen prints, which is how much of the book the concentration numbers above actually describe.',
+    run: ({ xray }) => {
+      const unknown = xray?.unknown;
+      if (!unknown || !fin(xray.total) || xray.total <= 0) return null;
+      if (!unknown.funds?.length) {
+        return { ok: true, headline: 'Every fund you hold has a published composition on file.',
+          detail: `The look-through covers the whole book${fin(xray.coverage) != null ? `, resolving ${pc(xray.coverage)} of it to named companies` : ''}.` };
+      }
+      return { ok: false, over: unknown.pct, band: 5,
+        headline: `${pc(unknown.pct)} of the book sits in ${plural(unknown.funds.length, 'fund', 'funds')} with no composition on file: ${unknown.funds.map(f => f.sym).join(', ')}.`,
+        detail: `Every company figure on the X-ray describes the rest of the book, not that part. The money is counted in the total and left out of the exposures rather than spread over the names we happen to know.` };
+    },
+  },
+
   // --- allocation ---------------------------------------------------------
   {
     id: 'alloc.drift', topic: 'Allocation', view: 'rebal', basis: 'yours',
@@ -495,6 +599,43 @@ export const RULES = [
 //     step further: here, there is no defensible mean at all.
 
 // ---------------------------------------------------------------------------
+// HOW TO MAKE A SKIPPED RULE RUN.
+//
+// Listing an absence is decision 1. Leaving the reader to work out what to do
+// about it is a different failure, and a quieter one: nine rows saying "needs
+// transactions logged" reads as a wall of excuses rather than a short list of
+// jobs. Each entry below names the ONE action that turns a skipped rule into a
+// running one, and the screen it happens on.
+//
+// This is not advice and the distinction is exact. "Save your target allocation
+// on the Rebalance screen" is an instruction about how to operate this app.
+// "Your target allocation should be 60/40" would be an instruction about your
+// money, and there is nothing in here of that kind — every action below is
+// record-keeping, and none of them names a number.
+//
+// A rule with no entry here cannot be enabled by anything you type. risk.grade
+// wants twenty days of history; the only thing that produces that is twenty days
+// passing. Saying so is more use than a button that cannot help.
+export const ENABLE = {
+  'alloc.drift': { view: 'rebal', action: 'Save a target allocation on the Rebalance screen.' },
+  'alloc.untargeted': { view: 'rebal', action: 'Save a target allocation on the Rebalance screen.' },
+  'data.factors': { view: 'fin', action: 'Import or type fundamentals on the Financials screen.' },
+  'cash.runway': { view: 'cash', action: 'Log transactions on the Cash screen, and record a deposit or cash balance.' },
+  'cash.rate': { view: 'cash', action: 'Log at least three complete months of transactions on the Cash screen.' },
+  'cash.fixed': { view: 'cash', action: 'Mark this month\u2019s transactions fixed or variable on the Cash screen.' },
+  'tax.term': { view: 'book', action: 'Import your order history so every lot carries a purchase date.' },
+  'tax.realised': { view: 'tax', action: 'Nothing to do unless you have sold this financial year \u2014 the rule needs a realised gain to report on.' },
+  'div.coverage': { view: 'divsync', action: 'Run the dividend import on the Data screen.' },
+  'div.source': { view: 'divsync', action: 'Run the dividend import on the Data screen, which fills more than one holding at once.' },
+  'plan.track': { view: 'plan', action: 'Add a goal with a target amount and a date on the Plan screen.' },
+  'plan.fire': { view: 'plan', action: 'Set a withdrawal rate on the Plan screen, and log transactions on the Cash screen.' },
+  'plan.date': { view: 'plan', action: 'Save a plan on the Plan screen with a monthly contribution, a growth rate and annual expenses.' },
+  'plan.spendgap': { view: 'plan', action: 'Enter annual expenses on the Plan screen, and log at least one month on the Cash screen.' },
+  'risk.grade': { view: null, action: 'Nothing to enter \u2014 this needs twenty days of recorded portfolio history, which only time produces.' },
+  'risk.dd': { view: null, action: 'Nothing to enter \u2014 this needs a recorded peak above today\u2019s value, which only time produces.' },
+};
+
+// ---------------------------------------------------------------------------
 
 export function brief(ctx = {}) {
   const flags = [], clear = [], skipped = [];
@@ -505,10 +646,13 @@ export function brief(ctx = {}) {
     // either. It lands in SKIPPED with the error, where it is visible.
     try { out = rule.run(ctx); }
     catch (e) {
-      skipped.push({ ...rule, why: `The rule failed to run: ${e.message}`, broke: true });
+      skipped.push({ ...rule, why: `The rule failed to run: ${e.message}`, broke: true, enable: ENABLE[rule.id] || null });
       continue;
     }
-    if (!out) { skipped.push({ ...rule, why: `Needs ${rule.needs}.` }); continue; }
+    if (!out) {
+      skipped.push({ ...rule, why: `Needs ${rule.needs}.`, enable: ENABLE[rule.id] || null });
+      continue;
+    }
     const row = { ...rule, ...out, basisInfo: BASIS[rule.basis] };
     if (out.ok) clear.push(row);
     else flags.push(row);

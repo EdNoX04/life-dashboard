@@ -25,8 +25,12 @@ export const MONEY_SECTIONS = [
     color: 'var(--green)',
     hint: 'What you own and what it did',
     views: [
-      { id: 'brief', label: '◆ Briefing' },
+      // Portfolio leads because it is the answer to "what is my money doing",
+      // which is why the tab gets opened. The briefing is the second question,
+      // not the first: it reads across every other screen, so it makes more
+      // sense once you have seen the book it is talking about.
       { id: 'portfolio', label: 'Portfolio' },
+      { id: 'brief', label: '◆ Briefing' },
       { id: 'book', label: 'Book' },
       { id: 'accounts', label: 'Accounts' },
       { id: 'india', label: 'India' },
