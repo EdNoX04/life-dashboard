@@ -6072,3 +6072,58 @@ th:hover .hold-info { color: var(--cyan); }
   .acd-h span:nth-child(5), .acd-h span:nth-child(6),
   .acd-r .acd-dim, .acd-r .acd-n:nth-of-type(4) { display: none; }
 }
+
+/* -------------------------------------------------- Cash: the people ledger ---
+   Lending is not spending, so it does not live in the spending chart. It gets
+   its own card, and the two directions are two colours rather than a sign in
+   front of a number — a minus sign in a list of money is read as "less", not as
+   "the other way round". */
+
+.exp-person-in {
+  width: 130px; padding: 3px 6px;
+  background: var(--bg-deep); border: 1px solid var(--border-bright); color: var(--ink);
+  font-family: 'RupeeFix', 'VT323', monospace; font-size: 14px;
+}
+.exp-people { display: flex; flex-direction: column; gap: 3px; margin: 10px 0; }
+.exp-person {
+  display: grid; grid-template-columns: minmax(0, 1fr) 96px 74px minmax(0, 1.3fr) 22px;
+  gap: 10px; align-items: baseline; padding: 6px 9px;
+  background: var(--panel); border-left: 3px solid var(--ink-3);
+}
+.exp-person.exp-owes-you { border-left-color: var(--green); }
+.exp-person.exp-you-owe { border-left-color: var(--red); }
+.exp-person.exp-square { border-left-style: dashed; }
+.exp-person-n { color: var(--ink); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exp-person-b { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); font-size: 14px; }
+.exp-square { font-style: normal; font-size: 11.5px; color: var(--ink-3); }
+.exp-person-d { font-size: 11px; color: var(--ink-3); }
+.exp-person-c { font-size: 11px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exp-person-x { background: none; border: none; color: var(--ink-3); cursor: pointer; font-size: 15px; padding: 0; }
+.exp-person-x:hover { color: var(--red); }
+
+.exp-ledger-sum {
+  display: flex; flex-wrap: wrap; gap: 6px 20px; padding-top: 9px;
+  border-top: 1px solid var(--border-bright); font-size: 12.5px; color: var(--ink-2);
+}
+.exp-ledger-sum b { font-weight: 400; }
+
+.exp-found { display: flex; flex-direction: column; gap: 3px; margin-bottom: 12px; }
+.exp-found-r {
+  display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; gap: 10px; align-items: center;
+  padding: 5px 9px; background: var(--panel);
+}
+.exp-found-r b { color: var(--ink); font-weight: 500; font-size: 13px; }
+
+.exp-recat { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.exp-recat-list { display: flex; flex-wrap: wrap; gap: 4px; }
+.exp-recat-i {
+  padding: 2px 7px; background: var(--bg-deep); border: 1px solid var(--border-bright);
+  font-size: 11.5px; color: var(--ink-2);
+}
+.exp-recat-i i { font-style: normal; color: var(--ink-3); }
+
+@media (max-width: 760px) {
+  .exp-person { grid-template-columns: minmax(0, 1fr) 90px 22px; }
+  .exp-person-d, .exp-person-c { display: none; }
+  .exp-found-r { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+}

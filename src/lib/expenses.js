@@ -65,7 +65,14 @@ export const amountIn = (t = {}, base = DEFAULT_CUR, fx = null) =>
 export const CATEGORIES = [
   { key: 'food', label: 'Food', icon: '🍜', color: 'var(--orange)' },
   { key: 'rent', label: 'Rent & bills', icon: '⌂', color: 'var(--pink)' },
-  { key: 'transport', label: 'Transport', icon: '🚌', color: 'var(--cyan)' },
+  // Auto has its own line because it IS the spending: 28 of the first 65
+  // entries were autos, every one of them filed under a bucket that also had
+  // to hold a car wash. A category that holds 43% of your rows tells you
+  // nothing you did not already know — the whole point of a category is that
+  // it can be compared with another one.
+  { key: 'auto', label: 'Auto', icon: '🛺', color: 'var(--cyan)' },
+  { key: 'cab', label: 'Cab', icon: '🚕', color: 'var(--yellow)' },
+  { key: 'transport', label: 'Transport, other', icon: '🚌', color: 'var(--s2)' },
   { key: 'college', label: 'College', icon: '✎', color: 'var(--purple)' },
   { key: 'shopping', label: 'Shopping', icon: '🛍', color: 'var(--yellow)' },
   { key: 'fun', label: 'Fun', icon: '★', color: 'var(--green)' },
@@ -78,7 +85,61 @@ export const CATEGORY = Object.fromEntries(CATEGORIES.map(c => [c.key, c]));
 export const catOf = k => CATEGORY[k] || CATEGORY.other;
 
 export const KINDS = ['in', 'out', 'transfer'];
-export const EMPTY_EXPENSES = { txns: [], budgets: {} };
+
+// LENDING IS NOT SPENDING, AND BEING REPAID IS NOT INCOME.
+//
+// Five thousand rupees lent to a friend leaves your pocket exactly like five
+// thousand spent on dinner, and the two are nothing alike: one is gone, the
+// other is still yours and is sitting with someone else. Counted as spending it
+// makes a month look ruinous and then makes the month you are repaid look like
+// a windfall — two wrong numbers that cancel out over a year, which is the
+// worst kind, because the total looks right and every month is wrong.
+//
+// So a `ledger` row moves cash without touching income or spend. It is not a
+// third category; it is a different axis, and the code keeps it that way.
+//
+//   'lend'    money out, they now owe you
+//   'borrow'  money in, you now owe them
+//   'settle'  a repayment, direction taken from `kind`
+//
+// ONE SIGN RULE COVERS ALL FOUR CASES. Positive means they owe you:
+//
+//   money OUT  -> +amount   (you lent, or you paid them back)
+//   money IN   -> −amount   (they repaid you, or you borrowed)
+//
+// That is not a coincidence worth being pleased about — it is the definition of
+// a running balance, and writing it as four branches is how three of them end
+// up with the wrong sign.
+export const LEDGER = ['lend', 'borrow', 'settle'];
+export const LEDGER_LABEL = {
+  lend: 'Lent', borrow: 'Borrowed', settle: 'Settling up',
+};
+export const isLedger = t => LEDGER.includes(t?.ledger);
+/** Change to what this person owes you. Money out increases it; money in reduces it. */
+export const ledgerDelta = (t = {}) =>
+  (isLedger(t) ? (t.kind === 'out' ? 1 : -1) * Math.abs(num(t.amount)) : 0);
+
+export const EMPTY_EXPENSES = { txns: [], budgets: {}, people: [] };
+
+// ------------------------------------------------------------------ people
+
+export const personId = name =>
+  String(name || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 40);
+
+export function normalisePerson(p = {}) {
+  const name = String(p.name || '').trim().slice(0, 40);
+  return { id: p.id || personId(name), name, note: String(p.note || '').slice(0, 200) };
+}
+
+export function addPerson(people = [], name, note = '') {
+  const person = normalisePerson({ name, note });
+  if (!person.name || !person.id) return people;
+  if (people.some(p => p.id === person.id)) return people;
+  return [...people, person];
+}
+
+export const removePerson = (people = [], id) => people.filter(p => p.id !== id);
+export const personOf = (people = [], id) => people.find(p => p.id === id) || null;
 
 export const monthKey = d => String(d).slice(0, 7);
 export const thisMonthKey = (now = new Date()) =>
@@ -91,7 +152,15 @@ export function normaliseTxn(t = {}) {
     date: typeof t.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(t.date) ? t.date.slice(0, 10) : '',
     amount: Math.abs(num(t.amount)),
     kind,
-    category: kind === 'out' && CATEGORY[t.category] ? t.category : kind === 'out' ? 'other' : (t.category || ''),
+    // A category only ever meant something for spending. Money coming in used
+    // to keep whatever the form last had selected, which is how "Father,
+    // ₹10,000" ended up filed under Fun and "Dunu, ₹2,000" under Transport —
+    // six rows, ₹27,000, sorted into buckets they have nothing to do with.
+    // Non-spending rows now carry no category rather than a misleading one.
+    category: kind === 'out' && CATEGORY[t.category] ? t.category : kind === 'out' ? 'other' : '',
+    // Who this was with. Free of the note field, so it can be totalled.
+    person: String(t.person || '').slice(0, 40),
+    ledger: LEDGER.includes(t.ledger) ? t.ledger : null,
     note: String(t.note || '').slice(0, 120),
     account: String(t.account || ''),
     fixed: !!t.fixed,
@@ -132,9 +201,20 @@ export function inMonth(txns = [], key) {
 // deliberately kept out of income and spend.
 export function totals(txns = [], { base = DEFAULT_CUR, fx = null } = {}) {
   let income = 0, spend = 0, transfers = 0, unconverted = 0;
+  let lent = 0, borrowed = 0, repaidIn = 0, repaidOut = 0;
   for (const t of txns) {
     const a = amountIn(t, base, fx);
     if (a == null) { unconverted += 1; continue; }
+    // Lending is not spending and repayment is not income. These rows are real
+    // cash movements and are reported as such, on their own lines, outside the
+    // two totals a savings rate is computed from.
+    if (isLedger(t)) {
+      if (t.ledger === 'lend') lent += a;
+      else if (t.ledger === 'borrow') borrowed += a;
+      else if (t.kind === 'in') repaidIn += a;
+      else repaidOut += a;
+      continue;
+    }
     if (t.kind === 'in') income += a;
     else if (t.kind === 'transfer') transfers += a;
     else spend += a;
@@ -142,6 +222,13 @@ export function totals(txns = [], { base = DEFAULT_CUR, fx = null } = {}) {
   const net = income - spend;
   return {
     income, spend, transfers, net, base, unconverted,
+    lent, borrowed, repaidIn, repaidOut,
+    // What actually left or entered your hands, including the lending. Kept
+    // apart from `net` because one answers "how am I doing" and the other
+    // answers "where did the balance go", and they are different questions
+    // that a single figure would have to pick between.
+    cashOut: spend + lent + repaidOut,
+    cashIn: income + transfers + borrowed + repaidIn,
     // Unknown, not zero: with nothing coming in there is no rate to quote.
     savingsRate: income > 0 ? (net / income) * 100 : null,
     count: txns.length,
@@ -152,7 +239,7 @@ export function byCategory(txns = [], { base = DEFAULT_CUR, fx = null } = {}) {
   const out = new Map();
   let spend = 0;
   for (const t of txns) {
-    if (t.kind !== 'out') continue;
+    if (t.kind !== 'out' || isLedger(t)) continue;
     const k = CATEGORY[t.category] ? t.category : 'other';
     const a = amountIn(t, base, fx);
     if (a == null) continue;
@@ -311,6 +398,151 @@ export function likelyRecurring(txns = [], { minMonths = 3, tolerance = 0.15, ba
     });
   }
   return out.sort((a, b) => b.annual - a.annual);
+}
+
+// ------------------------------------------------------- who owes whom
+
+/**
+ * Running balance per person. Positive means they owe you.
+ *
+ * People with a zero balance are KEPT, not dropped. "Dunu: settled" is the
+ * answer to a question you will ask again, and a name vanishing the moment it
+ * squares up is how you end up unsure whether it was ever settled or whether
+ * you forgot to record the loan at all.
+ */
+export function peopleBalances(txns = [], people = [], { base = DEFAULT_CUR, fx = null } = {}) {
+  const rows = new Map();
+  const ensure = (id, name) => {
+    if (!rows.has(id)) {
+      rows.set(id, { id, name: name || id, balance: 0, rows: [], lent: 0, borrowed: 0, settled: 0, unconverted: 0, last: null });
+    }
+    return rows.get(id);
+  };
+  for (const p of people) ensure(p.id, p.name);
+
+  for (const t of txns) {
+    if (!isLedger(t) || !t.person) continue;
+    const id = personId(t.person) || t.person;
+    const known = people.find(p => p.id === id);
+    const row = ensure(id, known ? known.name : t.person);
+    const a = amountIn(t, base, fx);
+    // An unconvertible row must not silently contribute nothing to a balance
+    // somebody is going to act on. It is counted and named instead.
+    if (a == null) { row.unconverted += 1; row.rows.push(t); continue; }
+    row.balance += (t.kind === 'out' ? 1 : -1) * a;
+    if (t.ledger === 'lend') row.lent += a;
+    else if (t.ledger === 'borrow') row.borrowed += a;
+    else row.settled += a;
+    row.rows.push(t);
+    if (!row.last || (t.date && t.date > row.last)) row.last = t.date || row.last;
+  }
+
+  return [...rows.values()]
+    .map(r => ({
+      ...r,
+      // Rounded before comparing to zero: a balance of 0.0000001 from two
+      // conversions is settled, and printing "owes you ₹0" is worse than
+      // printing nothing.
+      settledUp: Math.abs(r.balance) < 0.005,
+      direction: Math.abs(r.balance) < 0.005 ? 'square' : r.balance > 0 ? 'owes-you' : 'you-owe',
+      count: r.rows.length,
+    }))
+    .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
+}
+
+/** Net across everyone, kept as two figures because they are two facts. */
+export function ledgerSummary(balances = []) {
+  const owedToYou = balances.filter(b => b.balance > 0).reduce((a, b) => a + b.balance, 0);
+  const youOwe = balances.filter(b => b.balance < 0).reduce((a, b) => a - b.balance, 0);
+  return {
+    owedToYou, youOwe, net: owedToYou - youOwe,
+    people: balances.length,
+    open: balances.filter(b => !b.settledUp).length,
+    // Never a single "net position" alone. Being owed ₹5,000 and owing ₹5,000
+    // is not the same as owing nobody anything, and one number says it is.
+    square: balances.filter(b => b.settledUp).length,
+  };
+}
+
+// --------------------------------------------------- reading old entries
+
+// Names were being written into the note field, often in brackets — "GYM
+// ( Dunu )", "Popcorn ( Mansi )", "Aman ( Social )" — because there was
+// nowhere else to put them. This finds them so they can be offered back as
+// real people rather than retyped.
+//
+// It SUGGESTS. It never rewrites a row on its own: whether "Mami Dida" is a
+// person you lent to or a shop you paid is not a thing a regular expression
+// knows, and guessing wrong writes a debt into your ledger that nobody owes.
+const NOT_A_NAME = new Set([
+  'auto', 'cab', 'uber', 'ola', 'food', 'fun', 'gym', 'movie', 'printout',
+  'social', 'gold', 'unknown', 'roll', 'popcorn', 'car', 'wash', 'shake',
+  'mango', 'apple', 'music', 'spotify', 'apotify', 'money', 'ind', 'qqq', 'ntcc',
+]);
+
+export function detectPeople(txns = [], people = []) {
+  const known = new Set(people.map(p => p.id));
+  const found = new Map();
+  for (const t of txns) {
+    const note = String(t.note || '').trim();
+    if (!note) continue;
+    // Bracketed first — that was the deliberate convention.
+    const bracket = note.match(/\(([^)]{2,30})\)/);
+    const candidates = [];
+    if (bracket) candidates.push(bracket[1]);
+    const bare = note.replace(/\([^)]*\)/g, '').trim();
+    if (bare && !/\s/.test(bare)) candidates.push(bare);
+    else if (bare && bare.split(/\s+/).length === 2 && /^[A-Z]/.test(bare)) candidates.push(bare);
+
+    for (const c of candidates) {
+      const name = c.trim();
+      const id = personId(name);
+      if (!id || known.has(id)) continue;
+      // Word by word, not on the joined id. "Car Wash" and "Apple Music" both
+      // look like two-word names and neither is one — checking only the whole
+      // string let them through, because 'car-wash' is not in the list while
+      // 'car' and 'wash' both are. A false person is worse than a missed one:
+      // it invites you to open a debt with a car wash.
+      if (id.split('-').some(w => NOT_A_NAME.has(w))) continue;
+      if (/^\d+$/.test(id)) continue;
+      const row = found.get(id) || { id, name, count: 0, seen: [], total: 0 };
+      row.count += 1;
+      row.total += Math.abs(num(t.amount));
+      if (row.seen.length < 4) row.seen.push({ date: t.date, amount: t.amount, note, kind: t.kind });
+      found.set(id, row);
+    }
+  }
+  return [...found.values()].sort((a, b) => b.count - a.count || b.total - a.total);
+}
+
+// Which of the new transport categories a note belongs to. Only ever used to
+// OFFER a reclassification — an entry already sitting in auto or cab is left
+// alone, because the reader has by then made the choice themselves.
+const AUTO_RE = /\b(auto|rickshaw|toto|tuk)\b/i;
+const CAB_RE = /\b(cab|uber|ola|taxi|rapido|blusmart|blu smart)\b/i;
+
+export function suggestCategory(note = '', current = '') {
+  if (current === 'auto' || current === 'cab') return null;
+  const n = String(note || '');
+  if (CAB_RE.test(n)) return 'cab';
+  if (AUTO_RE.test(n)) return 'auto';
+  return null;
+}
+
+/** What a category clean-up WOULD do, so it can be shown before it is done. */
+export function suggestRecategorise(txns = []) {
+  const out = [];
+  for (const t of txns) {
+    if (t.kind !== 'out' || isLedger(t)) continue;
+    const to = suggestCategory(t.note, t.category);
+    if (to && to !== t.category) out.push({ id: t.id, from: t.category, to, note: t.note, amount: t.amount, date: t.date });
+  }
+  return out;
+}
+
+export function applyRecategorise(txns = [], changes = []) {
+  const by = new Map(changes.map(c => [c.id, c.to]));
+  return txns.map(t => (by.has(t.id) ? { ...t, category: by.get(t.id) } : t));
 }
 
 export function budgetStatus(cats = [], budgets = {}) {

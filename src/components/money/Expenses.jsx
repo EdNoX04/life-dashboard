@@ -6,6 +6,8 @@ import {
   totals, byCategory, monthlySeries, averages, runRate, fixedSplit,
   likelyRecurring, budgetStatus, plannerContribution,
   CURRENCIES, DEFAULT_CUR, symbolOf, savingsHistory, amountIn,
+  LEDGER_LABEL, addPerson, removePerson, personId,
+  peopleBalances, ledgerSummary, detectPeople, suggestRecategorise, applyRecategorise,
 } from '../../lib/expenses.js';
 
 // Cashflow. The portfolio tabs answer "what do I have"; this one answers the
@@ -199,8 +201,10 @@ export default function Expenses({ fx = null, onContribution }) {
   const [month, setMonth] = useState(() => thisMonthKey());
   const [form, setForm] = useState({
     date: todayISO(), amount: '', kind: 'out', category: 'food', note: '', fixed: false,
-    cur: DEFAULT_CUR,
+    cur: DEFAULT_CUR, person: '', ledger: null,
   });
+  const [newPerson, setNewPerson] = useState('');
+  const [tidy, setTidy] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [allMonths, setAllMonths] = useState(false);
   const [budgetEdit, setBudgetEdit] = useState(false);
@@ -212,6 +216,7 @@ export default function Expenses({ fx = null, onContribution }) {
       setData({
         txns: Array.isArray(v.txns) ? v.txns.map(normaliseTxn) : [],
         budgets: v.budgets && typeof v.budgets === 'object' ? v.budgets : {},
+        people: Array.isArray(v.people) ? v.people : [],
         base: v.base === 'USD' ? 'USD' : DEFAULT_CUR,
       });
       if (v.base === 'USD' || v.base === 'INR') setForm(f => ({ ...f, cur: v.base }));
@@ -239,6 +244,12 @@ export default function Expenses({ fx = null, onContribution }) {
   const contrib = useMemo(() => plannerContribution(series), [series]);
   const saves = useMemo(() => savingsHistory(series), [series]);
 
+  const people = data.people || [];
+  const balances = useMemo(() => peopleBalances(txns, people, opts), [txns, people, base, fx]);
+  const ledger = useMemo(() => ledgerSummary(balances), [balances]);
+  const found = useMemo(() => detectPeople(txns, people), [txns, people]);
+  const recat = useMemo(() => suggestRecategorise(txns), [txns]);
+
   // A row entered in a currency other than the base needs a rate to join the
   // totals. Without one it is left out and said so — a $12 charge added to a
   // rupee total as 12 is a wrong answer that looks like a right one.
@@ -252,7 +263,9 @@ export default function Expenses({ fx = null, onContribution }) {
     commit({ ...data, txns: [...txns, t] });
     // The currency is deliberately NOT reset with the amount and the note. If
     // you are logging in dollars you are usually logging several.
-    setForm(f => ({ ...f, amount: '', note: '' }));
+    // The person and the lend/borrow marker DO reset. Leaving them set is how
+    // the next unrelated auto fare ends up in somebody's debt.
+    setForm(f => ({ ...f, amount: '', note: '', person: '', ledger: null }));
   };
   const setBase = b => commit({ ...data, base: b === 'USD' ? 'USD' : DEFAULT_CUR });
   const drop = id => commit({ ...data, txns: txns.filter(t => t.id !== id) });
@@ -354,6 +367,28 @@ export default function Expenses({ fx = null, onContribution }) {
           <input style={{ width: 170 }} placeholder="Note (e.g. Spotify)" value={form.note}
             onChange={e => setForm({ ...form, note: e.target.value })}
             onKeyDown={e => e.key === 'Enter' && add()} />
+          {/* Who it was with, as a field rather than as something typed into the
+              note in brackets. The bracket convention worked — it just could
+              not be totalled. */}
+          <select value={form.person}
+            onChange={e => setForm({ ...form, person: e.target.value, ledger: e.target.value ? form.ledger : null })}
+            title="Who this was with">
+            <option value="">— nobody —</option>
+            {people.map(p2 => <option key={p2.id} value={p2.id}>{p2.name}</option>)}
+          </select>
+          {/* Only offered once a person is chosen, and OFF by default. Paying
+              for a friend is usually just paying for a friend; a screen that
+              assumed otherwise would quietly open debts nobody agreed to. */}
+          {form.person && (
+            <select value={form.ledger || ''}
+              onChange={e => setForm({ ...form, ledger: e.target.value || null })}
+              title="Is this money you expect back, or owe?">
+              <option value="">just with them</option>
+              <option value="lend">{form.kind === 'out' ? 'lending it' : 'they lent me'}</option>
+              <option value="borrow">borrowing it</option>
+              <option value="settle">settling up</option>
+            </select>
+          )}
           {form.kind === 'out' && (
             <label className="small flex" style={{ gap: 4, alignItems: 'center' }}>
               <input type="checkbox" checked={form.fixed} onChange={e => setForm({ ...form, fixed: e.target.checked })} />
@@ -367,8 +402,127 @@ export default function Expenses({ fx = null, onContribution }) {
           own money between accounts is not income, and counting it as such is the
           fastest way to a savings rate that means nothing. New entries default to
           rupees; switch the currency per entry when something really was in dollars.
+          {' '}Marking something as lending or borrowing keeps it out of spending and
+          income too: five thousand lent leaves your pocket exactly like five thousand
+          spent, and the two are nothing alike — one is gone, the other is still yours
+          and is sitting with someone else.
         </div>
       </Card>
+
+      {/* ---------------------------------------------------------- people */}
+      <Card
+        title={`People${ledger.open ? ` · ${ledger.open} open` : ''}`}
+        color="var(--pink)"
+        right={
+          <span className="flex" style={{ gap: 6 }}>
+            <input className="exp-person-in" placeholder="add a name" value={newPerson}
+              onChange={e => setNewPerson(e.target.value)}
+              onKeyDown={e => {
+                if (e.key !== 'Enter' || !newPerson.trim()) return;
+                commit({ ...data, people: addPerson(people, newPerson) });
+                setNewPerson('');
+              }} />
+            <button className="btn btn-sm btn-green" disabled={!newPerson.trim()}
+              onClick={() => { commit({ ...data, people: addPerson(people, newPerson) }); setNewPerson(''); }}>
+              + add
+            </button>
+          </span>
+        }
+      >
+        <p className="small muted" style={{ marginTop: 0 }}>
+          What you have lent and borrowed, per person. None of it counts as spending or
+          income — it is cash that moved and is still owed one way or the other.
+        </p>
+
+        {balances.length === 0 ? (
+          <Empty icon="◇" text="No people yet. Add a name, then mark an entry as lending, borrowing or settling up." />
+        ) : (
+          <>
+            <div className="exp-people">
+              {balances.map(b => (
+                <div key={b.id} className={`exp-person exp-${b.direction}`}>
+                  <span className="exp-person-n">{b.name}</span>
+                  <span className="exp-person-b">
+                    {b.settledUp
+                      ? <em className="exp-square">settled up</em>
+                      : fmt(Math.abs(b.balance), cur)}
+                  </span>
+                  <span className="exp-person-d">
+                    {b.settledUp ? '' : b.direction === 'owes-you' ? 'owes you' : 'you owe'}
+                  </span>
+                  <span className="exp-person-c">
+                    {b.count === 0 ? 'nothing recorded yet'
+                      : `${b.count} entr${b.count === 1 ? 'y' : 'ies'}${b.last ? ` · last ${b.last}` : ''}`}
+                    {b.unconverted > 0 && ` · ${b.unconverted} not converted`}
+                  </span>
+                  <button className="exp-person-x" title="remove this person"
+                    onClick={() => commit({ ...data, people: removePerson(people, b.id) })}>×</button>
+                </div>
+              ))}
+            </div>
+
+            {/* Two figures, never one. Being owed ₹5,000 and owing ₹5,000 is not
+                the same as owing nobody anything, and a single net number says
+                it is. */}
+            <div className="exp-ledger-sum">
+              <span>Owed to you <b style={{ color: 'var(--green)' }}>{fmt(ledger.owedToYou, cur)}</b></span>
+              <span>You owe <b style={{ color: 'var(--red)' }}>{fmt(ledger.youOwe, cur)}</b></span>
+              <span className="muted">
+                {ledger.open === 0 ? 'everything is square'
+                  : `${ledger.open} open, ${ledger.square} settled`}
+              </span>
+            </div>
+          </>
+        )}
+      </Card>
+
+      {/* ------------------------------------------------------- tidy up */}
+      {(found.length > 0 || recat.length > 0) && (
+        <Card title="Tidy up" color="var(--yellow)"
+          right={<button className="btn btn-sm" onClick={() => setTidy(t2 => !t2)}>{tidy ? 'hide' : 'show'}</button>}>
+          <p className="small muted" style={{ marginTop: 0 }}>
+            {found.length > 0 && `${found.length} name${found.length === 1 ? '' : 's'} in your notes that could be ${found.length === 1 ? 'a person' : 'people'}. `}
+            {recat.length > 0 && `${recat.length} entr${recat.length === 1 ? 'y looks' : 'ies look'} like a ride filed under the general transport bucket. `}
+            Nothing is changed until you say so — whether a name in a note is someone
+            you lent to or a shop you paid is not a thing a program knows, and guessing
+            wrong writes a debt nobody owes.
+          </p>
+
+          {tidy && found.length > 0 && (
+            <div className="exp-found">
+              {found.map(f => (
+                <div key={f.id} className="exp-found-r">
+                  <b>{f.name}</b>
+                  <span className="muted small">
+                    {f.count} entr{f.count === 1 ? 'y' : 'ies'} · {f.seen.map(x => x.note).slice(0, 2).join(', ')}
+                  </span>
+                  <button className="btn btn-sm btn-green"
+                    onClick={() => commit({ ...data, people: addPerson(people, f.name) })}>
+                    add as a person
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {tidy && recat.length > 0 && (
+            <div className="exp-recat">
+              <div className="exp-recat-list">
+                {recat.slice(0, 8).map(c => (
+                  <span key={c.id} className="exp-recat-i">
+                    {c.note || '(no note)'} <i>{catOf(c.from).label} → {catOf(c.to).label}</i>
+                  </span>
+                ))}
+                {recat.length > 8 && <span className="muted small">and {recat.length - 8} more</span>}
+              </div>
+              <button className="btn btn-sm btn-green"
+                onClick={() => commit({ ...data, txns: applyRecategorise(txns, recat) })}>
+                refile {recat.length} entr{recat.length === 1 ? 'y' : 'ies'}
+              </button>
+            </div>
+          )}
+        </Card>
+      )}
 
       <Card title="In and out, month by month" color="var(--cyan)"
         right={<span className="small muted">last {Math.min(series.length, 14)} months</span>}>
