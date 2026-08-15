@@ -173,3 +173,30 @@ eq(showProgress(list, { 1: S1, 2: S1, 0: S1 }, set).partial, false,
 
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);
+
+// ------------------------------------------------- genre beats the name list
+
+// House M.D. was badged SITCOM on the shelf. The cause was ordering: a hardcoded
+// list of sitcom TITLES was consulted before the genres TMDB actually returns,
+// and 'house' was on it. A list of names cannot know about a show it has never
+// heard of, and it mislabels anything that shares a title.
+eq(guessKind({ title: 'House', type: 'tv', genres: ['Drama', 'Mystery'] }), 'tv',
+   'a medical drama is not a sitcom, whatever it is called');
+eq(guessKind({ title: 'Modern Family', type: 'tv', genres: ['Comedy'] }), 'sitcom',
+   'a comedy series still reads as a sitcom');
+eq(guessKind({ title: 'The Bear', type: 'tv', genres: ['Comedy', 'Drama'] }), 'tv',
+   'comedy-drama is not a sitcom — the drama tag is the tiebreak');
+
+// The name list survives only where there is nothing better to go on.
+eq(guessKind({ title: 'Friends', type: 'tv', genres: [] }), 'sitcom',
+   'with no genres at all, the hint list still helps');
+eq(guessKind({ title: 'House', type: 'tv', genres: [] }), 'tv',
+   'and House is no longer on it');
+
+// Unchanged rules, asserted so the reordering did not quietly break them.
+eq(guessKind({ title: 'Anything', type: 'movie', genres: ['Comedy'] }), 'movie',
+   'a film is a film regardless of genre');
+eq(guessKind({ title: 'Frieren', type: 'tv', genres: ['Animation'], countries: ['JP'] }), 'anime',
+   'Japanese animation is anime');
+eq(guessKind({ title: 'Bluey', type: 'tv', genres: ['Animation', 'Comedy'], countries: ['AU'] }), 'sitcom',
+   'animation alone is not anime');

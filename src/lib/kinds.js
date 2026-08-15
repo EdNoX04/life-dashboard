@@ -77,7 +77,7 @@ export const isEpisodic = key => !!kindOf(key)?.episodic;
 // confirm; this list only pre-selects the suggestion so the common cases need no
 // thought. Both the American and Indian ones asked for are here.
 export const SITCOM_HINTS = [
-  'modern family', 'house m.d.', 'house', 'the office', 'friends', 'seinfeld',
+  'modern family', 'the office', 'friends', 'seinfeld',
   'brooklyn nine-nine', 'parks and recreation', 'how i met your mother',
   'the big bang theory', 'arrested development', 'community', 'frasier',
   'cheers', 'scrubs', 'new girl', 'the good place', 'ted lasso', 'abbott elementary',
@@ -98,15 +98,28 @@ export const SITCOM_HINTS = [
 export function guessKind({ title = '', type = 'movie', genres = [], countries = [], languages = [] } = {}) {
   if (String(type) === 'movie') return 'movie';
   const t = String(title).toLowerCase().trim();
-  if (SITCOM_HINTS.some(h => t === h || t.startsWith(`${h}:`) || t.startsWith(`${h} `))) return 'sitcom';
-
   const g = genres.map(x => String(x).toLowerCase());
+
   const isAnimation = g.includes('animation');
   const jp = countries.map(c => String(c).toUpperCase()).includes('JP')
     || languages.some(l => /japanese/i.test(String(l)));
   // Animation ALONE is not anime — that would file Bluey and Rick and Morty as
   // anime. Japanese origin is the part that carries the meaning.
   if (isAnimation && jp) return 'anime';
+
+  // Genres decide when we have them. TMDB has no "sitcom" genre, but a comedy
+  // series that is not also a drama is the closest honest reading, and it is
+  // per-title truth rather than a guess from a name.
+  if (g.length) {
+    if (g.includes('comedy') && !g.includes('drama')) return 'sitcom';
+    return 'tv';
+  }
+
+  // Only with no genres at all does the hint list get a say. It is a list of
+  // names, so it cannot know about a show it has never heard of and it mislabels
+  // anything sharing a title — which is precisely how a medical drama called
+  // "House" ended up badged SITCOM.
+  if (SITCOM_HINTS.some(h => t === h || t.startsWith(`${h}:`) || t.startsWith(`${h} `))) return 'sitcom';
 
   return 'tv';
 }
