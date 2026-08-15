@@ -3,6 +3,7 @@ import { useCollection, todayStr } from '../lib/hooks.js';
 import { Card, RefreshButton } from '../components/ui.jsx';
 import * as db from '../lib/db.js';
 import { buildICS, downloadICS } from '../lib/ics.js';
+import { normaliseTask, fmtTime as fmtT, fmtDuration, isScheduled, layoutDay } from '../lib/todos.js';
 
 const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DOW_S = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -14,7 +15,10 @@ const fmtTime = iso => { try { return new Date(iso).toLocaleTimeString('en-IN', 
 export default function Calendar() {
   const { items: mem, refresh: rMem } = useCollection('memory', { filter: 'key=eq.calendar_events', order: 'key' });
   const { items: timetable } = useCollection('timetable', { order: 'start_time', asc: true });
-  const { items: todos } = useCollection('todos');
+  const { items: rawTodos } = useCollection('todos');
+  // Normalised through the same model the Todos tab uses, so a task cannot mean
+  // one thing on one screen and another here.
+  const todos = useMemo(() => (rawTodos || []).map(normaliseTask), [rawTodos]);
   const today = new Date();
   const todayK = dayKey(today);
   const [cursor, setCursor] = useState({ y: today.getFullYear(), m: today.getMonth() });
@@ -45,6 +49,25 @@ export default function Calendar() {
         sortT: e.allDay ? '00:00' : `${z(s.getHours())}:${z(s.getMinutes())}`,
       });
     });
+    // Tasks. A task WITH a time sorts into the day among the classes and the
+    // meetings, because at that point it is a commitment like any other. A task
+    // with only a date sorts to the top as a deadline — it is a thing owed by
+    // the end of the day, not a thing happening at midnight, and the label says
+    // so rather than showing 12:00 am.
+    todos.filter(t => t.due_date === key).forEach(t => items.push({
+      type: 'task',
+      time: isScheduled(t) ? fmtT(t.due_time) : 'Due',
+      title: t.title,
+      sub: [fmtDuration(t.duration_min), t.list && t.list !== 'Inbox' ? t.list : '']
+        .filter(Boolean).join(' · '),
+      id: t.id,
+      done: t.completed,
+      // Completed tasks stay on the day they were done. A calendar is a record
+      // as well as a plan, and deleting the evidence the moment something is
+      // finished makes a busy week look empty in hindsight.
+      sortT: isScheduled(t) ? t.due_time : '00:00',
+    }));
+
     items.sort((a, b) => (a.sortT || '').localeCompare(b.sortT || ''));
     return items;
   };
@@ -129,7 +152,9 @@ export default function Calendar() {
                 onClick={() => { setSelected(cell.key); setForm(f => ({ ...f, summary: '' })); }}>
                 <span className="cal-num">{cell.day}</span>
                 <span className="cal-dots">
-                  {cell.items.slice(0, 3).map((it, i) => <span key={i} className={`cal-dot ${it.type === 'class' ? 'd-class' : 'd-gcal'}`} />)}
+                  {cell.items.slice(0, 3).map((it, i) => (
+                    <span key={i} className={`cal-dot ${it.type === 'class' ? 'd-class' : it.type === 'task' ? 'd-task' : 'd-gcal'}`} />
+                  ))}
                   {cell.items.length > 3 && <span className="cal-more">+{cell.items.length - 3}</span>}
                 </span>
               </button>
@@ -155,24 +180,50 @@ export default function Calendar() {
               <button className="btn btn-sm btn-pink" onClick={() => setSelected(null)}>✕</button>
             </div>
 
+            {/* The same layout the Todos day grid draws, so the two screens
+                cannot disagree about whether an afternoon is full. Clashes are
+                named here too — a double-booking found on the calendar is
+                exactly where you want to find one. */}
+            {(() => {
+              const d = layoutDay(todos, selected);
+              if (!d.blocks.length && !d.unscheduled.length) return null;
+              return (
+                <div className="cal-load">
+                  {fmtDuration(d.plannedMin) || 'no time'} of tasks booked
+                  {d.unplacedMin > 0 && <i> · {fmtDuration(d.unplacedMin)} estimated with no time yet</i>}
+                  {d.clashes.length > 0 && (
+                    <b className="cal-clash" title={d.clashes.map(c => `${c.a.title} × ${c.b.title}`).join('\n')}>
+                      {' '}· ⚠ {d.clashes.length} overlap{d.clashes.length === 1 ? '' : 's'}
+                    </b>
+                  )}
+                </div>
+              );
+            })()}
+
             {selItems.length === 0 && <div className="muted small" style={{ padding: '4px 2px' }}>— nothing scheduled —</div>}
             {selItems.map((it, i) => (
-              <div className="row" key={i}>
-                <span className={`chip ${it.type === 'class' ? 'c-purple' : 'c-cyan'}`} style={{ minWidth: 66, textAlign: 'center' }}>{it.time}{it.endTime ? `–${it.endTime}` : ''}</span>
-                <span style={{ flex: 1 }}>{it.title}{it.sub ? <span className="muted small"> · {it.sub}</span> : ''}</span>
+              <div className={`row${it.type === 'task' && it.done ? ' cal-donerow' : ''}`} key={i}>
+                <span className={`chip ${it.type === 'class' ? 'c-purple' : it.type === 'task' ? 'c-green' : 'c-cyan'}`}
+                  style={{ minWidth: 66, textAlign: 'center' }}>{it.time}{it.endTime ? `–${it.endTime}` : ''}</span>
+                <span style={{ flex: 1 }}>
+                  <span className={it.type === 'task' && it.done ? 'struck' : ''}>{it.title}</span>
+                  {it.sub ? <span className="muted small"> · {it.sub}</span> : ''}
+                </span>
                 {it.meet && (
                   <a className="btn btn-sm btn-green" href={it.meet} target="_blank" rel="noreferrer"
                      title="Join the Google Meet for this event">JOIN</a>
                 )}
                 <span
-                  className={`chip ${it.type === 'class' ? 'c-purple' : 'c-cyan'}`}
+                  className={`chip ${it.type === 'class' ? 'c-purple' : it.type === 'task' ? 'c-green' : 'c-cyan'}`}
                   // A work event and a personal event are both "GCAL", which is
                   // the least interesting thing about either of them. The chip
                   // takes the account colour so the day reads at a glance.
                   style={it.type === 'gcal' && it.color ? { color: it.color, borderColor: it.color } : undefined}
                   title={it.alsoOn?.length ? `Also on: ${it.alsoOn.join(', ')}` : undefined}
                 >
-                  {it.type === 'class' ? 'CLASS' : (it.accountLabel || 'GCAL').toUpperCase()}
+                  {it.type === 'class' ? 'CLASS'
+                    : it.type === 'task' ? (it.done ? 'DONE' : 'TASK')
+                      : (it.accountLabel || 'GCAL').toUpperCase()}
                 </span>
                 {it.type === 'gcal' && it.id && <button className="btn btn-sm" onClick={() => delEvent(it.id, it.title)}>✕</button>}
               </div>

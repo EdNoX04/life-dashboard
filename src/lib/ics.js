@@ -42,10 +42,33 @@ export function buildICS({ timetable = [], events = [], todos = [] }) {
     L.push('END:VEVENT');
   });
 
-  // open todos with due dates → all-day reminders
+  // Open todos with a due date. A task WITH a time exports as a real timed
+  // event of its real length; a task with only a date stays an all-day
+  // reminder. Exporting everything as all-day was fine when nothing had a
+  // time — now it would flatten a booked afternoon into a row of banners at
+  // the top of the day, which is the same lie the app refuses to tell.
   todos.filter(t => t.due_date && !t.completed).forEach((t, i) => {
-    L.push('BEGIN:VEVENT', `UID:${uid('t' + i)}`, `DTSTAMP:${stampUTC(now)}`,
-      `DTSTART;VALUE=DATE:${t.due_date.replace(/-/g, '')}`, `SUMMARY:${esc('☑ ' + (t.title || 'task'))}`, 'END:VEVENT');
+    const timed = /^\d{1,2}:\d{2}/.test(String(t.due_time || ''));
+    L.push('BEGIN:VEVENT', `UID:${uid('t' + i)}`, `DTSTAMP:${stampUTC(now)}`);
+    if (timed) {
+      const mins = Number(t.duration_min) > 0 ? Math.round(Number(t.duration_min)) : 30;
+      const [y, m, d] = t.due_date.split('-').map(Number);
+      const start = new Date(y, m - 1, d);
+      const [hh, mm] = String(t.due_time).split(':').map(Number);
+      const endMins = hh * 60 + mm + mins;
+      const end = new Date(y, m - 1, d);
+      // Past midnight rolls into the next day rather than producing an end
+      // time before the start, which some calendars silently drop.
+      end.setDate(end.getDate() + Math.floor(endMins / 1440));
+      const em = endMins % 1440;
+      L.push(`DTSTART:${floatDT(start, String(t.due_time).slice(0, 5))}`,
+        `DTEND:${floatDT(end, `${String(Math.floor(em / 60)).padStart(2, '0')}:${String(em % 60).padStart(2, '0')}`)}`);
+    } else {
+      L.push(`DTSTART;VALUE=DATE:${t.due_date.replace(/-/g, '')}`);
+    }
+    L.push(`SUMMARY:${esc('☑ ' + (t.title || 'task'))}`);
+    if (t.notes) L.push(`DESCRIPTION:${esc(String(t.notes))}`);
+    L.push('END:VEVENT');
   });
 
   L.push('END:VCALENDAR');

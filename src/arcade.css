@@ -6299,3 +6299,15 @@ th:hover .hold-info { color: var(--cyan); }
   .tt2-daywrap { grid-template-columns: minmax(0, 1fr); }
   .tt2-tray { order: -1; }
 }
+
+/* Tasks on the calendar. Green so a task never reads as a meeting, and a
+   completed one stays on the day it was done — a calendar is a record as well
+   as a plan, and deleting the evidence makes a busy week look empty later. */
+.cal-dot.d-task { background: var(--green); }
+.cal-donerow { opacity: .55; }
+.cal-load {
+  margin: 6px 0 10px; padding: 6px 9px; font-size: 11.5px; line-height: 1.5;
+  color: var(--ink-3); background: var(--panel-2); border-left: 2px solid var(--green);
+}
+.cal-load i { font-style: normal; }
+.cal-clash { font-weight: 400; color: var(--orange); }
