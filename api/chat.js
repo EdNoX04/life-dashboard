@@ -68,7 +68,33 @@ async function verifySession(req) {
   return u?.id ? u : null;
 }
 
-async function callAnthropic({ model, system, messages, maxTokens }) {
+// Effort governs how many tokens Sonnet spends before it answers — thinking,
+// prose, tool arguments, all of it. The API default is "high", which is tuned for
+// hard agentic coding and is simply the wrong shape for this app: FinBoy's job is
+// to read fourteen retrieved facts and write a careful paragraph. The difficult
+// parts — retrieval, refusing advice, checking every number back against the
+// context — happen in our own code precisely so they do not depend on the model
+// thinking harder. Paying for deep deliberation on top of that buys very little.
+//
+// "medium" is the documented cost step-down and is described as comparable to
+// Sonnet 4.6 at high effort, which is a good deal. "low" is documented as
+// suitable for chat and non-coding work and is worth trying for FinBoy later.
+const EFFORTS = ['low', 'medium', 'high'];
+const DEFAULT_EFFORT = EFFORTS.includes(process.env.ANTHROPIC_EFFORT || '')
+  ? process.env.ANTHROPIC_EFFORT
+  : 'medium';
+
+// A client may ask to spend LESS than the server's setting, never more. Effort is
+// a spending dial arriving from a browser, and the only safe direction for a
+// browser to move a spending dial is down. xhigh and max are not reachable from
+// here at all.
+function effortFor(requested) {
+  const want = EFFORTS.indexOf(String(requested || ''));
+  const cap = EFFORTS.indexOf(DEFAULT_EFFORT);
+  return want >= 0 && want < cap ? EFFORTS[want] : DEFAULT_EFFORT;
+}
+
+async function callAnthropic({ model, system, messages, maxTokens, effort }) {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw Object.assign(new Error('Anthropic key is not configured on the server.'), { code: 503 });
 
@@ -78,6 +104,7 @@ async function callAnthropic({ model, system, messages, maxTokens }) {
     body: JSON.stringify({
       model,
       max_tokens: maxTokens,
+      output_config: { effort: effortFor(effort) },
       ...(system ? { system } : {}),
       messages: messages.map(m => ({ role: m.role, content: m.content })),
     }),
@@ -141,8 +168,8 @@ export default async function handler(req, res) {
 
   try {
     const call = provider === 'anthropic' ? callAnthropic : callNvidia;
-    const out = await call({ model, system: body.system, messages: body.messages, maxTokens });
-    return json(res, 200, { ...out, provider, model });
+    const out = await call({ model, system: body.system, messages: body.messages, maxTokens, effort: body.effort });
+    return json(res, 200, { ...out, provider, model, effort: provider === 'anthropic' ? effortFor(body.effort) : undefined });
   } catch (e) {
     // The provider's own message, minus anything that could carry a key. Errors
     // from these APIs echo request context back, and a 401 body is the one place

@@ -43,14 +43,16 @@ export const SENSITIVE_AGENTS = ['money', 'finboy', 'health', 'journal', 'brief'
 
 // messages: [{ role:'user'|'assistant', content:'…' }]
 // agent:    which screen is asking. Omitted means "treat as personal".
-export async function aiChat(messages, { system, agent = '', model = '', maxTokens = 1024 } = {}) {
+// effort: only meaningful on the Anthropic path. The server caps it — a caller
+// may ask to spend LESS than the configured level, never more.
+export async function aiChat(messages, { system, agent = '', model = '', maxTokens = 1024, effort = '' } = {}) {
   const token = await accessToken();
   if (!token) throw new Error('Sign in to use the assistant.');
 
   const r = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ agent, model, system, messages, maxTokens }),
+    body: JSON.stringify({ agent, model, system, messages, maxTokens, effort }),
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j?.error || `Assistant unavailable (${r.status})`);

@@ -140,8 +140,14 @@ export default function Settings() {
           not go there. The split is decided on the server, not here, because a
           browser that could choose could choose wrong.
         </div>
+        <div className="small muted mt" style={{ lineHeight: 1.6 }}>
+          Sonnet runs at <b>medium effort</b> — the documented cost step-down from the
+          API default of high, described as comparable to Sonnet 4.6 at high. Effort
+          governs every token spent on a reply, so this trims deliberation and answer
+          length together. Change it with <code>ANTHROPIC_EFFORT</code> on Vercel.
+        </div>
         <div className="small muted mt">
-          To change a key or a model, edit the environment variables on Vercel and redeploy.
+          To change a key, a model or the effort level, edit the environment variables on Vercel and redeploy.
         </div>
       </Card>
 
