@@ -199,7 +199,7 @@ export default function HQ({ go }) {
   // which is exactly why the ring is worth having next to it.
   const AllocationCard = (
     <DashAllocation key="alloc" held={held} quotes={quotes} moneyVis={moneyVis}
-      cur="$" onOpen={() => go('money')} />
+      cur="$" fx={fx} onOpen={() => go('money')} />
   );
 
   // Same cards, grouped by column count. 2-col grouping is the original iPad layout.

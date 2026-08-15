@@ -14,7 +14,7 @@ import PaymentHistory from '../components/money/PaymentHistory.jsx';
 import { loadAccounts, filterRows as filterByAccount } from '../lib/accounts.js';
 import YieldDesk from '../components/money/YieldDesk.jsx';
 import ValueDesk from '../components/money/ValueDesk.jsx';
-import { holdingRows } from '../lib/holdings.js';
+import { holdingRows, dayPnl } from '../lib/holdings.js';
 import { clampRange, sliceRange } from '../lib/range.js';
 import { currencyOf } from '../lib/indiabook.js';
 import CryptoHoldings from '../components/CryptoHoldings.jsx';
@@ -277,19 +277,18 @@ export default function Money() {
   // rupee value of the GOLDBEES position.
   const { value, cost, pnl, pnlPct, excludedInr } = portfolioTotals(held, { priceOf, fx, currencyOf });
 
-  // today's 1D gain/loss from live change vs prev close
-  const { dayGain, dayBase } = held.reduce((a, h) => {
-    const q = quotes[h.ticker];
-    const qty = Number(h.qty);
-    if (q?.change != null && q?.prevClose != null) {
-      // Same conversion as the totals: a rupee move is not a dollar move.
-      const r = currencyOf(h) === 'INR' ? (fx || null) : 1;
-      if (r) { a.dayGain += (qty * q.change) / r; a.dayBase += (qty * q.prevClose) / r; }
-    }
-    return a;
-  }, { dayGain: 0, dayBase: 0 });
-  const dayPct = dayBase ? (dayGain / dayBase) * 100 : 0;
-  const haveLive = dayBase > 0;
+  // Today's move, WITH the count of what it actually covers. This used to be a
+  // bare reduce that skipped any holding whose quote had not arrived and then
+  // printed the result as the portfolio's day — which is why it could read
+  // −$7.63 while the broker's own app said +$2.52. Neither figure was wrong
+  // about what it measured; only one of them said what it measured.
+  const day = useMemo(
+    () => dayPnl(held, quotes, { fx, currencyOf, priceOf }),
+    [held, quotes, fx],
+  );
+  const dayGain = day.gain;
+  const dayPct = day.pct ?? 0;
+  const haveLive = day.base > 0;
 
   // Rows for the accounts screen. Built from the same held/priceOf/quotes the
   // headline numbers above are built from, so an account total and the portfolio
@@ -909,6 +908,20 @@ export default function Money() {
           </div>
         ) : (
           <div className="muted small">{status === 'nokey' ? 'Add a free Finnhub key in Settings to see live daily P&L.' : 'Waiting for live quotes…'}</div>
+        )}
+        {/* The figure above is a sum over the holdings that reported. Saying so
+            is the difference between a number you can reconcile against your
+            broker and a number that just disagrees with it. */}
+        {haveLive && !day.whole && (
+          <div className="daypl-cov">
+            from {day.quoted} of {day.total} holdings
+            {day.covered != null && ` · ${day.covered.toFixed(0)}% of the book by value`}
+            {day.missing.length > 0 && ` · no quote yet for ${day.missing.slice(0, 4).join(', ')}${day.missing.length > 4 ? `+${day.missing.length - 4}` : ''}`}
+            {day.excluded.length > 0 && ` · ${day.excluded.join(', ')} excluded, no exchange rate`}
+          </div>
+        )}
+        {haveLive && day.whole && (
+          <div className="daypl-cov">all {day.total} holdings reported</div>
         )}
       </div>
 

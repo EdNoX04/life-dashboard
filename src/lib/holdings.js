@@ -399,3 +399,60 @@ export function portfolioTotals(held = [], { priceOf, fx = null, currencyOf }) {
   const pnl = value - cost;
   return { value, cost, pnl, pnlPct: cost ? (pnl / cost) * 100 : 0, excludedInr };
 }
+
+/**
+ * Today's move — and, just as importantly, how much of the book it describes.
+ *
+ * This was a partial sum presented as a total. Only holdings whose quote came
+ * back with BOTH a change and a previous close contributed; everything else was
+ * skipped, silently, and the result was labelled "TODAY'S P&L" as though it
+ * covered the portfolio. The percentage was worse: it divided by the quoted
+ * subset's own prior value, so a figure computed from twelve holdings was
+ * printed as the whole book's day.
+ *
+ * That is the shape of every disagreement with a broker's own app. The broker
+ * sums twenty positions; this summed the ones that answered. Neither number is
+ * wrong about what it measured, and only one of them says what it measured.
+ *
+ * So: same arithmetic, plus the counts. `covered` is the share of the book's
+ * market value that actually had a quote, and `missing` names what did not.
+ */
+export function dayPnl(held = [], quotes = {}, { fx = null, currencyOf = () => 'USD', priceOf } = {}) {
+  let gain = 0, base = 0, quotedValue = 0, totalValue = 0;
+  const missing = [], excluded = [];
+
+  for (const h of held) {
+    const qty = num(h?.qty ?? h?.shares);
+    if (!(qty > 0)) continue;
+    const ccy = currencyOf(h);
+    const rate = ccy === 'USD' ? 1 : (fx || null);
+    const px = priceOf ? Number(priceOf(h)) : num(h?.last_price);
+    if (!rate) { excluded.push(h.ticker); continue; }
+
+    const value = (qty * (px || 0)) / rate;
+    totalValue += value;
+
+    const q = quotes[h.ticker] || {};
+    const change = nn(q.change);
+    const prev = nn(q.prevClose);
+    if (change == null || prev == null || !(prev > 0)) { missing.push(h.ticker); continue; }
+
+    gain += (qty * change) / rate;
+    base += (qty * prev) / rate;
+    quotedValue += value;
+  }
+
+  return {
+    gain, base,
+    // Of the quoted subset, which is the only thing this percentage can honestly
+    // be a percentage of.
+    pct: base > 0 ? (gain / base) * 100 : null,
+    quoted: held.length - missing.length - excluded.length,
+    total: held.length,
+    missing, excluded,
+    covered: totalValue > 0 ? (quotedValue / totalValue) * 100 : null,
+    // True only when every position reported. Anything less and the figure is
+    // about part of the book, which is a different sentence.
+    whole: missing.length === 0 && excluded.length === 0 && base > 0,
+  };
+}

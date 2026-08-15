@@ -6189,3 +6189,34 @@ th:hover .hold-info { color: var(--cyan); }
   .fb-launch { right: 12px; bottom: 12px; padding: 8px 11px; }
   .fb-launch-t { display: none; }
 }
+
+/* --- Allocation ring: legend carries identity, colour is the second channel ---
+   Five wedge hues clear the colourblind separation check; the legend means no
+   reader has to rely on hue at all. */
+
+.da-ring { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.da-ring > :first-child { flex: 0 0 132px; }
+.da-legend { flex: 1 1 190px; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.da-leg {
+  display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 8px; align-items: baseline;
+  font-size: 12.5px; color: var(--ink-2);
+}
+.da-leg:has(.da-leg-d) { grid-template-columns: 10px minmax(0, 1fr) auto auto; }
+.da-dot { width: 9px; height: 9px; align-self: center; border: 1px solid var(--bg-deep); }
+.da-leg-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.da-leg-n { font-style: normal; color: var(--ink-3); font-size: 11px; }
+.da-leg-d { font-variant-numeric: tabular-nums; font-size: 11.5px; }
+.da-leg-p { color: var(--ink); font-variant-numeric: tabular-nums; min-width: 46px; text-align: right; }
+
+.da-offer { margin-top: 10px; padding: 9px 10px; background: var(--panel-2); border-left: 3px solid var(--green); }
+.da-offer-why { font-size: 12px; line-height: 1.5; color: var(--ink-2); margin-bottom: 6px; }
+.da-offer-what { font-size: 12px; color: var(--ink-3); margin-bottom: 8px; }
+
+@media (max-width: 480px) {
+  .da-ring { flex-direction: column; align-items: stretch; }
+  .da-ring > :first-child { align-self: center; }
+}
+
+/* The day figure says what it covers. A partial sum labelled as a total is how
+   a screen ends up disagreeing with a broker for reasons nobody can find. */
+.daypl-cov { margin-top: 6px; font-size: 11px; color: var(--ink-3); line-height: 1.45; }

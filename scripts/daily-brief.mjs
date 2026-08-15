@@ -22,6 +22,37 @@ const money = n => '$' + Number(n || 0).toLocaleString('en-US', { maximumFractio
 
 const ETF = new Set(['QQQ', 'QQQM', 'SCHD', 'SPMO', 'VOO', 'SPY', 'VTI', 'GLD']);
 
+// CURRENCY. This script summed `qty × last_price` across the whole book with no
+// conversion at all, which meant a GOLDBEES position worth about fifteen dollars
+// entered the brief as one thousand four hundred and seventy-nine — and the brief
+// then sorted by that same number and announced GOLDBEES as the second largest
+// holding. The portfolio line read $7,716 against the app's own $6,237, and both
+// looked equally plausible because a rupee and a dollar are the same digits once
+// the symbol is gone.
+//
+// The app already knows which holdings are rupee-priced; this is that list, kept
+// here because a cron script cannot import a browser module. It matches
+// KNOWN_INR_TICKERS in src/lib/indiabook.js — if one gains an entry, so must the
+// other, which is why they are named after each other.
+const INR_TICKERS = new Set([
+  'GOLDBEES', 'NIFTYBEES', 'JUNIORBEES', 'BANKBEES', 'LIQUIDBEES', 'SILVERBEES',
+  'SETFGOLD', 'HDFCGOLD', 'GOLDSHARE', 'MON100', 'MAFANG',
+]);
+const isInr = h => String(h?.currency || '').toUpperCase() === 'INR'
+  || INR_TICKERS.has(String(h?.ticker || '').toUpperCase());
+
+// A rupee holding with no rate is EXCLUDED and counted, never converted at 1.0.
+// A total that has quietly absorbed one looks exactly like a correct total —
+// which is precisely how this went unnoticed.
+async function usdInr() {
+  try {
+    const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=INR');
+    const j = await r.json();
+    const v = Number(j?.rates?.INR);
+    return Number.isFinite(v) && v > 0 ? v : null;
+  } catch { return null; }
+}
+
 import {
   parseRss, dedupe, balance, cleanSummary, countByCategory,
 } from './lib/newsfeed.mjs';
@@ -109,12 +140,30 @@ async function run() {
   sections.push({ title: `Schedule — ${weekday}`, body: sched.length ? sched.join('\n') : 'No classes or events today.' });
 
   const held = investments.filter(h => Number(h.qty) > 0);
-  const value = held.reduce((s, h) => s + Number(h.qty) * Number(h.last_price || h.avg_cost || 0), 0);
-  const cost = held.reduce((s, h) => s + Number(h.qty) * Number(h.avg_cost || 0), 0);
+  const fx = await usdInr();
+  const dropped = [];
+  // Every figure below is in DOLLARS, converted once, per holding, using the
+  // holding's own currency — not the book's, because the book has two.
+  const priced = [];
+  for (const h of held) {
+    const rate = isInr(h) ? fx : 1;
+    if (!rate) { dropped.push(h.ticker); continue; }
+    const px = Number(h.last_price || h.avg_cost || 0);
+    priced.push({
+      ticker: h.ticker,
+      value: (Number(h.qty) * px) / rate,
+      cost: (Number(h.qty) * Number(h.avg_cost || 0)) / rate,
+    });
+  }
+  const value = priced.reduce((s, h) => s + h.value, 0);
+  const cost = priced.reduce((s, h) => s + h.cost, 0);
   const pnl = value - cost, pnlPct = cost ? (pnl / cost) * 100 : 0;
-  const top = [...held].sort((a, b) => (Number(b.qty) * Number(b.last_price || b.avg_cost || 0)) - (Number(a.qty) * Number(a.last_price || a.avg_cost || 0))).slice(0, 3);
+  // Sorted on the CONVERTED value. Sorting on the raw one is what put a
+  // fifteen-dollar gold position second on this list.
+  const top = [...priced].sort((a, b) => b.value - a.value).slice(0, 3);
   const pLines = [`Value ${money(value)} · P&L ${pnl >= 0 ? '+' : ''}${money(pnl)} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%)`];
   if (top.length) pLines.push('Top: ' + top.map(h => h.ticker).join(', '));
+  if (dropped.length) pLines.push(`Left out for want of an exchange rate: ${dropped.join(', ')}`);
   sections.push({ title: 'Portfolio', body: pLines.join('\n') });
 
   if (news.length) sections.push({ title: 'News', body: news.slice(0, 5).map(n => `• ${n.title} — ${n.source}`).join('\n') });
