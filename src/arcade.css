@@ -6220,3 +6220,4 @@ th:hover .hold-info { color: var(--cyan); }
 /* The day figure says what it covers. A partial sum labelled as a total is how
    a screen ends up disagreeing with a broker for reasons nobody can find. */
 .daypl-cov { margin-top: 6px; font-size: 11px; color: var(--ink-3); line-height: 1.45; }
+.daypl-why { max-width: 74ch; margin-top: 4px; color: var(--ink-3); opacity: .85; }

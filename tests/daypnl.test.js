@@ -123,5 +123,36 @@ for (const [name, held, quotes] of [
   if (r) ok(!Number.isNaN(r.gain) && !Number.isNaN(r.base), `${name} produces no NaN`);
 }
 
+// ------------------------------------- the reported disagreement, reconciled
+//
+// The Money tab said −$7.63; INDmoney said +$2.52. Both were right. Summed from
+// INDmoney's OWN per-holding figures on 15 Aug 2026, with the real unit counts:
+//
+//   regular session (last close vs the close before)   −7.64
+//   after hours     (since that close)                 +2.52
+//
+// The app reads a quote feed that reports the completed regular session, so it
+// was showing the first. The broker app after the bell shows the second. This
+// case is kept because the next person to notice a ten-dollar gap will reach
+// for the arithmetic, and the arithmetic was never the problem.
+{
+  const UNITS = {
+    'BRK.B': [0.30331927, -2.90], SOFI: [3.471825172, -0.14], AMD: [0.030209567, 31.38],
+    AAPL: [0.356236517, 0.67], TSM: [0.102821904, -4.14], SPOT: [0.007898644, 14.58],
+    GOOGL: [1.214229996, -0.46], VOO: [2.623828442, -1.34], NET: [0.110556397, -15.05],
+    META: [0.287880679, -5.12], QQQM: [2.591178679, -0.40], NVDA: [1.722689072, -0.14],
+    TSLA: [0.019558193, 2.31], PLTR: [0.108151875, -4.97], QQQ: [0.230399091, -1.00],
+    SPMO: [6.267710557, 0.59], MSFT: [0.897961987, -1.48], AMZN: [0.568154836, -2.48],
+    SCHD: [12.270163756, 0.09],
+  };
+  const book = Object.entries(UNITS).map(([ticker, [qty]]) => ({ ticker, qty, last_price: 100 }));
+  const quotes = Object.fromEntries(
+    Object.entries(UNITS).map(([ticker, [, change]]) => [ticker, { change, prevClose: 100 }]),
+  );
+  const r = dayPnl(book, quotes, { fx: 95.53, currencyOf: ccy, priceOf: px });
+  near(r.gain, -7.64, 'summing the regular session reproduces the figure the app showed', 0.02);
+  eq(r.whole, true, 'from every holding, so coverage was never the explanation');
+}
+
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);

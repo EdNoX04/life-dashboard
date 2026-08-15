@@ -201,3 +201,14 @@ begin
     execute format('create policy "anon all" on %I for all using (true) with check (true)', t);
   end loop;
 end $$;
+
+-- Added 2026-08: see supabase/migrations/002-todos-time.sql for the migration
+-- that brings an existing database up to this shape.
+-- todos.due_time      time        wall-clock start; null means unscheduled
+-- todos.duration_min  int         planned length
+-- todos.actual_min    int         what it really took
+-- todos.subtasks      jsonb       [{id, title, done}]
+-- todos.repeat_rule   text        daily | weekdays | weekly | every:N
+-- todos.repeat_until  date
+-- todos.repeat_from   uuid        the task this was generated from
+-- todos.sort_order    int         sparse manual ordering

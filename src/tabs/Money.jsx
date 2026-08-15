@@ -904,7 +904,14 @@ export default function Money() {
             <span className="chip" style={{ color: dayGain >= 0 ? 'var(--green)' : 'var(--red)', borderColor: dayGain >= 0 ? 'var(--green)' : 'var(--red)' }}>
               {dayPct >= 0 ? '▲' : '▼'} {Math.abs(dayPct).toFixed(2)}%
             </span>
-            <span className="muted small">{marketOpen ? 'since prev close · updating live' : 'last session'}</span>
+            {/* WHICH WINDOW. This tile read "last session" and disagreed with
+                INDmoney by about ten dollars, and the disagreement was real
+                arithmetic on both sides measuring different things: the
+                completed regular session here, the move since that close
+                there. Naming the window is the whole fix. */}
+            <span className="muted small">
+              {marketOpen ? 'since prev close · updating live' : 'last full session · regular hours only'}
+            </span>
           </div>
         ) : (
           <div className="muted small">{status === 'nokey' ? 'Add a free Finnhub key in Settings to see live daily P&L.' : 'Waiting for live quotes…'}</div>
@@ -922,6 +929,22 @@ export default function Money() {
         )}
         {haveLive && day.whole && (
           <div className="daypl-cov">all {day.total} holdings reported</div>
+        )}
+        {/* Said once, plainly, because this figure WILL get compared against a
+            broker app and the two will differ whenever the market is shut.
+            Neither is wrong. Finnhub's quote gives the last regular close
+            against the one before it, so this is the completed session.
+            INDmoney's "1D" after the bell is the extended-hours move since
+            that close — a different window, and it can point the other way.
+            The free quote feed does not carry extended-hours prices, so this
+            screen cannot show that second number rather than guessing at it. */}
+        {haveLive && !marketOpen && (
+          <div className="daypl-cov daypl-why">
+            This is the last completed regular session, close against the close
+            before it. A broker app open right now may show a different figure —
+            that is usually the after-hours move since this close, which is a
+            different window rather than a different answer.
+          </div>
         )}
       </div>
 
