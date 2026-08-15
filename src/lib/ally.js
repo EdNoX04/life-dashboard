@@ -31,7 +31,28 @@ export const SCOPES = {
     // browser.
     reads: ['diary', 'shelf', 'lists'],
     blurb: 'your watch diary, shelf and lists',
+    agent: 'media',
   },
+  // Everything below arrived later, and the shape is deliberate: each entry names
+  // its tables one at a time. The alternative — "whatever this tab happens to have
+  // loaded" — means a store added to a tab next year silently starts leaving the
+  // browser, and nobody reviews a change that was never written down.
+  college:   { label: 'College',   reads: ['timetable', 'subjects'],        blurb: 'your timetable and subjects', agent: 'college' },
+  todo:      { label: 'Tasks',     reads: ['todos'],                        blurb: 'your task list', agent: 'todo' },
+  habits:    { label: 'Habits',    reads: ['habits', 'habit_logs'],         blurb: 'your habits and their logs', agent: 'habits' },
+  goals:     { label: 'Goals',     reads: ['goals'],                        blurb: 'your goals', agent: 'goals' },
+  study:     { label: 'Study',     reads: ['subjects', 'memory.study'],     blurb: 'your subjects and study sessions', agent: 'study' },
+  notes:     { label: 'Notes',     reads: ['memory.notes'],                 blurb: 'your notes', agent: 'notes' },
+  books:     { label: 'Books',     reads: ['memory.books'],                 blurb: 'your reading list', agent: 'books' },
+  dsa:       { label: 'DSA',       reads: ['memory.dsa_solves'],            blurb: 'your solved problems', agent: 'dsa' },
+  placement: { label: 'Placement', reads: ['memory.placement'],             blurb: 'your placement prep and applications', agent: 'placement' },
+  health:    { label: 'Health',    reads: ['health_metrics', 'workouts'],   blurb: 'your health metrics and workouts', agent: 'health' },
+  calendar:  { label: 'Calendar',  reads: ['memory.calendar_events', 'timetable', 'todos'], blurb: 'your calendar, classes and tasks', agent: 'calendar' },
+
+  // Journal and money are deliberately ABSENT, and their absence is the design.
+  // A tab with no entry here gets no data at all, so forgetting one is the safe
+  // direction. Money has its own assistant with its own refusals; the journal is
+  // not something a general chat window should be able to quote back.
 };
 
 export const scopeFor = tab => SCOPES[tab] || null;
@@ -134,12 +155,32 @@ export function systemPrompt(tab, contextText) {
   }
 
   base.push(
-    `You can see ONLY ${scope.blurb} — nothing from any other part of the app. If asked about money, health, tasks or anything else, say you can only see the ${scope.label} tab.`,
-    'Never recommend a title in the ALREADY WATCHED list. Check it before every suggestion.',
-    'When suggesting something, give the runtime and one concrete reason tied to what they actually rated or wrote — not a generic synopsis.',
-    'You do NOT know what is currently streaming or on which service. If asked where to watch something, say the app has a Where to Watch panel on each title and that your own knowledge of availability would be out of date.',
-    'Never invent a rating, a date, or a film. If the answer is not in the context, say what is missing.',
+    `You can see ONLY ${scope.blurb} — nothing from any other part of the app. If asked about money, the journal, or anything on another tab, say plainly that you cannot see it and name the tab that can.`,
+    'Never state a number, a date or a name that is not in the context below. If the answer is not there, say what is missing rather than filling the gap.',
+    'A list marked "showing N of M" is a window, not the whole set. Do not conclude anything from what is absent from it.',
   );
+
+  if (tab === 'media') {
+    // Tuned for GLM-5.2 specifically, and these are the four failures that made
+    // the media assistant useless in testing rather than merely imperfect.
+    base.push(
+      // 1. The one unforgivable error. Recommending a film someone has already
+      //    seen tells them instantly that it is not reading their data at all.
+      'Never recommend a title in the ALREADY WATCHED list. Check that list before every single suggestion, including follow-ups later in the conversation.',
+      // 2. Generic synopses are what a model produces when it is not using the
+      //    context. Forcing the reason to cite THEIR rating or THEIR words makes
+      //    the difference visible in the output.
+      'Every suggestion needs its runtime and one concrete reason tied to something they actually rated or wrote — quote the rating or the phrase. A plot summary is not a reason.',
+      // 3. Availability changes weekly and its training data does not.
+      'You do NOT know what is streaming or where. If asked, point at the Where to Watch panel on each title and say your own knowledge of availability would be out of date.',
+      // 4. GLM-5.2 is a strong, verbose reasoner and will happily produce ten
+      //    ranked options with headings. Three is what fits the card, and a
+      //    person choosing what to watch tonight cannot use ten.
+      'Suggest at most three titles at a time, in prose. No numbered lists, no headings, no tables.',
+      'Do not invent a rating, a year, a runtime or a film. Every one of those must come from the context.',
+    );
+  }
+
   return `${base.join(' ')}\n\nTHEIR DATA:\n${contextText}`;
 }
 
@@ -240,5 +281,98 @@ export function homeContext({
     + 'rather than guessing.');
 
   const out = parts.join('\n');
+  return out.length > MAX_CONTEXT_CHARS ? out.slice(0, MAX_CONTEXT_CHARS - 1) + '…' : out;
+}
+
+// ---------------------------------------------------------------------------
+// A context for every scoped tab.
+//
+// One function rather than eleven bespoke ones, because eleven would drift: the
+// tenth would forget to state its empty case, and an empty section reads to a
+// model as "there is nothing" rather than "I was not given this". That confusion
+// is the single most common way an assistant says something false with total
+// confidence, so it is handled once, here, for all of them.
+//
+// Everything is capped and the cap is announced. "Showing 20 of 143" tells the
+// model it is looking at a window; a silently truncated list tells it those are
+// all the tasks that exist, and it will happily reason from that.
+
+const CAP = 20;
+
+function section(title, rows, render) {
+  if (!rows || !rows.length) return `${title}: none recorded.`;
+  const shown = rows.slice(0, CAP);
+  const head = rows.length > CAP ? `${title} (showing ${CAP} of ${rows.length})` : title;
+  return `${head}: ` + shown.map(render).filter(Boolean).join('; ') + '.';
+}
+
+const d10 = v => String(v || '').slice(0, 10);
+
+export function tabContext(tab, data = {}, now = new Date()) {
+  const scope = SCOPES[tab];
+  if (!scope) return null;              // no entry, no data — the safe direction
+
+  const p = [`Today is ${now.toISOString().slice(0, 10)}.`];
+  const {
+    timetable = [], subjects = [], todos = [], habits = [], habitLogs = [], goals = [],
+    notes = [], books = [], dsa = [], placement = [], health = [], workouts = [],
+    events = [], study = [],
+  } = data;
+
+  switch (tab) {
+    case 'college':
+      p.push(section('Classes', timetable, r => `${r.day || ''} ${r.start || r.start_time || ''} ${r.subject || r.name || ''}${r.room ? ` (${r.room})` : ''}`.trim()));
+      p.push(section('Subjects', subjects, s2 => `${s2.name || s2.code}${s2.attendance != null ? ` — attendance ${s2.attendance}%` : ''}`));
+      break;
+    case 'todo':
+      p.push(section('Open tasks', todos.filter(t => !t.completed),
+        t => `${t.title}${t.due_date ? ` due ${t.due_date}` : ''}${t.due_time ? ` ${t.due_time}` : ''}${t.duration_min ? ` (${t.duration_min}m)` : ''}`));
+      p.push(`${todos.filter(t => t.completed).length} completed task(s) on record.`);
+      break;
+    case 'habits':
+      p.push(section('Habits', habits, h => h.name || h.title));
+      // Counts rather than the raw log: "17 check-ins in 30 days" is the shape of
+      // the question people actually ask, and the individual dates are noise.
+      p.push(`${habitLogs.length} check-in(s) logged in total.`);
+      break;
+    case 'goals':
+      p.push(section('Goals', goals, g => `${g.title || g.name}${g.target ? ` → ${g.target}` : ''}${g.done ? ' (done)' : ''}`));
+      break;
+    case 'study':
+      p.push(section('Subjects', subjects, s2 => s2.name || s2.code));
+      p.push(section('Recent study sessions', study, x => `${d10(x.date || x.on)} ${x.subject || ''} ${x.minutes ? `${x.minutes}m` : ''}`.trim()));
+      break;
+    case 'notes':
+      // Titles and a short excerpt, never whole notes. A note is closer to a
+      // journal entry than to a row of data, and the whole text of one is rarely
+      // needed to answer a question about which notes exist.
+      p.push(section('Notes', notes, n => `${n.title || 'untitled'}${n.body ? ` — ${clip(n.body, 120)}` : ''}`));
+      break;
+    case 'books':
+      p.push(section('Books', books, b => `${b.title}${b.author ? ` by ${b.author}` : ''}${b.status ? ` (${b.status})` : ''}${b.rating ? ` ${b.rating}/5` : ''}`));
+      break;
+    case 'dsa':
+      p.push(section('Solved problems', dsa, x => `${x.title || x.name}${x.difficulty ? ` (${x.difficulty})` : ''}${x.on ? ` on ${d10(x.on)}` : ''}`));
+      break;
+    case 'placement':
+      p.push(section('Applications and prep', placement, x => `${x.company || x.title || ''}${x.role ? ` — ${x.role}` : ''}${x.status ? ` (${x.status})` : ''}`.trim()));
+      break;
+    case 'health':
+      p.push(section('Recent metrics', health, m => `${d10(m.date || m.on)} ${m.kind || m.metric || ''} ${m.value ?? ''}${m.unit || ''}`.trim()));
+      p.push(section('Workouts', workouts, w => `${d10(w.date || w.on)} ${w.kind || w.type || 'workout'}${w.minutes ? ` ${w.minutes}m` : ''}`));
+      break;
+    case 'calendar':
+      p.push(section('Upcoming events', events.filter(e => d10(e.start) >= now.toISOString().slice(0, 10)),
+        e => `${e.summary} ${String(e.start).slice(0, 16).replace('T', ' ')}${e.accountLabel ? ` [${e.accountLabel}]` : ''}`));
+      p.push(section('Classes', timetable, r => `${r.day || ''} ${r.start || r.start_time || ''} ${r.subject || r.name || ''}`.trim()));
+      p.push(section('Tasks with a date', todos.filter(t => !t.completed && t.due_date),
+        t => `${t.title} ${t.due_date}${t.due_time ? ` ${t.due_time}` : ''}`));
+      break;
+    default:
+      return null;
+  }
+
+  p.push(`You can see ONLY ${scope.blurb}. Anything else — money, journal, or another tab — is not available to you; say so rather than guessing.`);
+  const out = p.join('\n');
   return out.length > MAX_CONTEXT_CHARS ? out.slice(0, MAX_CONTEXT_CHARS - 1) + '…' : out;
 }

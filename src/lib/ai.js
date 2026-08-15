@@ -60,7 +60,7 @@ export function costOf(byModel = {}) {
 
 // Which agents are personal. Kept in step with the server list, but the server's
 // copy is the one that decides — this one only drives what the UI can offer.
-export const SENSITIVE_AGENTS = ['money', 'finboy', 'journal', 'brief'];
+export const SENSITIVE_AGENTS = ['money', 'ledger', 'finboy', 'journal', 'brief'];
 
 // messages: [{ role:'user'|'assistant', content:'…' }]
 // agent:    which screen is asking. Omitted means "treat as personal".

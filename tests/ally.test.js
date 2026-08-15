@@ -39,9 +39,26 @@ const NOW = new Date('2026-08-10T00:00:00Z');
 
 eq(scopeFor('media').label, 'Media', 'the media tab has a scope');
 eq(scopeFor('money'), null, 'the money tab does NOT — no scope, no data');
-eq(scopeFor('health'), null, 'nor health');
-eq(scopeFor('journal'), null, 'nor the journal');
-eq(Object.keys(SCOPES).length, 1, 'exactly one tab is wired so far — widening is a deliberate act');
+eq(scopeFor('journal'), null, 'nor the journal — and this one is permanent');
+
+// The count assertion that used to live here ("exactly one tab is wired") did its
+// job: widening had to come here and be argued for. Now that eleven more tabs are
+// wired, a count says nothing useful — it would pass just as happily if someone
+// added `money`. So the rule is stated as the rule.
+for (const forbidden of ['money', 'journal']) {
+  eq(scopeFor(forbidden), null, `${forbidden} has no scope and must never get one`);
+}
+// Health DOES have a scope now. That was a decision, not an oversight: the health
+// tab holds weight, sleep hours and workout counts — numbers that reveal little in
+// isolation. The journal is words, and words are a different category entirely.
+ok(scopeFor('health'), 'health is scoped — numbers, not words');
+
+// Every scope must name its tables one at a time. "Whatever this tab loaded" is
+// how a store added next year silently starts leaving the browser.
+for (const [tab, sc] of Object.entries(SCOPES)) {
+  ok(Array.isArray(sc.reads) && sc.reads.length > 0, `${tab} names the tables it may read`);
+  ok(typeof sc.blurb === 'string' && sc.blurb.length > 0, `${tab} can describe its own limits to the model`);
+}
 
 eq(buildContext('money', { log: LOG }), null, 'an unscoped tab builds NO context even when handed data');
 eq(buildContext('health', { log: LOG }), null, 'and cannot be talked into one');
@@ -82,12 +99,17 @@ eq(mediaContext({ log: [], shelf: [], lists: [], now: NOW }).includes('0 viewing
 // ------------------------------------------------------- the system prompt
 
 const sys = systemPrompt('media', ctx);
-ok(/only see the Media tab/i.test(sys), 'the prompt states the boundary in words the model will follow');
+ok(/can see ONLY/i.test(sys) && /watch diary/i.test(sys),
+   'the prompt states the boundary in words the model will follow');
+ok(/name the tab that can/i.test(sys),
+   'and tells it where to send the question instead of just refusing');
 ok(/Never recommend a title in the ALREADY WATCHED list/i.test(sys), 'and the exclusion rule');
 ok(/runtime/i.test(sys), 'asks for runtime, since "how long will this take" was the actual question');
 ok(/out of date/i.test(sys),
   'and forbids claiming streaming availability, which it cannot see and would confidently invent');
-ok(/Never invent a rating, a date, or a film/i.test(sys), 'and forbids inventing data outright');
+ok(/not invent a rating/i.test(sys), 'and forbids inventing data outright');
+ok(/at most three titles/i.test(sys),
+   'and caps the suggestions — GLM-5.2 will otherwise return ten with headings, and nobody choosing what to watch tonight can use ten');
 ok(sys.includes(ctx), 'the data is attached');
 
 // With no scope there is no data AND the model is told to say so, rather than

@@ -152,13 +152,13 @@ export default function Settings() {
           governs every token spent on a reply, so this trims deliberation and answer
           length together. Change it with <code>ANTHROPIC_EFFORT</code> on Vercel.
         </div>
-        <label className="mt">FinBoy model</label>
+        <label className="mt">LEDGER model</label>
         <select defaultValue={cfg.finboyModel || 'claude-sonnet-5'} onChange={upd('finboyModel')}>
           <option value="claude-sonnet-5">Sonnet 5 — best reasoning over your figures</option>
           <option value="claude-haiku-4-5">Haiku 4.5 — half the price, ample for reading facts</option>
         </select>
         <div className="small muted mt" style={{ lineHeight: 1.6 }}>
-          Haiku is worth trying. FinBoy's hard parts — retrieval, refusing advice, checking
+          Haiku is worth trying. LEDGER's hard parts — retrieval, refusing advice, checking
           every number back against your data — happen in code precisely so they do not
           depend on the model thinking harder. The server only accepts models from its own
           allowlist, so nothing here can pick something expensive by accident.
@@ -166,7 +166,7 @@ export default function Settings() {
 
         <label className="mt">
           <input type="checkbox" defaultChecked={!!cfg.finboyWeb} onChange={upd('finboyWeb', true)} />
-          {' '}Let FinBoy search the web
+          {' '}Let LEDGER search the web
         </label>
         <div className="small muted" style={{ lineHeight: 1.6 }}>
           For prices, filings and news your dashboard has not synced. Billed at about a cent

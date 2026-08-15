@@ -21,7 +21,7 @@ import { xrayFromBook } from '../../lib/xray.js';
 import { loadAccounts, accountSummary } from '../../lib/accounts.js';
 import { EMPTY_GOALS, goalProgress, projectAll, DEFAULT_PLAN } from '../../lib/plan.js';
 
-// FinBoy — the money-scoped assistant (spec item 8), screen half.
+// LEDGER — the money-scoped assistant (spec item 8), screen half.
 //
 // finboy.js decides what may be said. This file decides what the reader SEES,
 // and a chat window has a specific way of undoing a careful library: everything
@@ -93,7 +93,7 @@ export function Refusal({ kind, why, hits }) {
       {kind === 'nomatch' && (
         <div className="fb-fix">
           Try naming the thing you mean — a ticker, "tax", "dividends", "spending",
-          "goal". FinBoy only knows what the other screens have already worked out,
+          "goal". LEDGER only knows what the other screens have already worked out,
           so if a screen is empty this is empty too.
         </div>
       )}
@@ -178,7 +178,7 @@ export function Turn({ turn }) {
 }
 
 // ---------------------------------------------------------------------------
-export default function FinBoy({
+export default function LEDGER({
   held = [], priceOf = h => Number(h.last_price ?? h.avg_cost ?? 0), orders = [],
   series = [], benchmark = [], flowsByDay = {}, currentValue = null, crypto = [],
   cur = '$', fx = null,
@@ -319,7 +319,7 @@ export default function FinBoy({
     if (!hit.enough) {
       setQ('');
       return push({ q: text, kind: 'refusal', refusal: 'nomatch', hits: [],
-        why: `Nothing in your saved figures scored above the matching floor (best was ${hit.best.toFixed(2)}, the floor is ${FLOOR}). Rather than hand an unrelated set of numbers to a model and let it improvise, FinBoy stops here.` });
+        why: `Nothing in your saved figures scored above the matching floor (best was ${hit.best.toFixed(2)}, the floor is ${FLOOR}). Rather than hand an unrelated set of numbers to a model and let it improvise, LEDGER stops here.` });
     }
 
     if (intent.kind === 'advice') {
@@ -368,7 +368,7 @@ export default function FinBoy({
         <span className="fb-prov-tag">{label ? `via ${label}` : 'no key — quoting mode'}</span>
       }>
         <div className="small muted">
-          FinBoy answers only from figures the other screens have already worked out, and every
+          LEDGER answers only from figures the other screens have already worked out, and every
           answer arrives with those figures attached and dated. Any number in a reply that is
           not in them gets flagged on the reply itself — a wrong figure in a sentence reads
           exactly like a right one, which is the one failure this screen has that no chart does.
@@ -412,7 +412,7 @@ export default function FinBoy({
             <div className="fb-cost">
               {!preview && 'Nothing typed yet.'}
               {preview?.intent?.kind === 'offtopic' && 'That does not look like a money question — it will be answered here without going anywhere.'}
-              {preview?.intent?.kind === 'advice' && 'That is asking what to do. FinBoy will show the figures and decline the call — nothing will be sent.'}
+              {preview?.intent?.kind === 'advice' && 'That is asking what to do. LEDGER will show the figures and decline the call — nothing will be sent.'}
               {preview?.intent?.kind === 'money' && preview.hit && !preview.hit.enough
                 && `Nothing saved matches that yet (best score ${preview.hit.best.toFixed(2)} against a floor of ${FLOOR}) — nothing will be sent.`}
               {preview?.send && `${preview.hit.hits.length} figures will be sent, roughly ${preview.tokens} tokens — a fraction of a cent on ${label}.`}
@@ -424,7 +424,7 @@ export default function FinBoy({
       </Card>
 
       <div className="ai-note">
-        FinBoy is not a licensed adviser and nothing it says is investment or tax advice. It
+        LEDGER is not a licensed adviser and nothing it says is investment or tax advice. It
         describes figures you already have. Nothing you ask here is saved — close the tab and
         the conversation is gone, because an answer is only as true as the data was when it
         was drawn.

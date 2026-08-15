@@ -40,7 +40,10 @@
 // If that judgement ever changes, this is the only line to change. Adding a name
 // here moves a whole screen to the paid path; the fail-closed default below means
 // forgetting to add one is the safe direction.
-const SENSITIVE = new Set(['money', 'finboy', 'journal', 'brief']);
+// 'finboy' stays alongside 'ledger'. The name changed; a client still running
+// yesterday's bundle has not heard, and the one direction this set must never
+// fail is a money question quietly reaching the free tier.
+const SENSITIVE = new Set(['money', 'ledger', 'finboy', 'journal', 'brief']);
 
 const NVIDIA_DEFAULT = 'z-ai/glm-5.2';
 const ANTHROPIC_DEFAULT = 'claude-sonnet-5';

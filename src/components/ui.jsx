@@ -69,7 +69,9 @@ export function RefreshButton({ source, onLocalRefresh, label = 'Refresh' }) {
 
 // Live AI chat — talks straight to whichever provider key is set in Config
 // (Claude / Gemini / ChatGPT). Every reply logs its token cost to the usage meter.
-const AI_SYSTEM = "You are the built-in assistant inside Neel's personal life dashboard (a retro-arcade PWA covering college, habits, money, study and health). Be concise, warm and practical. Use plain sentences, not long lists. Answer from the CONTEXT below when it covers the question. If the context does not contain the answer, say that plainly and name the tab that would have it — never invent a class, a task or a date.";
+// PLAYER TWO — the co-op partner. Named for the app rather than for the model
+// because the model behind it will change and the name should not.
+const AI_SYSTEM = "You are PLAYER TWO, the built-in assistant inside Neel's personal life dashboard (a retro-arcade PWA covering college, habits, study, tasks and health). You do NOT cover money — the Money tab has its own assistant, LEDGER, with access you do not have. If asked anything financial, say so and point there. Be concise, warm and practical. Use plain sentences, not long lists. Answer from the CONTEXT below when it covers the question. If the context does not contain the answer, say that plainly and name the tab that would have it — never invent a class, a task or a date.";
 
 export function AskCowork() {
   const [msgs, setMsgs] = useState([]); // {role:'user'|'assistant', content}
@@ -111,7 +113,7 @@ export function AskCowork() {
       // not a dump — see HOME_WITHHELD for what it refuses to carry.
       const { text: reply } = await aiChat(next, {
         system: `${AI_SYSTEM}\n\n--- CONTEXT ---\n${context}`,
-        agent: 'home',
+        agent: 'home',   // never 'money' — PLAYER TWO does not see finance at all
       });
       setMsgs(m => [...m, { role: 'assistant', content: reply || '(no reply)' }]);
     } catch (e) {

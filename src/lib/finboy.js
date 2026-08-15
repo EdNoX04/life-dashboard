@@ -1,4 +1,4 @@
-// FinBoy — the money-scoped assistant (spec item 8).
+// LEDGER — the money-scoped assistant (spec item 8).
 //
 // A chatbot over your own finances is a different animal from a chatbot. The
 // dangerous answer here is not a rude one or a refused one; it is a fluent,
@@ -155,7 +155,7 @@ export function classify(question) {
   if (ADVICE.test(q)) {
     return {
       kind: 'advice',
-      why: 'That is asking what to do, and FinBoy does not do that. It reports what is '
+      why: 'That is asking what to do, and LEDGER does not do that. It reports what is '
         + 'in your data — it is not a licensed adviser and will not tell you what to buy, '
         + 'sell or hold. Here is what the data says; the decision stays yours.',
     };
@@ -163,7 +163,7 @@ export function classify(question) {
   if (!MONEYISH.test(q)) {
     return {
       kind: 'offtopic',
-      why: 'FinBoy only answers from your own money data, and nothing in this question '
+      why: 'LEDGER only answers from your own money data, and nothing in this question '
         + 'looks like it. Nothing was sent anywhere — asking it would have spent your API '
         + 'key on a question it could not have answered from your data anyway.',
     };
@@ -175,7 +175,7 @@ export function classify(question) {
 // Prompt
 
 export const SYSTEM = [
-  'You are FinBoy, a read-only assistant over one person\'s own financial data.',
+  'You are LEDGER, a read-only assistant over one person\'s own financial data.',
   '',
   'RULES, in order of importance:',
   '1. Every number you state must appear in the CONTEXT below. If it is not there, say you do not have it. Do not calculate new figures from the ones given, and do not estimate.',
@@ -260,7 +260,7 @@ export function quoteAnswer(hits = []) {
       : `${hits.length} things in your data match that:`,
     rows: hits.map(f => ({ topic: f.topic, text: f.text, asOf: f.asOfKnown ? stamp(f) : null })),
     tail: 'These are quoted straight from your saved figures, word for word — nothing here '
-      + 'has been summarised or recalculated. Add an AI key in Config and FinBoy will answer '
+      + 'has been summarised or recalculated. Add an AI key in Config and LEDGER will answer '
       + 'in sentences instead.',
   };
 }
@@ -279,7 +279,7 @@ export function buildIndex({
   alloc = null, conc = null, stats = null, drawdownInfo = null, profile = null,
   income = null, yieldInfo = null, taxInfo = null, cash = null, plan = null,
   tilt = null, asOf = undefined, seriesAsOf = undefined, factorAsOf = undefined,
-  // Everything built after FinBoy was. Each one was a question it would answer
+  // Everything built after LEDGER was. Each one was a question it would answer
   // confidently and wrongly — "how much NVIDIA do I own" got the direct line
   // and missed the four funds holding it; "who owes me money" got nothing at
   // all. A partial index is worse than a missing one, because the gaps are
@@ -307,8 +307,8 @@ export function buildIndex({
       .map(h => ({ t: h.ticker, n: h.name, v: Number(h.qty || 0) * priceOf(h) }))
       .filter(x => x.v > 0).sort((a, b) => b.v - a.v);
     // Every holding, not the top eight. A question about the twelfth-largest
-    // position used to retrieve nothing and be refused — which reads as "FinBoy
-    // does not know", when the truth was "FinBoy was not told". The prompt is
+    // position used to retrieve nothing and be refused — which reads as "LEDGER
+    // does not know", when the truth was "LEDGER was not told". The prompt is
     // still capped at MAX_FACTS, so this widens what CAN be found without
     // widening what gets sent.
     for (const p of ranked) {

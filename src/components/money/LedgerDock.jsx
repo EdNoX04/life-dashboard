@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import FinBoy from './FinBoy.jsx';
+import LEDGER from './LEDGER.jsx';
 
-// FinBoy, everywhere on the tab.
+// LEDGER, everywhere on the tab.
 //
 // It used to be a VIEW under PLAN, and that was wrong in two ways that
 // reinforced each other.
 //
 // It was wrong for the reader: to ask "why is this position so big" you had to
-// leave the screen showing the position. By the time FinBoy was open the thing
+// leave the screen showing the position. By the time LEDGER was open the thing
 // you wanted to ask about was gone, and you were retyping from memory the
 // number you had been looking at a second earlier.
 //
-// And it was wrong for FinBoy: a view is handed one section's props, so it knew
+// And it was wrong for LEDGER: a view is handed one section's props, so it knew
 // the book, the tape and the series and nothing about the look-through, the
 // accounts, the people ledger or the cash categories — everything built since.
 // It answered confidently from a partial index, which is the failure this whole
@@ -20,10 +20,10 @@ import FinBoy from './FinBoy.jsx';
 // So: a dock. One button, present on every view, opening a panel over the
 // screen you are already on, fed the same whole-tab context regardless of which
 // view is behind it. What changed is availability and completeness; nothing
-// about the six decisions in FinBoy.jsx changes — a refusal is still an answer,
+// about the six decisions in LEDGER.jsx changes — a refusal is still an answer,
 // citations still travel with the sentence, the cost is still shown before the
 // press, and the tape is still never saved.
-export default function FinBoyDock({ open, onOpen, onClose, ...props }) {
+export default function LEDGERDock({ open, onOpen, onClose, ...props }) {
   // Escape closes it. A panel that covers the screen and can only be dismissed
   // by finding a small × is a panel people stop opening.
   useEffect(() => {
@@ -43,7 +43,7 @@ export default function FinBoyDock({ open, onOpen, onClose, ...props }) {
   }
 
   return (
-    <div className="fb-dock" role="dialog" aria-label="FinBoy">
+    <div className="fb-dock" role="dialog" aria-label="LEDGER">
       <div className="fb-dock-head">
         <span className="fb-dock-t">◈ FINBOY</span>
         <span className="fb-dock-n">
@@ -52,7 +52,7 @@ export default function FinBoyDock({ open, onOpen, onClose, ...props }) {
         <button className="fb-dock-x" onClick={onClose} title="close (Esc)">×</button>
       </div>
       <div className="fb-dock-body">
-        <FinBoy {...props} />
+        <LEDGER {...props} />
       </div>
     </div>
   );
