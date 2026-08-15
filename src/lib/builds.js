@@ -110,10 +110,52 @@ export function canCreateRepo(name) {
 // A generative loop with write access to the repo it lives in is one bad night
 // away from destroying the thing that runs it. Stated as a function so it is
 // testable, not as a convention someone remembers.
-export function isPushAllowed({ repoExists = false, isNew = false, private: priv = true } = {}) {
-  if (repoExists && !isNew) return { ok: false, why: 'existing', message: 'the runner only ever pushes to repos it just created' };
+//
+// The rule is NOT "only repos created tonight" — that was the first draft, and it
+// made the factory a one-shot. The point of this thing is a small idea that grows
+// over several nights: v0.1 on Monday, the layout fixed on Tuesday, auth added on
+// Thursday. So the runner may push to a repo it created ON ANY PREVIOUS NIGHT,
+// identified by the URL stored on the build row rather than by name.
+//
+// That distinction is the whole safety property. `ownedUrl` comes from our own
+// database, written by the runner when it created the repo. A name can be typed,
+// guessed, or collided with; a URL we wrote down after creating it cannot be any
+// of those. So: match on what we recorded, never on what was supplied.
+export function isPushAllowed({ targetUrl = '', ownedUrl = '', isNew = false, private: priv = true } = {}) {
   if (!priv) return { ok: false, why: 'public', message: 'generated repos are created private and the runner never flips that' };
+  if (isNew) return { ok: true, why: null, message: '' };
+  if (!ownedUrl) return { ok: false, why: 'unowned', message: 'no repo on this build was created by the runner' };
+  if (normUrl(targetUrl) !== normUrl(ownedUrl)) {
+    return { ok: false, why: 'mismatch', message: 'that is not the repo this build created' };
+  }
   return { ok: true, why: null, message: '' };
+}
+
+// Trailing slashes, .git suffixes and case differences are the same repo, and a
+// string comparison that says otherwise would block every legitimate second night.
+function normUrl(u) {
+  return String(u || '').trim().toLowerCase().replace(/\.git$/, '').replace(/\/+$/, '');
+}
+
+// ---------------------------------------------------------------- iterations
+//
+// A build is not finished when it ships; it is finished when Neel stops asking
+// for more. Each night reads the notes left since the last run and treats them as
+// the brief for this one.
+
+export function nextIteration({ status, notes = [], iteration = 0 } = {}) {
+  const fresh = (notes || []).filter(n => n && !n.done);
+  // Nothing asked for means nothing to do. A factory that regenerates an
+  // untouched repo every night burns the budget and churns the diff for nobody.
+  if (status === 'done' && !fresh.length) return null;
+  return {
+    iteration: (Number(iteration) || 0) + 1,
+    // The first night builds from the idea; every night after builds from what
+    // was asked for since. Sending the original brief again on night four would
+    // regenerate work that already exists.
+    brief: fresh.length ? fresh.map(n => n.text).join('\n') : null,
+    kind: status === 'done' ? 'improve' : 'continue',
+  };
 }
 
 // Key-shaped strings in generated code. A build that would publish a credential

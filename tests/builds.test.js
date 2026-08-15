@@ -9,7 +9,7 @@ import {
   PHASES, inWindow, minutesLeft, WINDOW,
   RPM, NIGHTLY_CAP, MAX_RETRIES, minGapMs, waitFor, backoffFor, canSpend,
   repoNameOf, canCreateRepo, isPushAllowed, PROTECTED_REPOS,
-  findSecrets, nextPhase, MAX_REPAIR, summarise,
+  findSecrets, nextPhase, MAX_REPAIR, summarise, nextIteration,
 } from '../src/lib/builds.js';
 
 let pass = 0, fail = 0;
@@ -68,11 +68,33 @@ for (const p of PROTECTED_REPOS) {
 }
 ok(PROTECTED_REPOS.includes('life-dashboard'), 'and this repo is on that list');
 
-eq(isPushAllowed({ repoExists: true, isNew: false }).why, 'existing',
-   'the runner never pushes to a repo it did not just create');
-eq(isPushAllowed({ isNew: true, private: false }).why, 'public',
-   'and never to a public one');
-ok(isPushAllowed({ isNew: true, private: true }).ok, 'a fresh private repo is the only allowed target');
+eq(isPushAllowed({ isNew: true, private: false }).why, 'public', 'never a public repo');
+ok(isPushAllowed({ isNew: true, private: true }).ok, 'a fresh private repo is fine');
+
+// The point of the factory is a small idea that GROWS: v0.1 on Monday, the layout
+// fixed on Tuesday. So it must be able to push to a repo it made last week — but
+// only that one, identified by the URL we wrote down when we created it. A name
+// can be typed, guessed or collided with; a URL we recorded after creating it
+// cannot be.
+const OWNED = 'https://github.com/EdNoX04/expense-splitter';
+ok(isPushAllowed({ targetUrl: OWNED, ownedUrl: OWNED }).ok, 'night two pushes to the repo night one created');
+ok(isPushAllowed({ targetUrl: OWNED + '.git', ownedUrl: OWNED + '/' }).ok,
+   '.git suffixes and trailing slashes are the same repo, not a lockout');
+eq(isPushAllowed({ targetUrl: 'https://github.com/EdNoX04/life-dashboard', ownedUrl: OWNED }).why, 'mismatch',
+   'and it cannot be talked into pushing somewhere else');
+eq(isPushAllowed({ targetUrl: OWNED, ownedUrl: '' }).why, 'unowned',
+   'a build with no recorded repo has nowhere it is allowed to push');
+
+// ------------------------------------------------------------- iterations
+
+eq(nextIteration({ status: 'done', notes: [] }), null,
+   'a finished build with nothing asked of it does nothing — regenerating an untouched repo burns budget and churns the diff for nobody');
+const it = nextIteration({ status: 'done', iteration: 1, notes: [{ text: 'add login' }, { text: 'fix spacing', done: true }] });
+eq(it.iteration, 2, 'a note starts the next iteration');
+eq(it.brief, 'add login', 'built from what was asked SINCE last time, not the original idea again');
+eq(it.kind, 'improve', 'and it knows it is improving rather than starting');
+eq(nextIteration({ status: 'failed', iteration: 1 }).kind, 'continue',
+   'an unfinished build continues rather than counting as an improvement');
 
 // ---------------------------------------------------------------- secrets
 
