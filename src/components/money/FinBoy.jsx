@@ -337,7 +337,10 @@ export default function FinBoy({
     const context = composeContext(hit.hits);
     try {
       const { text: answer, provider: used } = await aiChat(
-        [{ role: 'user', content: buildPrompt(text, hit.hits) }], { system: SYSTEM });
+        [{ role: 'user', content: buildPrompt(text, hit.hits) }],
+        // Tagged explicitly rather than leaning on the server's fail-closed
+        // default. A backstop you rely on is a decision you have not made.
+        { system: SYSTEM, agent: 'money' });
       // Decision 3: audited before it is displayed, every time, no opt-out.
       push({ q: text, kind: 'answer', text: answer, provider: providerLabel(used) || used,
         audit: auditNumbers(answer, context), hits: hit.hits });

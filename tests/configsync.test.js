@@ -25,7 +25,17 @@ const block = dbSrc.match(/const SYNC_KEYS = \[([\s\S]*?)\];/);
 ok(!!block, 'SYNC_KEYS is declared in db.js');
 const synced = [...block[1].matchAll(/'([^']+)'/g)].map(m => m[1]);
 
-ok(synced.length >= 8, 'the sync list is not empty');
+ok(synced.length >= 5, 'the sync list is not empty');
+
+// The AI keys used to be here. They are gone because api/chat.js holds them on
+// the server now, and a paid key in a browser is a paid key that leaks with the
+// browser. Asserted rather than assumed: re-adding one to Settings and wiring it
+// back into the sync list is a two-line change that would silently undo the whole
+// reason /api/chat exists.
+for (const k of ['claudeKey', 'openaiKey', 'geminiKey', 'anthropicKey', 'nvidiaKey']) {
+  ok(!synced.includes(k), `${k} must never sync — AI keys live in Vercel env, not the browser`);
+}
+ok(!/sk-ant-|nvapi-/.test(setSrc), 'Settings offers no AI key field to type into');
 ok(synced.includes('fmpKey'), 'the dividend key syncs — this is the one that went missing');
 ok(synced.includes('finnhubKey'), 'the price key syncs');
 ok(synced.includes('twelveKey'), 'the chart key syncs');

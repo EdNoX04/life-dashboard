@@ -43,3 +43,32 @@ $mig$;
 -- returns zero rows rather than an error. So an anonymous request does not fail
 -- loudly — it succeeds and finds nothing. Worth knowing when you test it: an
 -- empty array is the success case, not a sign the check did not run.
+
+-- ---------------------------------------------------------------------------
+-- Enabling RLS was not enough, and the verify query is what caught it.
+--
+-- Every one of the 18 tables already carried a policy named "anon all" granted
+-- to {public}. Postgres policies are PERMISSIVE by default and combine with OR:
+-- if any policy matches, access is granted. So "anon all" kept granting
+-- everything to everyone — including anonymous — while RLS sat switched on and
+-- the new authenticated policy sat beside it doing nothing. A lock fitted next
+-- to an open door.
+--
+-- {public} is also broader than {anon}: it means every role there is.
+--
+-- Dropping by "not my policy" rather than by the name "anon all", for the same
+-- reason the block above loops over pg_tables: a straggler must not survive
+-- merely by being absent from a list I wrote.
+do $drop$
+declare r record;
+begin
+  for r in
+    select tablename, policyname
+    from pg_policies
+    where schemaname = 'public'
+      and policyname <> 'authenticated full access'
+  loop
+    execute format('drop policy %I on public.%I', r.policyname, r.tablename);
+  end loop;
+end
+$drop$;

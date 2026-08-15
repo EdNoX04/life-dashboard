@@ -85,7 +85,10 @@ export default function Ally({ tab, data = {} }) {
     try {
       const reply = await aiChat(
         next.filter(m => m.role !== 'system').map(m => ({ role: m.role, content: m.content })),
-        { system: systemPrompt(tab, context) },
+        // The tab name is already the routing key for what data may enter the
+        // prompt (see ally.js SCOPES), so it is the right key for where that
+        // prompt may be sent. Same decision, enforced twice, in the same word.
+        { system: systemPrompt(tab, context), agent: tab },
       );
       const id = `a${next.length}`;
       setMsgs([...next, { role: 'assistant', content: reply, id }]);

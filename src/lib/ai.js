@@ -1,93 +1,81 @@
-// ---- Universal AI client ----
-// Works with whichever key you set in Config (Claude / OpenAI / Gemini). Calls
-// happen straight from the browser and every call logs its token usage + an
-// estimated cost into Supabase `memory.ai_usage` so the Config tab can show a
-// live running total.
-import { getConfig, upsertMemory, list } from './db.js';
+// ---- AI client ----
+// Every call now goes to /api/chat on this same origin. Nothing here holds a key
+// and nothing here chooses a provider, because both of those decisions have to be
+// unforgeable and neither can be if they live in a browser.
+//
+// What changed and why:
+//
+// The old version read the key out of Settings and called Anthropic, OpenAI or
+// Gemini directly. That put a key with prepaid credit into every device that ever
+// opened the dashboard and, through config sync, into a database row that was
+// world-readable until migration 003. It also could not reach NVIDIA at all:
+// integrate.api.nvidia.com sends no CORS headers, so GLM-5.2 is unreachable from
+// a page no matter what key you hold.
+//
+// Routing lives in api/chat.js and is by SENSITIVITY: money, health and journal
+// go to Anthropic; everything else goes to NVIDIA's free tier, whose terms say
+// inputs are logged and used for training. The client may REQUEST a model but
+// cannot pick a provider — a browser that could choose would be a browser that
+// could send the portfolio to the training endpoint.
+import { upsertMemory, list } from './db.js';
+import { accessToken } from './auth.js';
 
-// USD per 1M tokens [input, output]. Cheap default models per provider.
+// USD per 1M tokens [input, output]. Used only to price the usage meter; the
+// server decides what actually runs. Prices move — the meter is the number to
+// trust, not this table.
 const PRICES = {
-  claude: { in: 0.80, out: 4.00, model: 'claude-3-5-haiku-latest', label: 'Claude' },
-  openai: { in: 0.15, out: 0.60, model: 'gpt-4o-mini', label: 'ChatGPT' },
-  gemini: { in: 0.075, out: 0.30, model: 'gemini-1.5-flash', label: 'Gemini' },
+  'claude-sonnet-5':  { in: 2.00, out: 10.00, label: 'Sonnet 5' },
+  'claude-haiku-4-5': { in: 1.00, out: 5.00,  label: 'Haiku 4.5' },
+  'claude-opus-5':    { in: 5.00, out: 25.00, label: 'Opus 5' },
+  // NVIDIA's hosted tier is free. Zero here is a real price, not a missing one.
+  'z-ai/glm-5.2':                     { in: 0, out: 0, label: 'GLM-5.2' },
+  'nvidia/nemotron-3-ultra-550b-a55b':{ in: 0, out: 0, label: 'Nemotron 3 Ultra' },
+  'deepseek-ai/deepseek-v4-pro':      { in: 0, out: 0, label: 'DeepSeek V4 Pro' },
 };
 
-export function pickProvider(cfg = getConfig()) {
-  if (cfg.claudeKey) return 'claude';
-  if (cfg.geminiKey) return 'gemini';
-  if (cfg.openaiKey) return 'openai';
-  return null;
-}
-export function providerLabel(p) { return PRICES[p]?.label || null; }
+export const FREE_MODELS = ['z-ai/glm-5.2', 'nvidia/nemotron-3-ultra-550b-a55b', 'deepseek-ai/deepseek-v4-pro'];
+export const PAID_MODELS = ['claude-sonnet-5', 'claude-haiku-4-5', 'claude-opus-5'];
+export function modelLabel(m) { return PRICES[m]?.label || m; }
+
+// Which agents are personal. Kept in step with the server list, but the server's
+// copy is the one that decides — this one only drives what the UI can offer.
+export const SENSITIVE_AGENTS = ['money', 'finboy', 'health', 'journal', 'brief'];
 
 // messages: [{ role:'user'|'assistant', content:'…' }]
-export async function aiChat(messages, { system } = {}) {
-  const cfg = getConfig();
-  const provider = pickProvider(cfg);
-  if (!provider) throw new Error('No AI key set yet — add one in Config → AI providers.');
+// agent:    which screen is asking. Omitted means "treat as personal".
+export async function aiChat(messages, { system, agent = '', model = '', maxTokens = 1024 } = {}) {
+  const token = await accessToken();
+  if (!token) throw new Error('Sign in to use the assistant.');
 
-  let text = '', usage = { in: 0, out: 0 };
+  const r = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ agent, model, system, messages, maxTokens }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j?.error || `Assistant unavailable (${r.status})`);
 
-  if (provider === 'claude') {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': cfg.claudeKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: cfg.claudeModel || PRICES.claude.model,
-        max_tokens: 1024,
-        ...(system ? { system } : {}),
-        messages: messages.map(m => ({ role: m.role, content: m.content })),
-      }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j?.error?.message || `Claude API ${r.status}`);
-    text = (j.content || []).map(b => b.text || '').join('');
-    usage = { in: j.usage?.input_tokens || 0, out: j.usage?.output_tokens || 0 };
-
-  } else if (provider === 'gemini') {
-    const model = cfg.geminiModel || PRICES.gemini.model;
-    const contents = messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(cfg.geminiKey)}`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ contents, ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}) }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j?.error?.message || `Gemini API ${r.status}`);
-    text = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
-    usage = { in: j.usageMetadata?.promptTokenCount || 0, out: j.usageMetadata?.candidatesTokenCount || 0 };
-
-  } else if (provider === 'openai') {
-    const r = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST', headers: { 'content-type': 'application/json', Authorization: `Bearer ${cfg.openaiKey}` },
-      body: JSON.stringify({ model: cfg.openaiModel || PRICES.openai.model, messages: system ? [{ role: 'system', content: system }, ...messages] : messages }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j?.error?.message || `OpenAI API ${r.status}`);
-    text = j.choices?.[0]?.message?.content || '';
-    usage = { in: j.usage?.prompt_tokens || 0, out: j.usage?.completion_tokens || 0 };
-  }
-
-  logUsage(provider, usage).catch(() => {});
-  return { text, provider };
+  logUsage(j.model, j.usage || { in: 0, out: 0 }).catch(() => {});
+  return { text: j.text || '', provider: j.provider, model: j.model };
 }
 
-async function logUsage(provider, usage) {
+// Kept because callers still ask. There is always a provider now — the server
+// has the keys — so the honest answer is whether the session can reach it.
+export function pickProvider() { return 'proxy'; }
+export function providerLabel() { return 'PLAYER ONE'; }
+
+async function logUsage(model, usage) {
   const month = new Date().toISOString().slice(0, 7);
   let v = {};
   try { const rows = await list('memory', { filter: 'key=eq.ai_usage', order: 'key' }); v = rows?.[0]?.value || {}; } catch {}
   if (v.month !== month) v = { month, calls: 0, tokens: 0, cost: 0, byProvider: {} };
-  const p = PRICES[provider] || { in: 0, out: 0 };
+  const p = PRICES[model] || { in: 0, out: 0 };
   const cost = (usage.in / 1e6) * p.in + (usage.out / 1e6) * p.out;
   v.calls = (v.calls || 0) + 1;
   v.tokens = (v.tokens || 0) + usage.in + usage.out;
   v.cost = (v.cost || 0) + cost;
   v.byProvider = v.byProvider || {};
-  v.byProvider[provider] = (v.byProvider[provider] || 0) + 1;
+  v.byProvider[model] = (v.byProvider[model] || 0) + 1;
   v.updated = new Date().toISOString();
   await upsertMemory('ai_usage', v);
 }

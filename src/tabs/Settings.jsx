@@ -126,19 +126,22 @@ export default function Settings() {
         </div>
       </Card>
 
-      <Card title="AI providers (any key works)" color="var(--purple)">
-        <div className="small muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>
-          Add a key for whichever provider you use — the AI features (summaries, notes, decision engine) pick up whichever is set. Keys stay in this browser and sync to your devices.
+      <Card title="AI providers" color="var(--purple)">
+        <div className="small muted" style={{ lineHeight: 1.6 }}>
+          There are no key fields here any more, and their absence is the feature.
+          Keys used to live in this browser and sync through <code>memory.app_config</code>,
+          which was readable by anyone who knew the app URL. They now sit in Vercel
+          environment variables and no browser ever holds one.
         </div>
-        <label>Anthropic (Claude) key</label>
-        <input placeholder="sk-ant-…" defaultValue={cfg.claudeKey || ''} onChange={upd('claudeKey')} />
-        <label className="mt">OpenAI (ChatGPT) key</label>
-        <input placeholder="sk-…" defaultValue={cfg.openaiKey || ''} onChange={upd('openaiKey')} />
-        <label className="mt">Google (Gemini) key</label>
-        <input placeholder="AIza…" defaultValue={cfg.geminiKey || ''} onChange={upd('geminiKey')} />
-        <div className="flex mt">
-          <button className="btn btn-green" onClick={save}>{saved ? 'Saved ✓' : 'Save'}</button>
-          <span className="small muted">Preferred provider auto-selects from whichever key is present.</span>
+        <div className="small muted mt" style={{ lineHeight: 1.6 }}>
+          Money, health and journal questions go to <b>Claude Sonnet 5</b>. Everything
+          else goes to <b>GLM-5.2</b> on NVIDIA's free tier, whose terms say inputs are
+          logged and used for training — which is exactly why the personal screens do
+          not go there. The split is decided on the server, not here, because a
+          browser that could choose could choose wrong.
+        </div>
+        <div className="small muted mt">
+          To change a key or a model, edit the environment variables on Vercel and redeploy.
         </div>
       </Card>
 

@@ -45,9 +45,14 @@ export function isRemote() {
 // data feed. The Binance pair is the case that proves the rule - it can see
 // balances and history, so it lives in GitHub Secrets and never touches this
 // table or the browser.
+//
+// claudeKey / openaiKey / geminiKey were here and are now gone. They synced to
+// memory.app_config, which was world-readable until migration 003 — and even
+// with RLS on, a paid key sitting in a browser is a paid key that leaks with the
+// browser. Since api/chat.js they live in Vercel environment variables and no
+// client ever sees one. There is nothing left to sync.
 const SYNC_KEYS = [
-  'finnhubKey', 'twelveKey', 'fmpKey', 'alphaKey', 'tmdbKey',
-  'leetcodeUser', 'claudeKey', 'openaiKey', 'geminiKey',
+  'finnhubKey', 'twelveKey', 'fmpKey', 'alphaKey', 'tmdbKey', 'leetcodeUser',
 ];
 
 export async function syncPushConfig() {

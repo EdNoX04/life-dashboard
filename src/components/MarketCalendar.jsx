@@ -48,7 +48,9 @@ export default function MarketCalendar({ held = [] }) {
       const today = iso(new Date());
       const { text } = await aiChat([{ role: 'user', content:
         `Today is ${today}. List the major scheduled US economic reports/events for the next 14 days that move markets (CPI, PPI, FOMC/rate decision, Fed minutes, NFP jobs report, GDP, PCE, retail sales, consumer confidence, jobless claims — whichever fall in this window). Reply ONLY JSON: {"events":[{"date":"YYYY-MM-DD","name":"...","why":"<one short clause: why it moves markets>","impact":"HIGH"|"MED"}]} Use your knowledge of the standard US release schedule (e.g. CPI mid-month, NFP first Friday). Dates are estimates.` }],
-        { system: 'You are a markets calendar assistant. Only valid JSON, no markdown.' });
+        // A public economic calendar — no holdings, no balances, nothing about
+        // Neel in the prompt. The clearest case in the app for the free tier.
+        { system: 'You are a markets calendar assistant. Only valid JSON, no markdown.', agent: 'market' });
       const j = pickJSON(text);
       if (j?.events) { const out = { events: j.events, at: new Date().toISOString() }; setEcon(out); memSet('econ_calendar', out); }
     } catch {}

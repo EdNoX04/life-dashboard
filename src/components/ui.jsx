@@ -86,6 +86,10 @@ export function AskCowork() {
     const next = [...msgs, { role: 'user', content: text }];
     setMsgs(next); setQ(''); setBusy(true);
     try {
+      // No agent name: this is the general dock and it has no idea what the
+      // question is about, so it takes the server's fail-closed default and
+      // goes to the paid provider. The cheap alternative is guessing, and
+      // guessing wrong here means posting personal data to a training endpoint.
       const { text: reply } = await aiChat(next, { system: AI_SYSTEM });
       setMsgs(m => [...m, { role: 'assistant', content: reply || '(no reply)' }]);
     } catch (e) {
