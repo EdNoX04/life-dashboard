@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import PlayerTwo from './components/PlayerTwo.jsx';
 import { syncPullConfig } from './lib/db.js';
 import HQ from './tabs/HQ.jsx';
 import Todos from './tabs/Todos.jsx';
@@ -96,6 +97,9 @@ export default function App() {
           <Active go={setTab} />
         </ErrorBoundary>
       </main>
+      {/* At the root, not inside a tab: an assistant that disappears when you
+          navigate is a widget, not a partner. The thread survives the move. */}
+      <PlayerTwo />
     </div>
   );
 }
