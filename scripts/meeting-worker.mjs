@@ -162,8 +162,73 @@ async function createEvent(acct, m) {
   const r = await gcal(acct, `events?${qs}`, { method: 'POST', body: JSON.stringify(ev) });
   if (!r.ok) throw new Error(`Calendar insert: ${r.status} ${await r.text()}`);
   const j = await r.json();
-  const meet = j.hangoutLink || j.conferenceData?.entryPoints?.find(e => e.entryPointType === 'video')?.uri || '';
+
+  let meet = meetLinkOf(j);
+
+  // Google provisions the Meet room ASYNCHRONOUSLY. The insert response comes
+  // back with conferenceData.createRequest.status.statusCode = "pending" and no
+  // hangoutLink at all — so reading the link straight off the insert, which is
+  // what this did, got an empty string almost every time. The event was created
+  // correctly and the room was on its way; we simply asked before it existed and
+  // then never asked again. The dashboard said "Meet link generating on the next
+  // sync…" forever, which was a promise nothing in the code was keeping.
+  if (!meet && wantMeet && j.id) {
+    for (const waitMs of [800, 1500, 2500]) {
+      await new Promise(res => setTimeout(res, waitMs));
+      const g = await gcal(acct, `events/${encodeURIComponent(j.id)}?conferenceDataVersion=1`);
+      if (!g.ok) break;
+      const fresh = await g.json();
+      meet = meetLinkOf(fresh);
+      if (meet) break;
+      // A request that has actually FAILED says so, and no amount of waiting
+      // fixes it. Better to stop and let the backfill pass report it than to
+      // burn the remaining attempts on a room that will never appear.
+      if (fresh.conferenceData?.createRequest?.status?.statusCode === 'failure') break;
+    }
+  }
+  if (wantMeet && !meet) {
+    console.error(`  ⚠ ${acct.label}: event created but Meet room not ready yet — backfill will pick it up.`);
+  }
+
   return { gcal_id: j.id, htmlLink: j.htmlLink, meet, account: acct.id };
+}
+
+function meetLinkOf(e) {
+  return e?.hangoutLink
+    || e?.conferenceData?.entryPoints?.find(x => x.entryPointType === 'video')?.uri
+    || '';
+}
+
+// ---- heal meetings whose room arrived after we stopped looking ----
+// The retry above covers new meetings. This covers every meeting already stored
+// with an empty link — including the ones created before that retry existed,
+// which is the only reason the user noticed any of this. Cheap: it only touches
+// rows that have a gcal_id and no link, so a healthy list costs one read.
+async function backfillMeetLinks() {
+  let value;
+  try {
+    const rows = await sbJson('memory?key=eq.meetings&select=value');
+    value = rows?.[0]?.value;
+  } catch { return; }
+  const list = Array.isArray(value?.list) ? value.list : [];
+  const stale = list.filter(m => m.gcal_id && !m.meet && m.wantMeet !== false);
+  if (!stale.length) return;
+
+  let healed = 0;
+  for (const m of stale) {
+    const acct = acctFor(m.account);
+    if (!acct) continue;
+    try {
+      const g = await gcal(acct, `events/${encodeURIComponent(m.gcal_id)}?conferenceDataVersion=1`);
+      if (!g.ok) continue;
+      const link = meetLinkOf(await g.json());
+      if (link) { m.meet = link; healed++; }
+    } catch { /* one bad row must not stop the rest */ }
+  }
+  if (healed) {
+    await memPut('meetings', { ...value, list, updated: new Date().toISOString() });
+    console.log(`  backfilled ${healed} Meet link(s) that were not ready at creation`);
+  }
 }
 
 // ---- write the created link back into memory.meetings ----
@@ -496,6 +561,7 @@ async function run() {
   await processCalendarDeletes();  // deletes first
   await processMeetings();         // meeting_add → event + Meet link
   await processCalendarAdds();     // calendar_add → plain event
+  await backfillMeetLinks();       // rooms that arrived after we stopped looking
   const calendars = await pullEvents();  // sync Google → dashboard (always, so events show up)
   await pullMail();                // unread inbox → dashboard
 
