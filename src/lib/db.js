@@ -53,6 +53,11 @@ export function isRemote() {
 // client ever sees one. There is nothing left to sync.
 const SYNC_KEYS = [
   'finnhubKey', 'twelveKey', 'fmpKey', 'alphaKey', 'tmdbKey', 'leetcodeUser',
+  // Preferences, not credentials. Which model FinBoy uses and whether it may
+  // search are choices that should follow him to the iPad, and neither is a
+  // secret — the server holds the keys and validates the model against its own
+  // allowlist, so the worst a tampered value can do is get ignored.
+  'finboyModel', 'finboyWeb',
 ];
 
 export async function syncPushConfig() {

@@ -149,3 +149,99 @@ export async function authedFetch(url, init = {}) {
   }
   return r;
 }
+
+// ---------------------------------------------------------------------------
+// TOTP.
+//
+// The password was the whole defence, and Supabase's own rate limit is 1800
+// requests an hour per IP on the token endpoint — a real speed bump, and nothing
+// like enough on its own against an attacker who rotates IPs. A second factor
+// makes guessing the password irrelevant rather than merely slow, which is a
+// different kind of protection and the one worth having.
+//
+// Supabase calls the levels aal1 and aal2: signed in with a password, and signed
+// in having also proved the factor. Migration 004 requires aal2 in the RLS
+// policies, so a stolen password stops being enough to read a single row —
+// enforced by the database rather than by this file, which is the only place
+// enforcement means anything.
+//
+// ORDER MATTERS AND IS EASY TO GET WRONG: enroll the factor FIRST, verify it,
+// and only then run 004. Tightening the policies against an account with no
+// factor locks the account out of its own data.
+
+async function authFetch(path, init = {}) {
+  const c = getConfig();
+  const token = await accessToken();
+  const r = await fetch(`${authBase()}${path}`, {
+    ...init,
+    headers: {
+      apikey: c.supabaseKey,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'Content-Type': 'application/json',
+      ...(init.headers || {}),
+    },
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error_description || j.msg || j.message || `${path} failed (${r.status})`);
+  return j;
+}
+
+export async function listFactors() {
+  const j = await authFetch('/factors');
+  const all = j?.totp || j?.all || [];
+  return Array.isArray(all) ? all : [];
+}
+
+// Returns the QR and the secret. The secret is shown alongside the QR on purpose:
+// enrolling from the same phone that displays the QR is common, and a code you
+// cannot photograph is a code you cannot enter.
+export async function enrollTotp(friendlyName = 'PLAYER ONE') {
+  const j = await authFetch('/factors', {
+    method: 'POST',
+    body: JSON.stringify({ factor_type: 'totp', friendly_name: friendlyName }),
+  });
+  return { id: j.id, qr: j.totp?.qr_code || '', secret: j.totp?.secret || '', uri: j.totp?.uri || '' };
+}
+
+// Enrollment is not finished until a code from the app is accepted. A factor
+// left unverified is the worst of both worlds — it exists, so it looks done, and
+// it cannot be used to sign in.
+export async function verifyFactor(factorId, code) {
+  const ch = await authFetch(`/factors/${factorId}/challenge`, { method: 'POST' });
+  const j = await authFetch(`/factors/${factorId}/verify`, {
+    method: 'POST',
+    body: JSON.stringify({ challenge_id: ch.id, code: String(code).replace(/\s/g, '') }),
+  });
+  // Verifying returns a fresh session already at aal2 — storing it here is what
+  // stops the UI from asking for a second code immediately after the first.
+  if (j?.access_token) putSession(j);
+  return j;
+}
+
+export async function unenrollFactor(factorId) {
+  return authFetch(`/factors/${factorId}`, { method: 'DELETE' });
+}
+
+// Which level the CURRENT session actually holds. Read from the token rather than
+// from what we remember doing, because "I verified earlier" and "this token says
+// aal2" are different claims and only the second one opens the database.
+export function sessionAal() {
+  const s = getSession();
+  if (!s?.access_token) return null;
+  try {
+    const payload = JSON.parse(atob(s.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload.aal || 'aal1';
+  } catch { return 'aal1'; }
+}
+
+// True when the account has a verified factor that this session has not satisfied
+// — the exact state where the login form must ask for a code rather than let the
+// user through to a dashboard that will render empty.
+export async function needsSecondFactor() {
+  if (!getSession()?.access_token) return false;
+  if (sessionAal() === 'aal2') return false;
+  try {
+    const verified = (await listFactors()).filter(f => f.status === 'verified');
+    return verified.length > 0 ? verified[0] : false;
+  } catch { return false; }
+}

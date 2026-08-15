@@ -28,7 +28,19 @@
 // from now quietly starts posting personal data to a training endpoint, and
 // nothing would look wrong.
 
-const SENSITIVE = new Set(['money', 'finboy', 'health', 'journal', 'brief']);
+// Routing is by SENSITIVITY, and the line is drawn where Neel drew it after
+// being shown what the free tier's terms actually say.
+//
+// journal is here and health is not, which is a real distinction rather than a
+// compromise: a journal is what someone actually thought, in their own words,
+// and there is no version of that which is safe to hand to a training pipeline.
+// Health here is weight, sleep hours and workout counts — numbers that reveal
+// little in isolation and nothing in someone else's training set.
+//
+// If that judgement ever changes, this is the only line to change. Adding a name
+// here moves a whole screen to the paid path; the fail-closed default below means
+// forgetting to add one is the safe direction.
+const SENSITIVE = new Set(['money', 'finboy', 'journal', 'brief']);
 
 const NVIDIA_DEFAULT = 'z-ai/glm-5.2';
 const ANTHROPIC_DEFAULT = 'claude-sonnet-5';
@@ -94,9 +106,39 @@ function effortFor(requested) {
   return want >= 0 && want < cap ? EFFORTS[want] : DEFAULT_EFFORT;
 }
 
-async function callAnthropic({ model, system, messages, maxTokens, effort }) {
+// Web search is a server-side tool: Claude runs the searches itself and the
+// results never pass through this function. Two reasons it is capped and opt-in
+// rather than always on.
+//
+// It is billed per search on top of tokens, and a chatty assistant that searches
+// five times to answer "what is my gold allocation" turns a free-ish question
+// into a metered one. MAX_SEARCHES is the ceiling; the caller asks for it, the
+// server decides how far it may go.
+//
+// And it changes what the number audit means. FinBoy's audit flags any figure in
+// an answer that is not in the retrieved context — the one check that does not
+// depend on the model cooperating. A figure fetched from the web is legitimately
+// absent from that context, so without care every web-sourced number would be
+// flagged as fabricated and the warning would become noise. Citations are
+// therefore returned separately, with their cited text, so FinBoy can widen the
+// audit pool by exactly the material that was actually quoted — and show the
+// source next to it. A number from the web is only as good as the page it came
+// from, and the user should see the page.
+const MAX_SEARCHES = 4;
+const WEB_SEARCH_TOOL = 'web_search_20260318';
+
+async function callAnthropic({ model, system, messages, maxTokens, effort, web }) {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw Object.assign(new Error('Anthropic key is not configured on the server.'), { code: 503 });
+
+  const tools = web
+    ? [{
+        type: WEB_SEARCH_TOOL,
+        name: 'web_search',
+        max_uses: Math.min(Number(web) || 2, MAX_SEARCHES),
+        user_location: { type: 'approximate', country: 'IN', timezone: 'Asia/Kolkata' },
+      }]
+    : undefined;
 
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -106,14 +148,33 @@ async function callAnthropic({ model, system, messages, maxTokens, effort }) {
       max_tokens: maxTokens,
       output_config: { effort: effortFor(effort) },
       ...(system ? { system } : {}),
+      ...(tools ? { tools } : {}),
       messages: messages.map(m => ({ role: m.role, content: m.content })),
     }),
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw Object.assign(new Error(j?.error?.message || `Anthropic ${r.status}`), { code: r.status });
+
+  const blocks = j.content || [];
+  const cites = [];
+  for (const b of blocks) {
+    for (const c of (b.citations || [])) {
+      if (c.url) cites.push({ url: c.url, title: c.title || c.url, text: c.cited_text || '' });
+    }
+  }
+  // Deduped by URL: one page cited in four sentences is one source, and a list
+  // repeating it four times reads as four corroborations when it is not.
+  const seen = new Set();
+  const citations = cites.filter(c => (seen.has(c.url) ? false : (seen.add(c.url), true)));
+
   return {
-    text: (j.content || []).map(b => b.text || '').join(''),
-    usage: { in: j.usage?.input_tokens || 0, out: j.usage?.output_tokens || 0 },
+    text: blocks.map(b => b.text || '').join(''),
+    usage: {
+      in: j.usage?.input_tokens || 0,
+      out: j.usage?.output_tokens || 0,
+      searches: j.usage?.server_tool_use?.web_search_requests || 0,
+    },
+    citations,
   };
 }
 
@@ -168,7 +229,13 @@ export default async function handler(req, res) {
 
   try {
     const call = provider === 'anthropic' ? callAnthropic : callNvidia;
-    const out = await call({ model, system: body.system, messages: body.messages, maxTokens, effort: body.effort });
+    // Web search is only offered on the Anthropic path. NVIDIA's free tier is
+    // where the non-personal questions go, and giving it a search budget would
+    // be spending money on the half of the app that exists not to.
+    const out = await call({
+      model, system: body.system, messages: body.messages, maxTokens,
+      effort: body.effort, web: provider === 'anthropic' ? body.web : 0,
+    });
     return json(res, 200, { ...out, provider, model, effort: provider === 'anthropic' ? effortFor(body.effort) : undefined });
   } catch (e) {
     // The provider's own message, minus anything that could carry a key. Errors

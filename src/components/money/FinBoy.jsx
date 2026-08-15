@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Empty } from '../ui.jsx';
 import { memGet } from '../../lib/advisor.js';
 import { aiChat, pickProvider, providerLabel } from '../../lib/ai.js';
+import { getConfig } from '../../lib/db.js';
 import {
   buildIndex, retrieve, classify, quoteAnswer, buildPrompt, estimateTokens,
   auditNumbers, composeContext, SYSTEM, FLOOR,
@@ -336,14 +337,23 @@ export default function FinBoy({
     setQ('');
     const context = composeContext(hit.hits);
     try {
-      const { text: answer, provider: used } = await aiChat(
+      const { text: answer, provider: used, citations } = await aiChat(
         [{ role: 'user', content: buildPrompt(text, hit.hits) }],
         // Tagged explicitly rather than leaning on the server's fail-closed
         // default. A backstop you rely on is a decision you have not made.
-        { system: SYSTEM, agent: 'money' });
+        { system: SYSTEM, agent: 'money', model: getConfig().finboyModel || '', web: getConfig().finboyWeb ? 2 : 0 });
       // Decision 3: audited before it is displayed, every time, no opt-out.
+      // A figure fetched from the web is legitimately absent from the retrieved
+      // context, so auditing against context alone would flag every web-sourced
+      // number as fabricated — and a warning that fires on correct answers stops
+      // being read, which is the same as not having it. The pool widens by the
+      // CITED TEXT only: what the model actually quoted, not the whole page and
+      // not the model's summary of it.
+      const pool = citations?.length
+        ? context + '\n' + citations.map(c => c.text).join('\n')
+        : context;
       push({ q: text, kind: 'answer', text: answer, provider: providerLabel(used) || used,
-        audit: auditNumbers(answer, context), hits: hit.hits });
+        audit: auditNumbers(answer, pool), hits: hit.hits, citations: citations || [] });
     } catch (e) {
       push({ q: text, kind: 'error', why: e?.message || String(e) });
     }

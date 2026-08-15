@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { signIn, isLoggedIn, onAuthChange, currentEmail, signOut } from '../lib/auth.js';
+import { signIn, isLoggedIn, onAuthChange, currentEmail, signOut, needsSecondFactor, verifyFactor, sessionAal } from '../lib/auth.js';
 
 // LoginGate — the door.
 //
@@ -20,12 +20,28 @@ import { signIn, isLoggedIn, onAuthChange, currentEmail, signOut } from '../lib/
 
 export default function LoginGate({ children }) {
   const [ok, setOk] = useState(isLoggedIn());
+  // The account has a verified factor and this session has not satisfied it. A
+  // password-only session is signed in and can read nothing once 004 lands, so
+  // letting it through would render a dashboard full of empty cards — which
+  // looks like data loss, not like a missing second step.
+  const [factor, setFactor] = useState(null);
+  const [code, setCode] = useState('');
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
   useEffect(() => onAuthChange(() => setOk(isLoggedIn())), []);
+
+  useEffect(() => {
+    let dead = false;
+    (async () => {
+      if (!isLoggedIn()) { setFactor(null); return; }
+      const f = await needsSecondFactor();
+      if (!dead) setFactor(f || null);
+    })();
+    return () => { dead = true; };
+  }, [ok]);
 
   // A token can expire while the tab sits open overnight. Without this the app
   // stays mounted, every request comes back empty, and the dashboard renders a
@@ -36,6 +52,56 @@ export default function LoginGate({ children }) {
     window.addEventListener('focus', onFocus);
     return () => { clearInterval(t); window.removeEventListener('focus', onFocus); };
   }, []);
+
+  // Signed in, factor outstanding: ask for the code instead of the password.
+  if (ok && factor) {
+    const submitCode = async (e) => {
+      e.preventDefault();
+      if (busy) return;
+      setBusy(true); setErr('');
+      try {
+        await verifyFactor(factor.id, code);
+        setCode('');
+        if (sessionAal() === 'aal2') setFactor(null);
+      } catch (e2) {
+        setErr(e2.message || 'That code was not accepted.');
+      } finally { setBusy(false); }
+    };
+    return (
+      <div className="login-wrap">
+        <form className="login-card" onSubmit={submitCode}>
+          <div className="login-title">PLAYER ONE</div>
+          <div className="login-sub">SECOND FACTOR</div>
+          <label className="login-label" htmlFor="lg-code">6-DIGIT CODE</label>
+          <input
+            id="lg-code"
+            className="login-input"
+            /* inputMode numeric rather than type=number: a code is a string of
+               six digits, and type=number strips leading zeros and offers a
+               spinner nobody wants on a one-time code. */
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            value={code}
+            onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
+            required
+            autoFocus
+          />
+          {err && <div className="login-err">{err}</div>}
+          <button className="login-btn" type="submit" disabled={busy || code.length < 6}>
+            {busy ? 'CHECKING…' : 'VERIFY'}
+          </button>
+          <div className="login-foot">
+            From your authenticator app. Codes rotate every 30 seconds — if one is
+            rejected, wait for the next rather than retyping the same one.
+          </div>
+          <div className="login-foot">
+            <button type="button" className="signout-btn" onClick={() => signOut()}>SIGN OUT</button>
+          </div>
+        </form>
+      </div>
+    );
+  }
 
   if (ok) return children;
 

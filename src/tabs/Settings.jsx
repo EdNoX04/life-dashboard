@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Security from '../components/Security.jsx';
 import { Card, StatTile } from '../components/ui.jsx';
 import { getConfig, setConfig, isRemote, syncPushConfig } from '../lib/db.js';
 import { useCollection } from '../lib/hooks.js';
@@ -28,11 +29,16 @@ export default function Settings() {
     setTimeout(() => setSaved(false), 1800);
   }
 
-  const upd = k => e => setCfg({ ...cfg, [k]: e.target.value.trim() });
+  // A checkbox has no .value worth trimming, and trimming one silently stored the
+  // string "on" for every toggle. Second argument switches to checked.
+  const upd = (k, bool = false) => e =>
+    setCfg({ ...cfg, [k]: bool ? e.target.checked : e.target.value.trim() });
 
   return (
     <>
       <h1 className="tab-title">SETTINGS</h1>
+
+      <Security />
       <p className="tab-sub">Theme, keys and how the dashboard stays live.</p>
 
       <Card title="Theme" color="var(--pink)">
@@ -146,8 +152,32 @@ export default function Settings() {
           governs every token spent on a reply, so this trims deliberation and answer
           length together. Change it with <code>ANTHROPIC_EFFORT</code> on Vercel.
         </div>
+        <label className="mt">FinBoy model</label>
+        <select defaultValue={cfg.finboyModel || 'claude-sonnet-5'} onChange={upd('finboyModel')}>
+          <option value="claude-sonnet-5">Sonnet 5 — best reasoning over your figures</option>
+          <option value="claude-haiku-4-5">Haiku 4.5 — half the price, ample for reading facts</option>
+        </select>
+        <div className="small muted mt" style={{ lineHeight: 1.6 }}>
+          Haiku is worth trying. FinBoy's hard parts — retrieval, refusing advice, checking
+          every number back against your data — happen in code precisely so they do not
+          depend on the model thinking harder. The server only accepts models from its own
+          allowlist, so nothing here can pick something expensive by accident.
+        </div>
+
+        <label className="mt">
+          <input type="checkbox" defaultChecked={!!cfg.finboyWeb} onChange={upd('finboyWeb', true)} />
+          {' '}Let FinBoy search the web
+        </label>
+        <div className="small muted" style={{ lineHeight: 1.6 }}>
+          For prices, filings and news your dashboard has not synced. Billed at about a cent
+          per search on top of tokens, capped at two per answer. Anything it quotes from the
+          web arrives with its source shown, and those figures are checked against the quoted
+          text rather than waved through — a number from the web is only as good as the page
+          it came from.
+        </div>
+
         <div className="small muted mt">
-          To change a key, a model or the effort level, edit the environment variables on Vercel and redeploy.
+          To change a key or the effort level, edit the environment variables on Vercel and redeploy.
         </div>
       </Card>
 
