@@ -6311,3 +6311,101 @@ th:hover .hold-info { color: var(--cyan); }
 }
 .cal-load i { font-style: normal; }
 .cal-clash { font-weight: 400; color: var(--orange); }
+
+/* ---- LoginGate ---- */
+.login-wrap {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(124,77,255,0.10), transparent 60%),
+    var(--bg-deep);
+}
+.login-card {
+  width: min(380px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--border-bright);
+  border-radius: 14px;
+  padding: 26px 22px 20px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 18px 50px rgba(0,0,0,0.55);
+}
+.login-title {
+  font-family: var(--font-pixel);
+  font-size: 20px;
+  letter-spacing: 2px;
+  color: var(--cyan);
+  text-shadow: 0 0 12px rgba(0,229,255,0.35);
+  text-align: center;
+}
+.login-sub {
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--ink-3);
+  text-align: center;
+  margin: 8px 0 22px;
+}
+.login-label {
+  display: block;
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  color: var(--ink-2);
+  margin: 14px 0 6px;
+}
+.login-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;   /* 16px-ish keeps iOS Safari from zooming the page on focus */
+  outline: none;
+}
+.login-input:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(0,229,255,0.12); }
+.login-err {
+  margin-top: 14px;
+  padding: 9px 11px;
+  border: 1px solid var(--red);
+  border-radius: 8px;
+  background: rgba(255,77,109,0.08);
+  color: var(--red);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.login-btn {
+  width: 100%;
+  margin-top: 20px;
+  padding: 12px;
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--bg-deep);
+  background: var(--cyan);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.login-btn:disabled { opacity: 0.55; cursor: default; }
+.login-foot {
+  margin-top: 16px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink-3);
+  text-align: center;
+}
+.signout-btn {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  letter-spacing: 1.2px;
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+.signout-btn:hover { color: var(--ink); border-color: var(--border-bright); }

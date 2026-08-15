@@ -4,6 +4,8 @@
 //  - REMOTE : Supabase via PostgREST fetch (no client lib needed)
 // Cowork (the AI brain) writes to the same Supabase tables from the cloud.
 
+import { authedFetch } from './auth.js';
+
 const cfgKey = 'ldx_config';
 
 // Baked-in defaults: the app is connected out of the box on every device.
@@ -82,11 +84,14 @@ export async function syncPullConfig() {
   return false;
 }
 
+// Only the non-Authorization bits now. Since migration 003 the publishable key
+// grants nothing on its own — it routes, it does not authorise — so the bearer
+// token is supplied by authedFetch, which is the only thing that knows whether
+// the session is still fresh. Leaving an `Authorization: Bearer <publishable>`
+// here would silently win over the real one via the header spread and put every
+// request back to anonymous, which reads as "all my data vanished".
 function headers() {
-  const c = getConfig();
   return {
-    apikey: c.supabaseKey,
-    Authorization: `Bearer ${c.supabaseKey}`,
     'Content-Type': 'application/json',
     Prefer: 'return=representation',
   };
@@ -129,7 +134,7 @@ export async function list(table, { order = DEFAULT_ORDER[table] || 'created_at'
     });
   }
   const q = `${base(table)}?select=*${filter ? '&' + filter : ''}&order=${order}.${asc ? 'asc' : 'desc'}`;
-  const r = await fetch(q, { headers: headers() });
+  const r = await authedFetch(q, { headers: headers() });
   if (!r.ok) throw new Error(`${table}: ${r.status} ${await r.text()}`);
   return r.json();
 }
@@ -140,7 +145,7 @@ export async function listAll(table, { order = 'created_at', asc = false, filter
   const page = 1000; const out = [];
   for (let from = 0; ; from += page) {
     const q = `${base(table)}?select=*${filter ? '&' + filter : ''}&order=${order}.${asc ? 'asc' : 'desc'}`;
-    const r = await fetch(q, { headers: { ...headers(), Range: `${from}-${from + page - 1}`, 'Range-Unit': 'items' } });
+    const r = await authedFetch(q, { headers: { ...headers(), Range: `${from}-${from + page - 1}`, 'Range-Unit': 'items' } });
     if (!r.ok) throw new Error(`${table}: ${r.status} ${await r.text()}`);
     const rows = await r.json();
     out.push(...rows);
@@ -157,7 +162,7 @@ export async function insert(table, row) {
     lwrite(table, rows);
     return withMeta;
   }
-  const r = await fetch(base(table), { method: 'POST', headers: headers(), body: JSON.stringify(withMeta) });
+  const r = await authedFetch(base(table), { method: 'POST', headers: headers(), body: JSON.stringify(withMeta) });
   if (!r.ok) throw new Error(`${table}: ${r.status} ${await r.text()}`);
   const [saved] = await r.json();
   return saved;
@@ -169,7 +174,7 @@ export async function update(table, id, patch) {
     lwrite(table, rows);
     return rows.find(r => r.id === id);
   }
-  const r = await fetch(`${base(table)}?id=eq.${id}`, { method: 'PATCH', headers: headers(), body: JSON.stringify(patch) });
+  const r = await authedFetch(`${base(table)}?id=eq.${id}`, { method: 'PATCH', headers: headers(), body: JSON.stringify(patch) });
   if (!r.ok) throw new Error(`${table}: ${r.status} ${await r.text()}`);
   const [saved] = await r.json();
   return saved;
@@ -180,7 +185,7 @@ export async function remove(table, id) {
     lwrite(table, lread(table).filter(r => r.id !== id));
     return;
   }
-  const r = await fetch(`${base(table)}?id=eq.${id}`, { method: 'DELETE', headers: headers() });
+  const r = await authedFetch(`${base(table)}?id=eq.${id}`, { method: 'DELETE', headers: headers() });
   if (!r.ok) throw new Error(`${table}: ${r.status} ${await r.text()}`);
 }
 
@@ -192,7 +197,7 @@ export async function upsertMemory(key, value) {
     lwrite('memory', rows);
     return;
   }
-  const r = await fetch(`${base('memory')}`, {
+  const r = await authedFetch(`${base('memory')}`, {
     method: 'POST',
     headers: { ...headers(), Prefer: 'resolution=merge-duplicates' },
     body: JSON.stringify([{ key, value, updated_at: new Date().toISOString() }]),
