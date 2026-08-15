@@ -38,14 +38,28 @@
 
 import { parseFrom, foldDuplicates, splitEventId } from './lib/calendar-fold.mjs';
 
-const {
-  SUPABASE_URL, SUPABASE_SERVICE_KEY,
-  GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
-  GOOGLE_REFRESH_TOKEN, GOOGLE_CALENDAR_ID = 'primary',
-  GOOGLE_WORK_REFRESH_TOKEN, GOOGLE_WORK_CALENDAR_ID = 'primary',
-  GOOGLE_THIRD_REFRESH_TOKEN, GOOGLE_THIRD_CALENDAR_ID = 'primary',
-  GOOGLE_THIRD_LABEL = 'Third',
-} = process.env;
+// Read through a helper rather than destructuring with defaults, and the reason
+// is worth the paragraph. GitHub Actions expands `FOO: ${{ secrets.FOO }}` to the
+// EMPTY STRING when the secret does not exist — not to undefined. A destructuring
+// default only fires on undefined. So `GOOGLE_WORK_CALENDAR_ID = 'primary'` was
+// dead code in the only environment this script ever runs in: the value arrived
+// as '', the request URL became `calendars//events`, and Google answered
+// 404 Not Found. Which is indistinguishable, from the outside, from an account
+// that genuinely has no calendar — and was misread as exactly that.
+const env = (k, fallback = '') => (process.env[k] || '').trim() || fallback;
+
+const SUPABASE_URL         = env('SUPABASE_URL');
+const SUPABASE_SERVICE_KEY = env('SUPABASE_SERVICE_KEY');
+const GOOGLE_CLIENT_ID     = env('GOOGLE_CLIENT_ID');
+const GOOGLE_CLIENT_SECRET = env('GOOGLE_CLIENT_SECRET');
+
+const GOOGLE_REFRESH_TOKEN       = env('GOOGLE_REFRESH_TOKEN');
+const GOOGLE_CALENDAR_ID         = env('GOOGLE_CALENDAR_ID', 'primary');
+const GOOGLE_WORK_REFRESH_TOKEN  = env('GOOGLE_WORK_REFRESH_TOKEN');
+const GOOGLE_WORK_CALENDAR_ID    = env('GOOGLE_WORK_CALENDAR_ID', 'primary');
+const GOOGLE_THIRD_REFRESH_TOKEN = env('GOOGLE_THIRD_REFRESH_TOKEN');
+const GOOGLE_THIRD_CALENDAR_ID   = env('GOOGLE_THIRD_CALENDAR_ID', 'primary');
+const GOOGLE_THIRD_LABEL         = env('GOOGLE_THIRD_LABEL', 'Third');
 
 // A missing secret is a *configuration* state, not a crash. This job runs every
 // five minutes, eighteen hours a day; exiting non-zero on "you have not connected
@@ -222,7 +236,7 @@ async function pullEvents() {
         const reason = !configuration
           ? `${r.status} ${body}`
           : hasCal
-            ? `no calendar behind this account — the token is valid and does carry calendar access, so this is the account itself (a Workspace tenant with Calendar switched off answers this way)`
+            ? `Google has no calendar "${acct.calendarId}" for this account. The token is valid and carries calendar access, so the calendar id is the thing to check first — an id that is blank or misspelled 404s identically to one that does not exist.`
             : `this token was issued without calendar access — re-run scripts/get-google-token.mjs for this account and tick the calendar box`;
         byAccount[acct.id] = { ok: false, configuration, reason, events: 0 };
         console.error(`  ✗ ${acct.label} calendar: ${reason}`);
