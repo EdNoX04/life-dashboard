@@ -190,40 +190,87 @@ async function deleteCalendarEvent(acct, eventId) {
 }
 
 // ---- pull upcoming events from every account into memory.calendar_events ----
+// Per-account, and deliberately so. The first version of this threw on the first
+// non-ok response, which meant one account without a calendar took down the pull
+// for the other two *and* aborted the run before the mail pull and before the
+// status report ever ran — the dashboard could not even say what was wrong,
+// because the code that says so came after the throw.
 async function pullEvents() {
   const timeMin = new Date(Date.now() - 2 * 864e5).toISOString();
   const timeMax = new Date(Date.now() + 90 * 864e5).toISOString();
   const all = [];
   const perAccount = {};
+  const byAccount = {};
+  let anyOk = false;
 
   for (const acct of ACCOUNTS) {
     const qs = new URLSearchParams({ timeMin, timeMax, singleEvents: 'true', orderBy: 'startTime', maxResults: '250' });
-    const r = await gcal(acct, `events?${qs}`);
-    if (!r.ok) throw new Error(`Calendar list (${acct.id}): ${r.status} ${await r.text()}`);
-    const j = await r.json();
-    const events = (j.items || []).map(e => ({
-      // Prefixed because two accounts can hand back the same event id for the
-      // same invitation, and an unprefixed id would silently collapse them into
-      // one row keyed by whichever account happened to be pulled last.
-      id: `${acct.id}:${e.id}`,
-      gcalId: e.id,
-      account: acct.id,
-      accountLabel: acct.label,
-      color: acct.color,
-      summary: e.summary || '(no title)',
-      start: e.start?.dateTime || e.start?.date || null,
-      end: e.end?.dateTime || e.end?.date || null,
-      location: e.location || '',
-      allDay: !!e.start?.date,
-      htmlLink: e.htmlLink || '',
-      meet: e.hangoutLink || e.conferenceData?.entryPoints?.find(x => x.entryPointType === 'video')?.uri || '',
-      organizer: e.organizer?.email || '',
-      attendees: (e.attendees || []).length,
-      // "accepted" / "declined" / "tentative" / "needsAction" for you specifically.
-      response: (e.attendees || []).find(a => a.self)?.responseStatus || '',
-    })).filter(e => e.start);
-    perAccount[acct.id] = events.length;
-    all.push(...events);
+    try {
+      const r = await gcal(acct, `events?${qs}`);
+      if (!r.ok) {
+        const body = (await r.text()).slice(0, 300);
+        // A 404 on the calendar itself is a *configuration* state, not a fault.
+        // The token refreshed fine, so the account and the grant are both good —
+        // Google is saying there is no calendar behind this address. A Workspace
+        // tenant with the Calendar service switched off answers exactly this way.
+        // That is a thing for the account owner to change, not something a retry
+        // will fix, so it must not paint the run red every twenty minutes: see
+        // the note at the top of this file about what red stops meaning when it
+        // arrives two hundred times a day.
+        const configuration = r.status === 404;
+        const hasCal = acct.scopes?.some(s => s.includes('calendar'));
+        const reason = !configuration
+          ? `${r.status} ${body}`
+          : hasCal
+            ? `no calendar behind this account — the token is valid and does carry calendar access, so this is the account itself (a Workspace tenant with Calendar switched off answers this way)`
+            : `this token was issued without calendar access — re-run scripts/get-google-token.mjs for this account and tick the calendar box`;
+        byAccount[acct.id] = { ok: false, configuration, reason, events: 0 };
+        console.error(`  ✗ ${acct.label} calendar: ${reason}`);
+        // Scopes are cheap to print and settle the question above outright.
+        console.error(`    scopes on this token: ${(acct.scopes || []).map(s => s.split('/').pop()).join(', ') || '(none reported)'}`);
+        if (!configuration) process.exitCode = 1;
+        continue;
+      }
+      const j = await r.json();
+      const events = (j.items || []).map(e => ({
+        // Prefixed because two accounts can hand back the same event id for the
+        // same invitation, and an unprefixed id would silently collapse them into
+        // one row keyed by whichever account happened to be pulled last.
+        id: `${acct.id}:${e.id}`,
+        gcalId: e.id,
+        account: acct.id,
+        accountLabel: acct.label,
+        color: acct.color,
+        summary: e.summary || '(no title)',
+        start: e.start?.dateTime || e.start?.date || null,
+        end: e.end?.dateTime || e.end?.date || null,
+        location: e.location || '',
+        allDay: !!e.start?.date,
+        htmlLink: e.htmlLink || '',
+        meet: e.hangoutLink || e.conferenceData?.entryPoints?.find(x => x.entryPointType === 'video')?.uri || '',
+        organizer: e.organizer?.email || '',
+        attendees: (e.attendees || []).length,
+        // "accepted" / "declined" / "tentative" / "needsAction" for you specifically.
+        response: (e.attendees || []).find(a => a.self)?.responseStatus || '',
+      })).filter(e => e.start);
+      perAccount[acct.id] = events.length;
+      byAccount[acct.id] = { ok: true, configuration: false, reason: '', events: events.length };
+      anyOk = true;
+      all.push(...events);
+    } catch (e) {
+      byAccount[acct.id] = { ok: false, configuration: false, reason: e.message, events: 0 };
+      console.error(`  ✗ ${acct.label} calendar: ${e.message}`);
+      process.exitCode = 1;
+    }
+  }
+
+  // Every account failed. Writing an empty list here would blank the calendar on
+  // the dashboard, which is a far louder lie than a few hours of stale events —
+  // a Google outage would read to the user as "you have nothing on this week".
+  // Leave the previous blob alone and let the status line carry the news.
+  if (!anyOk) {
+    console.error('  no account returned a calendar — leaving the last good pull in place rather than blanking the tab.');
+    return byAccount;
   }
 
   // Fold cross-account duplicates (see lib/calendar-fold.mjs for why this is the
@@ -233,12 +280,14 @@ async function pullEvents() {
   await memPut('calendar_events', {
     events,
     accounts: ACCOUNTS.map(a => ({ id: a.id, label: a.label, color: a.color })),
+    byAccount,
     updated: new Date().toISOString(),
   });
   const dropped = all.length - events.length;
   console.log(`  pulled ${events.length} calendar event(s) → dashboard`
     + ` (${Object.entries(perAccount).map(([k, v]) => `${k} ${v}`).join(', ')}`
     + `${dropped ? `, ${dropped} cross-account duplicate(s) folded` : ''})`);
+  return byAccount;
 }
 
 // ---- pull the unread inbox into memory.mail_inbox ----
@@ -351,6 +400,18 @@ async function processCalendarDeletes() {
   }
 }
 
+// One entry per connected account, carrying whether its calendar actually
+// pulled. The chips on the dashboard used to be plain labels, which meant the
+// account that was silently not syncing rendered identically to the two that
+// were — the precise failure this file's status reporting exists to prevent.
+function acctReport(calendars = {}) {
+  return ACCOUNTS.map(a => ({
+    id: a.id,
+    label: a.label,
+    calendar: calendars?.[a.id]?.ok === false ? 'stuck' : 'ok',
+  }));
+}
+
 // ---- report this worker's health into memory.sync_status ----
 // Read-modify-write of a single shared blob keyed by worker name, so prices-sync
 // and amizone-sync can land their own entries here without a schema change.
@@ -421,12 +482,19 @@ async function run() {
   await processCalendarDeletes();  // deletes first
   await processMeetings();         // meeting_add → event + Meet link
   await processCalendarAdds();     // calendar_add → plain event
-  await pullEvents();              // sync Google → dashboard (always, so events show up)
+  const calendars = await pullEvents();  // sync Google → dashboard (always, so events show up)
   await pullMail();                // unread inbox → dashboard
 
+  // An account whose calendar is a configuration problem does not make the run
+  // fail, but it must not report as healthy either — otherwise the one account
+  // that is silently not syncing looks exactly like the two that are.
+  const stuck = Object.entries(calendars || {})
+    .filter(([, v]) => !v.ok)
+    .map(([id, v]) => `${id}: ${v.reason}`);
+
   await reportStatus(process.exitCode
-    ? { ok: false, configured: true, reason: failed.length ? failed.join('; ') : 'One or more queued items failed — see the workflow log.', waiting: await queueDepth(), accounts: ACCOUNTS.map(a => a.label) }
-    : { ok: true, configured: true, reason: '', waiting: 0, accounts: ACCOUNTS.map(a => a.label) });
+    ? { ok: false, configured: true, reason: [...failed, ...stuck].join('; ') || 'One or more queued items failed — see the workflow log.', waiting: await queueDepth(), accounts: acctReport(calendars), calendars }
+    : { ok: !stuck.length, configured: true, reason: stuck.join('; '), waiting: 0, accounts: acctReport(calendars), calendars });
 }
 
 run().catch(e => { console.error(e); process.exit(1); });

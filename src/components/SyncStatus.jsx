@@ -56,6 +56,17 @@ function stateOf(key, s) {
   return { tone: 'ok', word: 'LIVE', color: 'var(--green)' };
 }
 
+// Older workers wrote `accounts` as a list of label strings; the meetings worker
+// now writes objects carrying per-account calendar state. Both shapes have to
+// render, because a status blob written before the last deploy is still sitting
+// in the database and a dashboard that throws on stale data is worse than one
+// showing slightly less detail.
+function normAcct(a) {
+  return typeof a === 'string'
+    ? { id: a, label: a, calendar: 'ok' }
+    : { id: a.id || a.label, label: a.label || a.id, calendar: a.calendar || 'ok' };
+}
+
 export default function SyncStatus() {
   const { items } = useCollection('memory', { filter: 'key=eq.sync_status', order: 'key' });
   const status = items?.[0]?.value || {};
@@ -102,7 +113,20 @@ export default function SyncStatus() {
               )}
               {Array.isArray(r.s?.accounts) && r.s.accounts.length > 0 && (
                 <div className="sync-accounts">
-                  {r.s.accounts.map(a => <span key={a} className="sync-chip">{a}</span>)}
+                  {r.s.accounts.map(normAcct).map(a => (
+                    <span
+                      key={a.id}
+                      className="sync-chip"
+                      style={a.calendar === 'stuck'
+                        ? { borderColor: 'var(--yellow)', color: 'var(--yellow)' }
+                        : undefined}
+                      title={a.calendar === 'stuck'
+                        ? 'Connected, but its calendar is not pulling — see the line above.'
+                        : undefined}
+                    >
+                      {a.label}{a.calendar === 'stuck' ? ' ⚠' : ''}
+                    </span>
+                  ))}
                 </div>
               )}
             </div>
