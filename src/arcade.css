@@ -6221,3 +6221,81 @@ th:hover .hold-info { color: var(--cyan); }
    a screen ends up disagreeing with a broker for reasons nobody can find. */
 .daypl-cov { margin-top: 6px; font-size: 11px; color: var(--ink-3); line-height: 1.45; }
 .daypl-why { max-width: 74ch; margin-top: 4px; color: var(--ink-3); opacity: .85; }
+
+/* ------------------------------------------------- Todos: time and duration ---
+   Chips are asymmetric on purpose. A TIME is a commitment and gets the bright
+   treatment; a DURATION with no time is an estimate and is drawn quieter,
+   because those are not the same claim and a list that styles them alike is
+   saying they are. */
+
+.tt2-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 8px; vertical-align: middle; }
+.tt2-chip {
+  font-style: normal; font-size: 10px; letter-spacing: .3px; padding: 1px 5px;
+  border: 1px solid var(--border); color: var(--ink-3); background: var(--bg-deep);
+}
+.tt2-chip.tt2-at { color: var(--cyan); border-color: var(--cyan); }
+.tt2-chip.tt2-est { opacity: .7; border-style: dashed; }
+.tt2-chip.tt2-subdone { color: var(--green); border-color: var(--green); }
+.tt2-chip.tt2-actual { color: var(--purple); border-color: var(--purple); }
+.tt2-task.tt2-over { box-shadow: inset 2px 0 0 var(--red); }
+
+.tt2-daynav { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.tt2-daylab { font-family: var(--font-pixel); font-size: 9px; letter-spacing: 1px; color: var(--ink-2); min-width: 96px; text-align: center; }
+
+.tt2-day { display: flex; flex-direction: column; gap: 10px; }
+.tt2-dayhead { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-2); }
+.tt2-dayload i { font-style: normal; color: var(--ink-3); }
+.tt2-clash { color: var(--orange); font-size: 12px; }
+
+.tt2-daywrap { display: grid; grid-template-columns: minmax(0, 1fr) 210px; gap: 14px; align-items: start; }
+.tt2-grid { position: relative; border: 1px solid var(--border); background: var(--panel); overflow: hidden; }
+.tt2-hour { position: absolute; left: 0; right: 0; height: 0; border-top: 1px solid var(--border); }
+.tt2-hourlab {
+  position: absolute; left: 4px; top: 2px; font-size: 9.5px; color: var(--ink-3);
+  font-family: 'RupeeFix', 'VT323', monospace;
+}
+.tt2-block {
+  position: absolute; overflow: hidden; text-align: left; cursor: pointer;
+  padding: 3px 6px; background: var(--panel-2);
+  border: 1px solid var(--border-bright); border-left-width: 3px;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.tt2-block:hover { background: var(--bg-deep); }
+.tt2-block.tt2-clashing { border-color: var(--orange); }
+.tt2-block-t { font-size: 12px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tt2-block-m { font-size: 10px; color: var(--ink-3); }
+
+.tt2-tray { border: 1px solid var(--border); background: var(--panel); padding: 8px; }
+.tt2-trayh { font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1px; color: var(--ink-3); margin-bottom: 8px; }
+.tt2-traycard { display: flex; align-items: flex-start; gap: 6px; padding: 5px 4px; border-bottom: 1px solid var(--border); cursor: grab; }
+.tt2-traycard:last-of-type { border-bottom: 0; }
+.tt2-traye, .tt2-trayhint { font-size: 11px; color: var(--ink-3); line-height: 1.45; }
+.tt2-trayhint { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+
+.tt2-quick { display: inline-flex; flex-wrap: wrap; gap: 3px; }
+.tt2-qbtn {
+  padding: 2px 6px; cursor: pointer; font-size: 11px;
+  background: var(--bg-deep); border: 1px solid var(--border); color: var(--ink-3);
+}
+.tt2-qbtn:hover { color: var(--ink); }
+.tt2-qbtn.on { color: var(--cyan); border-color: var(--cyan); }
+.tt2-hint {
+  margin: 4px 0 10px; padding: 6px 9px; font-size: 11.5px; line-height: 1.5;
+  color: var(--ink-3); background: var(--panel-2); border-left: 2px solid var(--cyan);
+}
+.tt2-until { margin-left: 6px; }
+
+.tt2-subs { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+.tt2-subh { display: flex; align-items: center; gap: 8px; font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1px; color: var(--ink-3); margin-bottom: 6px; }
+.tt2-subcount { color: var(--ink-2); }
+.tt2-subbar { flex: 1; height: 3px; background: var(--bg-deep); border: 1px solid var(--border); }
+.tt2-subbar i { display: block; height: 100%; background: var(--green); }
+.tt2-sub { display: flex; align-items: center; gap: 7px; padding: 3px 0; font-size: 13px; color: var(--ink-2); }
+.tt2-subx { margin-left: auto; background: none; border: 0; color: var(--ink-3); cursor: pointer; font-size: 15px; }
+.tt2-subx:hover { color: var(--red); }
+.tt2-subin { flex: 1; background: var(--bg-deep); border: 1px solid var(--border); color: var(--ink); padding: 3px 6px; font-size: 13px; }
+
+@media (max-width: 820px) {
+  .tt2-daywrap { grid-template-columns: minmax(0, 1fr); }
+  .tt2-tray { order: -1; }
+}

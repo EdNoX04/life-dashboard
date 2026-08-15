@@ -2,6 +2,12 @@ import React, { useMemo, useState } from 'react';
 import { useCollection, todayStr } from '../lib/hooks.js';
 import { Empty, PCheck } from '../components/ui.jsx';
 import * as db from '../lib/db.js';
+import {
+  normaliseTask, fmtTime, fmtDuration, minutesOf, hhmmOf,
+  isScheduled, isEstimated, isOverdue, subtaskProgress, addSubtask, toggleSubtask,
+  removeSubtask, completeTask, REPEATS, isEveryN, everyN, sortTasks, layoutDay,
+  estimateStats, dayLoad, priorityOf, DEFAULT_BLOCK_MIN,
+} from '../lib/todos.js';
 
 // ---- TickTick-style TODO: smart lists + folders/lists, list / kanban / timeline ----
 const PRI = { 3: { label: 'High', cls: 'p3', c: 'var(--red)' }, 2: { label: 'Medium', cls: 'p2', c: 'var(--yellow)' }, 1: { label: 'Low', cls: 'p1', c: 'var(--cyan)' }, 0: { label: 'None', cls: 'p0', c: 'var(--ink-3)' } };
@@ -26,12 +32,16 @@ const SMART = [
 ];
 
 export default function Todos() {
-  const { items, add, patch, del } = useCollection('todos');
+  const { items: rawItems, add, patch, del } = useCollection('todos');
+  // Normalised once, here, so the row, the detail panel and the day grid can
+  // never disagree about what a task is. Three of this file's older bugs were
+  // a field read one way in one place and another way in another.
+  const items = useMemo(() => (rawItems || []).map(normaliseTask), [rawItems]);
   const { items: cfgMem, refresh: rCfg } = useCollection('memory', { filter: 'key=eq.todo_lists', order: 'key' });
   const cfg = cfgMem?.[0]?.value || { folders: [], lists: [] };
 
   const [view, setView] = useState({ type: 'smart', key: 'today' });
-  const [mode, setMode] = useState('list'); // list | kanban | timeline
+  const [mode, setMode] = useState('list'); // list | day | kanban | timeline
   const [navOpen, setNavOpen] = useState(false); // mobile drawer
   const [detail, setDetail] = useState(null); // task being edited
   const [openFolders, setOpenFolders] = useState({});
@@ -42,6 +52,9 @@ export default function Todos() {
   const [renaming, setRenaming] = useState(null);
 
   const today = todayStr();
+  // The day the grid is showing. Its own state, so stepping to tomorrow does not
+  // change which smart list is selected underneath.
+  const [dayDate, setDayDate] = useState(todayStr());
   const week = addDays(new Date(), 7);
 
   async function saveCfg(next) { await db.upsertMemory('todo_lists', next); await rCfg(); }
@@ -77,25 +90,53 @@ export default function Todos() {
     } else {
       out = items.filter(t => !t.completed && (t.list || 'Inbox') === view.key);
     }
-    return out.slice().sort((a, b) => {
+    // Grouped by date first, then the model's own order within a day: timed work
+    // in clock order, then priority, then manual, then title.
+    return sortTasks(out).sort((a, b) => {
       const ad = a.due_date || '9999', bd = b.due_date || '9999';
-      if (ad !== bd) return ad.localeCompare(bd);
-      return (b.priority || 0) - (a.priority || 0);
+      return ad === bd ? 0 : ad.localeCompare(bd);
     });
   }, [items, view, today, week]);
 
   const viewLabel = view.type === 'smart' ? SMART.find(s => s.key === view.key)?.label : view.key;
   const defaultList = view.type === 'list' ? view.key : 'Inbox';
 
-  const [qa, setQa] = useState({ title: '', due: '', pri: 0 });
+  const [qa, setQa] = useState({ title: '', due: '', time: '', mins: '', pri: 0 });
   async function quickAdd() {
     if (!qa.title.trim()) return;
     const due = qa.due || (view.type === 'smart' && view.key === 'today' ? today : '');
-    await add({ title: qa.title.trim(), due_date: due || null, priority: qa.pri, list: defaultList, completed: false });
-    setQa({ title: '', due: '', pri: 0 });
+    await add({
+      title: qa.title.trim(),
+      due_date: due || null,
+      // A time is only stored when there is a date for it to sit on.
+      due_time: due && minutesOf(qa.time) != null ? hhmmOf(minutesOf(qa.time)) : null,
+      duration_min: Number(qa.mins) > 0 ? Math.round(Number(qa.mins)) : null,
+      priority: qa.pri,
+      list: defaultList,
+      completed: false,
+    });
+    // Date, time and length persist between adds; the title does not. Logging
+    // three things for the same afternoon should not mean typing the afternoon
+    // three times.
+    setQa(q => ({ ...q, title: '' }));
   }
 
-  function toggle(t) { patch(t.id, { completed: !t.completed, completed_at: t.completed ? null : new Date().toISOString() }); }
+  // Ticking off a repeating task creates the next occurrence and leaves this one
+  // completed on its own date — decision 3 in lib/todos.js. Un-ticking is a
+  // plain reversal and never generates anything: undoing a completion is not
+  // the same event as completing it.
+  async function toggle(t) {
+    if (t.completed) {
+      await patch(t.id, { completed: false, completed_at: null });
+      return;
+    }
+    const { updated, next } = completeTask(t, { at: new Date() });
+    await patch(t.id, { completed: true, completed_at: updated.completed_at });
+    if (next) {
+      const { id, ...row } = next;
+      await add(row);
+    }
+  }
   async function pushToCalendar(t) {
     if (!t.due_date) return;
     await db.sendRequest('calendar_add', { summary: t.title, start: `${t.due_date}T09:00:00`, end: `${t.due_date}T09:30:00`, timeZone: 'Asia/Kolkata', allDay: true });
@@ -237,10 +278,18 @@ export default function Todos() {
           <h1 className="tt2-title">{viewLabel}</h1>
           <span className="tt2-count">{shown.length}</span>
           <div className="tt2-modes">
-            {['list', 'kanban', 'timeline'].map(m => (
+            {['list', 'day', 'kanban', 'timeline'].map(m => (
               <button key={m} className={`tt2-mode${mode === m ? ' on' : ''}`} onClick={() => setMode(m)}>{m}</button>
             ))}
           </div>
+          {mode === 'day' && (
+            <div className="tt2-daynav">
+              <button className="btn btn-sm" onClick={() => setDayDate(d => addDays(new Date(d + 'T00:00:00'), -1))}>‹</button>
+              <span className="tt2-daylab">{prettyDate(dayDate)}</span>
+              <button className="btn btn-sm" onClick={() => setDayDate(d => addDays(new Date(d + 'T00:00:00'), 1))}>›</button>
+              {dayDate !== today && <button className="btn btn-sm" onClick={() => setDayDate(today)}>today</button>}
+            </div>
+          )}
         </div>
 
         {view.key !== 'done' && (
@@ -248,6 +297,11 @@ export default function Todos() {
             <input type="text" placeholder={`Add a task to ${view.type === 'list' ? view.key : 'Inbox'}…`} value={qa.title}
               onChange={e => setQa({ ...qa, title: e.target.value })} onKeyDown={e => e.key === 'Enter' && quickAdd()} />
             <input type="date" value={qa.due} onChange={e => setQa({ ...qa, due: e.target.value })} />
+            <input type="time" value={qa.time} disabled={!qa.due && !(view.type === 'smart' && view.key === 'today')}
+              title="start time — needs a date" style={{ width: 108 }}
+              onChange={e => setQa({ ...qa, time: e.target.value })} />
+            <input type="number" min="0" step="5" placeholder="mins" style={{ width: 74 }}
+              value={qa.mins} onChange={e => setQa({ ...qa, mins: e.target.value })} />
             <select value={qa.pri} onChange={e => setQa({ ...qa, pri: Number(e.target.value) })}>
               <option value={0}>No priority</option><option value={1}>Low</option><option value={2}>Medium</option><option value={3}>High</option>
             </select>
@@ -255,7 +309,13 @@ export default function Todos() {
           </div>
         )}
 
-        {shown.length === 0 && <Empty icon="✓" text="Nothing here. Peaceful." />}
+        {shown.length === 0 && mode !== 'day' && <Empty icon="✓" text="Nothing here. Peaceful." />}
+        {mode === 'day' && (
+          <DayView
+            tasks={items} date={dayDate} onToggle={toggle} onOpen={setDetail}
+            onSchedule={(t, time) => patch(t.id, { due_date: dayDate, due_time: time })}
+          />
+        )}
         {shown.length > 0 && mode === 'list' && <ListView tasks={shown} smart={view.type === 'smart'} today={today} onToggle={toggle} onOpen={setDetail} />}
         {shown.length > 0 && mode === 'kanban' && <KanbanView tasks={shown} today={today} onToggle={toggle} onOpen={setDetail} onMove={(id, p) => patch(id, { priority: p })} />}
         {shown.length > 0 && mode === 'timeline' && <TimelineView tasks={shown} today={today} onToggle={toggle} onOpen={setDetail} />}
@@ -272,22 +332,146 @@ export default function Todos() {
   );
 }
 
+// A row now has to carry four things it never used to: when it starts, how long
+// it takes, whether it has a checklist under it, and whether it comes back
+// tomorrow. Each is a chip rather than a line, because a task list is scanned
+// and a scan reads shapes.
+//
+// The chips are deliberately asymmetric. A TIME is a commitment and gets the
+// bright treatment; a DURATION with no time is an estimate and is drawn quieter,
+// because the whole point of decision 1 in lib/todos.js is that those two are
+// not the same claim and a list that styles them alike says they are.
 function TaskRow({ t, today, onToggle, onOpen, showList }) {
-  const overdue = t.due_date && t.due_date < today && !t.completed;
+  const over = isOverdue(t, today);
   const note = (t.notes || '').replace('[gcal]', '').trim();
+  const sub = subtaskProgress(t);
+  const pri = priorityOf(t.priority);
   return (
-    <div className="tt2-task">
+    <div className={`tt2-task${over ? ' tt2-over' : ''}`}>
       <PCheck done={t.completed} xp={10} onToggle={() => onToggle(t)} />
-      {t.priority > 0 && <span className={`tt2-flag ${PRI[t.priority].cls}`} title={PRI[t.priority].label} />}
+      {t.priority > 0 && (
+        <span className="tt2-flag" style={{ background: pri.color }} title={pri.label} />
+      )}
       <button className="tt2-tt" onClick={() => onOpen(t)}>
         <span className={t.completed ? 'struck' : ''}>{t.title}</span>
         {note && <span className="tt2-note">{note}</span>}
+        <span className="tt2-chips">
+          {isScheduled(t) && <em className="tt2-chip tt2-at">{fmtTime(t.due_time)}</em>}
+          {t.duration_min > 0 && (
+            <em className={`tt2-chip${isEstimated(t) ? ' tt2-est' : ''}`}
+              title={isEstimated(t) ? 'estimated — no time set, so it is not on the calendar' : 'how long it is booked for'}>
+              {fmtDuration(t.duration_min)}
+            </em>
+          )}
+          {sub.total > 0 && (
+            <em className={`tt2-chip${sub.all ? ' tt2-subdone' : ''}`} title="checklist">
+              ☑ {sub.done}/{sub.total}
+            </em>
+          )}
+          {t.repeat_rule && <em className="tt2-chip" title={`repeats: ${t.repeat_rule}`}>↻</em>}
+          {t.actual_min > 0 && (
+            <em className="tt2-chip tt2-actual" title="what it actually took">
+              took {fmtDuration(t.actual_min)}
+            </em>
+          )}
+        </span>
       </button>
       <span className="tt2-meta">
-        {t.due_date && <span className={`tt2-due${overdue ? ' over' : ''}`}>{prettyDate(t.due_date)}</span>}
+        {t.due_date && <span className={`tt2-due${over ? ' over' : ''}`}>{prettyDate(t.due_date)}</span>}
         {showList && <span className="tt2-listtag">{t.list || 'Inbox'}</span>}
         {(t.notes || '').includes('[gcal]') && <span className="tt2-gcal" title="On Google Calendar">⌾</span>}
       </span>
+    </div>
+  );
+}
+
+// The day as a grid, which is the view a duration was added for.
+//
+// Two things share this screen and they are drawn differently on purpose:
+// blocks that have a time, and work that is due today with no time on it. The
+// second sits in a tray beside the grid rather than being hidden — it is real
+// work with a real deadline, and a calendar that shows only what fits on a grid
+// is a calendar that gets more reassuring the less you plan.
+export function DayView({ tasks, date, onToggle, onOpen, onSchedule }) {
+  const day = useMemo(() => layoutDay(tasks, date), [tasks, date]);
+  const load = useMemo(() => dayLoad(tasks, date), [tasks, date]);
+  const [dragging, setDragging] = useState(null);
+
+  const FROM = 6 * 60, TO = 23 * 60;                 // 06:00 → 23:00
+  const span = TO - FROM;
+  const PXH = 46;                                     // pixels per hour
+  const height = (span / 60) * PXH;
+  const y = min => ((min - FROM) / span) * height;
+  const hours = [];
+  for (let h = 6; h <= 23; h++) hours.push(h);
+
+  // Which slot a drop landed on, rounded to the nearest fifteen minutes —
+  // finer than that is a precision the mouse does not have.
+  const slotAt = e => {
+    const box = e.currentTarget.getBoundingClientRect();
+    const mins = FROM + ((e.clientY - box.top) / height) * span;
+    return hhmmOf(Math.max(FROM, Math.min(TO, Math.round(mins / 15) * 15)));
+  };
+
+  return (
+    <div className="tt2-day">
+      <div className="tt2-dayhead">
+        <span className="tt2-dayload">
+          {fmtDuration(load.plannedMin) || 'nothing'} booked
+          {load.unplacedMin > 0 && <i> · {fmtDuration(load.unplacedMin)} estimated with no time</i>}
+        </span>
+        {day.clashes.length > 0 && (
+          <span className="tt2-clash" title={day.clashes.map(c => `${c.a.title} × ${c.b.title}`).join('\n')}>
+            ⚠ {day.clashes.length} overlap{day.clashes.length === 1 ? '' : 's'}
+          </span>
+        )}
+      </div>
+
+      <div className="tt2-daywrap">
+        <div className="tt2-grid" style={{ height }}
+          onDragOver={e => e.preventDefault()}
+          onDrop={e => { e.preventDefault(); if (dragging) onSchedule(dragging, slotAt(e)); setDragging(null); }}>
+          {hours.map(h => (
+            <div key={h} className="tt2-hour" style={{ top: y(h * 60) }}>
+              <span className="tt2-hourlab">{h % 12 === 0 ? 12 : h % 12}{h < 12 ? 'a' : 'p'}</span>
+            </div>
+          ))}
+          {day.blocks.map(b => (
+            <button
+              key={b.task.id}
+              className={`tt2-block${b.columns > 1 ? ' tt2-clashing' : ''}`}
+              style={{
+                top: y(b.start),
+                height: Math.max(16, (b.minutes / 60) * PXH - 2),
+                left: `calc(46px + ${(b.column / b.columns) * 100}% - ${(b.column / b.columns) * 46}px)`,
+                width: `calc(${100 / b.columns}% - ${46 / b.columns}px - 4px)`,
+                borderLeftColor: priorityOf(b.task.priority).color,
+              }}
+              draggable
+              onDragStart={() => setDragging(b.task)}
+              onClick={() => onOpen(b.task)}
+            >
+              <span className="tt2-block-t">{b.task.title}</span>
+              <span className="tt2-block-m">{fmtTime(b.task.due_time)} · {fmtDuration(b.minutes)}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="tt2-tray">
+          <div className="tt2-trayh">No time yet</div>
+          {day.unscheduled.length === 0 && <div className="tt2-traye">Everything due today has a time.</div>}
+          {day.unscheduled.map(t => (
+            <div key={t.id} className="tt2-traycard" draggable onDragStart={() => setDragging(t)}>
+              <PCheck done={t.completed} xp={10} onToggle={() => onToggle(t)} />
+              <button className="tt2-tt" onClick={() => onOpen(t)}>
+                <span>{t.title}</span>
+                {t.duration_min > 0 && <em className="tt2-chip tt2-est">{fmtDuration(t.duration_min)}</em>}
+              </button>
+            </div>
+          ))}
+          <div className="tt2-trayhint">Drag one onto the grid to give it a time.</div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -379,33 +563,171 @@ function TimelineView({ tasks, today, onToggle, onOpen }) {
 }
 
 function TaskDetail({ t, lists, onClose, onSave, onDelete, onPush }) {
-  const [f, setF] = useState({ title: t.title, notes: (t.notes || '').replace('[gcal]', '').trim(), due_date: t.due_date || '', priority: t.priority || 0, list: t.list || 'Inbox' });
+  const [f, setF] = useState({
+    title: t.title,
+    notes: (t.notes || '').replace('[gcal]', '').trim(),
+    due_date: t.due_date || '',
+    due_time: t.due_time || '',
+    duration_min: t.duration_min || '',
+    actual_min: t.actual_min || '',
+    priority: t.priority || 0,
+    list: t.list || 'Inbox',
+    repeat_rule: t.repeat_rule || '',
+    repeat_until: t.repeat_until || '',
+    subtasks: Array.isArray(t.subtasks) ? t.subtasks : [],
+  });
+  const [newSub, setNewSub] = useState('');
   const synced = (t.notes || '').includes('[gcal]');
-  const save = () => onSave({ title: f.title.trim() || t.title, notes: (f.notes + (synced ? ' [gcal]' : '')).trim(), due_date: f.due_date || null, priority: Number(f.priority), list: f.list });
+  const sub = subtaskProgress(f);
+  const pri = priorityOf(f.priority);
+
+  const save = () => onSave({
+    title: f.title.trim() || t.title,
+    notes: (f.notes + (synced ? ' [gcal]' : '')).trim(),
+    due_date: f.due_date || null,
+    // A time with no date is not a time — it has no day to be on. Clearing the
+    // date clears it rather than leaving an orphan that nothing can draw.
+    due_time: f.due_date && minutesOf(f.due_time) != null ? hhmmOf(minutesOf(f.due_time)) : null,
+    duration_min: Number(f.duration_min) > 0 ? Math.round(Number(f.duration_min)) : null,
+    actual_min: Number(f.actual_min) > 0 ? Math.round(Number(f.actual_min)) : null,
+    priority: Number(f.priority),
+    list: f.list,
+    repeat_rule: f.repeat_rule || null,
+    repeat_until: f.repeat_rule && f.repeat_until ? f.repeat_until : null,
+    subtasks: f.subtasks,
+  });
+
+  const QUICK = [15, 30, 45, 60, 90, 120];
+
   return (
     <div className="modal-overlay" onClick={() => { save(); onClose(); }}>
       <div className="px tt2-detail" onClick={e => e.stopPropagation()}>
         <div className="spread" style={{ marginBottom: 10 }}>
-          <span className="card-title" style={{ margin: 0 }}><span className="sq" style={{ background: PRI[f.priority].c }} />Task</span>
+          <span className="card-title" style={{ margin: 0 }}>
+            <span className="sq" style={{ background: pri.color }} />Task
+          </span>
           <button className="btn btn-sm btn-pink" onClick={() => { save(); onClose(); }}>✕</button>
         </div>
+
         <input className="tt2-dtitle" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} />
         <textarea className="tt2-dnotes" placeholder="Notes…" value={f.notes} onChange={e => setF({ ...f, notes: e.target.value })} />
-        <div className="tt2-drow"><label>Due</label><input type="date" value={f.due_date} onChange={e => setF({ ...f, due_date: e.target.value })} /></div>
+
+        <div className="tt2-drow"><label>Due</label>
+          <input type="date" value={f.due_date} onChange={e => setF({ ...f, due_date: e.target.value })} />
+          {/* The time input is disabled without a date, rather than accepting a
+              time that can never be placed anywhere. */}
+          <input type="time" value={f.due_time} disabled={!f.due_date}
+            title={f.due_date ? 'start time' : 'pick a date first — a time needs a day to be on'}
+            onChange={e => setF({ ...f, due_time: e.target.value })} />
+          {f.due_time && (
+            <button className="btn btn-sm" title="remove the time and leave it as a deadline"
+              onClick={() => setF({ ...f, due_time: '' })}>clear time</button>
+          )}
+        </div>
+
+        <div className="tt2-drow"><label>How long</label>
+          <input type="number" min="0" step="5" placeholder="minutes" style={{ width: 90 }}
+            value={f.duration_min} onChange={e => setF({ ...f, duration_min: e.target.value })} />
+          <span className="tt2-quick">
+            {QUICK.map(q => (
+              <button key={q} className={`tt2-qbtn${Number(f.duration_min) === q ? ' on' : ''}`}
+                onClick={() => setF({ ...f, duration_min: q })}>{fmtDuration(q)}</button>
+            ))}
+          </span>
+        </div>
+        {/* Decision 1, said out loud at the moment it matters. */}
+        {f.duration_min > 0 && !f.due_time && (
+          <p className="tt2-hint">
+            An estimate with no start time. It stays off the calendar grid and sits in
+            the tray beside it — drag it onto an hour to book it.
+          </p>
+        )}
+
+        <div className="tt2-drow"><label>Actually took</label>
+          <input type="number" min="0" step="5" placeholder="minutes" style={{ width: 90 }}
+            value={f.actual_min} onChange={e => setF({ ...f, actual_min: e.target.value })} />
+          <span className="small muted">
+            {Number(f.actual_min) > 0 && Number(f.duration_min) > 0
+              ? `${(Number(f.actual_min) / Number(f.duration_min)).toFixed(2)}× your estimate`
+              : 'logged after the fact — this is what makes the estimates better'}
+          </span>
+        </div>
+
+        <div className="tt2-drow"><label>Repeats</label>
+          <select value={f.repeat_rule} onChange={e => setF({ ...f, repeat_rule: e.target.value })}>
+            <option value="">Never</option>
+            {REPEATS.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
+            <option value="every:2">Every 2 days</option>
+            <option value="every:3">Every 3 days</option>
+            <option value="every:14">Every 2 weeks</option>
+          </select>
+          {f.repeat_rule && (
+            <>
+              <label className="tt2-until">until</label>
+              <input type="date" value={f.repeat_until}
+                onChange={e => setF({ ...f, repeat_until: e.target.value })} />
+            </>
+          )}
+        </div>
+        {f.repeat_rule && (
+          <p className="tt2-hint">
+            Ticking this off creates the next one and leaves this one completed on its
+            own date — so the record of what you actually did stays intact.
+          </p>
+        )}
+
         <div className="tt2-drow"><label>Priority</label>
           <select value={f.priority} onChange={e => setF({ ...f, priority: Number(e.target.value) })}>
-            <option value={0}>None</option><option value={1}>Low</option><option value={2}>Medium</option><option value={3}>High</option>
+            <option value={0}>None</option><option value={1}>Low</option>
+            <option value={2}>Medium</option><option value={3}>High</option>
           </select>
-        </div>
-        <div className="tt2-drow"><label>List</label>
+          <label style={{ marginLeft: 8 }}>List</label>
           <select value={f.list} onChange={e => setF({ ...f, list: e.target.value })}>
             {lists.map(l => <option key={l} value={l}>{l}</option>)}
           </select>
         </div>
+
+        {/* Checklist. Ticking every item does NOT complete the task — that is
+            still your call, and the count says where you are. */}
+        <div className="tt2-subs">
+          <div className="tt2-subh">
+            Checklist
+            {sub.total > 0 && <span className="tt2-subcount">{sub.done}/{sub.total}</span>}
+            {sub.total > 0 && (
+              <span className="tt2-subbar"><i style={{ width: `${sub.pct}%` }} /></span>
+            )}
+          </div>
+          {f.subtasks.map(s2 => (
+            <div key={s2.id} className="tt2-sub">
+              <input type="checkbox" checked={s2.done}
+                onChange={() => setF(toggleSubtask(f, s2.id))} />
+              <span className={s2.done ? 'struck' : ''}>{s2.title}</span>
+              <button className="tt2-subx" onClick={() => setF(removeSubtask(f, s2.id))}>×</button>
+            </div>
+          ))}
+          <div className="tt2-sub">
+            <input className="tt2-subin" placeholder="add a step…" value={newSub}
+              onChange={e => setNewSub(e.target.value)}
+              onKeyDown={e => {
+                if (e.key !== 'Enter' || !newSub.trim()) return;
+                setF(addSubtask(f, newSub)); setNewSub('');
+              }} />
+          </div>
+          {sub.all && (
+            <p className="tt2-hint">
+              Every step is ticked. The task itself is still open — finishing it is your
+              call, because some checklists are guidance rather than the whole job.
+            </p>
+          )}
+        </div>
+
         <div className="flex mt" style={{ gap: 8, flexWrap: 'wrap' }}>
           <button className="btn btn-green" onClick={() => { save(); onClose(); }}>Save</button>
-          <button className="btn btn-sm" disabled={!f.due_date || synced} onClick={onPush}>{synced ? '⌾ On Google Cal' : '⤴ Push to Google Cal'}</button>
-          <button className="btn btn-sm" style={{ marginLeft: 'auto', color: 'var(--red)', borderColor: 'var(--red)' }} onClick={onDelete}>Delete</button>
+          <button className="btn btn-sm" disabled={!f.due_date || synced} onClick={onPush}>
+            {synced ? '⌾ On Google Cal' : '⤴ Push to Google Cal'}
+          </button>
+          <button className="btn btn-sm" style={{ marginLeft: 'auto', color: 'var(--red)', borderColor: 'var(--red)' }}
+            onClick={onDelete}>Delete</button>
         </div>
       </div>
     </div>
