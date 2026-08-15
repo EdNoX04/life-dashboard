@@ -6409,3 +6409,19 @@ th:hover .hold-info { color: var(--cyan); }
   cursor: pointer;
 }
 .signout-btn:hover { color: var(--ink); border-color: var(--border-bright); }
+
+.player-signout {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 5px 0;
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  letter-spacing: 1.4px;
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.player-signout:hover { color: var(--red); border-color: var(--red); }

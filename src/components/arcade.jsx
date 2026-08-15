@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { signOut, currentEmail } from '../lib/auth.js';
 import { useCollection, todayStr } from '../lib/hooks.js';
 
 // Trim to a length without slicing a word in half (the old ticker cut mid-word,
@@ -45,6 +46,13 @@ export function PlayerCard() {
       <div className="player-name">▲ NEEL</div>
       <div className="player-lv">LV {lv} · {xp} XP</div>
       <div className="xp-bar" title={`${pct}% to LV ${lv + 1}`}><div style={{ width: `${pct}%` }} /></div>
+      {/* In the sidebar rather than buried in Settings, because the moment you most
+          need to sign out is the moment the session has stopped working — and a
+          session that cannot read anything renders a Settings tab you may not
+          trust either. The way out should be visible from every screen. */}
+      <button className="player-signout" onClick={() => signOut()} title={currentEmail() || 'Sign out'}>
+        SIGN OUT
+      </button>
     </div>
   );
 }

@@ -24,7 +24,7 @@ export default function NextMeeting() {
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const today = todayStr();
-  const [form, setForm] = useState({ title: '', date: today, time: '15:00', dur: 30, meet: true });
+  const [form, setForm] = useState({ title: '', date: today, time: '15:00', dur: 30, meet: true, guests: '' });
 
   const now = Date.now();
   const upcoming = list
@@ -41,11 +41,17 @@ export default function NextMeeting() {
     if (!form.title.trim()) return;
     const start = `${form.date}T${form.time}:00`;
     const end = isoLocal(new Date(new Date(start).getTime() + Number(form.dur) * 60000));
-    const m = { id: uid(), title: form.title.trim(), start, end, meet: '', gcal_id: '', wantMeet: form.meet, status: 'pending', created: new Date().toISOString() };
+    // Split on anything that is not part of an address, so a pasted list works
+    // whether it arrived comma-separated, space-separated or one per line. Then
+    // require an @ — a typo that reaches Google comes back as a 400 for the whole
+    // insert, which loses the meeting rather than the bad address.
+    const attendees = String(form.guests || '')
+      .split(/[\s,;]+/).map(x => x.trim()).filter(x => /.@./.test(x));
+    const m = { id: uid(), title: form.title.trim(), start, end, meet: '', gcal_id: '', wantMeet: form.meet, attendees, status: 'pending', created: new Date().toISOString() };
     await save([m, ...list]);
     const tz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return 'Asia/Kolkata'; } })();
-    db.sendRequest('meeting_add', { id: m.id, title: m.title, start, end, meet: form.meet, tz }).catch(() => {});
-    setForm({ title: '', date: today, time: '15:00', dur: 30, meet: true });
+    db.sendRequest('meeting_add', { id: m.id, title: m.title, start, end, meet: form.meet, tz, attendees }).catch(() => {});
+    setForm({ title: '', date: today, time: '15:00', dur: 30, meet: true, guests: '' });
     setOpen(false);
   }
   const del = id => save(list.filter(m => m.id !== id));
@@ -69,7 +75,17 @@ export default function NextMeeting() {
             </label>
             <button className="btn btn-sm btn-green" onClick={add} disabled={busy}>Add</button>
           </div>
-          <div className="small muted mt">Adds to Google Calendar + generates a Meet link on the next Cowork sync.</div>
+          <input
+            className="mt"
+            placeholder="Guest emails — comma or space separated (optional)"
+            value={form.guests}
+            onChange={e => setForm({ ...form, guests: e.target.value })}
+          />
+          <div className="small muted mt" style={{ lineHeight: 1.55 }}>
+            Adds to Google Calendar and generates a Meet link. Guests get a real invitation
+            carrying the date, time and timezone — which a pasted link never does, and a
+            Meet link is not restricted to its slot, so the invite is the part that says when.
+          </div>
         </div>
       )}
 
