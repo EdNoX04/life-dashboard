@@ -362,3 +362,31 @@ export async function fetchSeason(tvId, season, key, { signal } = {}) {
 export async function fetchRaw(kind, id, key, { signal } = {}) {
   return tmdbFetch(detailPath(kind, id), key, { signal });
 }
+
+// ---- one season, with a real runtime per episode ----
+// The show detail endpoint gives episode_run_time — a single nominal length for
+// the whole series — which is why the shelf's hours figure was a guess. The season
+// endpoint publishes each episode's own runtime, and that is the number that makes
+// "how long have I watched" answerable rather than estimable.
+export async function fetchSeasonRuntimes(tmdbId, season, key, { signal } = {}) {
+  const j = await fetchSeason(tmdbId, Number(season) || 1, key, { signal });
+  return normaliseSeason(j, tmdbId, season);
+}
+
+export function normaliseSeason(j = {}, tmdbId, season) {
+  return {
+    tmdb_id: Number(tmdbId),
+    season: Number(season) || 1,
+    name: j.name || `Season ${season}`,
+    // runtime is left NULL when TMDB has none. A zero here would be indis-
+    // tinguishable from a genuinely zero-length episode and would silently drag
+    // every average that touches it.
+    episodes: (j.episodes || []).map(e => ({
+      episode: num(e.episode_number),
+      name: e.name || '',
+      runtime: num(e.runtime),
+      air_date: e.air_date || null,
+    })).filter(e => e.episode != null),
+    fetched: new Date().toISOString(),
+  };
+}

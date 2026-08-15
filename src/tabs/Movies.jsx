@@ -19,6 +19,8 @@ import AddSheet from '../components/media/AddSheet.jsx';
 import { searchTmdb, fetchRaw } from '../lib/tmdb.js';
 import Ally from '../components/Ally.jsx';
 import { KINDS, kindOf, isEpisodic, guessKind, progressFor } from '../lib/kinds.js';
+import { syncMinutes } from '../lib/episodes.js';
+import { fetchSeasonRuntimes } from '../lib/tmdb.js';
 
 // The media shelf.
 //
@@ -201,6 +203,11 @@ function Poster({ row, meta, onPatch, onMeta, onDel, onLog, onPreview, onEpisode
 export default function Movies() {
   const { items, add, patch, del, refresh } = useCollection('movies');
   const [meta, setMeta] = useState({});
+  // Season runtimes, cached in memory.tv_seasons. Fetched once per season and
+  // reused: a twelve-season show is twelve requests if you ask blindly and one if
+  // you ask for what the episode count actually needs.
+  const [seasonCache, setSeasonCache] = useState({});
+  const [cacheErr, setCacheErr] = useState('');
   const [q, setQ] = useState('');
   const [results, setResults] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -235,6 +242,16 @@ export default function Movies() {
     list('memory', { filter: 'key=eq.media_meta', order: 'key' })
       .then(rows => { if (!dead && rows?.[0]?.value) setMeta(rows[0].value); })
       .catch(e => { if (!dead) setLoadErr(String(e.message || e)); });
+    // Surfaced, not swallowed — quietly, because the consequence is different in
+    // kind from the read above. A failed media_meta read makes the shelf look
+    // empty; a failed cache read only costs a refetch. But dbdefaults.test.js is
+    // right that an empty catch block is the shape that hid a whole build's worth
+    // of silent failures, so this one reports too, in a line matching its stakes.
+    // (Written without the literal pattern: that test greps the source, and a
+    // comment quoting the thing it forbids trips it — as this one did.)
+    list('memory', { filter: 'key=eq.tv_seasons', order: 'key' })
+      .then(rows => { if (!dead && rows?.[0]?.value) setSeasonCache(rows[0].value); })
+      .catch(e => { if (!dead) setCacheErr(String(e.message || e)); });
     // The viewing log. A blob rather than a table, like media_meta, but shaped
     // like rows - every entry carries its own id and nothing depends on array
     // position, so it can become a real table later without touching a caller.
@@ -298,6 +315,36 @@ export default function Movies() {
     const next = { ...meta, [id]: { ...(meta[id] || {}), ...patchObj } };
     setMeta(next);
     try { await upsertMemory('media_meta', next); } catch { /* offline: local state stands */ }
+
+    // Episode count moved — go and find out how long those episodes actually
+    // were. This is what stops "how many have you watched" and "how long have you
+    // watched" from being two unrelated numbers, one typed and one modelled.
+    //
+    // Deliberately AFTER the write above and not awaited by the caller: the count
+    // must land immediately whether or not TMDB answers. A runtime lookup that
+    // fails should cost you accuracy, never the thing you just clicked.
+    if ('episodes_watched' in patchObj) {
+      const row = shelfRows.find(r => r.id === id);
+      const m = next[id] || {};
+      if (row?.type === 'tv' && row.tmdb_id && tmdbKey) {
+        try {
+          const patch2 = await syncMinutes({
+            tmdbId: row.tmdb_id,
+            watched: Number(patchObj.episodes_watched) || 0,
+            totalSeasons: Number(m.seasons_total) || 0,
+            showFallback: Number(m.episode_runtime) || null,
+            cache: seasonCache,
+            fetchSeason: (tid, sn) => fetchSeasonRuntimes(tid, sn, tmdbKey),
+            saveCache: async c => { setSeasonCache(c); await upsertMemory('tv_seasons', c); },
+          });
+          if (patch2) {
+            const merged = { ...next, [id]: { ...(next[id] || {}), ...patch2 } };
+            setMeta(merged);
+            try { await upsertMemory('media_meta', merged); } catch {}
+          }
+        } catch { /* accuracy is the only casualty */ }
+      }
+    }
   }
 
   async function search() {
@@ -560,7 +607,8 @@ export default function Movies() {
             // can act on only once you know which two.
             : `estimated · no runtime for ${stats.time.unknownTitles.slice(0, 3).join(', ')}${stats.time.unknownTitles.length > 3 ? ` +${stats.time.unknownTitles.length - 3}` : ''}`}
           color="var(--orange)"
-        />
+                  note={cacheErr ? `runtime cache unavailable — ${cacheErr}` : undefined}
+/>
         <StatTile
           label="Average rating"
           value={stats.avgRating == null ? '—' : `${stats.avgRating.toFixed(1)}★`}
