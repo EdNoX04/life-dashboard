@@ -41,10 +41,19 @@ const WHICH = (process.argv[2] || 'personal').toLowerCase();
 // through a chain of `x === 'work' ? ... : ...` is how the calendar-id line
 // below would have kept saying GOOGLE_CALENDAR_ID for it — silently telling you
 // to store the third account's id under the first account's name.
+//
+// `email` is what this slot is SUPPOSED to be. Google decides the real account
+// from whoever is signed in on the consent page, and it has no idea which
+// argument you typed — so running `... work` while the browser is still signed
+// in as the personal account mints a personal token and files it under
+// GOOGLE_WORK_REFRESH_TOKEN. Nothing errors. The work calendar simply shows
+// personal events forever, and the cause is three commands back.
+//
+// So the token is checked against this before it is printed.
 const SLOTS = {
-  personal: { token: 'GOOGLE_REFRESH_TOKEN', cal: 'GOOGLE_CALENDAR_ID' },
-  work: { token: 'GOOGLE_WORK_REFRESH_TOKEN', cal: 'GOOGLE_WORK_CALENDAR_ID' },
-  third: { token: 'GOOGLE_THIRD_REFRESH_TOKEN', cal: 'GOOGLE_THIRD_CALENDAR_ID' },
+  personal: { token: 'GOOGLE_REFRESH_TOKEN', cal: 'GOOGLE_CALENDAR_ID', email: 'nilabhamukherjee04@gmail.com' },
+  work: { token: 'GOOGLE_WORK_REFRESH_TOKEN', cal: 'GOOGLE_WORK_CALENDAR_ID', email: 'nilabha.mukherjee@skopiaai.com' },
+  third: { token: 'GOOGLE_THIRD_REFRESH_TOKEN', cal: 'GOOGLE_THIRD_CALENDAR_ID', email: 'ednox042004@gmail.com' },
 };
 if (!SLOTS[WHICH]) {
   console.error(`Unknown account "${WHICH}". Use one of: ${Object.keys(SLOTS).join(', ')}`);
@@ -52,6 +61,7 @@ if (!SLOTS[WHICH]) {
 }
 const SECRET_NAME = SLOTS[WHICH].token;
 const CAL_NAME = SLOTS[WHICH].cal;
+const EXPECT = SLOTS[WHICH].email;
 
 // calendar.events writes meetings; gmail.readonly powers the unread strip. The
 // read-only Gmail scope is deliberate: the worker has no send path at all, so the
@@ -70,7 +80,12 @@ const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchP
   response_type: 'code',
   scope: SCOPE,
   access_type: 'offline',
-  prompt: 'consent',
+  // select_account as well as consent: without it Google silently reuses the
+  // session you already have, so the second and third runs would hand back a
+  // token for the first account without ever asking. The chooser is the only
+  // thing that makes "which account is this" a decision rather than an
+  // accident.
+  prompt: 'select_account consent',
 });
 
 async function exchange(code) {
@@ -101,11 +116,47 @@ function localCatch() {
 console.log('\nOpen this URL, pick your Google account, approve:\n\n' + authUrl + '\n');
 exec(`open "${authUrl}" 2>/dev/null || xdg-open "${authUrl}" 2>/dev/null`);
 
-// Either catch the redirect automatically, or let the user paste the code.
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-const manual = new Promise(res => rl.question('...or paste the "code" query param here if it did not auto-catch: ', res));
+// THE PROMPT BELOW LOOKS LIKE A SHELL PROMPT AND IS NOT ONE.
+//
+// This printed `...or paste the "code" here: ` and then blocked on stdin, one
+// line under a wall of output, which reads exactly like the shell handing
+// control back. The next command typed — `node scripts/get-google-token.mjs
+// personal` — was swallowed as the auth code, sent to Google, and came back
+// "Malformed auth code", which points at everything except what happened.
+//
+// Three changes, because the fix is not just clearer wording:
+//   1. The waiting state is announced BEFORE the prompt, in its own block.
+//   2. Anything that is not shaped like a Google auth code is rejected HERE,
+//      by name, instead of being posted to Google and bouncing back as a
+//      generic grant error.
+//   3. The prompt says it is optional, since the local catcher handles this
+//      almost every time and typing into it is the unusual path.
+console.log('Waiting for the approval to come back on http://localhost:53682 …');
+console.log('(Leave this terminal alone. It will continue on its own once you approve.)\n');
 
-const code = await Promise.race([localCatch(), manual.then(c => c.trim())]);
+// A Google authorization code always starts "4/". Rejecting locally turns a
+// confusing round trip into an immediate, specific message.
+const looksLikeCode = c => /^4\//.test(String(c || '').trim());
+
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+const ask = () => new Promise(res => rl.question(
+  'Only if it did not open — paste the "code" value from the URL (starts with 4/): ', res,
+));
+const manual = (async () => {
+  // Keep asking rather than failing on the first mistyped line: a wrong entry
+  // here used to end the run and mean starting the whole browser flow again.
+  for (;;) {
+    const c = (await ask()).trim();
+    if (looksLikeCode(c)) return c;
+    if (!c) continue;
+    console.log(`\nThat is not an auth code — it was read as: ${c.slice(0, 60)}${c.length > 60 ? '…' : ''}`);
+    console.log('An auth code starts with "4/". If you meant to run a command, this prompt');
+    console.log('is not a shell — press Ctrl+C first, or just approve in the browser and');
+    console.log('leave this alone.\n');
+  }
+})();
+
+const code = await Promise.race([localCatch(), manual]);
 rl.close();
 
 try {
@@ -115,6 +166,35 @@ try {
     process.exit(1);
   }
   const granted = (tok.scope || '').split(' ').filter(Boolean);
+
+  // Whose token is this REALLY? Asked of Google, not inferred from the
+  // argument. gmail.readonly is already granted, so the profile endpoint costs
+  // nothing extra and answers it exactly.
+  let actual = null;
+  if (granted.some(x => x.includes('gmail'))) {
+    try {
+      const pr = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+        headers: { Authorization: `Bearer ${tok.access_token}` },
+      });
+      const pj = await pr.json();
+      actual = pj?.emailAddress || null;
+    } catch { /* leave it unknown rather than claiming a match */ }
+  }
+
+  if (actual && EXPECT && actual.toLowerCase() !== EXPECT.toLowerCase()) {
+    console.error('\n=====================  WRONG ACCOUNT  =====================');
+    console.error(`You asked for "${WHICH}", which is ${EXPECT}`);
+    console.error(`but you approved as                  ${actual}`);
+    console.error('');
+    console.error('Nothing has been saved. Storing this under ' + SECRET_NAME);
+    console.error('would leave that calendar showing the wrong account forever,');
+    console.error('with nothing to indicate why.');
+    console.error('');
+    console.error('Sign out of the wrong account, or re-run and pick the right one');
+    console.error('at the chooser.');
+    console.error('===========================================================\n');
+    process.exit(1);
+  }
   const pad = SECRET_NAME.length > 20 ? SECRET_NAME.length : 20;
   console.log('\n==================  GITHUB SECRETS  ==================');
   console.log('GOOGLE_CLIENT_ID'.padEnd(pad), '=', GOOGLE_CLIENT_ID);
@@ -122,7 +202,11 @@ try {
   console.log(SECRET_NAME.padEnd(pad), '=', tok.refresh_token);
   console.log(CAL_NAME.padEnd(pad), '= primary');
   console.log('=====================================================');
-  console.log(`Account: ${WHICH}`);
+  console.log(`Account: ${WHICH}${actual ? ` — confirmed as ${actual}` : ''}`);
+  if (!actual) {
+    console.log('NOTE: could not confirm which account this token belongs to,');
+    console.log(`      because Gmail was not granted. It SHOULD be ${EXPECT}.`);
+  }
   console.log(`Scopes granted: ${granted.map(x => x.split('/').pop()).join(', ') || '(none reported)'}`);
   if (!granted.some(x => x.includes('gmail'))) {
     console.log('NOTE: Gmail was not granted, so the inbox strip will stay empty.');
@@ -130,7 +214,19 @@ try {
   }
   console.log('');
 } catch (e) {
-  console.error('Exchange failed:', e.message);
+  console.error('\nExchange failed:', e.message);
+  if (/invalid_grant/.test(e.message)) {
+    console.error('\ninvalid_grant means Google rejected the code itself. Usually one of:');
+    console.error('  · the code was already used — they are single-use, so start again');
+    console.error('  · more than a few minutes passed between approving and exchanging');
+    console.error('  · something other than the code reached this script');
+    console.error('Re-run the command and approve in the browser without typing here.');
+  }
+  if (/access_denied/.test(e.message)) {
+    console.error('\naccess_denied means this Google account is not on the test-user list');
+    console.error('for the app, or you declined. Add it under Google Auth Platform →');
+    console.error('Audience → Test users, and confirm it appears in the SAVED table.');
+  }
   process.exit(1);
 }
 process.exit(0);
