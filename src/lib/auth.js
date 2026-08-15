@@ -186,9 +186,15 @@ async function authFetch(path, init = {}) {
   return j;
 }
 
+// Factors live on the user record. There is no GET /factors — the previous
+// version called one, got a 404, swallowed it, and rendered "you have no
+// factors". So an enrolled-but-unverified factor was invisible: the UI offered
+// to enroll a fresh one, the old one stayed behind unverified, and a refresh
+// looked like the whole thing had vanished. Unverified factors are returned here
+// deliberately, so the screen can show them and offer to finish or delete them.
 export async function listFactors() {
-  const j = await authFetch('/factors');
-  const all = j?.totp || j?.all || [];
+  const j = await authFetch('/user');
+  const all = j?.factors || [];
   return Array.isArray(all) ? all : [];
 }
 

@@ -241,5 +241,27 @@ function ok(name, cond, got) {
     splitEventId('work:abc').id === 'work:abc');
 }
 
+
+// ------------------------------------------------- what lands on the clipboard
+import { inviteText } from '../src/lib/invite.js';
+
+// A bare URL is the least useful thing to paste into a chat: no date, no time, no
+// zone. And the link is NOT time-bounded — Google does not gate a Meet room to its
+// event window and there is no API setting that does. So the message has to carry
+// the when, because the link never will.
+const MTG = {
+  title: 'Skopia AI — Marketing',
+  start: '2026-08-15T18:00:00.000Z',
+  end: '2026-08-15T18:30:00.000Z',
+  meet: 'https://meet.google.com/abc-defg-hij',
+};
+const txt = inviteText(MTG);
+ok(txt.includes('Skopia AI — Marketing'), 'the invite names the meeting');
+ok(/Saturday/.test(txt), 'and the day, spelled out');
+ok(/IST/.test(txt), 'and the zone, because the recipient may not share yours');
+ok(txt.includes(MTG.meet), 'and the link itself');
+ok(txt.split('\n').length >= 4, 'across lines, so it reads as a message rather than a blob');
+ok(inviteText({ ...MTG, meet: '' }) === '', 'no link means nothing to copy — not a message with a dangling Join:');
+
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);

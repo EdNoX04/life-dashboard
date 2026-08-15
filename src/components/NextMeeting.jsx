@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { inviteText } from '../lib/invite.js';
 import { Card, Empty } from './ui.jsx';
 import { useCollection, todayStr } from '../lib/hooks.js';
 import * as db from '../lib/db.js';
@@ -86,7 +87,7 @@ export default function NextMeeting() {
           {next.meet ? (
             <div className="flex mt" style={{ gap: 6, flexWrap: 'wrap' }}>
               <a className="btn btn-sm btn-green" href={next.meet} target="_blank" rel="noreferrer">▶ Join Meet</a>
-              <button className="btn btn-sm" onClick={() => copy(next.meet)}>{copied ? 'Copied ✓' : '⧉ Copy link'}</button>
+              <button className="btn btn-sm" onClick={() => copy(inviteText(next))}>{copied ? 'Copied ✓' : '⧉ Copy invite'}</button>
               <span className="meet-link small muted">{next.meet.replace('https://', '')}</span>
             </div>
           ) : (

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card } from './ui.jsx';
-import { listFactors, enrollTotp, verifyFactor, unenrollFactor, sessionAal, currentEmail } from '../lib/auth.js';
+import { listFactors, enrollTotp, verifyFactor, unenrollFactor, sessionAal, currentEmail, signOut } from '../lib/auth.js';
 
 // Security — enrolling the second factor.
 //
@@ -24,6 +24,10 @@ export default function Security() {
   useEffect(() => { refresh(); }, []);
 
   const verified = (factors || []).filter(f => f.status === 'verified');
+  // Half-finished enrollments. These are the ones that made the screen look
+  // broken: created server-side, invisible client-side, and blocking a clean
+  // second attempt. Shown so they can be finished or thrown away.
+  const unverified = (factors || []).filter(f => f.status !== 'verified');
 
   async function start() {
     setBusy(true); setErr(''); setDone(false);
@@ -71,8 +75,23 @@ export default function Security() {
 
       {!pending && verified.length === 0 && (
         <button className="btn btn-green mt" onClick={start} disabled={busy}>
-          {busy ? 'Working…' : 'Add authenticator'}
+          {busy ? 'Working…' : unverified.length ? 'Start again' : 'Add authenticator'}
         </button>
+      )}
+
+      {!pending && unverified.length > 0 && (
+        <div className="small mt" style={{ color: 'var(--yellow)', lineHeight: 1.6 }}>
+          {unverified.length} unfinished enrolment{unverified.length === 1 ? '' : 's'} from a
+          previous attempt. They protect nothing until a code is accepted, and they cannot be
+          resumed once the QR is gone — clear them and start again.
+          <div className="flex mt">
+            {unverified.map(f => (
+              <button key={f.id} className="btn" onClick={() => remove(f.id)} disabled={busy}>
+                Discard {f.friendly_name || 'draft'}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       {pending && (
@@ -112,6 +131,14 @@ export default function Security() {
         </form>
       )}
 
+      {verified.length === 0 && (
+        <div className="small mt" style={{ color: 'var(--yellow)', lineHeight: 1.6 }}>
+          Do not run migration 004 until this card says Verified. It makes the database
+          demand a factor, and a factor that does not exist cannot be produced — which
+          locks you out of your own rows until you re-run 003 from the Supabase SQL editor.
+        </div>
+      )}
+
       {done && (
         <div className="small mt" style={{ color: 'var(--green)', lineHeight: 1.6 }}>
           Verified. Now run <code>supabase/migrations/004-require-mfa.sql</code> in the
@@ -136,6 +163,14 @@ export default function Security() {
       )}
 
       {err && <div className="small mt" style={{ color: 'var(--red)' }}>{err}</div>}
+
+      {/* There was no way to sign out at all — the button existed in LoginGate and
+          was never rendered anywhere. A session you cannot end is a session you
+          cannot fix, and that is exactly the hole someone falls into when their
+          token stops being able to read anything. */}
+      <div className="flex mt" style={{ justifyContent: 'flex-end' }}>
+        <button className="btn" onClick={() => signOut()}>Sign out</button>
+      </div>
     </Card>
   );
 }
