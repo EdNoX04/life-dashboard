@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as db from '../lib/db.js';
 import { aiChat, pickProvider, providerLabel } from '../lib/ai.js';
+import { homeContext } from '../lib/ally.js';
+import { useCollection } from '../lib/hooks.js';
 
 export function Card({ title, color = 'var(--purple)', children, right, className = '' }) {
   return (
@@ -67,7 +69,7 @@ export function RefreshButton({ source, onLocalRefresh, label = 'Refresh' }) {
 
 // Live AI chat — talks straight to whichever provider key is set in Config
 // (Claude / Gemini / ChatGPT). Every reply logs its token cost to the usage meter.
-const AI_SYSTEM = "You are the built-in assistant inside Neel's personal life dashboard (a retro-arcade PWA covering college, habits, money, study and health). Be concise, warm and practical. Use plain sentences, not long lists.";
+const AI_SYSTEM = "You are the built-in assistant inside Neel's personal life dashboard (a retro-arcade PWA covering college, habits, money, study and health). Be concise, warm and practical. Use plain sentences, not long lists. Answer from the CONTEXT below when it covers the question. If the context does not contain the answer, say that plainly and name the tab that would have it — never invent a class, a task or a date.";
 
 export function AskCowork() {
   const [msgs, setMsgs] = useState([]); // {role:'user'|'assistant', content}
@@ -76,6 +78,17 @@ export function AskCowork() {
   const [err, setErr] = useState('');
   const logRef = useRef(null);
   const provider = pickProvider();
+
+  // The dock used to be sent no data at all, so "what's my second class on
+  // Monday" got "I don't have access to your class schedule" — a true statement
+  // about an empty prompt, and a useless one to read on your own dashboard.
+  // Everything read here is non-personal by the standard in ally.js: this dock
+  // routes to NVIDIA's free tier, whose terms say inputs are used for training.
+  const { items: timetable } = useCollection('timetable', { order: 'id' });
+  const { items: todos } = useCollection('todos', { order: 'due_date', asc: true });
+  const { items: habits } = useCollection('habits', { order: 'id' });
+  const { items: goals } = useCollection('goals', { order: 'id' });
+  const { items: calMem } = useCollection('memory', { filter: 'key=eq.calendar_events', order: 'key' });
 
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [msgs, busy]);
 
@@ -90,7 +103,16 @@ export function AskCowork() {
       // question is about, so it takes the server's fail-closed default and
       // goes to the paid provider. The cheap alternative is guessing, and
       // guessing wrong here means posting personal data to a training endpoint.
-      const { text: reply } = await aiChat(next, { system: AI_SYSTEM });
+      const context = homeContext({
+        timetable: timetable || [], todos: todos || [], habits: habits || [], goals: goals || [],
+        events: calMem?.[0]?.value?.events || [],
+      });
+      // agent:'home' routes to GLM-5.2. Safe because homeContext is an allowlist,
+      // not a dump — see HOME_WITHHELD for what it refuses to carry.
+      const { text: reply } = await aiChat(next, {
+        system: `${AI_SYSTEM}\n\n--- CONTEXT ---\n${context}`,
+        agent: 'home',
+      });
       setMsgs(m => [...m, { role: 'assistant', content: reply || '(no reply)' }]);
     } catch (e) {
       setErr(String(e.message || e));

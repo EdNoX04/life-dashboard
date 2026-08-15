@@ -14,6 +14,8 @@ import {
   SCOPES, scopeFor, mediaContext, buildContext, systemPrompt, PROMPTS, MAX_CONTEXT_CHARS,
 } from '../src/lib/ally.js';
 
+import { homeContext, HOME_READS, HOME_WITHHELD } from '../src/lib/ally.js';
+
 let pass = 0, fail = 0;
 const ok = (cond, name) => { if (cond) { pass++; } else { fail++; console.log('FAIL ' + name); } };
 const eq = (a, b, name) => ok(a === b, `${name} (got ${JSON.stringify(a)}, want ${JSON.stringify(b)})`);
@@ -110,3 +112,54 @@ ok(PROMPTS.every(p => p.text.length > 30), 'and none is a bare greeting — an o
 
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);
+
+// --------------------------------------------------- the home dock's context
+
+// Written because the dock shipped answering "what's my second class on Monday"
+// with "I don't have access to your class schedule". That was TRUE — it was sent
+// nothing — and useless to read on your own dashboard.
+
+const HNOW = new Date('2026-08-15T12:00:00Z');   // a Saturday
+const TT = [
+  { day: 'Monday', start: '11:00', subject: 'DBMS', room: 'B-204' },
+  { day: 'Monday', start: '09:00', subject: 'Operating Systems', room: 'A-101' },
+  { day: 'Monday', start: '14:00', subject: 'Maths III' },
+  { day: 'Tuesday', start: '10:00', subject: 'Networks' },
+];
+
+const hc = homeContext({
+  timetable: TT,
+  todos: [{ title: 'Finish DBMS assignment', due_date: '2026-08-17', completed: false },
+          { title: 'Old thing', due_date: '2026-01-01', completed: true }],
+  events: [{ summary: 'Dentist', start: '2026-08-20T10:00:00Z', accountLabel: 'Personal' }],
+  habits: [{ name: 'Gym' }],
+  goals:  [{ title: 'Crack placements' }],
+  now: HNOW,
+});
+
+// The question that started it. "Second class" is a question about POSITION, so
+// the ordering is the answer — a list sorted by anything else cannot be right,
+// and a model handed an unordered list will pick one confidently anyway.
+ok(/Monday classes, in order/.test(hc), 'Monday is grouped as an ordered sequence');
+ok(/1\) Operating Systems/.test(hc), 'the 09:00 class is first, not the one listed first in the data');
+ok(/2\) DBMS/.test(hc), 'and the 11:00 class is second — the actual answer to the question');
+
+ok(/Finish DBMS assignment/.test(hc), 'open tasks are present');
+ok(!/Old thing/.test(hc), 'completed tasks are not');
+ok(/Dentist/.test(hc), 'upcoming events are present');
+ok(/Gym/.test(hc) && /Crack placements/.test(hc), 'habit and goal names are present');
+
+// The boundary, stated as a test. This context goes to NVIDIA's free tier, whose
+// terms say inputs are logged and used for training. The dock must not become the
+// side door that carries personal data out of the screens that route to the paid
+// provider.
+for (const k of HOME_WITHHELD) {
+  ok(!HOME_READS.includes(k), `${k} is never read into the home dock's prompt`);
+}
+ok(/not available to you/.test(hc), 'and the model is told what it cannot see, so it says so instead of guessing');
+
+// An absent section reads to a model as "nothing scheduled", and "you have no
+// classes" is a wrong answer wearing a helpful face.
+const empty = homeContext({ now: HNOW });
+ok(/No timetable rows are stored/.test(empty), 'an empty timetable is stated, not left silent');
+ok(/No open tasks/.test(empty), 'and so is an empty task list');

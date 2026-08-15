@@ -152,3 +152,93 @@ export const PROMPTS = [
   { label: 'FROM MY WATCHLIST', text: 'Pick something off my watchlist for tonight and make the case for it.' },
   { label: 'BLIND SPOTS', text: 'What kinds of films am I clearly avoiding or missing out on, given what I have watched?' },
 ];
+
+// ---------------------------------------------------------------------------
+// The home dock's context.
+//
+// The dock answered "what's my second class on Monday" with "I don't have access
+// to your class schedule" — correctly, because it was sent no data at all. The
+// SCOPES table above grants nothing to a tab it does not name, and the dock is
+// not a tab. It was reasoning from an empty room and saying so, which is the
+// right behaviour for a component that has nothing; it was simply never given
+// anything.
+//
+// WHAT GOES IN, AND WHAT DELIBERATELY DOES NOT.
+//
+// This context goes to GLM-5.2 on NVIDIA's free tier, whose terms say inputs are
+// logged and used to train their models. So the allowlist here is not a
+// convenience, it is the boundary: timetable, tasks, upcoming events, habit and
+// goal NAMES. No money, no health, no journal, no body metrics — those questions
+// belong to screens that route to the paid provider, and the dock must not become
+// the side door that carries them out.
+//
+// Habit and goal TITLES rather than their logs: "Gym" and "Read 20 pages" say
+// what someone is trying to do; the streak and the misses are a record of how
+// they are coping, which is a different and more personal thing.
+export const HOME_READS = ['timetable', 'todos', 'calendar_events', 'habits', 'goals'];
+export const HOME_WITHHELD = ['money', 'health', 'journal', 'body'];
+
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+export function homeContext({
+  timetable = [], todos = [], events = [], habits = [], goals = [], now = new Date(),
+} = {}) {
+  const today = now.toISOString().slice(0, 10);
+  const parts = [`Today is ${DAYS[now.getDay()]} ${today}.`];
+
+  // Grouped by day and kept IN ORDER, because "second class on Monday" is a
+  // question about position in a sequence. A flat list sorted by anything else
+  // cannot answer it, and a model handed an unordered list will confidently
+  // pick one anyway.
+  if (timetable.length) {
+    for (const d of DAYS) {
+      const rows = timetable
+        .filter(r => String(r.day || r.weekday || '').toLowerCase().startsWith(d.slice(0, 3).toLowerCase()))
+        .sort((a, b) => String(a.start || a.start_time || '').localeCompare(String(b.start || b.start_time || '')));
+      if (!rows.length) continue;
+      parts.push(`${d} classes, in order: ` + rows.map((r, i) =>
+        `${i + 1}) ${r.subject || r.name || r.title || 'class'}`
+        + `${r.start || r.start_time ? ` at ${r.start || r.start_time}` : ''}`
+        + `${r.room ? ` in ${r.room}` : ''}`).join('; ') + '.');
+    }
+  } else {
+    // Said out loud. An absent section reads to a model as "nothing scheduled",
+    // and "you have no classes" is a wrong answer dressed as a helpful one.
+    parts.push('No timetable rows are stored, so class questions cannot be answered from data.');
+  }
+
+  const open = todos.filter(t => !t.completed);
+  if (open.length) {
+    const dueSoon = open
+      .filter(t => t.due_date)
+      .sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)))
+      .slice(0, 12);
+    parts.push(`${open.length} open task${open.length === 1 ? '' : 's'}.`);
+    if (dueSoon.length) {
+      parts.push('Next due: ' + dueSoon.map(t =>
+        `${clip(t.title, 60)} on ${t.due_date}${t.due_time ? ` at ${t.due_time}` : ''}`).join('; ') + '.');
+    }
+  } else {
+    parts.push('No open tasks.');
+  }
+
+  const upcoming = events
+    .filter(e => e.start && String(e.start).slice(0, 10) >= today)
+    .sort((a, b) => String(a.start).localeCompare(String(b.start)))
+    .slice(0, 10);
+  if (upcoming.length) {
+    parts.push('Upcoming calendar events: ' + upcoming.map(e =>
+      `${clip(e.summary, 60)} (${String(e.start).slice(0, 16).replace('T', ' ')}`
+      + `${e.accountLabel ? `, ${e.accountLabel}` : ''})`).join('; ') + '.');
+  }
+
+  if (habits.length) parts.push(`Habits being tracked: ${habits.map(h => clip(h.name || h.title, 40)).filter(Boolean).join(', ')}.`);
+  if (goals.length)  parts.push(`Current goals: ${goals.map(g => clip(g.title || g.name, 60)).filter(Boolean).join(', ')}.`);
+
+  parts.push('You can see the above and nothing else. Money, health and journal data are '
+    + 'not available to you — if asked, say so plainly and point at the Money or Health tab '
+    + 'rather than guessing.');
+
+  const out = parts.join('\n');
+  return out.length > MAX_CONTEXT_CHARS ? out.slice(0, MAX_CONTEXT_CHARS - 1) + '…' : out;
+}

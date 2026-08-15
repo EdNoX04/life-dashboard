@@ -94,6 +94,19 @@ function expand(tokens) {
 // with tags it chose. Fuzzy matching would buy nothing and could only make a
 // wrong fact look relevant.
 
+// How many matching terms it takes before a fact is clearly about the question.
+// Beyond this, extra words in the question are context, not evidence against.
+//
+// This constant exists because the original denominator was terms.length, which
+// meant asking a longer question monotonically LOWERED every score. "apple" scored
+// 1.0; "how much apple do I really own after decomposing the funds" scored under
+// the floor and was refused. The refusal is the honest failure mode, so the bug
+// did not produce wrong answers — it produced silence, precisely for the careful,
+// fully-specified questions most worth asking. Saturating the denominator means a
+// fact that matches three terms strongly is a good hit whether the question was
+// four words or fourteen.
+export const SATURATE = 5;
+
 export function scoreFact(f, terms) {
   if (!terms.length) return 0;
   const text = (f.text + ' ' + f.topic).toLowerCase();
@@ -103,7 +116,10 @@ export function scoreFact(f, terms) {
     else if (f.tags.some(g => g.includes(t) || t.includes(g))) hits += 0.6;
     else if (text.includes(t)) hits += 0.35;        // a mention is weaker than a tag
   }
-  return hits / terms.length;
+  // Capped at 1 so a fact matching eight terms cannot outrank the floor logic by
+  // an arbitrary multiple — `best` is compared against FLOOR, and a score with no
+  // ceiling makes that threshold mean different things for different questions.
+  return Math.min(1, hits / Math.max(1, Math.min(terms.length, SATURATE)));
 }
 
 export function retrieve(index = [], question, { limit = MAX_FACTS, floor = FLOOR } = {}) {
@@ -290,7 +306,12 @@ export function buildIndex({
     const ranked = held
       .map(h => ({ t: h.ticker, n: h.name, v: Number(h.qty || 0) * priceOf(h) }))
       .filter(x => x.v > 0).sort((a, b) => b.v - a.v);
-    for (const p of ranked.slice(0, 8)) {
+    // Every holding, not the top eight. A question about the twelfth-largest
+    // position used to retrieve nothing and be refused — which reads as "FinBoy
+    // does not know", when the truth was "FinBoy was not told". The prompt is
+    // still capped at MAX_FACTS, so this widens what CAN be found without
+    // widening what gets sent.
+    for (const p of ranked) {
       F.push(fact(`pos.${p.t}`, 'positions',
         `${p.t}${p.n ? ` (${p.n})` : ''} is worth ${money(p.v)}, which is ${pc(value ? (p.v / value) * 100 : 0)} of the book.`,
         { tags: [String(p.t).toLowerCase(), String(p.n || '').toLowerCase(), 'position', 'holding', 'weight'], asOf }));
@@ -310,7 +331,7 @@ export function buildIndex({
     F.push(fact('xray.count', 'look-through',
       `Your positions resolve to ${xray.exposures.length} distinct companies once the funds are unpacked, and ${pc(xray.coverage)} of the book could be decomposed.`,
       { tags: ['companies', 'how many', 'look through', 'coverage', 'unpacked', 'funds'], asOf }));
-    for (const e of xray.exposures.slice(0, 6)) {
+    for (const e of xray.exposures.slice(0, 25)) {
       const via = (e.via || []).map(v => v.fund).join(', ');
       F.push(fact(`xray.${e.sym}`, 'look-through',
         `Counting what the funds hold, you own ${pc(e.pct)} of the book in ${e.name}${via ? `, arriving through ${via}` : ''}${e.direct ? ' as well as directly' : ' without holding it directly'}.`,
