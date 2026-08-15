@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useCollection, todayStr } from '../lib/hooks.js';
-import { Card, Empty, StatTile, AskCowork, useNow, useMoneyVisible, money } from '../components/ui.jsx';
+import { Card, Empty, StatTile, useNow, useMoneyVisible, money } from '../components/ui.jsx';
 import { Ticker, Sky, useDailySpark } from '../components/arcade.jsx';
 import LiveStatus from '../components/LiveStatus.jsx';
 import RetroClock from '../components/RetroClock.jsx';
@@ -257,7 +257,9 @@ export default function HQ({ go }) {
         ))}
       </div>
 
-      <AskCowork />
+      {/* The in-tab assistant is gone. PLAYER TWO is mounted at the app root and
+          follows you across tabs, so keeping a second copy here meant two chat
+          windows on this screen with separate histories and the same job. */}
     </>
   );
 }

@@ -191,8 +191,16 @@ async function callNvidia({ model, system, messages, maxTokens }) {
     body: JSON.stringify({
       model,
       max_tokens: maxTokens,
-      temperature: 1,
-      top_p: 1,
+      // 0.6 rather than 1. A dashboard assistant reading a context block and
+      // answering "when is my next class" has one correct answer, and sampling
+      // wide costs both accuracy and tokens — and tokens are seconds here.
+      temperature: 0.6,
+      top_p: 0.95,
+      // NVIDIA's GLM expects clients to OPT IN to reasoning, so this is belt and
+      // braces rather than a fix — but an explicit false cannot be turned on by a
+      // default changing under us, and a reasoning pass on "what is due today"
+      // is minutes of latency bought for nothing.
+      chat_template_kwargs: { enable_thinking: false },
       messages: system ? [{ role: 'system', content: system }, ...messages] : messages,
     }),
   });

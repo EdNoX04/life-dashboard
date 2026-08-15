@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { aiChat } from '../lib/ai.js';
 import { homeContext } from '../lib/ally.js';
 import { useCollection } from '../lib/hooks.js';
+import { signOut } from '../lib/auth.js';
 
 // PLAYER TWO — the co-op partner, reachable from every screen.
 //
@@ -53,6 +54,11 @@ export default function PlayerTwo() {
       const { text: reply } = await aiChat(next, {
         system: SYSTEM + '\n\n--- CONTEXT ---\n' + context,
         agent: 'home',
+        // Two or three sentences is the whole brief, so 400 is generous. This is
+        // the single biggest lever on how long an answer takes: the endpoint is
+        // not streaming, so you wait for the LAST token, and every token the model
+        // is permitted is time you might spend waiting for it.
+        maxTokens: 400,
       });
       setMsgs(m => [...m, { role: 'assistant', content: reply || '(no reply)' }]);
     } catch (e) {
@@ -77,6 +83,7 @@ export default function PlayerTwo() {
           <div className="p2-head">
             <span className="p2-title">PLAYER TWO</span>
             <span className="p2-sub">everything except money</span>
+            <button className="p2-out" onClick={() => signOut()} title="Sign out">SIGN OUT</button>
           </div>
 
           <div className="p2-log">
@@ -115,6 +122,7 @@ export default function PlayerTwo() {
 const SYSTEM = [
   'You are PLAYER TWO, the co-op assistant inside a personal life dashboard styled as a 1980s arcade terminal.',
   'Answer in two or three sentences of plain prose. No headings, no bullet lists unless asked.',
+  'Be brief. Do not restate the question, do not explain your reasoning, do not list what you looked at — give the answer.',
   'Answer from the CONTEXT below when it covers the question.',
   'If the context does not contain the answer, say so plainly and name the tab that would have it. Never invent a class, a task, a date or a number.',
   'You do NOT have access to money or the journal. The Money tab has its own assistant, LEDGER, with data you cannot see — send financial questions there rather than guessing.',
