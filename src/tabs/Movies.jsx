@@ -145,14 +145,37 @@ function Poster({ row, meta, onPatch, onMeta, onDel, onLog, onPreview, onEpisode
                   onClick={() => onMeta({ episodes_watched: (Number(m.episodes_watched) || 0) + 1 })}
                 >+1</button>
               </div>
+              {/* What "Ep length" used to be — one number for a whole series,
+                  multiplied by a count — is the fiction this tab was fixed to
+                  stop telling. House sat at 44 while the counter moved, so the
+                  field looked broken; it was not broken, it was simply never
+                  going to change, because a constant is what it always was.
+
+                  The measured total goes first now, because it is the real
+                  answer. The constant survives only as a fallback for shows TMDB
+                  has no season data for, and its label says so — a field that
+                  looks authoritative and is only a guess is worse than no field. */}
               <div className="mv-line">
-                <span className="mv-lbl">Ep length</span>
+                <span className="mv-lbl">Watched</span>
+                <span className="small" style={{ color: 'var(--ink)' }}>
+                  {m.minutes_measured
+                    ? `${Math.floor(m.minutes_measured / 60)}h ${m.minutes_measured % 60}m`
+                    : '—'}
+                </span>
+                <span className="muted small">
+                  {m.runtime_note || 'add an episode and the real runtimes are fetched'}
+                </span>
+              </div>
+              <div className="mv-line">
+                <span className="mv-lbl">Fallback</span>
                 <input
                   type="number" min="0" className="mv-num" value={m.episode_runtime ?? ''}
                   placeholder="min"
                   onChange={e => onMeta({ episode_runtime: e.target.value === '' ? null : Number(e.target.value) })}
                 />
-                <span className="muted small">minutes — used for hours watched</span>
+                <span className="muted small">
+                  only used for episodes TMDB has no runtime for
+                </span>
               </div>
             </>
           )}

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The overnight factory, on this Mac rather than on GitHub Actions.
+
+  Actions would cost roughly $31/month for a nightly four-hour run on a private
+  repo — more than this project's entire AI budget. launchd is free and the
+  machine is asleep at 02:00 anyway.
+
+  Install:
+    cp automation/com.playerone.builds.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.playerone.builds.plist
+
+  And tell the Mac to be awake for it — a launchd job on a sleeping machine does
+  not run, it queues, and a queued 02:00 job firing at 09:00 is outside the
+  window and exits immediately:
+    sudo pmset repeat wakeorpoweron MTWRFSU 01:55:00
+
+  StartCalendarInterval fires once at 02:00. The runner itself decides when to
+  stop: it checks the window before every phase and saves its place, so a night
+  that ends mid-build resumes tomorrow rather than starting over.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.playerone.builds</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-lc</string>
+    <!-- Sourced rather than passed as EnvironmentVariables so no credential is
+         written into a plist that Spotlight indexes and Time Machine backs up. -->
+    <string>set -a; . "$HOME/Projects/life-dashboard/scripts/.build.env"; set +a; exec /usr/bin/env node "$HOME/Projects/life-dashboard/scripts/build-runner.mjs"</string>
+  </array>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>2</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/neel/Projects/life-dashboard</string>
+
+  <key>StandardOutPath</key>
+  <string>/Users/neel/Library/Logs/playerone-builds.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/neel/Library/Logs/playerone-builds.log</string>
+
+  <!-- Deliberately false. A crash loop retrying every ten seconds against a rate
+       limited API is how one bad night becomes a banned key. -->
+  <key>KeepAlive</key>
+  <false/>
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>

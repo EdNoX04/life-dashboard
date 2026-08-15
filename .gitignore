@@ -11,3 +11,6 @@ __pycache__/
 
 # Commit message drafts handed over for you to run
 .commitmsg
+
+# credentials for the overnight build runner — never committed
+scripts/.build.env
