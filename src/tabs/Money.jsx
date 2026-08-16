@@ -185,7 +185,7 @@ export default function Money() {
   const [liveNews, setLiveNews] = useState([]);
   const [planSeed, setPlanSeed] = useState(null);   // monthly surplus handed over by the Cash tab
   const [finboy, setFinboy] = useState(false);     // the dock, open on any view
-  const [view, setView] = useState('portfolio');
+  const [view, setView] = useState('overview');
   // The two-tier nav shows one section's views at a time, which is what stopped
   // twenty-six buttons wrapping onto three unreadable lines. The cost of that is
   // real and was reported as a bug: with MY MONEY lit you can see six screens
@@ -709,7 +709,7 @@ export default function Money() {
             <button className={`seg-btn${mkSub === 'movers' ? ' on' : ''}`} onClick={() => setMkSub('movers')}>Your movers</button>
             <button className={`seg-btn${mkSub === 'sentiment' ? ' on' : ''}`} onClick={() => setMkSub('sentiment')}>Sentiment</button>
           </span>
-          {mkSub === 'world' && <><GlobalOverview /><GlobalSearch /><GlobalMarkets /></>}
+          {mkSub === 'world' && <GlobalMarkets />}
           {mkSub === 'movers' && (
             <Leaderboard
               holdings={held}
@@ -879,6 +879,11 @@ export default function Money() {
           with no quote feed and therefore nothing to convert. The watchlist is
           the zero-quantity half of the same holdings table — see `watched`. */}
       {view === 'earn' && <EarningsCal held={held} watch={watched} cur="$" />}
+
+      {view === 'overview' && <>
+        <GlobalOverview />
+        <GlobalSearch />
+      </>}
 
       {view === 'portfolio' && <>
       <div className="tile-row">

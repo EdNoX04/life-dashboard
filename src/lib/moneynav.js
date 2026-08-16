@@ -29,6 +29,13 @@ export const MONEY_SECTIONS = [
       // which is why the tab gets opened. The briefing is the second question,
       // not the first: it reads across every other screen, so it makes more
       // sense once you have seen the book it is talking about.
+      // Overview first, and this reverses the note below it. Portfolio was the
+      // landing view because "what is my money doing" is why the tab gets
+      // opened — which is true, and it is still one click away. But the world is
+      // the frame that answer is read inside, and being told the S&P is up 0.8%
+      // before seeing your own +6.6% is the difference between a number and a
+      // number that means something.
+      { id: 'overview', label: 'Overview' },
       { id: 'portfolio', label: 'Portfolio' },
       { id: 'brief', label: '◆ Briefing' },
       { id: 'book', label: 'Book' },
