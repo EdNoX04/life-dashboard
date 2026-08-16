@@ -173,3 +173,76 @@ export function coverageNote(rows = []) {
   return `${withCap} of ${rows.length} markets sized (World Bank / WFE, ${span}); `
     + `${live} quoting live right now.`;
 }
+
+// ---------------------------------------------------------------------------
+// Fetching.
+//
+// The binding constraint is Twelve Data's free tier: eight requests a minute.
+// Twelve index tiles plus three futures is fifteen, so a naive fan-out on mount
+// spends two minutes rate-limited and shows a grid of blanks — which reads as
+// "these markets are down" rather than "we asked too fast".
+//
+// So: ONE request for all of them. Twelve Data's /quote accepts a comma-separated
+// symbol list and returns a map, which turns fifteen requests into one and leaves
+// the rest of the minute for everything else on the tab.
+
+export const FUTURES = [
+  { symbol: 'ES=F', label: 'S&P 500 Futures' },
+  { symbol: 'NQ=F', label: 'Nasdaq 100 Futures' },
+  { symbol: 'YM=F', label: 'Dow Futures' },
+];
+
+export function quoteUrl(symbols = [], apikey = '') {
+  const list = symbols.map(s => String(s).trim()).filter(Boolean).join(',');
+  return `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(list)}`
+    + `&apikey=${encodeURIComponent(apikey)}`;
+}
+
+/**
+ * Twelve Data returns a bare object for ONE symbol and a map keyed by symbol for
+ * many. Handling only the second shape means the whole grid breaks the day
+ * eleven of twelve symbols are unrecognised — the failure that looks like a
+ * total outage and is actually a typo.
+ */
+export function parseQuotes(json, symbols = []) {
+  if (!json || typeof json !== 'object') return {};
+  const single = symbols.length === 1 && (json.close != null || json.symbol);
+  const map = single ? { [symbols[0]]: json } : json;
+  const out = {};
+  for (const [sym, q] of Object.entries(map)) {
+    if (!q || typeof q !== 'object') continue;
+    // Twelve Data reports a per-symbol failure INSIDE a 200 response. Treating
+    // that as a quote gives NaN, and NaN formats as a dash that looks like a
+    // quiet market rather than a rejected symbol.
+    if (q.status === 'error' || q.code) continue;
+    const pct = q.percent_change == null ? null : Number(q.percent_change);
+    const level = q.close == null ? null : Number(q.close);
+    out[sym] = {
+      pct: Number.isFinite(pct) ? pct : null,
+      level: Number.isFinite(level) ? level : null,
+      // is_market_open is the only honest basis for live-vs-cached here: a market
+      // that is shut is not stale, it is closed, and painting it amber all
+      // weekend is how a warning stops being read.
+      state: q.is_market_open === false ? 'cached' : 'live',
+      at: q.datetime || null,
+    };
+  }
+  return out;
+}
+
+// Symbols the grid needs, in one list, deduped. Futures first so a truncated
+// response still fills the strip at the top of the screen.
+export function symbolsFor(countries = COUNTRIES, futures = FUTURES) {
+  return [...new Set([...futures.map(f => f.symbol), ...countries.map(c => c.index)])];
+}
+
+// The caps are annual. Re-fetching them more than once a day is spending a
+// request to receive the same number, so the cache lifetime is measured in days
+// rather than minutes — the opposite of every other feed in this app, for the
+// same reason: it matches what the data actually does.
+export const CAP_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function capsAreFresh(cached, now = Date.now()) {
+  if (!cached?.at || !cached?.caps) return false;
+  return now - new Date(cached.at).getTime() < CAP_TTL_MS;
+}

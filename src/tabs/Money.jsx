@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import GlobalOverview from '../components/money/GlobalOverview.jsx';
 import { useCollection } from '../lib/hooks.js';
 import { Card, Empty, StatTile, EyeBtn, useMoneyVisible, money } from '../components/ui.jsx';
 import StockDetail from '../components/StockDetail.jsx';
@@ -707,7 +708,7 @@ export default function Money() {
             <button className={`seg-btn${mkSub === 'movers' ? ' on' : ''}`} onClick={() => setMkSub('movers')}>Your movers</button>
             <button className={`seg-btn${mkSub === 'sentiment' ? ' on' : ''}`} onClick={() => setMkSub('sentiment')}>Sentiment</button>
           </span>
-          {mkSub === 'world' && <GlobalMarkets />}
+          {mkSub === 'world' && <><GlobalOverview /><GlobalMarkets /></>}
           {mkSub === 'movers' && (
             <Leaderboard
               holdings={held}

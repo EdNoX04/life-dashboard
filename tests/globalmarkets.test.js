@@ -13,6 +13,7 @@
 import {
   COUNTRIES, countryOf, worldBankUrl, parseWorldBank, fmtCap, fmtPct,
   capAge, marketRows, sortByCap, coverageNote, WB_INDICATOR,
+  FUTURES, quoteUrl, parseQuotes, symbolsFor, capsAreFresh, CAP_TTL_MS,
 } from '../src/lib/globalmarkets.js';
 
 let pass = 0, fail = 0;
@@ -131,6 +132,58 @@ ok(/4 of \d+ markets sized/.test(note), 'the screen states how much of itself it
 ok(/World Bank/.test(note) && /WFE/.test(note), 'and cites the source rather than implying it computed it');
 ok(/2023–2025/.test(note), 'and spans the years, because they are not all the same year');
 ok(/1 quoting live/.test(note), 'and separates "sized" from "quoting", which are different claims');
+
+// ------------------------------------------------------------- fetching
+
+// The binding constraint is eight requests a minute on the free tier. Twelve
+// index tiles plus three futures is fifteen — a naive fan-out spends two minutes
+// rate-limited and renders a grid of blanks, which reads as "these markets are
+// down" rather than "we asked too fast".
+const syms = symbolsFor();
+eq(syms.length, FUTURES.length + COUNTRIES.length, 'every tile is covered by the symbol list');
+eq(new Set(syms).size, syms.length, 'with no duplicates burning a slot');
+eq(syms[0], FUTURES[0].symbol,
+   'futures first, so a truncated response still fills the strip at the top of the screen');
+
+const u = quoteUrl(['ES=F', 'SPX'], 'KEY');
+ok(u.includes('symbol=ES%3DF%2CSPX'), 'one request carries every symbol, comma-separated');
+eq((u.match(/apikey=/g) || []).length, 1, 'and one key');
+
+// Twelve Data returns a BARE object for one symbol and a map for many. Handling
+// only the map shape means the grid breaks the day eleven of twelve symbols are
+// unrecognised — the failure that looks like a total outage and is a typo.
+const many = parseQuotes({
+  'SPX': { close: '6100.5', percent_change: '0.75', is_market_open: true, datetime: '2026-08-16' },
+  'NIFTY 50': { close: '24800', percent_change: '-0.14', is_market_open: false },
+  'TAIEX': { status: 'error', code: 404, message: 'symbol not found' },
+}, ['SPX', 'NIFTY 50', 'TAIEX']);
+eq(many.SPX.pct, 0.75, 'a percentage arrives as a number, not the string the API sends');
+eq(many.SPX.state, 'live', 'an open market is live');
+
+// A closed market is not stale. Painting it amber all weekend is how a warning
+// stops being read by the third weekend.
+eq(many['NIFTY 50'].state, 'cached', 'a closed market is cached, not stale');
+
+// Twelve Data reports per-symbol failures INSIDE a 200. Treating one as a quote
+// gives NaN, and NaN renders as a dash that looks like a quiet market rather
+// than a rejected symbol.
+eq(many.TAIEX, undefined, 'a per-symbol error inside a 200 is dropped, never read as a quote');
+
+const one = parseQuotes({ close: '6100', percent_change: '1.2', symbol: 'SPX' }, ['SPX']);
+eq(one.SPX.level, 6100, 'the single-symbol shape parses too');
+
+eq(Object.keys(parseQuotes(null, ['SPX'])).length, 0, 'a failed request parses to nothing');
+eq(parseQuotes({ SPX: { close: null, percent_change: null } }, ['SPX']).SPX.pct, null,
+   'and a quote with no numbers yields nulls rather than zeros');
+
+// Caps are ANNUAL. Re-fetching hourly spends a request to receive the same
+// number, so this cache is measured in days — the opposite of every other feed
+// here, for the same reason: it matches what the data actually does.
+ok(CAP_TTL_MS >= 24 * 3600e3, 'the cap cache lives for days, not minutes');
+ok(!capsAreFresh(null), 'no cache is not fresh');
+ok(!capsAreFresh({ caps: {} }), 'and neither is one with no timestamp');
+ok(capsAreFresh({ at: new Date().toISOString(), caps: { US: {} } }), 'a cache written just now is fresh');
+ok(!capsAreFresh({ at: '2020-01-01T00:00:00Z', caps: { US: {} } }), 'one from years ago is not');
 
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);

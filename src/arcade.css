@@ -6471,3 +6471,33 @@ th:hover .hold-info { color: var(--cyan); }
   padding: 3px 6px; cursor: pointer;
 }
 .p2-out:hover { color: var(--red); border-color: var(--red); }
+
+/* ---- Global markets overview ---- */
+.gm-futures { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.gm-fut { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.gm-fut-lbl { font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1.2px; color: var(--ink-3); }
+.gm-fut-row { display: flex; align-items: baseline; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.gm-fut-val { font-size: 20px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.gm-chip { font-size: 11px; border: 1px solid; border-radius: 5px; padding: 1px 5px; white-space: nowrap; }
+
+.gm-list { display: flex; flex-direction: column; }
+.gm-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto auto;
+  align-items: center; gap: 10px;
+  width: 100%; text-align: left;
+  padding: 9px 4px;
+  background: transparent; border: none; border-bottom: 1px solid var(--border);
+  color: var(--ink); cursor: pointer;
+}
+.gm-row:hover { background: var(--panel-2); }
+.gm-flag { font-size: 15px; }
+.gm-name { display: flex; flex-direction: column; min-width: 0; }
+.gm-idx { font-size: 10px; color: var(--ink-3); }
+.gm-cap { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+/* The year sits with the number it qualifies, not in a legend somewhere else —
+   an annual figure separated from its date is an annual figure read as live. */
+.gm-year { font-size: 9px; color: var(--ink-3); margin-left: 5px; }
+.gm-year-old { color: var(--yellow); }
+.gm-pct { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; min-width: 92px; }
+.gm-closed { display: block; font-size: 9px; color: var(--ink-3); }
