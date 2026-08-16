@@ -71,6 +71,23 @@ export const EXCHANGES = {
   BSE: { id: 'BSE', label: 'Bombay Stock Exchange', city: 'Mumbai', tz: 330, tzLabel: 'IST', dst: null, open: 9 * 60 + 15, close: 15 * 60 + 30 },
   NYSE: { id: 'NYSE', label: 'New York Stock Exchange', city: 'New York', tz: -300, tzLabel: 'ET', dst: 'US', open: 9 * 60 + 30, close: 16 * 60 },
   NASDAQ: { id: 'NASDAQ', label: 'Nasdaq', city: 'New York', tz: -300, tzLabel: 'ET', dst: 'US', open: 9 * 60 + 30, close: 16 * 60 },
+
+  // Added for the global overview. No DST in Asia or India — `dst: null` here is
+  // a fact about those markets, not a shortcut.
+  TSE:      { id: 'TSE',      label: 'Tokyo Stock Exchange',   city: 'Tokyo',     tz: 540, tzLabel: 'JST', dst: null, open: 9 * 60, close: 15 * 60 },
+  HKEX:     { id: 'HKEX',     label: 'Hong Kong Exchange',     city: 'Hong Kong', tz: 480, tzLabel: 'HKT', dst: null, open: 9 * 60 + 30, close: 16 * 60 },
+  SSE:      { id: 'SSE',      label: 'Shanghai Stock Exchange',city: 'Shanghai',  tz: 480, tzLabel: 'CST', dst: null, open: 9 * 60 + 30, close: 15 * 60 },
+  TWSE:     { id: 'TWSE',     label: 'Taiwan Stock Exchange',  city: 'Taipei',    tz: 480, tzLabel: 'TST', dst: null, open: 9 * 60, close: 13 * 60 + 30 },
+  KRX:      { id: 'KRX',      label: 'Korea Exchange',         city: 'Seoul',     tz: 540, tzLabel: 'KST', dst: null, open: 9 * 60, close: 15 * 60 + 30 },
+  LSE:      { id: 'LSE',      label: 'London Stock Exchange',  city: 'London',    tz: 0,   tzLabel: 'GMT', dst: 'EU', open: 8 * 60, close: 16 * 60 + 30 },
+  XETRA:    { id: 'XETRA',    label: 'Xetra',                  city: 'Frankfurt', tz: 60,  tzLabel: 'CET', dst: 'EU', open: 9 * 60, close: 17 * 60 + 30 },
+  EURONEXT: { id: 'EURONEXT', label: 'Euronext Paris',         city: 'Paris',     tz: 60,  tzLabel: 'CET', dst: 'EU', open: 9 * 60, close: 17 * 60 + 30 },
+  TSX:      { id: 'TSX',      label: 'Toronto Stock Exchange', city: 'Toronto',   tz: -300,tzLabel: 'ET',  dst: 'US', open: 9 * 60 + 30, close: 16 * 60 },
+  // Southern hemisphere: Sydney's DST runs October to April, the opposite way
+  // round, and neither the US nor EU rule describes it. Left as standard time
+  // rather than modelled wrongly — the marker is then up to an hour out for part
+  // of the year, which is a smaller lie than a rule that is confidently backwards.
+  ASX:      { id: 'ASX',      label: 'Australian Securities Exchange', city: 'Sydney', tz: 600, tzLabel: 'AEST', dst: null, open: 10 * 60, close: 16 * 60 },
 };
 export const exchangeOf = id => EXCHANGES[String(id || '').toUpperCase()] || null;
 
@@ -89,9 +106,26 @@ export function usDST(d) {
   return ms >= start && ms < end;
 }
 
+export function euDST(d) {
+  const t = d instanceof Date ? d : new Date(d);
+  const y = t.getUTCFullYear();
+  // Last Sunday of a month, at 01:00 UTC — the whole EU switches at the same
+  // instant rather than at 02:00 local like the US.
+  const lastSun = (mon) => {
+    const last = new Date(Date.UTC(y, mon + 1, 0));
+    return last.getUTCDate() - last.getUTCDay();
+  };
+  const start = Date.UTC(y, 2, lastSun(2), 1);
+  const end = Date.UTC(y, 9, lastSun(9), 1);
+  const ms = t.getTime();
+  return ms >= start && ms < end;
+}
+
 // The offset actually in force at that instant, in minutes east of UTC.
 export const offsetAt = (ex, now = new Date()) =>
-  ex.tz + (ex.dst === 'US' && usDST(now) ? 60 : 0);
+  ex.tz
+  + (ex.dst === 'US' && usDST(now) ? 60 : 0)
+  + (ex.dst === 'EU' && euDST(now) ? 60 : 0);
 
 // Wall-clock parts as seen from the exchange's own city.
 function localParts(d, offMin) {

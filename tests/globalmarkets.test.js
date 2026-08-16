@@ -14,6 +14,8 @@ import {
   COUNTRIES, countryOf, worldBankUrl, parseWorldBank, fmtCap, fmtPct,
   capAge, marketRows, sortByCap, coverageNote, WB_INDICATOR,
   FUTURES, quoteUrl, parseQuotes, symbolsFor, capsAreFresh, CAP_TTL_MS,
+  searchUrl, parseSearch, rankResults, searchable, MIN_QUERY,
+  projectOrtho, globeDots, isOpenNow, openCount,
 } from '../src/lib/globalmarkets.js';
 
 let pass = 0, fail = 0;
@@ -184,6 +186,142 @@ ok(!capsAreFresh(null), 'no cache is not fresh');
 ok(!capsAreFresh({ caps: {} }), 'and neither is one with no timestamp');
 ok(capsAreFresh({ at: new Date().toISOString(), caps: { US: {} } }), 'a cache written just now is fresh');
 ok(!capsAreFresh({ at: '2020-01-01T00:00:00Z', caps: { US: {} } }), 'one from years ago is not');
+
+// --------------------------------------------------------------- search
+
+// The requirement was "anything from US to India to Taiwan should pop up", and
+// what makes that useful rather than confusing is the EXCHANGE. AAPL is listed on
+// a dozen venues; twelve identical-looking rows read as twelve companies, and
+// picking the wrong one gets a price in the wrong currency on the wrong session.
+const SEARCH = { data: [
+  { symbol: 'AAPL', instrument_name: 'Apple Inc', exchange: 'NASDAQ', country: 'United States', currency: 'USD', instrument_type: 'Common Stock' },
+  { symbol: 'AAPL', instrument_name: 'Apple Inc', exchange: 'XETR', country: 'Germany', currency: 'EUR', instrument_type: 'Common Stock' },
+  { symbol: 'AAPL', instrument_name: 'Apple Inc', exchange: 'NASDAQ', country: 'United States', currency: 'USD', instrument_type: 'Common Stock' },
+  { symbol: 'APLE', instrument_name: 'Apple Hospitality REIT Inc', exchange: 'NYSE', country: 'United States', currency: 'USD', instrument_type: 'REIT' },
+  { symbol: '', instrument_name: 'nameless', exchange: 'X' },
+]};
+const found = parseSearch(SEARCH);
+eq(found.length, 3, 'a true duplicate is dropped');
+ok(found.some(r => r.exchange === 'XETR'),
+   'but the SAME ticker on a different venue is kept — deduping on the symbol alone would silently pick a venue for you');
+ok(found.every(r => r.symbol), 'a row with no symbol is not a result');
+eq(found[0].currency, 'USD', 'currency rides along, since the same ticker prices differently per venue');
+
+eq(parseSearch(null).length, 0, 'a failed search returns nothing rather than throwing');
+eq(parseSearch({ data: 'nope' }).length, 0, 'and so does a malformed body');
+
+// Someone typing NVDA wants NVDA, not "NVDA Bull 2X Shares".
+const ranked = rankResults([
+  { symbol: 'AAPLW', name: 'Apple Inc Warrants', exchange: 'X' },
+  { symbol: 'APLE', name: 'Apple Hospitality REIT Inc', exchange: 'X' },
+  { symbol: 'AAPL', name: 'Apple Inc', exchange: 'NASDAQ' },
+], 'AAPL');
+eq(ranked[0].symbol, 'AAPL', 'an exact ticker match comes first');
+eq(ranked[1].symbol, 'AAPLW', 'then a prefix match');
+
+// Not arbitrary: on a name match the SHORTEST name is almost always the primary
+// listing, which is what someone typing "apple" means.
+const byName = rankResults([
+  { symbol: 'AAPL34', name: 'Apple Inc BDR', exchange: 'X' },
+  { symbol: 'AAPL', name: 'Apple Inc', exchange: 'NASDAQ' },
+], 'apple');
+eq(byName[0].name, 'Apple Inc', 'the shortest name wins a name match');
+
+const u2 = searchUrl(' nvda ', 'KEY');
+ok(u2.includes('symbol=nvda'), 'the query is trimmed before it is spent');
+ok(u2.includes('apikey=KEY'), 'and carries the key');
+
+// A one-character query matches half the market and spends one of eight requests
+// a minute to return noise.
+ok(MIN_QUERY >= 2, 'a query has to be at least two characters');
+ok(!searchable('a'), 'one character does not search');
+ok(!searchable('   '), 'and neither does whitespace');
+ok(searchable('nv'), 'two does');
+
+// ---------------------------------------------------------------- globe
+
+// Decorative, and cheap on purpose: four lines of trigonometry and an SVG
+// circle, rather than 300KB of TopoJSON for twelve dots.
+
+// Every country carries a financial-centre coordinate. A dot on Mumbai says
+// "this is where that market trades"; a dot in central India says nothing.
+for (const c of COUNTRIES) {
+  ok(Number.isFinite(c.lat) && Number.isFinite(c.lon), `${c.iso2} has a centre to plot`);
+  ok(Math.abs(c.lat) <= 90 && Math.abs(c.lon) <= 180, `${c.iso2}'s coordinates are on Earth`);
+}
+
+// The centre of the view projects to the origin and faces us.
+const mid = projectOrtho(0, 0, 0, 0);
+ok(Math.abs(mid.x) < 1e-9 && Math.abs(mid.y) < 1e-9, 'the point facing the camera sits at the centre');
+eq(mid.front, true, 'and is on the front');
+
+// THE test that matters. Half the world is behind the sphere at any rotation,
+// and drawing those dots anyway puts Tokyo on top of New York.
+eq(projectOrtho(0, 180, 0, 0).front, false, 'the far side of the world is culled');
+eq(projectOrtho(0, 90, 0, 0).front, true, 'and the limb is not');
+eq(projectOrtho(0, 0, 180, 0).front, false, 'rotation moves what is visible');
+
+// The poles land top and bottom, which is the quickest way to catch a swapped
+// axis before it ships looking almost right.
+ok(projectOrtho(90, 0, 0, 0).y > 0.99, 'the north pole is up');
+ok(projectOrtho(-90, 0, 0, 0).y < -0.99, 'and the south pole is down');
+
+// Nothing ever escapes the disc.
+for (const lat of [-90, -45, 0, 45, 90]) {
+  for (const lon of [-180, -90, 0, 90, 180]) {
+    const p = projectOrtho(lat, lon, 37, 12);
+    ok(Math.hypot(p.x, p.y) <= 1.0000001, `(${lat},${lon}) stays inside the sphere`);
+  }
+}
+
+const dots = globeDots(
+  [{ iso2: 'US', name: 'United States', lat: 40.7, lon: -74, dir: 1 },
+   { iso2: 'JP', name: 'Japan', lat: 35.7, lon: 139.7, dir: -1 },
+   { iso2: 'XX', name: 'No coordinates', dir: 0 }],
+  { rotation: 74, tilt: 12, r: 100, cx: 120, cy: 120 },
+);
+eq(dots.length, 2, 'a row with no coordinates is skipped rather than drawn at the origin');
+const usDot = dots.find(d => d.iso2 === 'US');
+ok(usDot.front, 'rotated to face New York, the US dot is visible');
+
+// SVG counts y downward and latitude counts up. Forgetting that mirrors the map
+// about the equator and it still looks like a globe, which is why it survives.
+const north = globeDots([{ iso2: 'N', lat: 60, lon: 0 }], { rotation: 0, tilt: 0, r: 100, cy: 0 })[0];
+ok(north.cy < 0, 'a northern market plots ABOVE centre in SVG coordinates');
+
+// Painter's order: a nearer market must draw over a further one.
+ok(dots[dots.length - 1].opacity >= dots[0].opacity, 'dots are ordered back to front');
+ok(dots.every(d => d.opacity >= 0 && d.opacity <= 1), 'and every opacity is drawable');
+
+// ------------------------------------------------------- which are trading
+
+// "Open" is a fact about the clock and the venue. It has nothing to do with
+// whether a quote arrived: a market can be open with a dead feed, and closed
+// holding a perfectly good last price. Conflating them is how "we could not
+// reach this" gets painted as "this market is shut".
+const WED_LUNCH_IST = new Date('2026-08-19T06:00:00Z');   // 11:30 IST, 02:00 UTC-ish
+const openRows = marketRows(caps, {}, WED_LUNCH_IST);
+const inRow = openRows.find(r => r.iso2 === 'IN');
+ok(inRow.session, 'every row carries its venue session');
+eq(isOpenNow(inRow), true, 'the NSE is trading at 11:30 on a Wednesday');
+eq(inRow.quoteState, 'unreachable', 'while its quote never arrived — the two are independent');
+
+const usRow = openRows.find(r => r.iso2 === 'US');
+eq(isOpenNow(usRow), false, 'and New York is still asleep at that moment');
+
+// Weekends close everything, which is the cheapest sanity check on the whole
+// session model.
+const SAT = new Date('2026-08-22T06:00:00Z');
+eq(openCount(marketRows(caps, {}, SAT)), 0, 'nothing trades on a Saturday');
+
+ok(/trading right now/.test(coverageNote(openRows)),
+   'and the screen states how many are trading, separately from how many are quoting');
+
+// The globe gets the same fact, so an open market can be marked without asking
+// the component to recompute a session.
+const litDots = globeDots(openRows, { rotation: 0, r: 100 });
+ok(litDots.some(d => d.open === true), 'at least one dot knows its market is open');
+ok(litDots.every(d => typeof d.open === 'boolean'), 'and every dot answers the question');
 
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);

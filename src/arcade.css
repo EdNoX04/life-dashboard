@@ -6501,3 +6501,58 @@ th:hover .hold-info { color: var(--cyan); }
 .gm-year-old { color: var(--yellow); }
 .gm-pct { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; min-width: 92px; }
 .gm-closed { display: block; font-size: 9px; color: var(--ink-3); }
+
+/* ---- Global search ---- */
+.gs-input {
+  width: 100%; font-size: 16px;   /* 16px keeps iOS Safari from zooming on focus */
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 11px 13px; color: var(--ink); outline: none;
+}
+.gs-input:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(124,77,255,0.14); }
+.gs-list { display: flex; flex-direction: column; }
+.gs-row {
+  display: grid; grid-template-columns: 88px minmax(0, 1fr) auto;
+  align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 8px 4px; background: transparent; border: none;
+  border-bottom: 1px solid var(--border); color: var(--ink); cursor: pointer;
+}
+.gs-row:hover { background: var(--panel-2); }
+.gs-sym { font-family: var(--font-pixel); font-size: 10px; letter-spacing: 0.6px; color: var(--cyan); }
+.gs-name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The venue is never dropped at narrow widths. The same ticker on two exchanges
+   is two different things to buy, and hiding that is what makes a tidy list wrong. */
+.gs-venue { font-size: 11px; color: var(--ink-2); text-align: right; white-space: nowrap; }
+.gs-country { display: block; font-size: 9px; color: var(--ink-3); }
+
+/* The globe is an ornament and the list is the screen, so the list gets the
+   flexible column and the globe collapses out entirely below 780px. */
+.gm-split { display: flex; gap: 16px; align-items: flex-start; }
+.gm-globe-wrap { flex: 0 0 auto; }
+.gm-list-wrap { flex: 1 1 auto; min-width: 0; }
+.gm-globe { display: block; }
+@media (max-width: 780px) {
+  .gm-globe-wrap { display: none; }
+}
+
+/* The globe reads as part of the same CRT as everything else: scanlines over the
+   sphere, a phosphor glow on the rim, and a pixel caption underneath. */
+.gm-globe-box { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.gm-globe {
+  display: block;
+  cursor: grab;
+  touch-action: none;               /* the drag is ours, not the page's */
+  filter: drop-shadow(0 0 14px rgba(0,229,255,0.10));
+}
+.gm-globe-drag { cursor: grabbing; }
+.gm-globe-cap {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  letter-spacing: 1.1px;
+  color: var(--ink-3);
+  text-align: center;
+}
+/* A slow pulse on the open markets. Slow on purpose: a fast blink in the corner
+   of a screen you read for ten minutes is a headache, not an indicator. */
+@keyframes gm-pulse { 0%, 100% { opacity: 0.85; r: 7; } 50% { opacity: 0.35; r: 9; } }
+.gm-pulse { animation: gm-pulse 2.8s ease-in-out infinite; transform-box: fill-box; }
+@media (prefers-reduced-motion: reduce) { .gm-pulse { animation: none; } }

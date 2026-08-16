@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card } from '../ui.jsx';
+import MarketGlobe from './MarketGlobe.jsx';
 import { getConfig, list, upsertMemory } from '../../lib/db.js';
 import {
   COUNTRIES, FUTURES, worldBankUrl, parseWorldBank, quoteUrl, parseQuotes,
@@ -104,6 +105,14 @@ export default function GlobalOverview() {
         {/* The claim the screen makes about itself, stated rather than implied by
             a grid of equally confident tiles. */}
         <div className="small muted" style={{ marginBottom: 10, lineHeight: 1.55 }}>{note}</div>
+
+        {/* The globe sits BESIDE the list, never instead of it, and collapses out
+            on narrow screens. It is an ornament with one real job: the lit band
+            of open markets sweeping west is the single thing a map shows better
+            than a table. */}
+        <div className="gm-split">
+          <div className="gm-globe-wrap"><MarketGlobe rows={rows} /></div>
+          <div className="gm-list-wrap">
         {err && <div className="small" style={{ color: 'var(--yellow)', marginBottom: 10 }}>{err}</div>}
 
         <div className="gm-list">
@@ -137,6 +146,9 @@ export default function GlobalOverview() {
               </span>
             </div>
           ))}
+        </div>
+
+          </div>
         </div>
 
         <div className="small muted mt" style={{ lineHeight: 1.55 }}>
