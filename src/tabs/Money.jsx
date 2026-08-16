@@ -46,7 +46,7 @@ import Rebalance from '../components/money/Rebalance.jsx';
 import TaxDesk from '../components/money/TaxDesk.jsx';
 import FactorDesk from '../components/money/FactorDesk.jsx';
 import ReportDesk from '../components/money/ReportDesk.jsx';
-import LEDGERDock from '../components/money/LEDGERDock.jsx';
+import LedgerDock from '../components/money/LedgerDock.jsx';
 import Scanner from '../components/money/Scanner.jsx';
 import Sentiment from '../components/money/Sentiment.jsx';
 import Briefing, { useBriefing, BriefStrip } from '../components/money/Briefing.jsx';
@@ -1149,7 +1149,7 @@ export default function Money() {
           the Report is: a sentence about a figure and the screen showing that
           figure must not be able to disagree. It builds its index from the
           saved blobs and never fetches a price of its own. */}
-      <LEDGERDock
+      <LedgerDock
         open={finboy}
         onOpen={() => setFinboy(true)}
         onClose={() => setFinboy(false)}

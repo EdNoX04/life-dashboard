@@ -624,14 +624,23 @@ export default function Movies() {
           label="Time watched" value={hours}
           // Never a bare number when runtimes are missing — the tilde and the
           // note are the difference between a measurement and a guess.
-          note={stats.time.exact
-            ? 'from recorded runtimes'
-            // Named rather than counted. Two unmeasured films is a number you
-            // can act on only once you know which two.
-            : `estimated · no runtime for ${stats.time.unknownTitles.slice(0, 3).join(', ')}${stats.time.unknownTitles.length > 3 ? ` +${stats.time.unknownTitles.length - 3}` : ''}`}
+          // ONE note, not two. A blind insert put a second `note` on this tile
+          // and JSX rejects a duplicate attribute outright — which is the good
+          // outcome: the build refused rather than silently keeping whichever
+          // came last and dropping the other.
+          //
+          // The cache failure wins when there is one, because it explains WHY the
+          // estimate is an estimate. Reporting "estimated" while staying silent
+          // about the reason is the less useful half of the same sentence.
+          note={cacheErr
+            ? `runtime cache unavailable — ${cacheErr}`
+            : stats.time.exact
+              ? 'from recorded runtimes'
+              // Named rather than counted. Two unmeasured films is a number you
+              // can act on only once you know which two.
+              : `estimated · no runtime for ${stats.time.unknownTitles.slice(0, 3).join(', ')}${stats.time.unknownTitles.length > 3 ? ` +${stats.time.unknownTitles.length - 3}` : ''}`}
           color="var(--orange)"
-                  note={cacheErr ? `runtime cache unavailable — ${cacheErr}` : undefined}
-/>
+        />
         <StatTile
           label="Average rating"
           value={stats.avgRating == null ? '—' : `${stats.avgRating.toFixed(1)}★`}
