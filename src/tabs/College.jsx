@@ -1,4 +1,5 @@
 import React from 'react';
+import { freshnessNote, TONE } from '../lib/collegefresh.js';
 import { useCollection } from '../lib/hooks.js';
 import { Card, Empty, StatTile, RefreshButton } from '../components/ui.jsx';
 import { DAYS, activeDay, dayLabel } from '../lib/schedule.js';
@@ -13,7 +14,17 @@ export default function College() {
   const { items: subjects, refresh: rS } = useCollection('subjects', { order: 'name', asc: true });
   const { items: annc, refresh: rA } = useCollection('announcements', { order: 'date' });
   const { items: logMem, refresh: rL } = useCollection('memory', { filter: 'key=eq.attendance_log', order: 'key' });
+  const { items: syncMem } = useCollection('memory', { filter: 'key=eq.amizone_last_sync', order: 'key' });
+  const { items: statusMem } = useCollection('memory', { filter: 'key=eq.sync_status', order: 'key' });
   const attLog = logMem?.[0]?.value;
+
+  // How old everything on this screen is. The tab used to present three-week-old
+  // attendance exactly as it presents today's — same numbers, same layout, same
+  // confidence — with one small "as of" on one card. Attendance that has not
+  // moved looks identical to attendance nobody recorded, so this cannot be left
+  // for the reader to notice.
+  const lastSync = syncMem?.[0]?.value?.at || attLog?.updated || null;
+  const fresh = freshnessNote(lastSync, statusMem?.[0]?.value?.amizone);
 
   // after 9pm (and all day Sunday) this points at the next day instead of the spent one
   const viewDay = activeDay();
@@ -28,6 +39,14 @@ export default function College() {
       <div className="spread">
         <h1 className="tab-title">COLLEGE</h1>
         <RefreshButton source="amizone" onLocalRefresh={async () => { await rT(); await rS(); await rA(); await rL(); }} label="Sync Amizone" />
+      </div>
+
+      {/* Above everything, not tucked beside one card. If the figures below are
+          not current, that is the first thing to know about this screen — and
+          the wording carries it as well as the colour, because a warning you
+          have seen for three days stops registering as a colour first. */}
+      <div className="col-fresh" style={{ borderColor: TONE[fresh.state], color: TONE[fresh.state] }}>
+        {fresh.text}
       </div>
       <p className="tab-sub">Timetable, attendance & announcements — scraped from Amizone by Cowork.</p>
 

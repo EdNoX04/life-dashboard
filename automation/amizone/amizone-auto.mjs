@@ -27,7 +27,27 @@ const LOGIN_MODE = process.argv.includes('--login');
 // ---- config (creds are read from YOUR local file; this script never sends them anywhere but Amizone) ----
 const cfg = JSON.parse(fs.readFileSync(CFG_PATH, 'utf8'));
 const SUPA_URL = cfg.supabaseUrl.replace(/\/$/, '');
-const SUPA_KEY = cfg.supabaseKey;
+// The SERVICE key, not the publishable one.
+//
+// Until RLS was switched on, the publishable key could write to every table and
+// this script used it. It now grants nothing at all: the service role bypasses
+// RLS by design and is the only credential a background writer can use.
+//
+// Checked here rather than left to fail at the first request, because the failure
+// it produces otherwise is a 401 in a log file on a Windows laptop nobody reads,
+// while the College tab carries on showing three-week-old attendance as though it
+// were today's.
+const SUPA_KEY = cfg.supabaseServiceKey || cfg.supabaseKey;
+
+if (/^sb_publishable_|^eyJ.*anon/.test(String(SUPA_KEY))) {
+  console.error('\nThis config still has the PUBLISHABLE key in it.');
+  console.error('Since row-level security was enabled that key can no longer write anything,');
+  console.error('so every sync would fail with 401 and the dashboard would quietly keep');
+  console.error('showing whatever it last received.');
+  console.error('\nFix: Supabase → Project Settings → API → service_role key, and put it in');
+  console.error(`${CFG_PATH} as "supabaseServiceKey". Do not commit that file.\n`);
+  process.exit(1);
+}
 const AMIZONE = 'https://s.amizone.net';
 
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
@@ -40,6 +60,18 @@ async function supa(pathq, opts = {}) {
   if (!r.ok) throw new Error(`Supabase ${pathq}: ${r.status} ${await r.text()}`);
   return r.status === 204 ? null : r.json().catch(() => null);
 }
+// Read-modify-write of the shared sync_status blob, keyed by worker name, so this
+// lands beside meetings/prices/binance without a schema change.
+async function reportStatus(patch) {
+  try {
+    const rows = await supa('memory?key=eq.sync_status&select=value');
+    const value = rows?.[0]?.value || {};
+    await upsertMemory('sync_status', { ...value, amizone: { ...patch, at: new Date().toISOString() } });
+  } catch (e) {
+    console.error('  (could not record sync status:', String(e.message || e) + ')');
+  }
+}
+
 async function upsertMemory(key, value) {
   await supa('memory', {
     method: 'POST',
@@ -289,9 +321,25 @@ async function main() {
   // 4) heartbeat
   await upsertMemory('amizone_last_sync', { at: new Date().toISOString(), ok: true, subjects: courses.length, classes: ttRows.length });
 
+  // 5) health, in the shared blob the dashboard's Background sync card reads.
+  //    That card has had an AMIZONE row since it was written and has been showing
+  //    NO REPORT ever since, because nothing wrote one. A sync that fails on a
+  //    laptop in another room is indistinguishable, from the dashboard, from a
+  //    sync that had nothing to say — and that is exactly how three weeks of stale
+  //    attendance went unnoticed.
+  await reportStatus({ ok: true, configured: true, reason: '', subjects: courses.length, classes: ttRows.length });
+
   log(`DONE · ${courses.length} subjects, ${ttRows.length} class slots, day-wise for ${logCourses.filter(c => c.records.length).length} courses`);
   courses.forEach(c => log(`   ${c.code || '—'}  ${c.pct ?? '—'}%  (${(c.records || []).length} days)`));
   await ctx.close();
 }
 
-main().catch(async (e) => { console.error('FATAL', e); process.exitCode = 1; });
+main().catch(async (e) => {
+  console.error('FATAL', e);
+  // Best effort, and the most important write in the file: a run that died is the
+  // one the dashboard most needs to hear about. If even this fails there is
+  // nothing more to try — but a silent death is what produced the original bug.
+  await reportStatus({ ok: false, configured: true, reason: String(e.message || e).slice(0, 300) })
+    .catch(() => {});
+  process.exitCode = 1;
+});

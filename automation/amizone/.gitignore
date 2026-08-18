@@ -4,3 +4,9 @@
 amizone.log
 # node deps installed on the laptop
 node_modules/
+
+# The filled-in config lives ONLY on the Windows laptop. The tracked
+# amizone.config.json is a template of placeholders; if you ever copy it to a
+# working name, that copy must never be committed — it now holds a service key,
+# which bypasses row-level security on every table.
+amizone.config.local.json

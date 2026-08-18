@@ -6556,3 +6556,15 @@ th:hover .hold-info { color: var(--cyan); }
 @keyframes gm-pulse { 0%, 100% { opacity: 0.85; r: 7; } 50% { opacity: 0.35; r: 9; } }
 .gm-pulse { animation: gm-pulse 2.8s ease-in-out infinite; transform-box: fill-box; }
 @media (prefers-reduced-motion: reduce) { .gm-pulse { animation: none; } }
+
+/* The College freshness line. Full width above everything, because if the
+   figures below are not current that is the first thing to know about the tab. */
+.col-fresh {
+  border: 1px solid;
+  border-radius: 8px;
+  padding: 8px 11px;
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  background: rgba(0, 0, 0, 0.22);
+}

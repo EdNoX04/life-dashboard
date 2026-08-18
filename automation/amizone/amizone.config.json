@@ -1,6 +1,7 @@
 {
-  "amizoneUser": "PUT_YOUR_AMIZONE_ENROLLMENT_OR_USERNAME_HERE",
-  "amizonePass": "PUT_YOUR_AMIZONE_PASSWORD_HERE",
+  "amizoneUser": "PUT_YOUR_AMIZONE_ENROLMENT_NUMBER",
+  "amizonePass": "PUT_YOUR_AMIZONE_PASSWORD",
   "supabaseUrl": "https://xroynvkzephebhcztvfo.supabase.co",
-  "supabaseKey": "sb_publishable_OVCd6KhOHNVYz1a9vCisbg_OsIF0uhy"
+  "supabaseServiceKey": "PUT_THE_SERVICE_ROLE_KEY_HERE",
+  "syncTimetable": false
 }
