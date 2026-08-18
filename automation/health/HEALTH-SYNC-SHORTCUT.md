@@ -1,25 +1,61 @@
-# Health sync — iOS Shortcut (full history + auto every 30 min)
+# Health sync — iOS Shortcut
 
-Replaces the flaky Health Auto Export app. Two shortcuts:
+Two shortcuts:
+
 1. **Sync Health History** — run ONCE. Backfills ~1 year of every metric.
 2. **Sync Health** — runs automatically every 30 min for today's numbers.
 
-On iOS 26/27 beta you can paste the prompts below into "create a shortcut" and it
-builds them for you.
+## What changed, and why
 
-Supabase (baked in, safe to include):
-- URL: `https://xroynvkzephebhcztvfo.supabase.co/rest/v1/health_metrics`
-- key (apikey + `Bearer` Authorization): `sb_publishable_OVCd6KhOHNVYz1a9vCisbg_OsIF0uhy`
+These shortcuts used to POST straight to Supabase with the publishable key. Since
+row-level security was switched on, that key writes nothing — every sync since has
+been rejected with a 401, silently, while the dashboard kept showing the last
+numbers that got through.
 
-Metrics + the exact `metric` names the app expects:
-sleep_hours, steps, resting_hr, hrv, heart_rate, active_energy, exercise_min,
-spo2, resp_rate, distance_km, vo2max, weight.
+The obvious fix is to paste the *service* key into the Shortcut instead. That key
+bypasses RLS on every table — money, journal, health, read and write and delete —
+and a Shortcut lives on a phone you carry and syncs through iCloud. That is a
+great deal of authority for a step count.
+
+So the service key stays on the server. The phone posts to **`/api/health`** with a
+token that buys exactly one capability: appending health rows. It cannot name a
+table, choose a column, or reach anything else, because none of those are things
+it sends.
+
+## Setup (once)
+
+On Vercel → Settings → Environment Variables, add:
+
+| Name | Value |
+|---|---|
+| `HEALTH_TOKEN` | a long random string you invent — 32+ characters |
+
+`SUPABASE_URL` and `SUPABASE_SERVICE_KEY` are already there for the chat proxy.
+Redeploy after adding it: environment variables only apply to builds that happen
+afterwards.
+
+## What the shortcuts send
+
+- **URL:** `https://life-dashboard-mu-green.vercel.app/api/health`
+- **Method:** POST
+- **Headers:** `x-health-token: <your HEALTH_TOKEN>` and `Content-Type: application/json`
+- **Body:** a JSON array of `{"date":"YYYY-MM-DD","metric":"steps","value":8421}`
+
+Metric names, exactly:
+`sleep_hours, steps, resting_hr, hrv, heart_rate, active_energy, exercise_min,
+spo2, resp_rate, distance_km, vo2max, weight`
+
+**No DELETE step any more.** The endpoint clears the days it is about to write and
+only those days — which is what stops the half-hourly job from being able to wipe
+last year on its way in. The old shortcuts sent a DELETE covering everything since
+the year 2000; that step must be removed.
 
 ---
 
 ## Prompt 1 — "Sync Health History" (run once)
+
 ```
-Create a shortcut named "Sync Health History" that backfills my Apple Health data to my database.
+Create a shortcut named "Sync Health History" that backfills my Apple Health data.
 
 1. Make an empty list called Rows.
 2. Repeat with each number X from 0 to 364:
@@ -27,35 +63,40 @@ Create a shortcut named "Sync Health History" that backfills my Apple Health dat
    - Read that day's Apple Health values: hours asleep that night (sleep_hours), total steps (steps), average resting heart rate (resting_hr), average heart rate variability SDNN (hrv), average heart rate (heart_rate), total active energy in kcal (active_energy), total exercise minutes (exercise_min), average blood oxygen percent (spo2), average respiratory rate (resp_rate), total walking+running distance in km (distance_km), latest VO2 max (vo2max), latest body weight in kg (weight).
    - For each of those metrics that HAS a value for that day, add an object to Rows: {"date": Day, "metric": "<the metric name>", "value": <number>}. Skip metrics with no sample.
 3. After the loop, make a JSON array text from all of Rows.
-4. Send a DELETE request to https://xroynvkzephebhcztvfo.supabase.co/rest/v1/health_metrics?date=gte.2000-01-01 with headers apikey and Authorization set to "Bearer sb_publishable_OVCd6KhOHNVYz1a9vCisbg_OsIF0uhy" (apikey is the raw key without Bearer).
-5. Send a POST request to https://xroynvkzephebhcztvfo.supabase.co/rest/v1/health_metrics with the same apikey and Authorization headers, plus Content-Type application/json, and the JSON array as the request body.
-6. Show a notification "History synced ✓".
-```
-Run it once (it may take a few minutes — it's reading a year of data). Change 364
-to 729 for two years.
-
----
-
-## Prompt 2 — "Sync Health" (the every-30-min one)
-```
-Create a shortcut named "Sync Health" that syncs today's Apple Health data to my database.
-
-1. Set Today = current date formatted yyyy-MM-dd.
-2. Read today's Apple Health values (use today's start-to-now; sums for totals): hours asleep last night (sleep_hours), total steps (steps), average resting heart rate (resting_hr), average heart rate variability SDNN (hrv), average heart rate (heart_rate), total active energy kcal (active_energy), total exercise minutes (exercise_min), average blood oxygen percent (spo2), average respiratory rate (resp_rate), total distance km (distance_km), latest VO2 max (vo2max), latest body weight kg (weight). Use 0 for any with no sample.
-3. Build a JSON array with one object per metric: {"date": Today, "metric": "<name>", "value": <number>}, using the metric names in parentheses above.
-4. Send a DELETE request to https://xroynvkzephebhcztvfo.supabase.co/rest/v1/health_metrics?date=eq.[Today] with headers apikey = sb_publishable_OVCd6KhOHNVYz1a9vCisbg_OsIF0uhy and Authorization = Bearer sb_publishable_OVCd6KhOHNVYz1a9vCisbg_OsIF0uhy.
-5. Send a POST request to https://xroynvkzephebhcztvfo.supabase.co/rest/v1/health_metrics with the same two headers plus Content-Type application/json and the JSON array as the body.
-6. Show a brief "Health synced ✓" notification (or none).
+4. Send a POST request to https://life-dashboard-mu-green.vercel.app/api/health with headers "x-health-token" set to MY_TOKEN and "Content-Type" set to application/json, and the JSON array as the request body.
+5. Show the response so I can see how many rows were written.
 ```
 
----
+## Prompt 2 — "Sync Health" (automatic, every 30 min)
 
-## Make it automatic
-Shortcuts → **Automation** → **+** → **Time of Day** → set a start time, **Repeat
-Hourly** (and every 30 min if your beta shows the option) → **Run "Sync Health"**
-→ **Ask Before Running: OFF**. If it only repeats hourly, make two automations at
-:00 and :30. Leave "Sync Health History" as manual — you only need it once.
+```
+Create a shortcut named "Sync Health" that sends today's Apple Health numbers to my dashboard.
 
-The app polls Supabase every 45s, so new numbers show within a minute of a run.
-Sleep only updates after your watch processes the night; the frequent runs just
-keep everything ≤30 min fresh.
+1. Set Day = today's date formatted as yyyy-MM-dd.
+2. Read today's Apple Health values for: sleep_hours, steps, resting_hr, hrv, heart_rate, active_energy, exercise_min, spo2, resp_rate, distance_km, vo2max, weight.
+3. Build a JSON array containing one object per metric that has a value: {"date": Day, "metric": "<name>", "value": <number>}. Skip metrics with no sample.
+4. Send a POST request to https://life-dashboard-mu-green.vercel.app/api/health with headers "x-health-token" set to MY_TOKEN and "Content-Type" set to application/json, and the JSON array as the body.
+```
+
+Then: Shortcuts → Automation → new personal automation → Time of Day → repeat
+every 30 minutes → run "Sync Health", and turn OFF "Ask Before Running".
+
+## Reading the response
+
+```json
+{ "written": 11, "days": 1, "rejected": 0, "why": [] }
+```
+
+`rejected` is the number that matters. A shortcut quietly dropping nine rows in
+ten looks exactly like one that is working, so the endpoint returns why each row
+was refused rather than accepting it and hoping. Common ones:
+
+- **unknown metric "step"** — the name must match the list above exactly.
+- **weight 71400 outside 20–400** — grams instead of kilograms. A technically
+  valid number that would quietly ruin every average it landed in.
+- **date is in the future** — a timezone bug on the phone, not a reading.
+- **duplicate for that day** — normal, and harmless. The half-hourly run re-sends
+  today; only the first of each metric is kept.
+
+A `401` means the token header is missing or wrong. A `503` means `HEALTH_TOKEN`
+was never set on Vercel, or the deploy that would pick it up has not happened yet.
