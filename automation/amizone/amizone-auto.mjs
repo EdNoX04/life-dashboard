@@ -23,6 +23,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PROFILE_DIR = path.join(HERE, '.amizone-profile');   // persistent login lives here
 const CFG_PATH = path.join(HERE, 'amizone.config.json');
 const LOGIN_MODE = process.argv.includes('--login');
+const CHECK_MODE = process.argv.includes('--check');
 
 // ---- config (creds are read from YOUR local file; this script never sends them anywhere but Amizone) ----
 const cfg = JSON.parse(fs.readFileSync(CFG_PATH, 'utf8'));
@@ -192,7 +193,44 @@ async function tryLogin(page) {
   return !/login/i.test(u) && !!(await page.$('a[href*="Logout"], [onclick*="FnAttendance"]').catch(() => null)) ? true : !/login/i.test(u);
 }
 
+async function check() {
+  console.log('config :', CFG_PATH);
+  console.log('user   :', String(cfg.amizoneUser || '').slice(0, 4) + '…');
+  console.log('url    :', SUPA_URL);
+  console.log('key    :', SUPA_KEY.slice(0, 14) + '… (' + SUPA_KEY.length + ' chars)');
+
+  // Read first. A read that works while the write fails is the exact signature
+  // of a key that has been demoted rather than revoked, and knowing which one it
+  // is decides what you change.
+  try {
+    await supa('memory?key=eq.amizone_last_sync&select=value');
+    console.log('read   : OK');
+  } catch (e) {
+    console.log('read   : FAILED —', String(e.message || e).slice(0, 160));
+  }
+
+  // The write is the thing that has been failing since row-level security went
+  // on, so it is the thing worth testing. Writing the heartbeat rather than a
+  // scratch row keeps this from leaving litter behind.
+  try {
+    await reportStatus({ ok: true, configured: true, reason: '', check: true });
+    console.log('write  : OK — this laptop can update the dashboard');
+    console.log('\nNothing else to fix. Run without --check to sync for real.');
+  } catch (e) {
+    const msg = String(e.message || e);
+    console.log('write  : FAILED —', msg.slice(0, 200));
+    if (/401|permission|row-level/i.test(msg)) {
+      console.log('\nThat is row-level security refusing the key.');
+      console.log('Supabase → Project Settings → API → service_role, and put it in');
+      console.log(`${CFG_PATH} as "supabaseServiceKey".`);
+    }
+    process.exitCode = 1;
+  }
+  process.exit(process.exitCode || 0);
+}
+
 async function main() {
+  if (CHECK_MODE) return check();
   fs.mkdirSync(PROFILE_DIR, { recursive: true });
   // Anti-automation: Cloudflare Turnstile fails "automated" browsers. These flags
   // strip the automation fingerprint so it's treated as an ordinary Chrome.

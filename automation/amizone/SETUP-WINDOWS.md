@@ -14,10 +14,53 @@ Copy the whole `automation/amizone` folder somewhere permanent, e.g.
 `C:\PlayerOne\amizone`. (If you cloned the repo on the laptop, it's already at
 `life-dashboard\automation\amizone`.)
 
-## Step 2 — fill in your login
-Open `amizone.config.json` and replace the two placeholder values with your real
-Amizone username and password. (This file stays on your laptop only — the script
-uses it to log into Amizone and nowhere else.)
+## Step 2 — fill in the config
+
+Open `amizone.config.json` and fill in all four values:
+
+```json
+{
+  "amizoneUser": "your enrolment number",
+  "amizonePass": "your Amizone password",
+  "supabaseUrl": "https://xroynvkzephebhcztvfo.supabase.co",
+  "supabaseServiceKey": "<Supabase → Project Settings → API → service_role>",
+  "syncTimetable": true
+}
+```
+
+**The service_role key, not the publishable one.** This changed on 15 August, when
+row-level security was switched on. The publishable key stopped being able to
+write anything, and because this script logs its failures into `amizone.log` on
+this laptop, the dashboard simply carried on showing the last attendance that got
+through — no error anywhere a person would see it. If your data froze on a date,
+this is why.
+
+That key bypasses row-level security on every table, so this file stays on this
+laptop and is never committed. The copy in the repo is a template of placeholders.
+
+`syncTimetable: true` also pulls the live timetable. It is off by default because
+Amizone's diary is a per-day feed, so a weekly view rebuilt from it unions both
+batches, makeups and extra classes into a noisy superset — the dashboard keeps a
+hand-verified weekly timetable instead. Turn it on if you would rather have the
+live one with that noise.
+
+## Step 2b — prove it can write, before anything else
+
+```powershell
+node amizone-auto.mjs --check
+```
+
+Two seconds, no browser, no Amizone. It reads and then writes, and tells you which
+of the two failed. Worth doing first because the real sync takes two minutes and
+fails at the very END — after the scraping, at the write — so a broken key looks
+like a broken scraper.
+
+```
+read   : OK
+write  : OK — this laptop can update the dashboard
+```
+
+If the write fails with a 401, it prints exactly which key to change and where.
 
 ## Step 3 — install the browser driver (once)
 Open **PowerShell** in that folder and run:
