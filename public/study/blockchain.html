@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>PLAYER ONE — Minor Exam Study Guide (Sept 1–3)</title>
+<meta name="description" content="Advanced Network Security &amp; IAM, Blockchain, IoT System Design — full syllabus with extra-marks depth." />
+<style>
+/* ------------------------------------------------------------------
+   Self-contained on purpose. No web fonts, no CDN, no network at all —
+   this file has to work on a phone in a corridor with no signal the
+   morning of the exam, and anything fetched is something that can fail
+   at exactly the wrong moment.
+   ------------------------------------------------------------------ */
+:root{
+  --bg:#080a12; --bg-2:#0d1120; --panel:#111629; --panel-2:#151b31;
+  --ink:#e8ecff; --ink-2:#a8b2d8; --ink-3:#6b769e;
+  --cyan:#00e5ff; --pink:#ff3d7f; --purple:#7c4dff; --yellow:#ffd23f;
+  --green:#31d67a; --red:#ff4d5a; --orange:#ff9f43;
+  --border:#222c4d; --border-bright:#31406e;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono",monospace;
+  --sub:var(--cyan);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--mono); font-size:15px; line-height:1.6;
+  overflow-x:hidden;
+}
+/* The CRT. Fixed, pointer-events:none, and switched off entirely under
+   prefers-reduced-motion — a flickering overlay is a migraine trigger, and
+   this is a document somebody stares at for six hours straight. */
+#crt{position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(180deg,rgba(0,0,0,.22) 0 1px,rgba(0,0,0,0) 1px 3px);
+  mix-blend-mode:multiply;opacity:.55}
+#vig{position:fixed;inset:0;pointer-events:none;z-index:9998;
+  background:radial-gradient(ellipse at center,rgba(0,0,0,0) 55%,rgba(0,0,0,.55) 100%)}
+body.plain #crt,body.plain #vig{display:none}
+@media (prefers-reduced-motion:reduce){#crt{opacity:.25}}
+@media print{#crt,#vig,#bar,#side,#tocbtn,.noprint{display:none!important}}
+
+a{color:var(--cyan)}
+h1,h2,h3,h4{margin:0;font-weight:700;letter-spacing:.04em}
+code,kbd{font-family:var(--mono);background:#0a0e1a;border:1px solid var(--border);
+  border-radius:4px;padding:1px 5px;font-size:.88em;color:var(--yellow)}
+kbd{color:var(--ink-2)}
+mark{background:var(--yellow);color:#0a0e1a;border-radius:2px;padding:0 2px}
+
+/* ---------------- top bar ---------------- */
+#bar{position:sticky;top:0;z-index:60;background:rgba(8,10,18,.94);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--border-bright);
+  padding:8px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+/* The brand is the one element with fixed text, so it is the one element that
+   can force the bar — and therefore the whole page — wider than the viewport,
+   which clips every card on the right. It truncates instead. */
+#brand{font-size:12px;letter-spacing:.18em;color:var(--sub);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:min(34vw,300px);flex:0 1 auto;
+  text-shadow:0 0 12px currentColor}
+#bar>*{min-width:0}
+#brand b{color:var(--ink)}
+#count{flex:0 0 auto;font-size:11px;color:var(--ink-2);border:1px solid var(--border-bright);
+  border-radius:999px;padding:3px 10px;white-space:nowrap}
+#count b{color:var(--yellow)}
+#q{flex:1;min-width:150px;background:#0a0e1a;border:1px solid var(--border-bright);
+  color:var(--ink);border-radius:6px;padding:7px 10px;font-family:var(--mono);font-size:13px;outline:none}
+#q:focus{border-color:var(--sub);box-shadow:0 0 0 2px rgba(0,229,255,.15)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;flex:0 0 auto}
+.tab{background:#0a0e1a;border:1px solid var(--border-bright);color:var(--ink-2);
+  border-radius:6px;padding:6px 11px;font-family:var(--mono);font-size:12px;cursor:pointer;
+  letter-spacing:.06em;white-space:nowrap}
+.tab:hover{color:var(--ink);border-color:var(--sub)}
+.tab.on{background:var(--sub);color:#080a12;border-color:var(--sub);font-weight:700}
+.mini{flex:0 0 auto;background:transparent;border:1px solid var(--border-bright);color:var(--ink-2);
+  border-radius:6px;padding:6px 9px;font-family:var(--mono);font-size:12px;cursor:pointer}
+.mini:hover{color:var(--ink);border-color:var(--sub)}
+
+/* progress rail under the bar */
+#rail{height:3px;background:#0a0e1a;position:sticky;top:0;z-index:59}
+#railfill{height:100%;width:0;background:linear-gradient(90deg,var(--sub),var(--green));
+  transition:width .25s ease;box-shadow:0 0 10px var(--green)}
+
+/* ---------------- layout ---------------- */
+#wrap{display:flex;gap:0;align-items:flex-start;max-width:1500px;margin:0 auto}
+#side{position:sticky;top:56px;width:270px;flex:0 0 270px;max-height:calc(100vh - 60px);
+  overflow-y:auto;padding:14px 10px 40px 14px;border-right:1px solid var(--border);scrollbar-width:thin}
+#main{flex:1;min-width:0;padding:16px 18px 120px 18px}
+@media(max-width:900px){
+  #side{position:fixed;left:0;top:0;bottom:0;width:280px;max-height:none;z-index:80;
+    background:var(--bg-2);transform:translateX(-102%);transition:transform .2s ease;padding-top:60px}
+  #side.open{transform:none;box-shadow:0 0 40px rgba(0,0,0,.8)}
+  #main{padding:14px 12px 120px 12px}
+  #tocbtn{display:inline-block}
+}
+#tocbtn{display:none}
+#scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:79}
+#scrim.on{display:block}
+
+/* ---------------- sidebar ---------------- */
+.tochead{font-size:10px;letter-spacing:.2em;color:var(--ink-3);margin:14px 0 6px}
+.tocmod{display:block;width:100%;text-align:left;background:transparent;border:0;
+  color:var(--ink-2);font-family:var(--mono);font-size:12.5px;padding:6px 8px;border-radius:5px;
+  cursor:pointer;border-left:2px solid transparent;line-height:1.35}
+.tocmod:hover{background:var(--panel);color:var(--ink)}
+.tocmod.on{color:var(--sub);border-left-color:var(--sub);background:var(--panel)}
+.tocmod .n{color:var(--ink-3);margin-right:6px}
+.tocmod .pc{float:right;font-size:10px;color:var(--green)}
+
+/* ---------------- content ---------------- */
+.hero{border:1px solid var(--border-bright);border-radius:10px;padding:16px 18px;
+  background:linear-gradient(160deg,var(--panel),var(--bg-2));margin-bottom:16px}
+.hero h1{font-size:20px;color:var(--sub);text-shadow:0 0 18px currentColor}
+.hero .code{font-size:11px;letter-spacing:.2em;color:var(--ink-3);margin-bottom:6px}
+.hero p{color:var(--ink-2);font-size:13px;margin:8px 0 0}
+
+.mod{border:1px solid var(--border);border-radius:10px;background:var(--panel);
+  margin-bottom:14px;overflow:hidden}
+.modhead{display:flex;gap:10px;align-items:center;padding:12px 14px;cursor:pointer;
+  background:var(--panel-2);border-bottom:1px solid transparent;user-select:none}
+.mod.open .modhead{border-bottom-color:var(--border)}
+.modhead:hover{background:#1a2140}
+.modhead .caret{color:var(--ink-3);font-size:11px;width:12px;flex:0 0 12px;transition:transform .15s}
+.mod.open .modhead .caret{transform:rotate(90deg)}
+.modhead h2{font-size:14px;color:var(--ink);flex:1;min-width:0}
+.modhead .wt{font-size:10px;letter-spacing:.1em;color:var(--yellow);border:1px solid var(--yellow);
+  border-radius:999px;padding:2px 8px;white-space:nowrap}
+.modbody{display:none;padding:6px 14px 16px}
+.mod.open .modbody{display:block}
+
+.topic{border-top:1px solid var(--border);padding:12px 0 4px}
+.topic:first-child{border-top:0}
+.topic h3{font-size:13.5px;color:var(--sub);display:flex;gap:8px;align-items:flex-start;line-height:1.4}
+.chk{appearance:none;-webkit-appearance:none;width:15px;height:15px;flex:0 0 15px;margin-top:3px;
+  border:1px solid var(--border-bright);border-radius:3px;background:#0a0e1a;cursor:pointer;position:relative}
+.chk:checked{background:var(--green);border-color:var(--green)}
+.chk:checked::after{content:"✓";position:absolute;inset:0;color:#08110c;font-size:11px;
+  display:flex;align-items:center;justify-content:center;font-weight:700}
+.topic.done h3{color:var(--ink-3);text-decoration:line-through;text-decoration-color:var(--ink-3)}
+
+ul.pts{margin:8px 0 0;padding-left:18px}
+ul.pts li{margin:4px 0;color:var(--ink-2);font-size:13px}
+ul.pts li b,ul.pts li strong{color:var(--ink)}
+.def{border-left:2px solid var(--purple);padding:6px 0 6px 10px;margin:8px 0;
+  color:var(--ink);font-size:13px;background:rgba(124,77,255,.06)}
+
+.box{border:1px solid;border-radius:8px;padding:9px 11px;margin:10px 0;font-size:12.5px}
+.box .bh{font-size:10px;letter-spacing:.16em;margin-bottom:5px;font-weight:700}
+.box ul{margin:4px 0 0;padding-left:16px}
+.box li{margin:3px 0}
+.extra{border-color:var(--yellow);background:rgba(255,210,63,.07);color:var(--ink-2)}
+.extra .bh{color:var(--yellow)}
+.trap{border-color:var(--red);background:rgba(255,77,90,.07);color:var(--ink-2)}
+.trap .bh{color:var(--red)}
+.mnem{border-color:var(--pink);background:rgba(255,61,127,.07);color:var(--ink-2)}
+.mnem .bh{color:var(--pink)}
+.src{border-color:var(--border-bright);background:rgba(255,255,255,.02);color:var(--ink-3);font-size:11.5px}
+.src .bh{color:var(--ink-3)}
+
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12px;display:block;overflow-x:auto}
+th,td{border:1px solid var(--border);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:var(--panel-2);color:var(--sub);font-weight:700;font-size:11px;
+  letter-spacing:.06em;white-space:nowrap}
+td{color:var(--ink-2)}
+tr:nth-child(even) td{background:rgba(255,255,255,.015)}
+
+/* self-test */
+.qa{border:1px solid var(--border-bright);border-radius:8px;margin:8px 0;overflow:hidden}
+.qa .qq{padding:9px 11px;cursor:pointer;font-size:13px;color:var(--ink);background:var(--panel-2);
+  display:flex;gap:8px;align-items:flex-start}
+.qa .qq:hover{background:#1a2140}
+.qa .qq .m{color:var(--pink);flex:0 0 auto}
+.qa .aa{display:none;padding:9px 11px;font-size:12.5px;color:var(--ink-2);
+  border-top:1px solid var(--border);background:rgba(49,214,122,.05)}
+.qa.open .aa{display:block}
+
+.marks{font-size:11px;color:var(--ink-3);margin-left:auto;white-space:nowrap}
+.pill{display:inline-block;font-size:10px;letter-spacing:.1em;border-radius:999px;
+  padding:2px 8px;border:1px solid;margin-right:6px}
+.p-core{color:var(--green);border-color:var(--green)}
+.p-min{color:var(--pink);border-color:var(--pink)}
+.hidden{display:none!important}
+#nores{color:var(--ink-3);font-size:13px;padding:20px;text-align:center}
+.foot{color:var(--ink-3);font-size:11.5px;margin-top:28px;border-top:1px solid var(--border);
+  padding-top:12px;line-height:1.7}
+.jump{position:fixed;right:14px;bottom:14px;z-index:70;display:flex;flex-direction:column;gap:6px}
+.jump button{width:38px;height:38px;border-radius:9px;background:var(--panel);
+  border:1px solid var(--border-bright);color:var(--ink-2);font-family:var(--mono);cursor:pointer;font-size:14px}
+.jump button:hover{color:var(--sub);border-color:var(--sub)}
+</style>
+</head>
+<body>
+<div id="crt"></div><div id="vig"></div>
+<div id="bar">
+  <span id="brand">▮ <b>PLAYER&nbsp;ONE</b> · MINOR EXAM DUMP</span>
+  <button id="tocbtn" class="mini" onclick="toggleSide()">☰ Modules</button>
+  <input id="q" placeholder="search everything — WPA3, SAE, gas, ESP8266…" autocomplete="off" spellcheck="false" />
+  <span id="count">progress <b id="pcnt">0%</b></span>
+  <div class="tabs" id="subtabs"></div>
+  <button class="mini" onclick="toggleCRT()" title="toggle scanlines">◈</button>
+  <button class="mini" onclick="expandAll(true)" title="expand all">⊞</button>
+  <button class="mini" onclick="expandAll(false)" title="collapse all">⊟</button>
+</div>
+<div id="rail"><div id="railfill"></div></div>
+
+<div id="scrim" onclick="toggleSide()"></div>
+<div id="wrap">
+  <nav id="side"></nav>
+  <main id="main"></main>
+</div>
+
+<div class="jump noprint">
+  <button onclick="scrollTo(0,0)" title="top">↑</button>
+  <button onclick="jumpNext()" title="next unread module">↧</button>
+</div>
+<script>
+window.SUBJECT = {
+  slug: 'blockchain',
+  code: 'CSE475 · BLOCKCHAIN',
+  name: 'Blockchain',
+  short: 'BLOCKCHAIN',
+  examLabel: 'Sept 1–3, 2026',
+  blurb: 'Five modules. Note the weighting: Use Cases is 25% and Composer only 15% — spend your time accordingly. This subject rewards precise definitions and exact numbers (block times, gas costs, consensus thresholds) more than any other on your timetable.',
+  plan: [
+    'Modules are collapsed. Open one, tick topics as you finish — ticks are saved on this device.',
+    'Yellow <b>EXTRA MARKS</b> boxes are the depth that separates a pass answer from a full one.',
+    'Red <b>EXAM TRAP</b> boxes are the exact confusions this subject is built on — permissioned vs private, PoW vs PoS, chaincode vs smart contract.',
+    'Press <kbd>/</kbd> to search across every module at once.'
+  ],
+  foot: 'Built from the CSE475 module list. Verify module weightings against your course handout before the exam.',
+  modules: [],
+  quiz: []
+};
+
+SUBJECT.modules.push({
+  title: 'Introduction to Blockchain and Blockchain Platforms',
+  short: 'Intro & Platforms',
+  weight: '20%',
+  intro: 'Definitions, the data structure itself, consensus, and the taxonomy of platforms. Almost every paper opens here, and almost every mark lost here is lost to a vague definition.',
+  topics: [
+    {
+      id:'bc1-def', title:'What a blockchain actually is — the data structure',
+      def:'A blockchain is a distributed, append-only ledger of transactions, replicated across a peer-to-peer network, in which each block contains a cryptographic hash of the previous block — making the chain tamper-evident — and agreement on its contents is reached by a consensus mechanism rather than by a central authority.',
+      points:[
+        '<b>Block structure — header + body.</b> The <b>header</b> holds: previous block hash, Merkle root, timestamp, nonce, difficulty target, and version. The <b>body</b> holds the list of transactions.',
+        '<b>The previous-block hash is what makes it a chain.</b> Change one byte in block 400, and block 400\'s hash changes, so block 401\'s stored "previous hash" no longer matches — and so on to the tip. Tampering with one block invalidates every block after it.',
+        '<b>Merkle tree</b> — transactions are hashed pairwise up to a single <b>Merkle root</b> stored in the header. Two consequences worth stating: (1) any change to any transaction changes the root, so the header commits to all of them; (2) you can prove a transaction is in a block with only log₂(n) hashes — a <b>Merkle proof</b> — which is what allows lightweight SPV clients that never download a full block.',
+        '<b>Five core properties:</b> decentralisation, immutability (append-only, tamper-evident), transparency, security through cryptography, and consensus-based validation.',
+        '<b>Nonce</b> — the number miners vary to search for a hash below the difficulty target. It is the only freely adjustable field in the header, which is why mining is brute force.',
+        '<b>Types of node:</b> <i>full nodes</i> store and validate the entire chain independently; <i>light/SPV nodes</i> store headers only and rely on Merkle proofs; <i>mining/validator nodes</i> propose new blocks; <i>archive nodes</i> retain every historical state.'
+      ],
+      extra:[
+        '<b>Immutable is not the same as unchangeable.</b> Say "tamper-<i>evident</i>" — the data can be rewritten by anyone with enough hash power, but doing so is detectable and economically irrational. That precision is a mark.',
+        '<b>Genesis block</b> — block 0, hard-coded into the client, the only block with no predecessor. Bitcoin\'s contains the Times headline of 3 January 2009.',
+        '<b>The blockchain trilemma</b> (Vitalik Buterin): decentralisation, security and scalability — you can optimise for two. Bitcoin chooses decentralisation and security; a permissioned chain like Fabric chooses scalability and security by sacrificing open decentralisation. This one framework answers a surprising number of "compare X and Y" questions.',
+        '<b>Hash function properties</b> to name: deterministic, fast to compute, pre-image resistant (cannot invert), second-pre-image and collision resistant, and the <b>avalanche effect</b> — one bit of input flips about half the output bits. Bitcoin uses SHA-256; Ethereum uses Keccak-256.'
+      ],
+      trap:['The blockchain does not store "the balance". Bitcoin stores <b>UTXOs</b> (unspent transaction outputs) and a balance is derived by summing the ones you can spend. Ethereum, by contrast, uses an <b>account/balance model</b> with an explicit nonce per account to prevent replay. This distinction is asked constantly.'],
+      qa:[{q:'How does a Merkle tree let a phone verify a payment without downloading the blockchain?',a:'The phone stores only block headers, which include the Merkle root. To verify that a transaction is in a block it requests a Merkle proof — the sibling hashes along the path from that transaction to the root, about log₂(n) hashes. It recomputes the root from the transaction and the proof; if it matches the root in the header it already trusts, the transaction is in that block. For a block of a million transactions that is roughly 20 hashes instead of a gigabyte.'}]
+    },
+    {
+      id:'bc1-types', title:'Public, private, consortium and permissioned — the taxonomy',
+      table:{head:['','Public','Private','Consortium'],rows:[
+        ['Who can read','Anyone','Restricted','Restricted to members'],
+        ['Who can write','Anyone','One organisation','A pre-selected group'],
+        ['Consensus','PoW / PoS, open participation','Central or trusted nodes','Voting / PBFT / Raft among members'],
+        ['Speed','Low (7–30 TPS)','High (thousands of TPS)','High'],
+        ['Identity','Pseudonymous','Known','Known (via MSP/CA)'],
+        ['Examples','Bitcoin, Ethereum','Internal corporate ledger','Hyperledger Fabric, R3 Corda, Quorum']
+      ]},
+      points:[
+        '<b>Permissionless</b> — anyone may join, read and propose blocks. Trust comes from economics (cost of attack) and cryptography.',
+        '<b>Permissioned</b> — participants are identified and authorised in advance. Trust comes from identity and governance, which is why permissioned chains can use far cheaper consensus and reach far higher throughput.',
+        '<b>Consortium</b> is the middle case that matters commercially: several competing organisations who do not fully trust each other but do know who each other are — supply chain, trade finance, interbank settlement.'
+      ],
+      extra:[
+        '<b>Two independent axes, not one.</b> "Public/private" is about who can <i>read</i>; "permissioned/permissionless" is about who can <i>write and validate</i>. All four combinations exist — a public permissioned chain (readable by all, written by an authorised set) is a real and increasingly common design.',
+        '<b>Why permissioned chains do not need mining.</b> Proof of Work exists to solve Sybil resistance in an open network where identity is free. If identity is established at admission, the Sybil problem disappears and you can use cheap, deterministic, instantly-final consensus like Raft or PBFT. This is the single best explanation of why Fabric is fast, and it earns marks in three different modules.'
+      ],
+      trap:['<b>Private ≠ permissioned.</b> Fabric is permissioned; whether any given channel\'s data is private is a separate design decision. Conflating them is the most common error in this module.']
+    },
+    {
+      id:'bc1-consensus', title:'Consensus mechanisms — PoW, PoS, PBFT, Raft and the rest',
+      def:'Consensus is the process by which distributed nodes agree on a single, consistent ordering of transactions without a central coordinator. It exists to solve the Byzantine Generals Problem: reaching agreement when some participants may be faulty or actively malicious.',
+      table:{head:['Mechanism','Basis','Finality','Energy','Fault tolerance','Used by'],rows:[
+        ['<b>PoW</b>','Computational work','Probabilistic','Very high','50% hash power','Bitcoin, Litecoin'],
+        ['<b>PoS</b>','Staked capital','Probabilistic → finalised in epochs','Very low','⅓ stake','Ethereum (post-Merge)'],
+        ['<b>DPoS</b>','Elected delegates','Fast','Low','⅔ of delegates','EOS, Tron'],
+        ['<b>PBFT</b>','Voting rounds','<b>Immediate</b>','Low','<b>(n−1)/3</b> malicious','Fabric (legacy), Tendermint'],
+        ['<b>Raft</b>','Leader election','Immediate','Low','<b>Crash faults only</b> — not Byzantine','Fabric ordering service'],
+        ['<b>PoET</b>','Trusted wait time','Probabilistic','Low','Depends on TEE','Hyperledger Sawtooth'],
+        ['<b>PoA</b>','Approved identities','Immediate','Low','Trusted validators','Testnets, private chains']
+      ]},
+      points:[
+        '<b>Proof of Work:</b> miners vary the nonce until <code>SHA-256(SHA-256(header)) &lt; target</code>. Finding it is astronomically hard; verifying it is one hash. Bitcoin retargets difficulty every 2016 blocks to hold a ~10-minute average block time.',
+        '<b>The 51% attack:</b> control of a majority of hash power lets an attacker exclude or reorder transactions and <b>double-spend</b> by privately mining a longer competing chain. It does <i>not</i> let them steal coins from arbitrary addresses or forge signatures — that would require breaking ECDSA.',
+        '<b>Proof of Stake:</b> validators lock capital as a stake; the protocol selects a proposer pseudo-randomly, weighted by stake. Misbehaviour is punished by <b>slashing</b> — burning part of the stake. Ethereum requires 32 ETH per validator; finality is reached over two epochs (about 12.8 minutes).',
+        '<b>Nothing-at-stake problem:</b> in naive PoS, validating on every competing fork costs nothing, so there is no incentive to converge. Slashing solves it by making equivocation expensive.',
+        '<b>PBFT (Practical Byzantine Fault Tolerance):</b> three phases — <i>pre-prepare</i>, <i>prepare</i>, <i>commit</i>. Tolerates <b>f</b> faulty nodes out of <b>3f+1</b>. Gives <b>immediate finality</b> — once committed, never reversed. The cost is O(n²) message complexity, which is why it only works for small, known validator sets.',
+        '<b>Raft</b> is crash-fault tolerant only: it assumes nodes may fail but not lie. Tolerates f failures out of 2f+1. Fabric uses it for ordering because in a permissioned consortium the orderers are known and accountable.',
+        '<b>Forks:</b> a <b>soft fork</b> is backward-compatible (old nodes still accept new blocks — a tightening of rules); a <b>hard fork</b> is not (a permanent divergence). Ethereum/Ethereum Classic after the DAO hack is the canonical hard fork.'
+      ],
+      extra:[
+        '<b>Probabilistic vs deterministic finality.</b> In PoW a block is never <i>certainly</i> final — it becomes exponentially unlikely to be reversed, which is why exchanges wait six confirmations. In PBFT/Raft, commitment is final immediately. Being able to say why an enterprise chain needs deterministic finality (you cannot ship goods against a payment that might un-happen) is a strong applied point.',
+        '<b>3f+1 is worth deriving, not just quoting.</b> With n nodes and f Byzantine, you must make progress without hearing from f (they may be silent), so you decide on n−f responses; of those, f could be lying, so the honest majority among them needs n−2f > f, giving n > 3f.',
+        '<b>The Merge (Sept 2022)</b> moved Ethereum from PoW to PoS and cut its energy consumption by roughly 99.95%. A concrete, quotable number.'
+      ],
+      trap:['Raft is <b>not</b> Byzantine fault tolerant. If an exam asks which Fabric ordering service tolerates malicious orderers, the honest answer is that Raft does not — it tolerates crashes, and Fabric relies on the permissioned identity layer plus endorsement policies for Byzantine protection.'],
+      mnem:['<b>PoW = burn electricity. PoS = burn money (if you cheat). PBFT = vote, and you need 2 out of every 3 honest.</b>']
+    },
+    {
+      id:'bc1-crypto', title:'The cryptography underneath — hashing, keys and signatures',
+      points:[
+        '<b>Asymmetric key pair:</b> the private key signs and must never be shared; the public key verifies and is freely distributed. An address is derived from the public key by hashing (Bitcoin: RIPEMD-160 of SHA-256, then Base58Check; Ethereum: the last 20 bytes of Keccak-256).',
+        '<b>Digital signature — what it proves:</b> <i>authentication</i> (only the private-key holder could produce it), <i>integrity</i> (any change to the message invalidates it), and <i>non-repudiation</i> (the signer cannot credibly deny it). Bitcoin and Ethereum both use <b>ECDSA</b> over the secp256k1 curve.',
+        '<b>How a transaction is authorised:</b> hash the transaction, sign the hash with the private key, broadcast signature + public key. Every node verifies the signature against the public key and checks the derived address matches the funds being spent. No password ever travels.',
+        '<b>Wallets store keys, not coins.</b> The coins are entries on the ledger; the wallet holds the private key that authorises moving them. "Not your keys, not your coins" is the literal technical statement of this.',
+        '<b>HD wallets (BIP-32/39/44):</b> a single seed phrase deterministically derives an entire tree of key pairs, which is why twelve words can restore a whole wallet.'
+      ],
+      extra:[
+        '<b>Why elliptic curve rather than RSA:</b> equivalent security at a much smaller key size — 256-bit ECC ≈ 3072-bit RSA. On a ledger every byte is replicated on every node forever, so key size is a direct storage cost.',
+        '<b>Quantum risk, precisely stated:</b> Shor\'s algorithm threatens ECDSA (the signature), while Grover\'s only halves the effective strength of SHA-256 (mitigated by doubling output length). So the vulnerable part is the signature scheme, not the hashing — and only for addresses whose public key has already been revealed by spending from them.'
+      ]
+    }
+  ]
+});
+</script>
+<script>
+SUBJECT.modules.push({
+  title: 'Ethereum — Concepts, Accounts, Gas and Smart Contracts',
+  short: 'Ethereum',
+  weight: '20%',
+  intro: 'Ethereum is "a world computer": a single replicated state machine. Almost every question here reduces to one of three things — the account model, the gas model, or the lifecycle of a smart contract.',
+  topics: [
+    {
+      id:'bc2-core', title:'Ethereum architecture — the EVM and the world state',
+      def:'Ethereum is a decentralised, Turing-complete platform where every node executes the same programs (smart contracts) on the Ethereum Virtual Machine and arrives at the same resulting world state. Bitcoin is a ledger of transfers; Ethereum is a ledger of computation.',
+      points:[
+        '<b>The EVM</b> — a 256-bit stack-based virtual machine, sandboxed and completely deterministic. Determinism is non-negotiable: every node must reach the same result, so the EVM has no randomness, no clock beyond block data, and no network access.',
+        '<b>The world state</b> — a mapping from every address to its account state, stored in a modified Merkle-Patricia trie. The block header commits to the <b>state root</b>, the <b>transaction root</b> and the <b>receipts root</b>.',
+        '<b>Two account types.</b> <i>EOA (Externally Owned Account)</i> — controlled by a private key, has a balance and a nonce, and is the only thing that can <b>initiate</b> a transaction. <i>Contract account</i> — controlled by its code, has a balance, a nonce, <b>code</b> and <b>storage</b>, and can only act when called.',
+        '<b>Every state change starts with an EOA.</b> Contracts cannot wake up on their own — there is no timer inside the EVM. This is why keeper bots and oracles exist, and it is a favourite short question.',
+        '<b>Block time</b> ~12 seconds (fixed slots under PoS). <b>Denominations:</b> 1 ETH = 10¹⁸ wei; 1 gwei = 10⁹ wei — gas prices are quoted in gwei.',
+        '<b>Transaction fields:</b> nonce, gas limit, max fee / max priority fee, to, value, data, and the signature (v, r, s). A <code>to</code> of null means contract creation, with the bytecode in <code>data</code>.'
+      ],
+      extra:[
+        '<b>The account nonce does two jobs:</b> it prevents replay of a signed transaction, and it forces strict per-account ordering — transaction n+1 cannot execute before n. This is also why a stuck low-fee transaction blocks every later one from the same account, and why you "cancel" by resending the same nonce with a higher fee.',
+        '<b>Merkle-Patricia trie</b> — a radix trie with Merkle hashing. It gives efficient proofs of <i>any</i> key\'s value (including "this account does not exist"), and lets nodes share unchanged subtrees between blocks instead of rebuilding the state each time.',
+        '<b>The Merge, and the split into two clients:</b> Ethereum now runs an <i>execution layer</i> (the EVM, e.g. Geth) and a <i>consensus layer</i> (the beacon chain, e.g. Prysm/Lighthouse) communicating over the Engine API. Naming this shows post-2022 currency.'
+      ]
+    },
+    {
+      id:'bc2-gas', title:'Gas — the metering model, and why it exists',
+      def:'Gas is the unit that measures the computational effort required to execute an operation on Ethereum. Every EVM opcode has a fixed gas cost, and the sender pays for the gas actually consumed.',
+      points:[
+        '<b>Why gas exists — the halting problem.</b> The EVM is Turing-complete, so a node cannot in general determine whether a contract will terminate. Gas makes it finite by economics rather than by analysis: computation costs money, the sender sets a limit, and when the gas runs out execution stops.',
+        '<b>It also prices denial of service.</b> Without gas, an infinite loop submitted for free would halt the entire network.',
+        '<b>gas limit</b> = the maximum units you authorise. <b>gas price</b> (or, post-EIP-1559, base fee + priority fee) = the price per unit. <b>Fee = gas used × gas price.</b>',
+        '<b>EIP-1559:</b> the fee is split into a <b>base fee</b>, which is algorithmically set by network congestion and <b>burned</b>, and a <b>priority fee (tip)</b> paid to the validator. Users set a <i>max fee</i> and are refunded the difference. Burning the base fee makes ETH issuance potentially deflationary under load.',
+        '<b>Out-of-gas reverts the whole transaction but the gas is still spent.</b> State changes are rolled back; the fee is not refunded — because the nodes really did the work.',
+        '<b>Indicative costs to quote:</b> a simple ETH transfer is exactly <b>21,000 gas</b>; <code>SSTORE</code> to a zero slot is 20,000; changing an existing slot is 5,000; <code>SLOAD</code> ~2,100 cold; a plain arithmetic opcode is 3–5. Storage dominates everything.'
+      ],
+      extra:[
+        '<b>Gas optimisation techniques, each with the reason:</b> pack multiple small variables into one 32-byte storage slot (one SSTORE instead of several); use <code>calldata</code> rather than <code>memory</code> for read-only function arguments; cache a storage variable in memory inside a loop instead of re-reading it; emit <b>events</b> rather than storing data you only need off-chain (log data is roughly 8 gas per byte against 20,000 for a storage word); use <code>immutable</code> and <code>constant</code>, which are baked into bytecode and cost no storage read at all.',
+        '<b>The gas refund</b> for clearing storage (<code>SSTORE</code> to zero, <code>SELFDESTRUCT</code>) was deliberately capped by EIP-3529 because it was being abused as a "gas token" — buying cheap gas when the network was quiet and redeeming it when busy.',
+        '<b>Gas is not the same as price.</b> Gas measures work and is fixed per opcode; gas <i>price</i> is a market. A transaction can cost 21,000 gas whether the fee is $0.10 or $40 — the work never changed.'
+      ],
+      trap:['A reverted transaction still costs gas. "The transaction failed so I paid nothing" is wrong and is a favourite trick statement.'],
+      qa:[{q:'Why does Ethereum need gas when Bitcoin does not?',a:'Bitcoin Script is deliberately not Turing-complete — no unbounded loops — so the cost of validating any script is bounded by inspection and a simple size-based fee suffices. The EVM is Turing-complete, so no node can decide in advance whether a contract halts. Gas converts an undecidable problem into an economic one: every opcode has a price, the sender pre-commits a limit, and execution halts when it is exhausted.'}]
+    },
+    {
+      id:'bc2-sc', title:'Smart contracts and Solidity',
+      def:'A smart contract is self-executing code deployed to a blockchain address, whose terms are enforced automatically by the network. Coined by Nick Szabo in 1994 — the vending machine is his analogy: pay, and the outcome is enforced by the mechanism, not by trust.',
+      points:[
+        '<b>Lifecycle:</b> write in Solidity → compile to EVM bytecode + ABI → deploy in a transaction with <code>to = null</code> → the contract receives a deterministic address → users call functions by sending transactions whose <code>data</code> encodes the function selector and arguments.',
+        '<b>The ABI (Application Binary Interface)</b> is the JSON description of the contract\'s functions and events; the <b>function selector</b> is the first 4 bytes of the Keccak-256 hash of the function signature.',
+        '<b>Solidity essentials:</b> statically typed, curly-brace, compiled. Key types: <code>uint256</code>, <code>address</code>, <code>bool</code>, <code>bytes32</code>, <code>mapping(k =&gt; v)</code>, arrays, <code>struct</code>, <code>enum</code>.',
+        '<b>Visibility, all four:</b> <code>public</code> (anyone, including other contracts), <code>external</code> (only from outside — cheaper for large arguments), <code>internal</code> (this contract and its children), <code>private</code> (this contract only — <b>but still publicly readable on-chain</b>; private means "not callable", never "secret").',
+        '<b>Storage vs memory vs calldata:</b> <i>storage</i> is persistent and expensive; <i>memory</i> is temporary and cheap; <i>calldata</i> is read-only and cheapest.',
+        '<b>Modifiers</b> — reusable pre-condition wrappers, e.g. <code>modifier onlyOwner { require(msg.sender == owner, "not owner"); _; }</code>. The <code>_;</code> is where the function body is spliced in.',
+        '<b>Events</b> — write to the transaction log, indexed for off-chain listeners, dramatically cheaper than storage, and not readable by contracts.',
+        '<b>Error handling:</b> <code>require</code> for input and condition validation (refunds remaining gas), <code>revert</code> with a custom error, and <code>assert</code> for invariants that should be impossible to violate.',
+        '<b>Token standards:</b> <b>ERC-20</b> (fungible — <code>totalSupply, balanceOf, transfer, approve, transferFrom, allowance</code>), <b>ERC-721</b> (non-fungible, unique tokenId), <b>ERC-1155</b> (multi-token, batch operations).'
+      ],
+      extra:[
+        '<b>Reentrancy — the exam-critical vulnerability.</b> A contract sends ETH to an external address before updating its own state; the recipient\'s fallback function calls back in and withdraws again against the stale balance. This is <b>the DAO hack, June 2016</b>: ~3.6M ETH drained, and it caused the hard fork that created Ethereum Classic. <b>The fix is the Checks-Effects-Interactions pattern</b> — validate, then update state, then make the external call — plus a <code>nonReentrant</code> mutex guard.',
+        '<b>Other named vulnerabilities:</b> integer overflow/underflow (fixed by default in Solidity ≥0.8, which reverts), unchecked external call return values, <code>tx.origin</code> used for authorisation (always use <code>msg.sender</code> — <code>tx.origin</code> is phishable), block-timestamp dependence for randomness (miners can nudge it), front-running / MEV, and unprotected <code>selfdestruct</code>.',
+        '<b>Immutability cuts both ways.</b> A deployed contract cannot be patched — hence <b>proxy upgrade patterns</b>, where a proxy holds the storage and <code>delegatecall</code>s to a swappable logic contract. Mentioning the proxy pattern is a strong, practical point.',
+        '<b>The oracle problem:</b> the EVM cannot make network calls, so any real-world data (a price, a delivery confirmation) must be pushed in by an <b>oracle</b>, and the oracle becomes a trusted third party — which is precisely what the blockchain was supposed to remove. Chainlink\'s answer is a decentralised oracle network with aggregation.',
+        '<b>Tooling to name-drop:</b> Remix (browser IDE), Hardhat and Truffle (development frameworks), Ganache (local chain), Web3.js and Ethers.js (client libraries), MetaMask (wallet), OpenZeppelin (audited contract library).'
+      ],
+      trap:['<code>private</code> in Solidity does <b>not</b> hide data. Every storage slot is readable by anyone running a node. Nothing on a public chain is confidential unless it was encrypted before it went on.'],
+      mnem:['<b>C-E-I</b> — <b>C</b>hecks, <b>E</b>ffects, <b>I</b>nteractions. Do the external call last, always.'],
+      qa:[{q:'Explain the DAO hack and the fix.',a:'The DAO\'s withdraw function sent ETH to the caller before zeroing their recorded balance. Because the send invoked the recipient contract\'s fallback function, the attacker re-entered withdraw before the state update, and the check still saw the original balance — repeating until the contract was drained of about 3.6 million ETH. The fix is Checks-Effects-Interactions: validate the condition, update internal state, and only then make the external call; plus a reentrancy mutex. The community response was a contentious hard fork returning the funds, which split the chain into Ethereum and Ethereum Classic.'}]
+    }
+  ]
+});
+
+SUBJECT.modules.push({
+  title: 'Hyperledger Fabric',
+  short: 'Fabric',
+  weight: '20%',
+  intro: 'Fabric is the enterprise counterpoint to Ethereum: permissioned, modular, no cryptocurrency, and with an execution model deliberately unlike everything in Module II. The execute-order-validate flow is the single highest-value thing in this module.',
+  topics: [
+    {
+      id:'bc3-arch', title:'Fabric architecture and its components',
+      def:'Hyperledger Fabric is a permissioned, modular distributed-ledger platform hosted by the Linux Foundation, designed for enterprise consortia. It has no native cryptocurrency and no mining.',
+      points:[
+        '<b>Peer</b> — hosts the ledger and chaincode. Two roles: <i>endorsing peers</i> simulate transactions and sign the result; <i>committing peers</i> validate and write blocks. Every peer commits; only some endorse.',
+        '<b>Orderer / ordering service</b> — establishes the total order of transactions and cuts them into blocks. It does <b>not</b> execute chaincode and does not see the state. Raft is the current default.',
+        '<b>Channel</b> — a private sub-ledger between a defined subset of members, with its own chaincode and its own ledger that non-members cannot see at all. This is Fabric\'s primary privacy mechanism.',
+        '<b>MSP (Membership Service Provider)</b> — maps X.509 certificates to organisations and roles. This is the identity layer that replaces anonymous mining.',
+        '<b>CA (Certificate Authority)</b> — Fabric CA issues the enrolment certificates that make identity work.',
+        '<b>Chaincode</b> — Fabric\'s smart contract, written in <b>Go, Java or Node.js</b> (not a bespoke language), running in an isolated Docker container.',
+        '<b>The ledger has two parts:</b> the <i>blockchain</i> — the immutable, append-only transaction log; and the <b>world state</b> — a key-value database holding current values, backed by LevelDB (simple key-value) or <b>CouchDB</b> (JSON documents, and the only one supporting rich queries).'
+      ],
+      extra:[
+        '<b>Private Data Collections</b> — the finer-grained alternative to spinning up a channel. The actual private data goes only to authorised peers\' private state databases, while a <b>hash</b> of it goes on the shared channel ledger as evidence. So non-members can prove a transaction happened and later verify the data if it is revealed, without ever seeing it. Naming this over "just use a channel" is a genuine differentiator.',
+        '<b>Modularity is the design thesis:</b> pluggable consensus, pluggable identity (MSP), pluggable state database. Fabric is a framework, not a single fixed chain.',
+        '<b>No cryptocurrency and no gas.</b> Members are known and accountable, so spam is handled by governance and access control rather than by charging for computation. This is why Fabric can afford to be Turing-complete without a gas model — worth stating explicitly as a contrast with Module II.'
+      ]
+    },
+    {
+      id:'bc3-flow', title:'Execute–Order–Validate — the transaction flow (highest-value topic)',
+      def:'Fabric inverts the usual order-execute model. Transactions are executed first, then ordered, then validated — which is what lets it parallelise execution and support non-deterministic general-purpose languages.',
+      points:[
+        '<b>1. Propose.</b> The client SDK builds a transaction proposal and sends it to the endorsing peers named by the <b>endorsement policy</b>.',
+        '<b>2. Execute / endorse.</b> Each endorsing peer <i>simulates</i> the chaincode against its own copy of the world state. It does <b>not</b> commit anything. It returns a signed <b>read-write set</b>: the keys read (with their versions) and the keys that would be written (with proposed values).',
+        '<b>3. Collect.</b> The client gathers the endorsements and checks they agree. Disagreement means non-deterministic chaincode, and the transaction is abandoned here.',
+        '<b>4. Order.</b> The client submits the endorsed transaction to the ordering service, which puts it into a total order with all others and cuts blocks.',
+        '<b>5. Validate.</b> Every committing peer independently checks (a) that the endorsements satisfy the endorsement policy, and (b) the <b>MVCC read-set version check</b> — that no key in the read set has been modified since simulation.',
+        '<b>6. Commit.</b> Valid transactions update the world state. <b>Invalid transactions are still written to the blockchain, flagged invalid</b> — the log records what was attempted, not only what succeeded.',
+        '<b>MVCC conflicts</b> are the practical consequence: two transactions in the same block that write the same key will see the second fail validation. The design fix is to model hot keys as append-only deltas rather than a single mutable counter.'
+      ],
+      extra:[
+        '<b>Why execute-first is the clever part.</b> Executing before ordering means (a) execution is parallel across peers rather than serialised behind consensus, (b) only the endorsing peers need to run the chaincode — not the whole network, which is Ethereum\'s scaling ceiling, and (c) non-determinism is <i>detected</i> by comparing endorsements rather than having to be prevented by a restricted language. That last point is why Fabric can use ordinary Go and Java.',
+        '<b>Endorsement policy</b> is Fabric\'s expressive trust model: <code>AND(\'Org1.peer\',\'Org2.peer\')</code>, <code>OR(...)</code>, <code>OutOf(2, ...)</code>. It is per-chaincode (and can be per-key), and it is what replaces "51% of hash power" with an explicit, business-level rule about who must agree.',
+        '<b>Throughput</b> of a tuned Fabric network is in the low thousands of TPS versus Ethereum L1\'s ~15–30 — and the reason is precisely the architecture above, not better hardware.'
+      ],
+      trap:['Endorsing peers <b>simulate</b>; they never write. The world state is only updated at step 6, by <i>every</i> committing peer, after ordering. Saying "the endorsing peer executes and commits the transaction" collapses the whole model.'],
+      mnem:['<b>E-O-V</b>: <b>E</b>xecute, <b>O</b>rder, <b>V</b>alidate. Ethereum is O-E: order first, then everyone executes.'],
+      qa:[{q:'Contrast Fabric\'s consensus with Ethereum\'s and explain the throughput difference.',a:'Ethereum orders transactions globally by PoS consensus and then every node executes every transaction — execution is serialised behind consensus and replicated network-wide, capping throughput at roughly 15–30 TPS. Fabric executes first on only the peers named in the endorsement policy, in parallel, then orders the results with a crash-fault-tolerant service (Raft), then validates. Execution is not replicated network-wide and not serialised behind ordering, and identity is established at admission so no expensive Sybil resistance is needed — which together yield thousands of TPS.'}]
+    }
+  ]
+});
+
+SUBJECT.modules.push({
+  title: 'Hyperledger Composer',
+  short: 'Composer',
+  weight: '15%',
+  intro: 'The lowest-weighted module — learn the four model files and the deployment flow and move on. Note honestly that Composer was <b>deprecated in 2019</b>; it remains on the syllabus as a modelling abstraction, and saying so shows awareness rather than ignorance.',
+  topics: [
+    {
+      id:'bc4-comp', title:'Composer — the modelling toolset and its four artefacts',
+      def:'Hyperledger Composer is a set of collaboration tools that let business analysts and developers model a blockchain application at a business level and generate the underlying Fabric chaincode, rather than writing Go by hand.',
+      points:[
+        '<b>Business Network Archive (.bna)</b> — the deployable package containing all four artefacts below. It is deployed onto a running Fabric network.',
+        '<b>1. Model file (.cto)</b> — written in the Composer Modeling Language. Defines four things: <b>Participants</b> (who acts — a farmer, a shipper), <b>Assets</b> (what is exchanged — a crate, a certificate), <b>Transactions</b> (what can happen), and <b>Events</b> (what is emitted).',
+        '<b>2. Script file (.js)</b> — the JavaScript transaction processor functions implementing the transaction logic, decorated with <code>@param</code> and <code>@transaction</code>.',
+        '<b>3. Access Control file (permissions.acl)</b> — declarative rules stating which participant may do what to which resource. Access control is <i>declarative and separate from the logic</i>, which is Composer\'s main structural idea.',
+        '<b>4. Query file (.qry)</b> — named queries in a SQL-like syntax, executed against CouchDB.',
+        '<b>Tooling:</b> <b>Composer Playground</b> (browser-based modelling and testing with an in-memory runtime), the <code>composer</code> CLI, and Yeoman generators that scaffold a REST server or an Angular front end from the model.',
+        '<b>The REST server</b> — <code>composer-rest-server</code> generates a full Loopback REST API from the business network model automatically, which is how an ordinary web app talks to the chain without any blockchain-specific client code.'
+      ],
+      extra:[
+        '<b>Composer\'s real contribution is the separation of concerns:</b> the domain model, the transaction logic, the access rules and the queries are four separate declarative artefacts rather than one monolithic chaincode file. Even though the tool is deprecated, that separation is the exam-worthy idea, and it is now expressed directly in Fabric\'s own contract API.',
+        '<b>Deprecation, stated correctly:</b> Composer was deprecated in August 2019; the recommended path is the Fabric contract and application SDKs for Node.js, Java and Go. If a question asks you to "build X in Composer", answer in Composer and add one sentence noting the modern equivalent — that is accuracy, not evasion.',
+        '<b>The archetypal Composer example</b> is a supply-chain network: Participants = Grower, Shipper, Importer; Asset = Shipment with a temperature reading; Transaction = TemperatureReading and ShipmentReceived; the logic pays out less if the temperature breached a threshold. Having one worked example ready lets you answer any "model a business network for..." question in the same shape.'
+      ],
+      trap:['Composer models are <b>not</b> a different blockchain. A .bna is compiled and deployed onto Hyperledger <i>Fabric</i> — Composer is an abstraction layer, never a platform in its own right.']
+    }
+  ]
+});
+
+SUBJECT.modules.push({
+  title: 'Blockchain Use Cases',
+  short: 'Use Cases',
+  weight: '25% — the heaviest',
+  intro: 'The highest-weighted module and the easiest to under-prepare because it feels like general knowledge. It is not: marks come from naming a concrete platform, a specific problem it solves, and — critically — being willing to say when a blockchain is the <i>wrong</i> answer.',
+  topics: [
+    {
+      id:'bc5-uses', title:'The use cases, each with its mechanism',
+      points:[
+        '<b>Supply chain provenance</b> — every custody transfer is written by the party making it, so the record is multi-party and no single participant can rewrite history. <i>Named systems:</i> IBM Food Trust (Walmart cut mango traceability from 7 days to 2.2 seconds), Maersk/IBM TradeLens, De Beers Tracr for diamonds. The mechanism that matters: it does not prove the physical goods are genuine, only that the recorded claims were not altered — the sensor or the human at the gate is still the trust boundary.',
+        '<b>Financial services</b> — cross-border payments (settlement in minutes rather than days by removing correspondent-bank chains), trade finance (letters of credit as smart contracts — Marco Polo, we.trade), and securities settlement (atomic delivery-versus-payment removes counterparty risk by making both legs one transaction).',
+        '<b>Healthcare</b> — patient-controlled record access, where the chain holds pointers and permissions and the records stay in hospital systems; and pharmaceutical supply chains for counterfeit detection (mandated in the US by the DSCSA). <b>MedRec</b> is the canonical academic project.',
+        '<b>Digital identity / SSI (Self-Sovereign Identity)</b> — the user holds verifiable credentials in their own wallet and discloses only what is needed. Built on <b>DIDs</b> (Decentralised Identifiers) and <b>Verifiable Credentials</b>, both W3C standards; <b>Hyperledger Indy/Aries</b> is the reference stack. This is the direct link to your IAM module in ANS.',
+        '<b>Voting</b> — end-to-end verifiability and an immutable tally. State the counter-argument too: it does not solve voter coercion, endpoint malware, or the fact that a verifiable receipt enables vote-buying. Most security researchers oppose it. Saying this is what separates an informed answer from a brochure.',
+        '<b>Land registry</b> — Georgia and Sweden have real pilots; the mechanism is an immutable title history that removes the possibility of a corrupt registrar rewriting ownership.',
+        '<b>Energy</b> — peer-to-peer trading of rooftop solar between neighbours with automatic settlement (Power Ledger, the Brooklyn Microgrid).',
+        '<b>DeFi</b> — lending (Aave, Compound), decentralised exchange via automated market makers (Uniswap), and stablecoins. <b>Smart contracts replace the intermediary, and the code is the counterparty risk.</b>',
+        '<b>NFTs and digital ownership</b> — ERC-721 tokens for art, game assets and ticketing, where provenance and royalty enforcement are the actual utility.'
+      ],
+      extra:[
+        '<b>The decision framework — learn this, it answers the "critically evaluate" questions.</b> A blockchain is justified only when <i>all</i> of these hold: multiple parties need to write; they do not fully trust each other; there is no acceptable trusted intermediary; the data benefits from a shared, tamper-evident history; and the parties\' interests genuinely conflict. If a single trusted party exists, a replicated database is faster, cheaper and easier to fix. <b>Being willing to say "this does not need a blockchain" is a marked skill, not a failure to answer.</b>',
+        '<b>The oracle problem is the universal limitation.</b> Every physical-world use case — supply chain, energy, insurance — depends on data entered by a sensor or a person. The chain guarantees the record was not altered <i>after</i> entry; it guarantees nothing about whether it was true <i>at</i> entry. This single paragraph is applicable to almost any use-case question.',
+        '<b>Other limitations to name:</b> scalability (L1 throughput), storage cost (never put files on-chain — store an IPFS hash), energy (for PoW), regulatory uncertainty, key management (lose the key, lose the asset, with no reset), and the collision between immutability and the <b>GDPR right to erasure</b> — which is why personal data goes off-chain with only a hash on it.',
+        '<b>Layer-2 scaling</b>, in one line each: <i>rollups</i> batch many transactions and post compressed data plus a proof to L1 — <b>optimistic</b> rollups assume validity and allow a fraud-proof challenge window (Arbitrum, Optimism), <b>ZK</b> rollups post a validity proof so finality is immediate (zkSync, StarkNet); <i>state channels</i> settle off-chain and post only the opening and closing states (the Lightning Network).'
+      ],
+      trap:['"Blockchain makes data trustworthy" is false and examiners look for it. It makes data <b>tamper-evident after it is recorded</b>. Garbage in is garbage recorded, immutably, forever.'],
+      qa:[{q:'Evaluate whether a blockchain is appropriate for a national land registry.',a:'In favour: multiple parties write to it (registrars, courts, banks, surveyors), a corrupt or coerced registrar rewriting a title is a real and documented threat that an immutable log directly addresses, the history has genuine long-term value, and parties\' interests conflict. Against: there is already a legally recognised trusted authority (the state), which is precisely the condition under which a replicated database suffices; the on-chain record only reflects what was entered, so the notary and surveyor remain the trust boundary; errors must be correctable, which conflicts with immutability and forces a correcting-entry model; and key loss for an ordinary citizen cannot mean losing their house, so custodial recovery must exist — which reintroduces the trusted intermediary. A permissioned consortium chain among registrars, courts and banks with off-chain documents and on-chain hashes is the defensible middle answer.'}]
+    }
+  ]
+});
+
+SUBJECT.quiz = [
+  {q:'Explain how a blockchain achieves immutability.',a:'Each block header contains the cryptographic hash of the previous block header, so altering any byte of an earlier block changes its hash and breaks the stored link in every subsequent block. The header also commits to a Merkle root over the transactions, so no individual transaction can be swapped without changing the root. To make a tampered chain accepted, an attacker must re-do the proof of work (or re-stake) for that block and every block after it, faster than the honest network is extending the real chain — which is why it is tamper-evident and economically infeasible rather than physically impossible.'},
+  {q:'Compare PoW and PoS across five dimensions.',a:'Basis: computational work vs staked capital. Energy: very high vs roughly 99.95% lower. Attack threshold: 51% of hash power vs about one third of stake for liveness attacks. Punishment: an attacker loses only their electricity vs slashing, which burns the stake itself. Finality: probabilistic in both, but PoS adds explicit epoch-based finalisation. Entry barrier: specialised ASIC hardware vs capital (32 ETH per validator).'},
+  {q:'Describe the Fabric transaction flow.',a:'Propose — the client sends a proposal to the endorsing peers named in the endorsement policy. Execute — each simulates the chaincode against its own world state and returns a signed read-write set without committing. Collect — the client checks the endorsements agree. Order — the ordering service (Raft) places the endorsed transaction into a total order and cuts blocks. Validate — every committing peer checks the endorsement policy is satisfied and performs the MVCC read-set version check. Commit — valid transactions update the world state; invalid ones are still appended to the blockchain, flagged invalid.'},
+  {q:'What is gas and why is it necessary?',a:'Gas is the unit measuring computational effort; each EVM opcode has a fixed gas cost and the sender pays gas used × gas price. It is necessary because the EVM is Turing-complete, so nodes cannot decide in advance whether a contract halts — gas bounds execution economically instead. It simultaneously prices denial-of-service attacks, since an infinite loop costs the attacker real money, and it allocates scarce block space to those who value it most.'},
+  {q:'Differentiate public, private and consortium blockchains.',a:'Public: anyone may read, write and validate; pseudonymous; secured by open consensus like PoW or PoS; low throughput; Bitcoin and Ethereum. Private: a single organisation controls read and write; participants are known; consensus can be trivial; high throughput. Consortium: a pre-selected group of mutually distrusting but identified organisations share write and validation rights, typically with BFT or Raft consensus and high throughput; Hyperledger Fabric and R3 Corda. Note that public/private describes read access while permissionless/permissioned describes write and validation rights — they are separate axes.'},
+  {q:'What is a smart contract and what are its limitations?',a:'Self-executing code deployed at a blockchain address whose terms are enforced by the network rather than by a party or a court. Limitations: it is immutable once deployed, so bugs cannot be patched without a proxy pattern; it is deterministic and sandboxed, so it cannot fetch external data and depends on oracles, reintroducing a trusted party; all its data and code are public, so nothing is confidential; execution costs gas, so complex logic is expensive; and legal enforceability is unsettled — "code is law" does not survive contact with a court, as the DAO fork demonstrated.'},
+  {q:'Explain reentrancy with reference to the DAO.',a:'A contract makes an external call — sending ETH — before updating its own internal accounting. The external call transfers control to the recipient, whose fallback function calls back into the original function while the state still shows the pre-withdrawal balance, allowing repeated withdrawal. The DAO lost about 3.6 million ETH to exactly this in June 2016, leading to the hard fork that split Ethereum and Ethereum Classic. The fix is the Checks-Effects-Interactions ordering plus a reentrancy guard.'},
+  {q:'When is a blockchain the wrong solution?',a:'When a single trusted party already exists and is acceptable, when only one entity writes, when the data is high-volume or large (files belong off-chain with hashes on-chain), when confidentiality is required on a public chain, when records must be legally erasable under GDPR, when low latency and high throughput are essential, or when the real trust problem is the accuracy of data at the point of entry — because no consensus mechanism can validate what a sensor or a person put in. In these cases a replicated, audited, append-only database is cheaper, faster and easier to correct.'},
+  {q:'What are the four Composer model artefacts?',a:'The .cto model file defining Participants, Assets, Transactions and Events; the .js script file with transaction processor functions; permissions.acl declaring who may do what to which resource; and the .qry query file. All four are packaged into a Business Network Archive (.bna) and deployed onto a running Hyperledger Fabric network. Composer itself was deprecated in 2019 in favour of the Fabric contract and application SDKs.'},
+  {q:'Why is a Merkle tree used rather than hashing all transactions together?',a:'A single concatenated hash would commit to all transactions but would give no way to prove that one particular transaction is included without supplying every other transaction. The Merkle tree gives the same tamper-evidence while allowing an inclusion proof of size log₂(n) — the sibling hashes along one path — so a lightweight client holding only block headers can verify a payment with about twenty hashes instead of the full block.'}
+];
+</script>
+<script>
+/* ==================================================================
+   RENDERER — one template, driven by the SUBJECT object above it.
+   Every subject file is this same code with a different SUBJECT, so a
+   fix here is a fix everywhere and the three files never drift apart.
+   State (checkboxes, open module) is namespaced by SUBJECT.slug, so
+   ticking a Blockchain topic never lights up an IoT one.
+   ================================================================== */
+(function(){
+  var S = window.SUBJECT;
+  var KEY = 'p1study:' + S.slug;
+  var done = {};              // topicId -> true
+  try { done = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch(e){ done = {}; }
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(done)); }catch(e){} }
+
+  document.title = 'PLAYER ONE — ' + S.name;
+  // Short label only. The hero heading below already carries the full name and
+  // code; repeating them here is what pushed the bar past the viewport width.
+  document.getElementById('brand').innerHTML = '▮ <b>' + esc(S.short || S.name) + '</b>';
+
+  // ---- flatten topics for search/progress ----
+  var allTopics = [];
+  S.modules.forEach(function(m){ (m.topics||[]).forEach(function(t){ allTopics.push(t); }); });
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+
+  // ---------------- sidebar ----------------
+  function buildSide(){
+    var el = document.getElementById('side');
+    var h = '<div class="tochead">'+esc(S.name)+'</div>';
+    h += '<button class="tocmod" onclick="scrollToId(\'top\')"><span class="n">▸</span>Overview &amp; exam plan</button>';
+    S.modules.forEach(function(m,i){
+      h += '<button class="tocmod" data-mod="'+i+'" onclick="openMod('+i+',true)">'
+         + '<span class="n">M'+(i+1)+'</span>'+esc(m.short||m.title)
+         + '<span class="pc" id="pc'+i+'"></span></button>';
+    });
+    if(S.exam){
+      h += '<div class="tochead">Self-test</div>';
+      h += '<button class="tocmod" onclick="scrollToId(\'quiz\')"><span class="n">?</span>Likely questions</button>';
+    }
+    el.innerHTML = h;
+  }
+
+  // ---------------- topic renderer ----------------
+  function renderTopic(t){
+    var cls = 'topic' + (done[t.id]?' done':'');
+    var h = '<div class="'+cls+'" id="'+t.id+'" data-topic="1">';
+    h += '<h3><input type="checkbox" class="chk" '+(done[t.id]?'checked':'')
+       + ' onchange="toggleTopic(\''+t.id+'\',this.checked)"><span>'+esc(t.title)+'</span>';
+    if(t.tag==='min') h += '';
+    h += '</h3>';
+    if(t.def) h += '<div class="def">'+t.def+'</div>';
+    if(t.points && t.points.length){
+      h += '<ul class="pts">';
+      t.points.forEach(function(p){ h += '<li>'+p+'</li>'; });
+      h += '</ul>';
+    }
+    if(t.table) h += renderTable(t.table);
+    if(t.extra) h += box('extra','EXTRA MARKS ✦', t.extra);
+    if(t.trap)  h += box('trap','EXAM TRAP ⚠', t.trap);
+    if(t.mnem)  h += box('mnem','REMEMBER IT ◆', t.mnem);
+    if(t.qa && t.qa.length){
+      t.qa.forEach(function(q){
+        h += '<div class="qa" onclick="this.classList.toggle(\'open\')">'
+           + '<div class="qq"><span class="m">Q</span><span>'+esc(q.q)+'</span></div>'
+           + '<div class="aa">'+q.a+'</div></div>';
+      });
+    }
+    h += '</div>';
+    return h;
+  }
+  function box(cls,label,body){
+    var inner = Array.isArray(body)
+      ? '<ul>'+body.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul>'
+      : '<div>'+body+'</div>';
+    return '<div class="box '+cls+'"><div class="bh">'+label+'</div>'+inner+'</div>';
+  }
+  function renderTable(tb){
+    var h = '<table><thead><tr>';
+    tb.head.forEach(function(c){ h += '<th>'+esc(c)+'</th>'; });
+    h += '</tr></thead><tbody>';
+    tb.rows.forEach(function(r){
+      h += '<tr>'+r.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';
+    });
+    h += '</tbody></table>';
+    return h;
+  }
+
+  // ---------------- main ----------------
+  function buildMain(){
+    var el = document.getElementById('main');
+    var h = '';
+    h += '<div class="hero" id="top">'
+       + '<div class="code">'+esc(S.code)+' · MINOR EXAM · '+esc(S.examLabel||'')+'</div>'
+       + '<h1>'+esc(S.name)+'</h1>'
+       + '<p>'+esc(S.blurb||'')+'</p>';
+    if(S.plan){
+      h += '<div class="box extra" style="margin-bottom:0"><div class="bh">HOW TO USE THIS ✦</div><ul>'
+         + S.plan.map(function(x){return '<li>'+x+'</li>';}).join('') + '</ul></div>';
+    }
+    h += '</div>';
+
+    S.modules.forEach(function(m,i){
+      h += '<section class="mod" id="mod'+i+'" data-mod="'+i+'">';
+      h += '<div class="modhead" onclick="openMod('+i+')">'
+         + '<span class="caret">▶</span>'
+         + '<h2><span style="color:var(--ink-3)">M'+(i+1)+'</span> &nbsp;'+esc(m.title)+'</h2>';
+      if(m.weight) h += '<span class="wt">'+esc(m.weight)+'</span>';
+      h += '</div>';
+      h += '<div class="modbody">';
+      if(m.intro) h += '<p style="color:var(--ink-2);font-size:12.5px;margin:8px 0 2px">'+m.intro+'</p>';
+      (m.topics||[]).forEach(function(t){ h += renderTopic(t); });
+      h += '</div></section>';
+    });
+
+    if(S.quiz && S.quiz.length){
+      h += '<section class="mod open" id="quiz"><div class="modhead"><span class="caret">▶</span>'
+         + '<h2><span style="color:var(--ink-3)">✱</span> &nbsp;Most likely questions — rapid self-test</h2></div>';
+      h += '<div class="modbody">';
+      h += '<p style="color:var(--ink-2);font-size:12.5px">Tap to reveal. If you can answer these cold, you are ready.</p>';
+      S.quiz.forEach(function(q){
+        h += '<div class="qa" onclick="this.classList.toggle(\'open\')">'
+           + '<div class="qq"><span class="m">Q</span><span>'+esc(q.q)+'</span></div>'
+           + '<div class="aa">'+q.a+'</div></div>';
+      });
+      h += '</div></section>';
+    }
+
+    h += '<div class="foot">'+ (S.foot||'') +'<br>Generated for Neel · PLAYER ONE life-dashboard · offline-ready, no network calls. '
+       + 'Progress is saved on this device. Print to PDF for a paper copy.</div>';
+    el.innerHTML = h;
+  }
+
+  // ---------------- interactions ----------------
+  window.openMod = function(i, fromNav){
+    var mod = document.getElementById('mod'+i);
+    if(!mod) return;
+    if(fromNav){ mod.classList.add('open'); }
+    else { mod.classList.toggle('open'); }
+    document.querySelectorAll('.tocmod[data-mod]').forEach(function(b){
+      b.classList.toggle('on', +b.getAttribute('data-mod')===i);
+    });
+    if(fromNav){ mod.scrollIntoView({behavior:'smooth',block:'start'}); closeSideMobile(); }
+    updateRail();
+  };
+  window.expandAll = function(on){
+    document.querySelectorAll('.mod').forEach(function(m){ if(m.id!=='quiz') m.classList.toggle('open',on); });
+    updateRail();
+  };
+  window.toggleTopic = function(id,val){
+    if(val) done[id]=true; else delete done[id];
+    save();
+    var t=document.getElementById(id); if(t) t.classList.toggle('done',!!val);
+    updateProgress();
+  };
+  window.scrollToId = function(id){ var e=document.getElementById(id); if(e){e.scrollIntoView({behavior:'smooth',block:'start'});} closeSideMobile(); };
+  window.jumpNext = function(){
+    for(var i=0;i<S.modules.length;i++){
+      var ts=S.modules[i].topics||[];
+      var undoneLeft = ts.some(function(t){return !done[t.id];});
+      if(undoneLeft){ openMod(i,true); return; }
+    }
+    scrollTo(0,0);
+  };
+  window.toggleSide = function(){
+    document.getElementById('side').classList.toggle('open');
+    document.getElementById('scrim').classList.toggle('on');
+  };
+  function closeSideMobile(){
+    if(window.innerWidth<=900){
+      document.getElementById('side').classList.remove('open');
+      document.getElementById('scrim').classList.remove('on');
+    }
+  }
+  window.toggleCRT = function(){ document.body.classList.toggle('plain'); };
+
+  // ---------------- progress ----------------
+  function updateProgress(){
+    var total=allTopics.length, n=0;
+    allTopics.forEach(function(t){ if(done[t.id]) n++; });
+    var pct = total? Math.round(n/total*100):0;
+    document.getElementById('pcnt').textContent = pct+'%';
+    document.getElementById('railfill').style.width = pct+'%';
+    S.modules.forEach(function(m,i){
+      var ts=m.topics||[], mn=0; ts.forEach(function(t){ if(done[t.id]) mn++; });
+      var el=document.getElementById('pc'+i);
+      if(el) el.textContent = ts.length? (mn+'/'+ts.length):'';
+    });
+  }
+  function updateRail(){ /* rail reflects scroll depth on wide screens */ }
+
+  // ---------------- search ----------------
+  var qEl = document.getElementById('q');
+  var timer=null;
+  qEl.addEventListener('input', function(){
+    clearTimeout(timer); timer=setTimeout(function(){ runSearch(qEl.value.trim().toLowerCase()); },120);
+  });
+  function runSearch(term){
+    var main=document.getElementById('main');
+    var old=document.getElementById('nores'); if(old) old.remove();
+    if(!term){
+      document.querySelectorAll('[data-topic]').forEach(function(t){ t.classList.remove('hidden'); unmark(t); });
+      document.querySelectorAll('.mod').forEach(function(m){ m.classList.remove('hidden'); });
+      return;
+    }
+    var hits=0;
+    document.querySelectorAll('.mod').forEach(function(m){
+      if(m.id==='quiz'){ m.classList.add('hidden'); return; }
+      var any=false;
+      m.querySelectorAll('[data-topic]').forEach(function(t){
+        var txt=t.textContent.toLowerCase();
+        var match=txt.indexOf(term)>=0;
+        t.classList.toggle('hidden',!match);
+        if(match){ any=true; hits++; }
+      });
+      m.classList.toggle('hidden',!any);
+      if(any) m.classList.add('open');
+    });
+    if(!hits){
+      var d=document.createElement('div'); d.id='nores';
+      d.textContent='No topic mentions “'+term+'”. Try a shorter word.';
+      main.appendChild(d);
+    }
+  }
+  function unmark(){}
+
+  // keyboard: "/" focuses search
+  document.addEventListener('keydown',function(e){
+    if(e.key==='/' && document.activeElement!==qEl){ e.preventDefault(); qEl.focus(); }
+    if(e.key==='Escape'){ qEl.value=''; runSearch(''); qEl.blur(); }
+  });
+
+  // ---------------- boot ----------------
+  buildSide(); buildMain(); updateProgress();
+  if(S.modules[0]) document.getElementById('mod0').classList.add('open');
+})();
+</script>
+</body>
+</html>

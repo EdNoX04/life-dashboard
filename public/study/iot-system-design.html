@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>PLAYER ONE — Minor Exam Study Guide (Sept 1–3)</title>
+<meta name="description" content="Advanced Network Security &amp; IAM, Blockchain, IoT System Design — full syllabus with extra-marks depth." />
+<style>
+/* ------------------------------------------------------------------
+   Self-contained on purpose. No web fonts, no CDN, no network at all —
+   this file has to work on a phone in a corridor with no signal the
+   morning of the exam, and anything fetched is something that can fail
+   at exactly the wrong moment.
+   ------------------------------------------------------------------ */
+:root{
+  --bg:#080a12; --bg-2:#0d1120; --panel:#111629; --panel-2:#151b31;
+  --ink:#e8ecff; --ink-2:#a8b2d8; --ink-3:#6b769e;
+  --cyan:#00e5ff; --pink:#ff3d7f; --purple:#7c4dff; --yellow:#ffd23f;
+  --green:#31d67a; --red:#ff4d5a; --orange:#ff9f43;
+  --border:#222c4d; --border-bright:#31406e;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono",monospace;
+  --sub:var(--cyan);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--mono); font-size:15px; line-height:1.6;
+  overflow-x:hidden;
+}
+/* The CRT. Fixed, pointer-events:none, and switched off entirely under
+   prefers-reduced-motion — a flickering overlay is a migraine trigger, and
+   this is a document somebody stares at for six hours straight. */
+#crt{position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(180deg,rgba(0,0,0,.22) 0 1px,rgba(0,0,0,0) 1px 3px);
+  mix-blend-mode:multiply;opacity:.55}
+#vig{position:fixed;inset:0;pointer-events:none;z-index:9998;
+  background:radial-gradient(ellipse at center,rgba(0,0,0,0) 55%,rgba(0,0,0,.55) 100%)}
+body.plain #crt,body.plain #vig{display:none}
+@media (prefers-reduced-motion:reduce){#crt{opacity:.25}}
+@media print{#crt,#vig,#bar,#side,#tocbtn,.noprint{display:none!important}}
+
+a{color:var(--cyan)}
+h1,h2,h3,h4{margin:0;font-weight:700;letter-spacing:.04em}
+code,kbd{font-family:var(--mono);background:#0a0e1a;border:1px solid var(--border);
+  border-radius:4px;padding:1px 5px;font-size:.88em;color:var(--yellow)}
+kbd{color:var(--ink-2)}
+mark{background:var(--yellow);color:#0a0e1a;border-radius:2px;padding:0 2px}
+
+/* ---------------- top bar ---------------- */
+#bar{position:sticky;top:0;z-index:60;background:rgba(8,10,18,.94);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--border-bright);
+  padding:8px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+/* The brand is the one element with fixed text, so it is the one element that
+   can force the bar — and therefore the whole page — wider than the viewport,
+   which clips every card on the right. It truncates instead. */
+#brand{font-size:12px;letter-spacing:.18em;color:var(--sub);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:min(34vw,300px);flex:0 1 auto;
+  text-shadow:0 0 12px currentColor}
+#bar>*{min-width:0}
+#brand b{color:var(--ink)}
+#count{flex:0 0 auto;font-size:11px;color:var(--ink-2);border:1px solid var(--border-bright);
+  border-radius:999px;padding:3px 10px;white-space:nowrap}
+#count b{color:var(--yellow)}
+#q{flex:1;min-width:150px;background:#0a0e1a;border:1px solid var(--border-bright);
+  color:var(--ink);border-radius:6px;padding:7px 10px;font-family:var(--mono);font-size:13px;outline:none}
+#q:focus{border-color:var(--sub);box-shadow:0 0 0 2px rgba(0,229,255,.15)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;flex:0 0 auto}
+.tab{background:#0a0e1a;border:1px solid var(--border-bright);color:var(--ink-2);
+  border-radius:6px;padding:6px 11px;font-family:var(--mono);font-size:12px;cursor:pointer;
+  letter-spacing:.06em;white-space:nowrap}
+.tab:hover{color:var(--ink);border-color:var(--sub)}
+.tab.on{background:var(--sub);color:#080a12;border-color:var(--sub);font-weight:700}
+.mini{flex:0 0 auto;background:transparent;border:1px solid var(--border-bright);color:var(--ink-2);
+  border-radius:6px;padding:6px 9px;font-family:var(--mono);font-size:12px;cursor:pointer}
+.mini:hover{color:var(--ink);border-color:var(--sub)}
+
+/* progress rail under the bar */
+#rail{height:3px;background:#0a0e1a;position:sticky;top:0;z-index:59}
+#railfill{height:100%;width:0;background:linear-gradient(90deg,var(--sub),var(--green));
+  transition:width .25s ease;box-shadow:0 0 10px var(--green)}
+
+/* ---------------- layout ---------------- */
+#wrap{display:flex;gap:0;align-items:flex-start;max-width:1500px;margin:0 auto}
+#side{position:sticky;top:56px;width:270px;flex:0 0 270px;max-height:calc(100vh - 60px);
+  overflow-y:auto;padding:14px 10px 40px 14px;border-right:1px solid var(--border);scrollbar-width:thin}
+#main{flex:1;min-width:0;padding:16px 18px 120px 18px}
+@media(max-width:900px){
+  #side{position:fixed;left:0;top:0;bottom:0;width:280px;max-height:none;z-index:80;
+    background:var(--bg-2);transform:translateX(-102%);transition:transform .2s ease;padding-top:60px}
+  #side.open{transform:none;box-shadow:0 0 40px rgba(0,0,0,.8)}
+  #main{padding:14px 12px 120px 12px}
+  #tocbtn{display:inline-block}
+}
+#tocbtn{display:none}
+#scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:79}
+#scrim.on{display:block}
+
+/* ---------------- sidebar ---------------- */
+.tochead{font-size:10px;letter-spacing:.2em;color:var(--ink-3);margin:14px 0 6px}
+.tocmod{display:block;width:100%;text-align:left;background:transparent;border:0;
+  color:var(--ink-2);font-family:var(--mono);font-size:12.5px;padding:6px 8px;border-radius:5px;
+  cursor:pointer;border-left:2px solid transparent;line-height:1.35}
+.tocmod:hover{background:var(--panel);color:var(--ink)}
+.tocmod.on{color:var(--sub);border-left-color:var(--sub);background:var(--panel)}
+.tocmod .n{color:var(--ink-3);margin-right:6px}
+.tocmod .pc{float:right;font-size:10px;color:var(--green)}
+
+/* ---------------- content ---------------- */
+.hero{border:1px solid var(--border-bright);border-radius:10px;padding:16px 18px;
+  background:linear-gradient(160deg,var(--panel),var(--bg-2));margin-bottom:16px}
+.hero h1{font-size:20px;color:var(--sub);text-shadow:0 0 18px currentColor}
+.hero .code{font-size:11px;letter-spacing:.2em;color:var(--ink-3);margin-bottom:6px}
+.hero p{color:var(--ink-2);font-size:13px;margin:8px 0 0}
+
+.mod{border:1px solid var(--border);border-radius:10px;background:var(--panel);
+  margin-bottom:14px;overflow:hidden}
+.modhead{display:flex;gap:10px;align-items:center;padding:12px 14px;cursor:pointer;
+  background:var(--panel-2);border-bottom:1px solid transparent;user-select:none}
+.mod.open .modhead{border-bottom-color:var(--border)}
+.modhead:hover{background:#1a2140}
+.modhead .caret{color:var(--ink-3);font-size:11px;width:12px;flex:0 0 12px;transition:transform .15s}
+.mod.open .modhead .caret{transform:rotate(90deg)}
+.modhead h2{font-size:14px;color:var(--ink);flex:1;min-width:0}
+.modhead .wt{font-size:10px;letter-spacing:.1em;color:var(--yellow);border:1px solid var(--yellow);
+  border-radius:999px;padding:2px 8px;white-space:nowrap}
+.modbody{display:none;padding:6px 14px 16px}
+.mod.open .modbody{display:block}
+
+.topic{border-top:1px solid var(--border);padding:12px 0 4px}
+.topic:first-child{border-top:0}
+.topic h3{font-size:13.5px;color:var(--sub);display:flex;gap:8px;align-items:flex-start;line-height:1.4}
+.chk{appearance:none;-webkit-appearance:none;width:15px;height:15px;flex:0 0 15px;margin-top:3px;
+  border:1px solid var(--border-bright);border-radius:3px;background:#0a0e1a;cursor:pointer;position:relative}
+.chk:checked{background:var(--green);border-color:var(--green)}
+.chk:checked::after{content:"✓";position:absolute;inset:0;color:#08110c;font-size:11px;
+  display:flex;align-items:center;justify-content:center;font-weight:700}
+.topic.done h3{color:var(--ink-3);text-decoration:line-through;text-decoration-color:var(--ink-3)}
+
+ul.pts{margin:8px 0 0;padding-left:18px}
+ul.pts li{margin:4px 0;color:var(--ink-2);font-size:13px}
+ul.pts li b,ul.pts li strong{color:var(--ink)}
+.def{border-left:2px solid var(--purple);padding:6px 0 6px 10px;margin:8px 0;
+  color:var(--ink);font-size:13px;background:rgba(124,77,255,.06)}
+
+.box{border:1px solid;border-radius:8px;padding:9px 11px;margin:10px 0;font-size:12.5px}
+.box .bh{font-size:10px;letter-spacing:.16em;margin-bottom:5px;font-weight:700}
+.box ul{margin:4px 0 0;padding-left:16px}
+.box li{margin:3px 0}
+.extra{border-color:var(--yellow);background:rgba(255,210,63,.07);color:var(--ink-2)}
+.extra .bh{color:var(--yellow)}
+.trap{border-color:var(--red);background:rgba(255,77,90,.07);color:var(--ink-2)}
+.trap .bh{color:var(--red)}
+.mnem{border-color:var(--pink);background:rgba(255,61,127,.07);color:var(--ink-2)}
+.mnem .bh{color:var(--pink)}
+.src{border-color:var(--border-bright);background:rgba(255,255,255,.02);color:var(--ink-3);font-size:11.5px}
+.src .bh{color:var(--ink-3)}
+
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12px;display:block;overflow-x:auto}
+th,td{border:1px solid var(--border);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:var(--panel-2);color:var(--sub);font-weight:700;font-size:11px;
+  letter-spacing:.06em;white-space:nowrap}
+td{color:var(--ink-2)}
+tr:nth-child(even) td{background:rgba(255,255,255,.015)}
+
+/* self-test */
+.qa{border:1px solid var(--border-bright);border-radius:8px;margin:8px 0;overflow:hidden}
+.qa .qq{padding:9px 11px;cursor:pointer;font-size:13px;color:var(--ink);background:var(--panel-2);
+  display:flex;gap:8px;align-items:flex-start}
+.qa .qq:hover{background:#1a2140}
+.qa .qq .m{color:var(--pink);flex:0 0 auto}
+.qa .aa{display:none;padding:9px 11px;font-size:12.5px;color:var(--ink-2);
+  border-top:1px solid var(--border);background:rgba(49,214,122,.05)}
+.qa.open .aa{display:block}
+
+.marks{font-size:11px;color:var(--ink-3);margin-left:auto;white-space:nowrap}
+.pill{display:inline-block;font-size:10px;letter-spacing:.1em;border-radius:999px;
+  padding:2px 8px;border:1px solid;margin-right:6px}
+.p-core{color:var(--green);border-color:var(--green)}
+.p-min{color:var(--pink);border-color:var(--pink)}
+.hidden{display:none!important}
+#nores{color:var(--ink-3);font-size:13px;padding:20px;text-align:center}
+.foot{color:var(--ink-3);font-size:11.5px;margin-top:28px;border-top:1px solid var(--border);
+  padding-top:12px;line-height:1.7}
+.jump{position:fixed;right:14px;bottom:14px;z-index:70;display:flex;flex-direction:column;gap:6px}
+.jump button{width:38px;height:38px;border-radius:9px;background:var(--panel);
+  border:1px solid var(--border-bright);color:var(--ink-2);font-family:var(--mono);cursor:pointer;font-size:14px}
+.jump button:hover{color:var(--sub);border-color:var(--sub)}
+</style>
+</head>
+<body>
+<div id="crt"></div><div id="vig"></div>
+<div id="bar">
+  <span id="brand">▮ <b>PLAYER&nbsp;ONE</b> · MINOR EXAM DUMP</span>
+  <button id="tocbtn" class="mini" onclick="toggleSide()">☰ Modules</button>
+  <input id="q" placeholder="search everything — WPA3, SAE, gas, ESP8266…" autocomplete="off" spellcheck="false" />
+  <span id="count">progress <b id="pcnt">0%</b></span>
+  <div class="tabs" id="subtabs"></div>
+  <button class="mini" onclick="toggleCRT()" title="toggle scanlines">◈</button>
+  <button class="mini" onclick="expandAll(true)" title="expand all">⊞</button>
+  <button class="mini" onclick="expandAll(false)" title="collapse all">⊟</button>
+</div>
+<div id="rail"><div id="railfill"></div></div>
+
+<div id="scrim" onclick="toggleSide()"></div>
+<div id="wrap">
+  <nav id="side"></nav>
+  <main id="main"></main>
+</div>
+
+<div class="jump noprint">
+  <button onclick="scrollTo(0,0)" title="top">↑</button>
+  <button onclick="jumpNext()" title="next unread module">↧</button>
+</div>
+<script>
+window.SUBJECT = {
+  slug: 'iot',
+  code: 'ECE441 · IoT SYSTEM DESIGN',
+  name: 'IoT System Design',
+  short: 'IoT SYSTEM DESIGN',
+  examLabel: 'Sept 1–3, 2026',
+  blurb: 'Four modules, 25% each — evenly weighted, so no module can be skipped. This is the most hands-on paper of the three: expect pin numbers, register names, exact code snippets and wiring questions. Numbers matter here more than prose.',
+  plan: [
+    'Modules are collapsed. Open one, tick topics as you finish — ticks are saved on this device.',
+    'The <b>tables of pins, voltages and specifications</b> are the highest-density marks in this subject. Learn them as tables, not as sentences.',
+    'Yellow <b>EXTRA MARKS</b> boxes are the "why", which is what turns a recalled fact into a full answer.',
+    'Press <kbd>/</kbd> to search — try "3.3V", "GPIO", "I2C", "pull-up".'
+  ],
+  foot: 'Built from the ECE441 module list: Embedded IoT · Automation with Arduino/ESP8266 · Raspberry Pi 3 · Rpi3 Interfacing. Verify pin maps against the boards you actually used in lab.',
+  modules: [],
+  quiz: []
+};
+
+SUBJECT.modules.push({
+  title: 'Embedded Systems and the IoT',
+  short: 'Embedded & IoT',
+  weight: '25%',
+  intro: 'The conceptual module: what an embedded system is, what makes it an IoT system, the layered architecture, and the protocol stack. Definitions and the layer diagram are near-certain.',
+  topics: [
+    {
+      id:'iot1-embed', title:'Embedded systems — definition, characteristics, classification',
+      def:'An embedded system is a combination of computer hardware and software designed to perform a specific, dedicated function within a larger mechanical or electrical system — usually with real-time constraints, and usually invisible to the user as a "computer".',
+      points:[
+        '<b>Characteristics:</b> single-functioned (does one job for its whole life), tightly constrained (cost, power, memory, size), reactive and real-time, often with no operating system or with an RTOS, and typically running from ROM/flash rather than disk.',
+        '<b>Classification by performance:</b> <i>small scale</i> (8-bit MCU, a few KB RAM), <i>medium scale</i> (16/32-bit, RTOS), <i>sophisticated</i> (multiple processors, custom ASIC/FPGA).',
+        '<b>Classification by timing:</b> <b>hard real-time</b> — a missed deadline is a system failure (airbag, engine ignition, pacemaker); <b>soft real-time</b> — a missed deadline degrades quality (video streaming, a thermostat).',
+        '<b>Microprocessor vs microcontroller</b> — the most-asked comparison in this module. A microprocessor is a CPU alone and needs external RAM, ROM and I/O; a microcontroller integrates CPU, RAM, flash, timers, ADC and GPIO on one chip. MPU = general-purpose and high-performance; MCU = dedicated, low-power, low-cost.',
+        '<b>Components of an embedded system:</b> processor/MCU, memory (flash for program, SRAM for data, EEPROM for persistent settings), input devices (sensors), output devices (actuators, displays), communication interfaces (UART, I²C, SPI), and the power supply.',
+        '<b>Sensor vs actuator, and transducer:</b> a <b>sensor</b> converts a physical quantity into an electrical signal (input); an <b>actuator</b> converts an electrical signal into physical action (output). A <b>transducer</b> is the umbrella term for either.'
+      ],
+      extra:[
+        '<b>Von Neumann vs Harvard architecture</b> — Von Neumann shares one bus for instructions and data (simpler, but a bottleneck); Harvard uses separate buses so an instruction fetch and a data access happen simultaneously. <b>AVR (Arduino) is Harvard; ARM Cortex-A (Raspberry Pi) is a modified Harvard.</b> This explains why you cannot simply read program memory as data on an Arduino without <code>PROGMEM</code>.',
+        '<b>Watchdog timer</b> — a hardware counter that resets the MCU unless the software periodically "kicks" it. It is how an unattended embedded system recovers from a software hang, and naming it is a strong reliability point.',
+        '<b>RTOS concepts:</b> deterministic scheduling, task priorities, pre-emption, and priority inversion (a low-priority task holding a resource a high-priority task needs — solved by priority inheritance). FreeRTOS is the one to name.',
+        '<b>ADC resolution matters and is examinable arithmetic:</b> an n-bit ADC divides its reference into 2ⁿ steps. Arduino Uno is 10-bit over 5 V → 1024 steps → 4.88 mV per step. ESP8266 is 10-bit over 1.0 V. The Raspberry Pi has <b>no ADC at all</b> — that is a favourite question.'
+      ],
+      trap:['A microcontroller is not "a small microprocessor". The defining difference is <b>integration</b> — memory and peripherals on the same die — not speed or size.']
+    },
+    {
+      id:'iot1-arch', title:'IoT architecture — the layered models',
+      def:'The Internet of Things is a network of physical objects embedded with sensors, software and connectivity that collect and exchange data over the internet, enabling remote monitoring and control without human intervention.',
+      points:[
+        '<b>The four-layer model (learn this one):</b> <b>(1) Perception / Sensing layer</b> — sensors, actuators, RFID, the physical devices. <b>(2) Network / Transport layer</b> — gateways and connectivity (Wi-Fi, ZigBee, LoRa, cellular) moving data upward. <b>(3) Processing / Middleware layer</b> — data storage, filtering, analytics, device management, often cloud. <b>(4) Application layer</b> — the end-user service: smart home app, dashboard, alerting.',
+        '<b>The three-layer model</b> collapses processing into network: Perception → Network → Application. Some texts add a fifth <b>Business layer</b> above Application for models and decision-making.',
+        '<b>IoT gateway</b> — bridges local device protocols (ZigBee, BLE, Modbus) to IP, performs protocol translation, local filtering and buffering, and enforces security at the edge. It is the single most important component in a real deployment.',
+        '<b>Edge / fog computing</b> — processing near the source rather than in the cloud. <i>Why:</i> lower latency (a safety cutoff cannot wait for a round trip), bandwidth cost (do not stream raw vibration data to send one alert), privacy (raw video never leaves the building), and continued operation when the link drops.',
+        '<b>Characteristics of IoT:</b> connectivity, heterogeneity, dynamic scale, self-configuration, unique identity per device, safety and security, and the generation of enormous data volumes.',
+        '<b>Challenges:</b> security and privacy, interoperability between vendors, scalability, power management for battery devices, and long-term firmware update and end-of-life support.'
+      ],
+      extra:[
+        '<b>The M2M vs IoT distinction</b> is a common short question: M2M is typically point-to-point, over a dedicated or cellular link, with hardware-specific integration and one application. IoT is IP-based, many-to-many, cloud-mediated, and designed for data to be reused by applications the device manufacturer never anticipated.',
+        '<b>Six-layer / reference architectures</b> to name if asked for standards: the ITU-T Y.2060 reference model and the IoT-A architectural reference model.',
+        '<b>Actuator examples with the right vocabulary:</b> relay (electrically isolated switch for mains loads), solenoid (linear motion), servo motor (position controlled by PWM pulse width), stepper motor (precise incremental rotation), and DC motor with an H-bridge for direction control.'
+      ]
+    },
+    {
+      id:'iot1-proto', title:'IoT communication protocols — MQTT, CoAP, HTTP and the radios',
+      table:{head:['Protocol','Model','Transport','Overhead','Best for'],rows:[
+        ['<b>MQTT</b>','Publish/subscribe via a broker','TCP','Very low (2-byte fixed header)','Many devices, unreliable links, telemetry'],
+        ['<b>CoAP</b>','Request/response (REST-like)','<b>UDP</b>','Lowest','Very constrained devices, 6LoWPAN'],
+        ['<b>HTTP/REST</b>','Request/response','TCP','High (text headers)','Web integration, dashboards'],
+        ['<b>AMQP</b>','Message queue','TCP','High','Enterprise messaging, guaranteed delivery'],
+        ['<b>WebSocket</b>','Full duplex','TCP','Low after handshake','Live dashboards']
+      ]},
+      points:[
+        '<b>MQTT is the one to know properly.</b> Publishers send to a <b>topic</b> on a <b>broker</b> (Mosquitto, HiveMQ); subscribers receive from topics they subscribe to. Publisher and subscriber never know about each other — <b>decoupling in space, time and synchronisation</b>.',
+        '<b>MQTT QoS levels:</b> <b>0</b> — at most once, fire and forget. <b>1</b> — at least once, acknowledged, so duplicates are possible. <b>2</b> — exactly once, via a four-way handshake, the slowest.',
+        '<b>MQTT extras worth naming:</b> <i>retained messages</i> (the broker keeps the last value on a topic so a new subscriber gets it immediately), <i>Last Will and Testament</i> (the broker publishes a message on the client\'s behalf if it disconnects ungracefully — this is how you detect a dead sensor), and wildcards <code>+</code> (single level) and <code>#</code> (multi-level).',
+        '<b>CoAP</b> runs over UDP with optional reliability (CON/NON messages), uses the same verbs as HTTP (GET/POST/PUT/DELETE), and supports <b>observe</b> for push. Secured by <b>DTLS</b>, which is TLS adapted for datagrams.'
+      ],
+      table2:null,
+      extra:[
+        '<b>The radio comparison table is highly examinable.</b> <b>Wi-Fi</b>: high throughput, ~50 m, high power — mains-powered devices. <b>BLE</b>: ~10–100 m, very low power, phone-centric — wearables. <b>ZigBee (802.15.4)</b>: 250 kbps, 10–100 m, mesh, very low power — sensor networks. <b>Z-Wave</b>: sub-GHz mesh, home automation. <b>LoRaWAN</b>: 2–15 km, very low bitrate, years on a battery — agriculture, metering. <b>NB-IoT / LTE-M</b>: licensed cellular, wide area, carrier-managed. <b>RFID/NFC</b>: centimetres, no battery in the tag.',
+        '<b>The trade-off to state explicitly:</b> range, bandwidth and power consumption cannot all be optimised. LoRa buys kilometres by giving up bitrate; Wi-Fi buys throughput by giving up battery life.',
+        '<b>6LoWPAN</b> — IPv6 over Low-power Wireless Personal Area Networks: header compression and fragmentation that let a 127-byte 802.15.4 frame carry IPv6, so constrained devices become directly addressable. This is what makes "every device has an IP" plausible.',
+        '<b>IoT security, protocol-specific:</b> MQTT has no security of its own — you must run it over TLS (port 8883, not 1883) and use broker-side authentication and topic ACLs. An open Mosquitto broker on port 1883 is one of the most commonly found IoT vulnerabilities in the wild.'
+      ],
+      trap:['MQTT is <b>publish/subscribe through a broker</b>, not peer-to-peer. There is always a broker, and it is the single point of failure you must mention in any design answer.'],
+      mnem:['<b>MQTT = TCP + broker + topics. CoAP = UDP + REST + tiny.</b>'],
+      qa:[{q:'Why is MQTT preferred over HTTP for a battery-powered sensor?',a:'MQTT keeps one long-lived TCP connection with a 2-byte fixed header, so publishing a reading costs a handful of bytes; HTTP re-establishes a connection and sends hundreds of bytes of text headers per request. Radio transmission dominates the power budget of a battery sensor, so fewer bytes and fewer connection setups translate directly into battery life. MQTT is also push-capable — the server can reach the device without polling — and its Last Will feature reports device death, which HTTP polling can only infer from timeouts.'}]
+    }
+  ]
+});
+
+SUBJECT.modules.push({
+  title: 'Automation with Arduino and ESP8266',
+  short: 'Arduino & ESP8266',
+  weight: '25%',
+  intro: 'The practical core. Expect pin numbers, the sketch structure, exact function names, and a wiring or code question. Learn the two spec tables cold.',
+  topics: [
+    {
+      id:'iot2-ard', title:'Arduino Uno — the board, the pins, the numbers',
+      table:{head:['Specification','Arduino Uno R3'],rows:[
+        ['Microcontroller','ATmega328P (8-bit AVR, Harvard)'],
+        ['Operating voltage','<b>5 V</b>'],
+        ['Input voltage (recommended)','7–12 V via barrel jack'],
+        ['Digital I/O pins','<b>14</b> (of which <b>6</b> provide PWM: 3, 5, 6, 9, 10, 11)'],
+        ['Analog input pins','<b>6</b> (A0–A5), <b>10-bit</b> ADC → 0–1023'],
+        ['DC current per I/O pin','<b>20 mA</b> (40 mA absolute maximum)'],
+        ['Flash memory','32 KB (0.5 KB used by the bootloader)'],
+        ['SRAM / EEPROM','2 KB / 1 KB'],
+        ['Clock speed','16 MHz'],
+        ['Interfaces','UART (pins 0 RX, 1 TX), I²C (A4 SDA, A5 SCL), SPI (10 SS, 11 MOSI, 12 MISO, 13 SCK)'],
+        ['Built-in LED','Pin 13'],
+        ['External interrupts','Pins 2 and 3']
+      ]},
+      points:[
+        '<b>Sketch structure — every Arduino answer starts here:</b> <code>void setup()</code> runs once at power-on or reset, used for <code>pinMode()</code>, <code>Serial.begin()</code> and initialisation; <code>void loop()</code> runs forever afterwards.',
+        '<b>Core functions:</b> <code>pinMode(pin, INPUT|OUTPUT|INPUT_PULLUP)</code>, <code>digitalWrite(pin, HIGH|LOW)</code>, <code>digitalRead(pin)</code>, <code>analogRead(A0)</code> → 0–1023, <code>analogWrite(pin, 0–255)</code> which is <b>PWM, not a true analog voltage</b>, <code>delay(ms)</code>, <code>millis()</code>.',
+        '<b>PWM</b> — Pulse Width Modulation switches a pin between HIGH and LOW rapidly; the <b>duty cycle</b> (fraction of time HIGH) sets the average voltage. Used for LED dimming, DC motor speed and servo position. Arduino PWM is ~490 Hz (976 Hz on pins 5 and 6).',
+        '<b><code>delay()</code> blocks everything</b> — no other code runs, though interrupts still fire. The non-blocking pattern using <code>millis()</code> is a standard exam answer: record <code>previousMillis</code>, and act when <code>millis() - previousMillis &gt;= interval</code>.',
+        '<b>Pull-up and pull-down resistors</b> — a digital input left unconnected <b>floats</b> and reads random noise. A pull-up resistor ties it to VCC so it reads HIGH until a button pulls it to ground. <code>INPUT_PULLUP</code> enables the ATmega\'s internal ~20–50 kΩ pull-up, which is why the button then reads LOW when pressed — inverted logic, and a classic trick question.',
+        '<b>Switch bounce</b> — mechanical contacts chatter for a few milliseconds, producing multiple transitions from one press. Debounce in software (ignore changes within ~50 ms) or hardware (RC filter, Schmitt trigger).',
+        '<b>Interrupts:</b> <code>attachInterrupt(digitalPinToInterrupt(2), isr, RISING|FALLING|CHANGE)</code>. Rules for the ISR: keep it very short, no <code>delay()</code>, no <code>Serial.print()</code>, and any variable shared with <code>loop()</code> must be declared <code>volatile</code>.'
+      ],
+      extra:[
+        '<b>The 20 mA limit is the answer to a whole family of questions.</b> An LED (~20 mA) is fine directly. A motor, relay coil or LED strip is not — you need a transistor or MOSFET as a switch, plus a <b>flyback diode</b> across any inductive load to absorb the reverse voltage spike when the field collapses. Mentioning the flyback diode unprompted is a strong mark.',
+        '<b>Current-limiting resistor calculation:</b> R = (Vsupply − Vled) / I. For a red LED (~2 V) at 20 mA from 5 V: (5 − 2) / 0.02 = <b>150 Ω</b> — use 220 Ω in practice. Be ready to do this arithmetic.',
+        '<b>Common sensors and their interface type:</b> DHT11/DHT22 (temperature and humidity, single-wire proprietary), LM35 (analog, 10 mV per °C), HC-SR04 ultrasonic (trigger pulse then measure echo width; distance = duration × 0.034 / 2 cm), LDR (analog, in a voltage divider), PIR (digital HIGH on motion), MPU-6050 (I²C accelerometer/gyro), MQ-series gas sensors (analog).',
+        '<b>Bit-level register access</b> — <code>digitalWrite()</code> takes about 50 CPU cycles because of its safety checks; direct port manipulation (<code>PORTB |= (1&lt;&lt;5)</code>) takes one. Mentioning this shows understanding of what the abstraction costs.'
+      ],
+      trap:['<code>analogWrite()</code> does <b>not</b> produce an analog voltage. It produces a PWM square wave whose <i>average</i> is proportional to the value. A true analog output needs a DAC or an RC low-pass filter.']
+    },
+    {
+      id:'iot2-esp', title:'ESP8266 (NodeMCU) — the Wi-Fi microcontroller',
+      table:{head:['Specification','ESP8266 / NodeMCU'],rows:[
+        ['Chip','ESP8266EX, Tensilica L106 32-bit RISC'],
+        ['Clock','80 MHz (boostable to 160 MHz)'],
+        ['Operating voltage','<b>3.3 V — NOT 5 V tolerant</b>'],
+        ['Wi-Fi','802.11 b/g/n, 2.4 GHz, with full TCP/IP stack'],
+        ['Digital GPIO','17 on the chip; ~11 usable on NodeMCU (D0–D10)'],
+        ['Analog input','<b>1</b> (A0), 10-bit, <b>0–1.0 V</b> on the bare chip; NodeMCU adds a divider for 0–3.3 V'],
+        ['Flash','Typically 4 MB'],
+        ['Current per GPIO','12 mA'],
+        ['Interfaces','UART, I²C (software), SPI, PWM on any GPIO'],
+        ['Deep sleep current','~20 µA']
+      ]},
+      points:[
+        '<b>The headline difference from Arduino: Wi-Fi is on the chip.</b> One board is the sensor, the microcontroller and the network client, which is what makes it the standard IoT teaching board.',
+        '<b>3.3 V logic is the single biggest practical hazard.</b> Connecting a 5 V sensor output directly to an ESP8266 GPIO can destroy it. Use a level shifter or a resistor divider. State this in any wiring question.',
+        '<b>Pin naming trap:</b> NodeMCU silkscreen labels (D0–D8) do <b>not</b> match GPIO numbers. D1 = GPIO5, D2 = GPIO4, D3 = GPIO0, D4 = GPIO2, D5 = GPIO14, D6 = GPIO12, D7 = GPIO13, D8 = GPIO15. Code uses GPIO numbers unless the board definition remaps them.',
+        '<b>Boot-strapping pins:</b> GPIO0 must be HIGH for normal boot and LOW for flashing; GPIO2 must be HIGH; GPIO15 must be LOW. Wiring a sensor to one of these can stop the board booting entirely — a real lab failure and a good exam answer.',
+        '<b>Wi-Fi in code:</b> <code>#include &lt;ESP8266WiFi.h&gt;</code>, then <code>WiFi.begin(ssid, pass)</code>, poll <code>WiFi.status() != WL_CONNECTED</code>, then <code>WiFi.localIP()</code>. Modes: <b>STA</b> (station — joins your router), <b>AP</b> (creates its own network — used for first-time configuration), and <b>STA+AP</b>.',
+        '<b>Deep sleep</b> — <code>ESP.deepSleep(µs)</code> drops to ~20 µA; <b>GPIO16 must be wired to RST</b> for the chip to wake itself. This is the difference between days and months of battery life, and the wiring requirement is exactly the kind of detail examiners reward.',
+        '<b>ESP32</b> is the successor: dual core, 240 MHz, Bluetooth and BLE, a real ADC with multiple channels, touch pins and more RAM.'
+      ],
+      extra:[
+        '<b>The standard IoT project answer, in five steps:</b> read the sensor → connect to Wi-Fi in STA mode → publish to an MQTT broker (or POST to a cloud endpoint) → sleep or delay → repeat. Being able to write this loop with real function names — <code>dht.readTemperature()</code>, <code>client.publish("home/temp", buf)</code>, <code>ESP.deepSleep()</code> — is worth more than any amount of description.',
+        '<b>Cloud endpoints to name:</b> ThingSpeak (channels and write API keys, the usual lab choice), Blynk (app widgets bound to virtual pins), Adafruit IO, Firebase Realtime Database, AWS IoT Core and Google Cloud IoT.',
+        '<b>Why the ESP8266 has only one ADC input</b> and the Pi has none, while the Uno has six: it is a design trade-off in silicon area and pin count. If a question needs many analog channels on a Pi or ESP, the answer is an external ADC over I²C or SPI — the <b>ADS1115</b> (16-bit, I²C, 4 channels) or the <b>MCP3008</b> (10-bit, SPI, 8 channels).',
+        '<b>OTA updates</b> — <code>ArduinoOTA</code> lets you reflash over Wi-Fi. For a device sealed in a wall this is not a convenience, it is the difference between a patchable and an unpatchable IoT device, which links straight back to IoT security.'
+      ],
+      trap:['The ESP8266 is <b>not 5 V tolerant</b> on its GPIO. The USB input is 5 V and is regulated down on the board — the pins are not.'],
+      qa:[{q:'Compare the Arduino Uno and the NodeMCU ESP8266 for a temperature-logging project.',a:'The Uno runs at 5 V with 14 digital and 6 analog pins, is very tolerant of wiring mistakes, and interfaces easily with 5 V sensors — but it has no networking, so logging to the cloud needs a separate ESP or Ethernet shield. The NodeMCU has Wi-Fi and a TCP/IP stack built in, is far faster (80 MHz against 16 MHz), has far more flash, and supports deep sleep at about 20 µA for battery operation — but it runs at 3.3 V with only one analog input, and several of its GPIOs are boot-strapping pins that cannot be freely used. For a cloud temperature logger the NodeMCU is the correct choice; the Uno would only win if the project needed many analog channels or 5 V peripherals.'}]
+    }
+  ]
+});
+</script>
+<script>
+SUBJECT.modules.push({
+  title: 'Raspberry Pi 3',
+  short: 'Raspberry Pi 3',
+  weight: '25%',
+  intro: 'The Pi is a full Linux computer, and that is the framing every answer should use: it is not a bigger Arduino, it is a different class of device with an operating system, a filesystem and no real-time guarantee.',
+  topics: [
+    {
+      id:'iot3-spec', title:'Raspberry Pi 3 Model B — specification and architecture',
+      table:{head:['Specification','Raspberry Pi 3 Model B'],rows:[
+        ['SoC','Broadcom BCM2837'],
+        ['CPU','<b>Quad-core ARM Cortex-A53, 64-bit, 1.2 GHz</b>'],
+        ['GPU','Broadcom VideoCore IV'],
+        ['RAM','<b>1 GB LPDDR2</b> (shared with GPU)'],
+        ['Storage','microSD card — <b>no onboard flash</b>'],
+        ['Networking','10/100 Ethernet, <b>802.11n Wi-Fi and Bluetooth 4.1 BLE onboard</b>'],
+        ['GPIO header','<b>40 pins</b> (26 usable GPIO)'],
+        ['Logic level','<b>3.3 V — not 5 V tolerant</b>'],
+        ['USB','4 × USB 2.0'],
+        ['Video / audio','HDMI, 3.5 mm composite + audio jack, CSI camera, DSI display'],
+        ['Power','5 V, 2.5 A via micro-USB'],
+        ['ADC','<b>None</b> — needs an external ADC'],
+        ['Real-time clock','<b>None</b> — time comes from NTP over the network']
+      ]},
+      points:[
+        '<b>Model B vs B+:</b> the Pi 3 B+ raised the clock to 1.4 GHz, added dual-band 802.11ac Wi-Fi, Bluetooth 4.2 and Gigabit Ethernet over USB 2.0 (so capped at ~300 Mbps), and Power over Ethernet support.',
+        '<b>Operating system:</b> Raspberry Pi OS (formerly Raspbian), a Debian derivative. Flashed to the microSD with Raspberry Pi Imager or Etcher. Default user <code>pi</code>; headless setup needs an empty file named <code>ssh</code> in the boot partition and a <code>wpa_supplicant.conf</code> for Wi-Fi.',
+        '<b>Essential Linux commands for the viva:</b> <code>sudo raspi-config</code> (enable SSH, I²C, SPI, camera), <code>ifconfig</code>/<code>ip addr</code>, <code>sudo apt update &amp;&amp; sudo apt upgrade</code>, <code>sudo shutdown -h now</code> — and the point that <b>pulling the power without shutting down corrupts the SD card</b>, because there is a live journalled filesystem.',
+        '<b>The 40-pin header, by function:</b> 2 × 5 V, 2 × 3.3 V, 8 × ground, and 26 GPIO. Fixed special pins: <b>I²C</b> on GPIO2 (SDA) and GPIO3 (SCL); <b>SPI</b> on GPIO10 (MOSI), 9 (MISO), 11 (SCLK), 8 (CE0), 7 (CE1); <b>UART</b> on GPIO14 (TXD) and 15 (RXD).',
+        '<b>BOARD vs BCM numbering</b> — <code>GPIO.setmode(GPIO.BCM)</code> uses the Broadcom chip numbers; <code>GPIO.BOARD</code> uses physical pin positions 1–40. Mixing them is the single most common wiring bug, and naming both schemes is an easy mark.',
+        '<b>Why there is no ADC:</b> the BCM2837 has no analog input peripheral. Analog sensors need an external ADC — MCP3008 over SPI or ADS1115 over I²C — or a workaround such as an RC charge-time measurement.'
+      ],
+      extra:[
+        '<b>Pi vs Arduino, the comparison that carries the module:</b> the Pi runs a general-purpose multitasking OS on a 1.2 GHz quad-core with 1 GB RAM, has networking, a filesystem and can run Python, databases and web servers — but its GPIO timing is <b>not deterministic</b> because the Linux scheduler can pre-empt at any moment, it takes ~30 seconds to boot, and it cannot be safely power-cycled. The Arduino runs one program bare-metal on a 16 MHz MCU with 2 KB of RAM, boots instantly, is power-fail safe, and gives microsecond-accurate deterministic timing. <b>Rule of thumb: the Pi for computation, connectivity and interfaces; the Arduino for real-time control and analog sensing. Many real systems use both, with the Arduino as the real-time front end talking to the Pi over serial or I²C.</b>',
+        '<b>The RTC absence has a real consequence:</b> a Pi with no network boots believing it is whenever it last shut down, so any data logger that timestamps locally must either have a DS3231 RTC module on I²C or accept that offline timestamps are wrong. That is exactly the kind of design detail examiners ask about.',
+        '<b>Headless operation and remote access:</b> SSH for a shell, VNC for a desktop, <code>scp</code>/SFTP for files. Real deployments run headless — mention it.'
+      ],
+      trap:['The Pi has <b>no analog input and no real-time clock</b>. Both are asked as "how would you..." questions, and both have specific named answers (MCP3008/ADS1115, and DS3231/NTP).']
+    }
+  ]
+});
+
+SUBJECT.modules.push({
+  title: 'Raspberry Pi 3 Interfacing',
+  short: 'Rpi3 Interfacing',
+  weight: '25%',
+  intro: 'The hands-on module: GPIO in Python, the three serial buses, and wiring real sensors and actuators. Expect a code question — write real code, not pseudocode.',
+  topics: [
+    {
+      id:'iot4-gpio', title:'GPIO programming in Python',
+      points:[
+        '<b>The canonical RPi.GPIO skeleton</b> — write it exactly:<br><code>import RPi.GPIO as GPIO</code><br><code>import time</code><br><code>GPIO.setmode(GPIO.BCM)</code><br><code>GPIO.setwarnings(False)</code><br><code>GPIO.setup(18, GPIO.OUT)</code><br><code>GPIO.setup(23, GPIO.IN, pull_up_down=GPIO.PUD_UP)</code><br><code>try:</code><br>&nbsp;&nbsp;<code>while True:</code><br>&nbsp;&nbsp;&nbsp;&nbsp;<code>GPIO.output(18, GPIO.HIGH)</code><br>&nbsp;&nbsp;&nbsp;&nbsp;<code>time.sleep(1)</code><br>&nbsp;&nbsp;&nbsp;&nbsp;<code>GPIO.output(18, GPIO.LOW)</code><br>&nbsp;&nbsp;&nbsp;&nbsp;<code>time.sleep(1)</code><br><code>finally:</code><br>&nbsp;&nbsp;<code>GPIO.cleanup()</code>',
+        '<b><code>GPIO.cleanup()</code> matters</b> — it resets pins to inputs on exit. Without it a pin left driving HIGH can damage whatever it is connected to when the next program assumes a different configuration. Putting it in a <code>finally:</code> block is the correct pattern and is worth saying.',
+        '<b>Input handling, three ways:</b> <i>polling</i> in a loop (simple, wastes CPU, can miss fast events); <b><code>GPIO.wait_for_edge(pin, GPIO.RISING)</code></b> (blocks efficiently until the edge); <b><code>GPIO.add_event_detect(pin, GPIO.FALLING, callback=fn, bouncetime=200)</code></b> (interrupt-driven callback with hardware debounce built in — this is the answer they want).',
+        '<b>Software PWM:</b> <code>p = GPIO.PWM(18, 1000)</code> then <code>p.start(50)</code> and <code>p.ChangeDutyCycle(75)</code>. Note the limitation: it is generated in software by the Linux scheduler, so it jitters. Only GPIO12, 13, 18 and 19 have <b>hardware PWM</b>, which is stable enough for a servo.',
+        '<b>Libraries:</b> <code>RPi.GPIO</code> (classic), <code>gpiozero</code> (modern, object-oriented — <code>LED(18).blink()</code>, <code>Button(23).when_pressed</code>), <code>pigpio</code> (daemon-based, gives precise hardware-timed PWM and servo control), and <code>smbus2</code> / <code>spidev</code> for the buses.'
+      ],
+      extra:[
+        '<b>Driving anything real needs a driver stage.</b> A Pi GPIO can source about <b>16 mA</b> per pin with a <b>50 mA total</b> across all pins. So: an LED with a resistor is fine; a relay module, motor or LED strip needs a transistor/MOSFET or a driver IC (ULN2003, L298N for motors) with a separate supply and a <b>common ground</b>. Forgetting the shared ground is the most common lab failure and a very quotable answer.',
+        '<b>Level shifting:</b> a 5 V sensor output into a 3.3 V Pi pin needs a bidirectional level shifter or, for an input only, a simple two-resistor divider. Reading a 5 V signal directly can destroy the SoC.',
+        '<b><code>gpiozero</code> is worth showing off</b> because it is three lines instead of fifteen: <code>from gpiozero import LED, Button</code>; <code>led = LED(18)</code>; <code>Button(23).when_pressed = led.toggle</code>. Writing the RPi.GPIO version to show you know the primitive, then the gpiozero version to show you know the idiom, reads very well.'
+      ],
+      trap:['<code>GPIO.setmode(GPIO.BCM)</code> vs <code>GPIO.BOARD</code> — BCM 18 is physical pin 12. If a question gives a physical pin number, convert it, and say which scheme you are using.']
+    },
+    {
+      id:'iot4-bus', title:'I²C, SPI and UART — the three buses compared',
+      table:{head:['','I²C','SPI','UART'],rows:[
+        ['Wires','<b>2</b> (SDA, SCL)','<b>4</b> (MOSI, MISO, SCLK, SS/CE)','<b>2</b> (TX, RX)'],
+        ['Type','Synchronous, shared bus','Synchronous, master/slave','<b>Asynchronous</b>'],
+        ['Clock','Shared, from master','Shared, from master','<b>None</b> — both sides agree a baud rate'],
+        ['Devices','Up to 112 by 7-bit address','One per chip-select line','<b>Exactly 2</b>, point to point'],
+        ['Speed','100 kHz / 400 kHz / 3.4 MHz','Tens of MHz — <b>fastest</b>'  ,'Typically 9600–115200 baud'],
+        ['Duplex','Half','<b>Full</b>','Full'],
+        ['Addressing','In-band, 7-bit address','Separate CS wire per device','None needed'],
+        ['Typical use','Sensors, RTC, EEPROM, OLED','SD card, display, ADC, high-rate sensors','GPS, GSM modem, debug console']
+      ]},
+      points:[
+        '<b>I²C</b> — two wires shared by every device, each with a unique 7-bit address. <b>Both lines need pull-up resistors</b> (typically 4.7 kΩ; the Pi has 1.8 kΩ pull-ups on GPIO2/3 already). Master initiates with a START condition, sends address + R/W bit, and each byte is acknowledged. Enable with <code>sudo raspi-config</code>, then find devices with <code>i2cdetect -y 1</code>.',
+        '<b>SPI</b> — four wires, full duplex, no addressing: the master selects a device by pulling its <b>chip-select</b> line low. Far faster than I²C, at the cost of one extra pin per device. Data is shifted in and out simultaneously on MOSI and MISO.',
+        '<b>UART</b> — no clock line at all; both sides must be configured to the same <b>baud rate</b>, and framing is start bit + 8 data bits + optional parity + stop bit. Cross the wires: <b>TX to RX, RX to TX</b>. On the Pi the console must be disabled in raspi-config before the UART is free for your device.',
+        '<b>Choosing between them — the answer to "which bus would you use":</b> many slow sensors on few pins → I²C. One fast device (display, SD card, high-rate ADC) → SPI. A single long-distance or legacy device (GPS, GSM modem) → UART.'
+      ],
+      extra:[
+        '<b>Why I²C needs pull-ups:</b> the bus is <b>open-drain</b> — devices can only pull the line LOW, never drive it HIGH. Without a pull-up resistor the line never returns to HIGH and the bus is dead. This is a genuinely good "explain why" answer and it is often asked.',
+        '<b>I²C address collisions</b> are the practical limitation: two identical sensors have the same fixed address. Solutions are an address-select pin if the device has one, or an I²C multiplexer (TCA9548A). Real, specific, and impressive.',
+        '<b>SPI modes 0–3</b> are defined by clock polarity (CPOL) and clock phase (CPHA). If a device returns garbage, mismatched mode is the usual cause.',
+        '<b>1-Wire</b> is the fourth bus worth naming — a single data line plus ground, used by the DS18B20 temperature sensor, enabled on the Pi with a device-tree overlay and read as a file under <code>/sys/bus/w1/devices/</code>. It is a lovely illustration of "on Linux, hardware is a file".'
+      ],
+      trap:['SPI has <b>no addressing</b>. Adding a second SPI device means adding another chip-select GPIO, not another address.'],
+      mnem:['<b>I²C = 2 wires, many devices, needs pull-ups. SPI = 4 wires, fast, one CS each. UART = 2 wires, 2 devices, no clock.</b>']
+    },
+    {
+      id:'iot4-proj', title:'Interfacing real devices — the standard lab set',
+      points:[
+        '<b>LED</b> — GPIO → 220 Ω resistor → LED anode; cathode → ground. <code>GPIO.output(pin, True)</code>.',
+        '<b>Push button</b> — one side to GPIO, other to ground, with <code>pull_up_down=GPIO.PUD_UP</code> so the pin idles HIGH and reads <b>False (LOW) when pressed</b>. Debounce with <code>bouncetime=200</code> in <code>add_event_detect</code>.',
+        '<b>DHT11 / DHT22</b> — single-wire proprietary protocol, read with <code>Adafruit_DHT</code> / <code>adafruit_dht</code>. Because the timing is microsecond-critical and Linux is not real-time, <b>reads intermittently fail</b> — the correct answer is to retry rather than to treat a failed read as a sensor fault.',
+        '<b>HC-SR04 ultrasonic</b> — send a 10 µs pulse on TRIG, time the width of the ECHO pulse, distance in cm = duration × 17150. <b>ECHO outputs 5 V and must be divided down</b> to 3.3 V before it touches the Pi.',
+        '<b>PIR motion sensor</b> — a plain digital HIGH on detection; the two trimmers set sensitivity and hold time. Ideal for <code>add_event_detect</code>.',
+        '<b>Relay module</b> — switches mains or high-current DC with electrical isolation. Most modules are <b>active LOW</b>. Use an opto-isolated module, power the coil from a separate supply, and share the ground.',
+        '<b>Servo motor</b> — position is set by pulse width within a 20 ms (50 Hz) frame: ~1 ms = 0°, ~1.5 ms = 90°, ~2 ms = 180°. Use hardware PWM or <code>pigpio</code>; software PWM jitters visibly.',
+        '<b>MCP3008 ADC over SPI</b> — the standard answer to "how do you read an analog sensor on a Pi": 10-bit, 8 channels, read with <code>spidev</code> or <code>gpiozero.MCP3008(channel=0)</code>.',
+        '<b>Camera module</b> — CSI ribbon connector, enabled in raspi-config, captured with <code>libcamera-still</code> or <code>picamera2</code>.'
+      ],
+      extra:[
+        '<b>A complete answer to any "design an IoT system" question, in six steps:</b> (1) name the sensor and how it interfaces (analog/I²C/SPI/1-Wire); (2) state the logic level and any shifting or driver stage needed; (3) show the read code; (4) state the protocol used to send data upward (MQTT over TLS to a broker, or HTTPS to ThingSpeak); (5) say where processing happens and why (edge for latency and bandwidth, cloud for storage and analytics); (6) name two security controls (TLS and per-device credentials; signed OTA updates). Following that structure guarantees you cover every marking point.',
+        '<b>Making it start on boot</b> — a <code>systemd</code> service unit, not <code>rc.local</code> or a cron <code>@reboot</code>. An unattended device that does not restart its own program after a power cut is not deployed, it is a demo.',
+        '<b>IoT security controls to name:</b> change default credentials (Mirai spread almost entirely through unchanged factory passwords), disable unused services, unique per-device keys rather than one shared secret, TLS for all transport, signed firmware and OTA updates, and network segmentation putting IoT devices on their own VLAN. This is the natural bridge to your Advanced Network Security paper.'
+      ],
+      qa:[{q:'Design a smart irrigation system using a Raspberry Pi.',a:'A capacitive soil-moisture sensor is analog, and the Pi has no ADC, so it goes through an MCP3008 on SPI (channel 0, chip-select CE0). A DHT22 on a GPIO gives air temperature and humidity for context. The pump is mains-driven and far beyond the Pi\'s 16 mA per pin, so it is switched by an opto-isolated active-LOW relay module driven from a GPIO, powered from its own supply with a common ground. A Python service started by systemd reads moisture every fifteen minutes, and where the reading is below a threshold and no rain is forecast, energises the relay for a fixed duration with a hard maximum runtime as a safety limit. Readings and pump events are published over MQTT with TLS to a broker, and a dashboard subscribes. The watering decision is made on the Pi rather than in the cloud so that a lost internet connection cannot leave the crop unwatered, with the cloud used for history, alerting and remote override.'}]
+    }
+  ]
+});
+
+SUBJECT.quiz = [
+  {q:'Differentiate a microprocessor from a microcontroller.',a:'A microprocessor is a CPU alone: it requires external RAM, ROM and I/O peripherals connected over a bus, is optimised for general-purpose high performance, and is used where a full operating system runs. A microcontroller integrates the CPU, RAM, flash, timers, ADC and GPIO on a single chip, is optimised for low cost and low power, executes a single dedicated program, and is used in embedded control. The defining difference is integration, not speed.'},
+  {q:'Explain the four-layer IoT architecture.',a:'Perception layer — sensors, actuators, RFID tags: the physical interface to the world, converting phenomena into data and commands into action. Network layer — gateways and connectivity (Wi-Fi, ZigBee, LoRa, cellular) that transport data upward and perform protocol translation. Processing/middleware layer — storage, filtering, device management and analytics, usually in the cloud, sometimes at the edge. Application layer — the service the user actually sees: dashboards, mobile apps, alerts, automation rules. Some models add a business layer above for models and decision-making.'},
+  {q:'Compare I²C, SPI and UART and say when you would choose each.',a:'I²C uses two wires shared by up to 112 addressable devices, is half-duplex at 100–400 kHz, and requires pull-up resistors because it is open-drain — choose it for several slow sensors on limited pins. SPI uses four wires, is full-duplex at tens of megahertz, and has no addressing: each device needs its own chip-select line — choose it for one fast device such as a display, SD card or ADC. UART is asynchronous with no clock, exactly two devices, TX crossed to RX, both configured to the same baud rate — choose it for a single legacy or long-distance device such as a GPS or GSM modem.'},
+  {q:'Why does MQTT suit IoT better than HTTP?',a:'MQTT is publish/subscribe through a broker, so publishers and subscribers are decoupled in space, time and synchronisation and a device does not need to know who consumes its data. Its fixed header is two bytes against hundreds of bytes of HTTP text headers, and it holds one persistent connection instead of re-establishing per request — both of which matter enormously for battery and bandwidth. It supports server push without polling, three quality-of-service levels, retained messages so a new subscriber immediately gets the last value, and a Last Will and Testament that announces an ungraceful disconnect, which is how dead devices are detected.'},
+  {q:'How would you read an analog sensor on a Raspberry Pi?',a:'The BCM2837 has no ADC, so you add one externally. The standard choices are the MCP3008 — 10-bit, eight channels, over SPI, read with spidev or gpiozero.MCP3008 — or the ADS1115 — 16-bit, four channels, over I²C with a programmable gain amplifier. Wire the sensor output to a channel of the ADC, connect the bus to the Pi\'s SPI or I²C pins, enable that interface in raspi-config, and read the digitised value in Python. If the sensor output exceeds 3.3 V it must be divided down first, since neither the Pi nor the ADC input is 5 V tolerant.'},
+  {q:'What is PWM and give three uses?',a:'Pulse Width Modulation rapidly switches a digital output between HIGH and LOW; the duty cycle — the proportion of each period spent HIGH — sets the average voltage delivered to the load. It produces an analog-like effect from a purely digital pin without a DAC. Uses: dimming an LED by varying duty cycle, controlling DC motor speed, and positioning a servo, where the information is carried by the absolute pulse width (about 1–2 ms within a 20 ms frame) rather than by the average.'},
+  {q:'Compare the Raspberry Pi and the Arduino, and say when you would use each.',a:'The Pi is a 1.2 GHz quad-core Linux computer with 1 GB RAM, networking, a filesystem, HDMI and camera interfaces; it can run Python, a database and a web server, but its GPIO timing is non-deterministic because the scheduler pre-empts it, it takes about thirty seconds to boot, it has no ADC or RTC, and pulling the power corrupts the SD card. The Arduino runs one program bare-metal on a 16 MHz MCU with 2 KB RAM, boots instantly, tolerates power loss, has six analog inputs, and gives microsecond-accurate deterministic timing — but no networking and no operating system. Use the Pi for computation, connectivity, vision and dashboards; the Arduino for real-time control and analog sensing; and in demanding systems use both, with the Arduino as a real-time front end reporting to the Pi over serial or I²C.'},
+  {q:'Explain why an I²C bus needs pull-up resistors.',a:'I²C is an open-drain bus: every device can only pull SDA and SCL LOW by switching a transistor to ground, and none of them can actively drive the line HIGH. The pull-up resistor to VCC is what returns the line to the HIGH state when no device is pulling it down. Without pull-ups the lines float and the bus never registers a logic 1, so no communication occurs. Typical values are 4.7 kΩ, and the Raspberry Pi already provides 1.8 kΩ pull-ups on GPIO2 and GPIO3.'},
+  {q:'What is deep sleep on the ESP8266 and what does it require?',a:'Deep sleep powers down the CPU, radio and most peripherals, leaving only the RTC running, dropping consumption from roughly 70 mA while transmitting to about 20 µA. It is entered with ESP.deepSleep(microseconds), and the chip restarts from the top of setup() on waking rather than resuming — so any state must be persisted to RTC memory or flash. Critically, GPIO16 must be physically wired to the RST pin for the chip to wake itself, otherwise it sleeps until manually reset. This is what makes multi-month battery operation possible for a sensor that reports every few minutes.'},
+  {q:'List five IoT security risks and a control for each.',a:'Default credentials — enforce unique per-device passwords at provisioning, which is what would have stopped Mirai. Unencrypted transport — run MQTT over TLS on port 8883 with certificate validation rather than plaintext on 1883. No update path — implement signed over-the-air firmware updates so a vulnerability discovered after deployment can actually be fixed. Excessive network exposure — segment IoT devices onto their own VLAN with egress filtering so a compromised bulb cannot reach a file server. Physical access to the device — disable debug interfaces such as UART and JTAG in production, encrypt flash, and store keys in a secure element rather than in the firmware image.'}
+];
+</script>
+<script>
+/* ==================================================================
+   RENDERER — one template, driven by the SUBJECT object above it.
+   Every subject file is this same code with a different SUBJECT, so a
+   fix here is a fix everywhere and the three files never drift apart.
+   State (checkboxes, open module) is namespaced by SUBJECT.slug, so
+   ticking a Blockchain topic never lights up an IoT one.
+   ================================================================== */
+(function(){
+  var S = window.SUBJECT;
+  var KEY = 'p1study:' + S.slug;
+  var done = {};              // topicId -> true
+  try { done = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch(e){ done = {}; }
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(done)); }catch(e){} }
+
+  document.title = 'PLAYER ONE — ' + S.name;
+  // Short label only. The hero heading below already carries the full name and
+  // code; repeating them here is what pushed the bar past the viewport width.
+  document.getElementById('brand').innerHTML = '▮ <b>' + esc(S.short || S.name) + '</b>';
+
+  // ---- flatten topics for search/progress ----
+  var allTopics = [];
+  S.modules.forEach(function(m){ (m.topics||[]).forEach(function(t){ allTopics.push(t); }); });
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+
+  // ---------------- sidebar ----------------
+  function buildSide(){
+    var el = document.getElementById('side');
+    var h = '<div class="tochead">'+esc(S.name)+'</div>';
+    h += '<button class="tocmod" onclick="scrollToId(\'top\')"><span class="n">▸</span>Overview &amp; exam plan</button>';
+    S.modules.forEach(function(m,i){
+      h += '<button class="tocmod" data-mod="'+i+'" onclick="openMod('+i+',true)">'
+         + '<span class="n">M'+(i+1)+'</span>'+esc(m.short||m.title)
+         + '<span class="pc" id="pc'+i+'"></span></button>';
+    });
+    if(S.exam){
+      h += '<div class="tochead">Self-test</div>';
+      h += '<button class="tocmod" onclick="scrollToId(\'quiz\')"><span class="n">?</span>Likely questions</button>';
+    }
+    el.innerHTML = h;
+  }
+
+  // ---------------- topic renderer ----------------
+  function renderTopic(t){
+    var cls = 'topic' + (done[t.id]?' done':'');
+    var h = '<div class="'+cls+'" id="'+t.id+'" data-topic="1">';
+    h += '<h3><input type="checkbox" class="chk" '+(done[t.id]?'checked':'')
+       + ' onchange="toggleTopic(\''+t.id+'\',this.checked)"><span>'+esc(t.title)+'</span>';
+    if(t.tag==='min') h += '';
+    h += '</h3>';
+    if(t.def) h += '<div class="def">'+t.def+'</div>';
+    if(t.points && t.points.length){
+      h += '<ul class="pts">';
+      t.points.forEach(function(p){ h += '<li>'+p+'</li>'; });
+      h += '</ul>';
+    }
+    if(t.table) h += renderTable(t.table);
+    if(t.extra) h += box('extra','EXTRA MARKS ✦', t.extra);
+    if(t.trap)  h += box('trap','EXAM TRAP ⚠', t.trap);
+    if(t.mnem)  h += box('mnem','REMEMBER IT ◆', t.mnem);
+    if(t.qa && t.qa.length){
+      t.qa.forEach(function(q){
+        h += '<div class="qa" onclick="this.classList.toggle(\'open\')">'
+           + '<div class="qq"><span class="m">Q</span><span>'+esc(q.q)+'</span></div>'
+           + '<div class="aa">'+q.a+'</div></div>';
+      });
+    }
+    h += '</div>';
+    return h;
+  }
+  function box(cls,label,body){
+    var inner = Array.isArray(body)
+      ? '<ul>'+body.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul>'
+      : '<div>'+body+'</div>';
+    return '<div class="box '+cls+'"><div class="bh">'+label+'</div>'+inner+'</div>';
+  }
+  function renderTable(tb){
+    var h = '<table><thead><tr>';
+    tb.head.forEach(function(c){ h += '<th>'+esc(c)+'</th>'; });
+    h += '</tr></thead><tbody>';
+    tb.rows.forEach(function(r){
+      h += '<tr>'+r.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';
+    });
+    h += '</tbody></table>';
+    return h;
+  }
+
+  // ---------------- main ----------------
+  function buildMain(){
+    var el = document.getElementById('main');
+    var h = '';
+    h += '<div class="hero" id="top">'
+       + '<div class="code">'+esc(S.code)+' · MINOR EXAM · '+esc(S.examLabel||'')+'</div>'
+       + '<h1>'+esc(S.name)+'</h1>'
+       + '<p>'+esc(S.blurb||'')+'</p>';
+    if(S.plan){
+      h += '<div class="box extra" style="margin-bottom:0"><div class="bh">HOW TO USE THIS ✦</div><ul>'
+         + S.plan.map(function(x){return '<li>'+x+'</li>';}).join('') + '</ul></div>';
+    }
+    h += '</div>';
+
+    S.modules.forEach(function(m,i){
+      h += '<section class="mod" id="mod'+i+'" data-mod="'+i+'">';
+      h += '<div class="modhead" onclick="openMod('+i+')">'
+         + '<span class="caret">▶</span>'
+         + '<h2><span style="color:var(--ink-3)">M'+(i+1)+'</span> &nbsp;'+esc(m.title)+'</h2>';
+      if(m.weight) h += '<span class="wt">'+esc(m.weight)+'</span>';
+      h += '</div>';
+      h += '<div class="modbody">';
+      if(m.intro) h += '<p style="color:var(--ink-2);font-size:12.5px;margin:8px 0 2px">'+m.intro+'</p>';
+      (m.topics||[]).forEach(function(t){ h += renderTopic(t); });
+      h += '</div></section>';
+    });
+
+    if(S.quiz && S.quiz.length){
+      h += '<section class="mod open" id="quiz"><div class="modhead"><span class="caret">▶</span>'
+         + '<h2><span style="color:var(--ink-3)">✱</span> &nbsp;Most likely questions — rapid self-test</h2></div>';
+      h += '<div class="modbody">';
+      h += '<p style="color:var(--ink-2);font-size:12.5px">Tap to reveal. If you can answer these cold, you are ready.</p>';
+      S.quiz.forEach(function(q){
+        h += '<div class="qa" onclick="this.classList.toggle(\'open\')">'
+           + '<div class="qq"><span class="m">Q</span><span>'+esc(q.q)+'</span></div>'
+           + '<div class="aa">'+q.a+'</div></div>';
+      });
+      h += '</div></section>';
+    }
+
+    h += '<div class="foot">'+ (S.foot||'') +'<br>Generated for Neel · PLAYER ONE life-dashboard · offline-ready, no network calls. '
+       + 'Progress is saved on this device. Print to PDF for a paper copy.</div>';
+    el.innerHTML = h;
+  }
+
+  // ---------------- interactions ----------------
+  window.openMod = function(i, fromNav){
+    var mod = document.getElementById('mod'+i);
+    if(!mod) return;
+    if(fromNav){ mod.classList.add('open'); }
+    else { mod.classList.toggle('open'); }
+    document.querySelectorAll('.tocmod[data-mod]').forEach(function(b){
+      b.classList.toggle('on', +b.getAttribute('data-mod')===i);
+    });
+    if(fromNav){ mod.scrollIntoView({behavior:'smooth',block:'start'}); closeSideMobile(); }
+    updateRail();
+  };
+  window.expandAll = function(on){
+    document.querySelectorAll('.mod').forEach(function(m){ if(m.id!=='quiz') m.classList.toggle('open',on); });
+    updateRail();
+  };
+  window.toggleTopic = function(id,val){
+    if(val) done[id]=true; else delete done[id];
+    save();
+    var t=document.getElementById(id); if(t) t.classList.toggle('done',!!val);
+    updateProgress();
+  };
+  window.scrollToId = function(id){ var e=document.getElementById(id); if(e){e.scrollIntoView({behavior:'smooth',block:'start'});} closeSideMobile(); };
+  window.jumpNext = function(){
+    for(var i=0;i<S.modules.length;i++){
+      var ts=S.modules[i].topics||[];
+      var undoneLeft = ts.some(function(t){return !done[t.id];});
+      if(undoneLeft){ openMod(i,true); return; }
+    }
+    scrollTo(0,0);
+  };
+  window.toggleSide = function(){
+    document.getElementById('side').classList.toggle('open');
+    document.getElementById('scrim').classList.toggle('on');
+  };
+  function closeSideMobile(){
+    if(window.innerWidth<=900){
+      document.getElementById('side').classList.remove('open');
+      document.getElementById('scrim').classList.remove('on');
+    }
+  }
+  window.toggleCRT = function(){ document.body.classList.toggle('plain'); };
+
+  // ---------------- progress ----------------
+  function updateProgress(){
+    var total=allTopics.length, n=0;
+    allTopics.forEach(function(t){ if(done[t.id]) n++; });
+    var pct = total? Math.round(n/total*100):0;
+    document.getElementById('pcnt').textContent = pct+'%';
+    document.getElementById('railfill').style.width = pct+'%';
+    S.modules.forEach(function(m,i){
+      var ts=m.topics||[], mn=0; ts.forEach(function(t){ if(done[t.id]) mn++; });
+      var el=document.getElementById('pc'+i);
+      if(el) el.textContent = ts.length? (mn+'/'+ts.length):'';
+    });
+  }
+  function updateRail(){ /* rail reflects scroll depth on wide screens */ }
+
+  // ---------------- search ----------------
+  var qEl = document.getElementById('q');
+  var timer=null;
+  qEl.addEventListener('input', function(){
+    clearTimeout(timer); timer=setTimeout(function(){ runSearch(qEl.value.trim().toLowerCase()); },120);
+  });
+  function runSearch(term){
+    var main=document.getElementById('main');
+    var old=document.getElementById('nores'); if(old) old.remove();
+    if(!term){
+      document.querySelectorAll('[data-topic]').forEach(function(t){ t.classList.remove('hidden'); unmark(t); });
+      document.querySelectorAll('.mod').forEach(function(m){ m.classList.remove('hidden'); });
+      return;
+    }
+    var hits=0;
+    document.querySelectorAll('.mod').forEach(function(m){
+      if(m.id==='quiz'){ m.classList.add('hidden'); return; }
+      var any=false;
+      m.querySelectorAll('[data-topic]').forEach(function(t){
+        var txt=t.textContent.toLowerCase();
+        var match=txt.indexOf(term)>=0;
+        t.classList.toggle('hidden',!match);
+        if(match){ any=true; hits++; }
+      });
+      m.classList.toggle('hidden',!any);
+      if(any) m.classList.add('open');
+    });
+    if(!hits){
+      var d=document.createElement('div'); d.id='nores';
+      d.textContent='No topic mentions “'+term+'”. Try a shorter word.';
+      main.appendChild(d);
+    }
+  }
+  function unmark(){}
+
+  // keyboard: "/" focuses search
+  document.addEventListener('keydown',function(e){
+    if(e.key==='/' && document.activeElement!==qEl){ e.preventDefault(); qEl.focus(); }
+    if(e.key==='Escape'){ qEl.value=''; runSearch(''); qEl.blur(); }
+  });
+
+  // ---------------- boot ----------------
+  buildSide(); buildMain(); updateProgress();
+  if(S.modules[0]) document.getElementById('mod0').classList.add('open');
+})();
+</script>
+</body>
+</html>

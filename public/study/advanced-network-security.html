@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>PLAYER ONE — Minor Exam Study Guide (Sept 1–3)</title>
+<meta name="description" content="Advanced Network Security &amp; IAM, Blockchain, IoT System Design — full syllabus with extra-marks depth." />
+<style>
+/* ------------------------------------------------------------------
+   Self-contained on purpose. No web fonts, no CDN, no network at all —
+   this file has to work on a phone in a corridor with no signal the
+   morning of the exam, and anything fetched is something that can fail
+   at exactly the wrong moment.
+   ------------------------------------------------------------------ */
+:root{
+  --bg:#080a12; --bg-2:#0d1120; --panel:#111629; --panel-2:#151b31;
+  --ink:#e8ecff; --ink-2:#a8b2d8; --ink-3:#6b769e;
+  --cyan:#00e5ff; --pink:#ff3d7f; --purple:#7c4dff; --yellow:#ffd23f;
+  --green:#31d67a; --red:#ff4d5a; --orange:#ff9f43;
+  --border:#222c4d; --border-bright:#31406e;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono",monospace;
+  --sub:var(--cyan);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--mono); font-size:15px; line-height:1.6;
+  overflow-x:hidden;
+}
+/* The CRT. Fixed, pointer-events:none, and switched off entirely under
+   prefers-reduced-motion — a flickering overlay is a migraine trigger, and
+   this is a document somebody stares at for six hours straight. */
+#crt{position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(180deg,rgba(0,0,0,.22) 0 1px,rgba(0,0,0,0) 1px 3px);
+  mix-blend-mode:multiply;opacity:.55}
+#vig{position:fixed;inset:0;pointer-events:none;z-index:9998;
+  background:radial-gradient(ellipse at center,rgba(0,0,0,0) 55%,rgba(0,0,0,.55) 100%)}
+body.plain #crt,body.plain #vig{display:none}
+@media (prefers-reduced-motion:reduce){#crt{opacity:.25}}
+@media print{#crt,#vig,#bar,#side,#tocbtn,.noprint{display:none!important}}
+
+a{color:var(--cyan)}
+h1,h2,h3,h4{margin:0;font-weight:700;letter-spacing:.04em}
+code,kbd{font-family:var(--mono);background:#0a0e1a;border:1px solid var(--border);
+  border-radius:4px;padding:1px 5px;font-size:.88em;color:var(--yellow)}
+kbd{color:var(--ink-2)}
+mark{background:var(--yellow);color:#0a0e1a;border-radius:2px;padding:0 2px}
+
+/* ---------------- top bar ---------------- */
+#bar{position:sticky;top:0;z-index:60;background:rgba(8,10,18,.94);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--border-bright);
+  padding:8px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+/* The brand is the one element with fixed text, so it is the one element that
+   can force the bar — and therefore the whole page — wider than the viewport,
+   which clips every card on the right. It truncates instead. */
+#brand{font-size:12px;letter-spacing:.18em;color:var(--sub);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:min(34vw,300px);flex:0 1 auto;
+  text-shadow:0 0 12px currentColor}
+#bar>*{min-width:0}
+#brand b{color:var(--ink)}
+#count{flex:0 0 auto;font-size:11px;color:var(--ink-2);border:1px solid var(--border-bright);
+  border-radius:999px;padding:3px 10px;white-space:nowrap}
+#count b{color:var(--yellow)}
+#q{flex:1;min-width:150px;background:#0a0e1a;border:1px solid var(--border-bright);
+  color:var(--ink);border-radius:6px;padding:7px 10px;font-family:var(--mono);font-size:13px;outline:none}
+#q:focus{border-color:var(--sub);box-shadow:0 0 0 2px rgba(0,229,255,.15)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;flex:0 0 auto}
+.tab{background:#0a0e1a;border:1px solid var(--border-bright);color:var(--ink-2);
+  border-radius:6px;padding:6px 11px;font-family:var(--mono);font-size:12px;cursor:pointer;
+  letter-spacing:.06em;white-space:nowrap}
+.tab:hover{color:var(--ink);border-color:var(--sub)}
+.tab.on{background:var(--sub);color:#080a12;border-color:var(--sub);font-weight:700}
+.mini{flex:0 0 auto;background:transparent;border:1px solid var(--border-bright);color:var(--ink-2);
+  border-radius:6px;padding:6px 9px;font-family:var(--mono);font-size:12px;cursor:pointer}
+.mini:hover{color:var(--ink);border-color:var(--sub)}
+
+/* progress rail under the bar */
+#rail{height:3px;background:#0a0e1a;position:sticky;top:0;z-index:59}
+#railfill{height:100%;width:0;background:linear-gradient(90deg,var(--sub),var(--green));
+  transition:width .25s ease;box-shadow:0 0 10px var(--green)}
+
+/* ---------------- layout ---------------- */
+#wrap{display:flex;gap:0;align-items:flex-start;max-width:1500px;margin:0 auto}
+#side{position:sticky;top:56px;width:270px;flex:0 0 270px;max-height:calc(100vh - 60px);
+  overflow-y:auto;padding:14px 10px 40px 14px;border-right:1px solid var(--border);scrollbar-width:thin}
+#main{flex:1;min-width:0;padding:16px 18px 120px 18px}
+@media(max-width:900px){
+  #side{position:fixed;left:0;top:0;bottom:0;width:280px;max-height:none;z-index:80;
+    background:var(--bg-2);transform:translateX(-102%);transition:transform .2s ease;padding-top:60px}
+  #side.open{transform:none;box-shadow:0 0 40px rgba(0,0,0,.8)}
+  #main{padding:14px 12px 120px 12px}
+  #tocbtn{display:inline-block}
+}
+#tocbtn{display:none}
+#scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:79}
+#scrim.on{display:block}
+
+/* ---------------- sidebar ---------------- */
+.tochead{font-size:10px;letter-spacing:.2em;color:var(--ink-3);margin:14px 0 6px}
+.tocmod{display:block;width:100%;text-align:left;background:transparent;border:0;
+  color:var(--ink-2);font-family:var(--mono);font-size:12.5px;padding:6px 8px;border-radius:5px;
+  cursor:pointer;border-left:2px solid transparent;line-height:1.35}
+.tocmod:hover{background:var(--panel);color:var(--ink)}
+.tocmod.on{color:var(--sub);border-left-color:var(--sub);background:var(--panel)}
+.tocmod .n{color:var(--ink-3);margin-right:6px}
+.tocmod .pc{float:right;font-size:10px;color:var(--green)}
+
+/* ---------------- content ---------------- */
+.hero{border:1px solid var(--border-bright);border-radius:10px;padding:16px 18px;
+  background:linear-gradient(160deg,var(--panel),var(--bg-2));margin-bottom:16px}
+.hero h1{font-size:20px;color:var(--sub);text-shadow:0 0 18px currentColor}
+.hero .code{font-size:11px;letter-spacing:.2em;color:var(--ink-3);margin-bottom:6px}
+.hero p{color:var(--ink-2);font-size:13px;margin:8px 0 0}
+
+.mod{border:1px solid var(--border);border-radius:10px;background:var(--panel);
+  margin-bottom:14px;overflow:hidden}
+.modhead{display:flex;gap:10px;align-items:center;padding:12px 14px;cursor:pointer;
+  background:var(--panel-2);border-bottom:1px solid transparent;user-select:none}
+.mod.open .modhead{border-bottom-color:var(--border)}
+.modhead:hover{background:#1a2140}
+.modhead .caret{color:var(--ink-3);font-size:11px;width:12px;flex:0 0 12px;transition:transform .15s}
+.mod.open .modhead .caret{transform:rotate(90deg)}
+.modhead h2{font-size:14px;color:var(--ink);flex:1;min-width:0}
+.modhead .wt{font-size:10px;letter-spacing:.1em;color:var(--yellow);border:1px solid var(--yellow);
+  border-radius:999px;padding:2px 8px;white-space:nowrap}
+.modbody{display:none;padding:6px 14px 16px}
+.mod.open .modbody{display:block}
+
+.topic{border-top:1px solid var(--border);padding:12px 0 4px}
+.topic:first-child{border-top:0}
+.topic h3{font-size:13.5px;color:var(--sub);display:flex;gap:8px;align-items:flex-start;line-height:1.4}
+.chk{appearance:none;-webkit-appearance:none;width:15px;height:15px;flex:0 0 15px;margin-top:3px;
+  border:1px solid var(--border-bright);border-radius:3px;background:#0a0e1a;cursor:pointer;position:relative}
+.chk:checked{background:var(--green);border-color:var(--green)}
+.chk:checked::after{content:"✓";position:absolute;inset:0;color:#08110c;font-size:11px;
+  display:flex;align-items:center;justify-content:center;font-weight:700}
+.topic.done h3{color:var(--ink-3);text-decoration:line-through;text-decoration-color:var(--ink-3)}
+
+ul.pts{margin:8px 0 0;padding-left:18px}
+ul.pts li{margin:4px 0;color:var(--ink-2);font-size:13px}
+ul.pts li b,ul.pts li strong{color:var(--ink)}
+.def{border-left:2px solid var(--purple);padding:6px 0 6px 10px;margin:8px 0;
+  color:var(--ink);font-size:13px;background:rgba(124,77,255,.06)}
+
+.box{border:1px solid;border-radius:8px;padding:9px 11px;margin:10px 0;font-size:12.5px}
+.box .bh{font-size:10px;letter-spacing:.16em;margin-bottom:5px;font-weight:700}
+.box ul{margin:4px 0 0;padding-left:16px}
+.box li{margin:3px 0}
+.extra{border-color:var(--yellow);background:rgba(255,210,63,.07);color:var(--ink-2)}
+.extra .bh{color:var(--yellow)}
+.trap{border-color:var(--red);background:rgba(255,77,90,.07);color:var(--ink-2)}
+.trap .bh{color:var(--red)}
+.mnem{border-color:var(--pink);background:rgba(255,61,127,.07);color:var(--ink-2)}
+.mnem .bh{color:var(--pink)}
+.src{border-color:var(--border-bright);background:rgba(255,255,255,.02);color:var(--ink-3);font-size:11.5px}
+.src .bh{color:var(--ink-3)}
+
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12px;display:block;overflow-x:auto}
+th,td{border:1px solid var(--border);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:var(--panel-2);color:var(--sub);font-weight:700;font-size:11px;
+  letter-spacing:.06em;white-space:nowrap}
+td{color:var(--ink-2)}
+tr:nth-child(even) td{background:rgba(255,255,255,.015)}
+
+/* self-test */
+.qa{border:1px solid var(--border-bright);border-radius:8px;margin:8px 0;overflow:hidden}
+.qa .qq{padding:9px 11px;cursor:pointer;font-size:13px;color:var(--ink);background:var(--panel-2);
+  display:flex;gap:8px;align-items:flex-start}
+.qa .qq:hover{background:#1a2140}
+.qa .qq .m{color:var(--pink);flex:0 0 auto}
+.qa .aa{display:none;padding:9px 11px;font-size:12.5px;color:var(--ink-2);
+  border-top:1px solid var(--border);background:rgba(49,214,122,.05)}
+.qa.open .aa{display:block}
+
+.marks{font-size:11px;color:var(--ink-3);margin-left:auto;white-space:nowrap}
+.pill{display:inline-block;font-size:10px;letter-spacing:.1em;border-radius:999px;
+  padding:2px 8px;border:1px solid;margin-right:6px}
+.p-core{color:var(--green);border-color:var(--green)}
+.p-min{color:var(--pink);border-color:var(--pink)}
+.hidden{display:none!important}
+#nores{color:var(--ink-3);font-size:13px;padding:20px;text-align:center}
+.foot{color:var(--ink-3);font-size:11.5px;margin-top:28px;border-top:1px solid var(--border);
+  padding-top:12px;line-height:1.7}
+.jump{position:fixed;right:14px;bottom:14px;z-index:70;display:flex;flex-direction:column;gap:6px}
+.jump button{width:38px;height:38px;border-radius:9px;background:var(--panel);
+  border:1px solid var(--border-bright);color:var(--ink-2);font-family:var(--mono);cursor:pointer;font-size:14px}
+.jump button:hover{color:var(--sub);border-color:var(--sub)}
+</style>
+</head>
+<body>
+<div id="crt"></div><div id="vig"></div>
+<div id="bar">
+  <span id="brand">▮ <b>PLAYER&nbsp;ONE</b> · MINOR EXAM DUMP</span>
+  <button id="tocbtn" class="mini" onclick="toggleSide()">☰ Modules</button>
+  <input id="q" placeholder="search everything — WPA3, SAE, gas, ESP8266…" autocomplete="off" spellcheck="false" />
+  <span id="count">progress <b id="pcnt">0%</b></span>
+  <div class="tabs" id="subtabs"></div>
+  <button class="mini" onclick="toggleCRT()" title="toggle scanlines">◈</button>
+  <button class="mini" onclick="expandAll(true)" title="expand all">⊞</button>
+  <button class="mini" onclick="expandAll(false)" title="collapse all">⊟</button>
+</div>
+<div id="rail"><div id="railfill"></div></div>
+
+<div id="scrim" onclick="toggleSide()"></div>
+<div id="wrap">
+  <nav id="side"></nav>
+  <main id="main"></main>
+</div>
+
+<div class="jump noprint">
+  <button onclick="scrollTo(0,0)" title="top">↑</button>
+  <button onclick="jumpNext()" title="next unread module">↧</button>
+</div>
+<script>
+window.SUBJECT = {
+  slug: 'ans',
+  code: 'CSE337 · ADVANCED NETWORK SECURITY & IAM',
+  name: 'Advanced Network Security & IAM',
+  short: 'NETWORK SECURITY',
+  examLabel: 'Sept 1–3, 2026',
+  blurb: 'Five modules, 20% each. Module I (VPN + Wireless/IoT) and Module II (Zero Trust) are built from your own lecture slides — everything marked FROM YOUR SLIDES is verbatim-level. The rest is expanded from the standard syllabus so you are not caught out if the paper reaches further.',
+  plan: [
+    'Modules are collapsed. Open one, tick topics as you finish them — the tick is saved on this device, so the progress bar means something the next morning.',
+    'The yellow <b>EXTRA MARKS</b> boxes are the bits that turn a 3/5 into a 5/5. Read them second, after the core points, never instead of them.',
+    'Red <b>EXAM TRAP</b> boxes are the specific confusions examiners test. Every one of them is a pair of things that sound identical and are not.',
+    'Press <kbd>/</kbd> to search. Everything is on this page — search finds it even inside a collapsed module.'
+  ],
+  foot: 'Source: Module I and II decks by Dr. Shilpi Sharma (Amity). Content beyond those decks is standard-syllabus expansion and is labelled as such.',
+  modules: [],
+  quiz: []
+};
+
+SUBJECT.modules.push({
+  title: 'VPN and Wireless / IoT Security',
+  short: 'VPN & Wireless',
+  weight: '20%',
+  intro: 'The whole of this module is in your slide deck. It splits cleanly in two: <b>perimeter devices + VPNs</b> (firewalls, IDS/IPS, tunnels), then <b>wireless</b> (standards, WEP→WPA3, attacks, countermeasures). The two case studies at the end of the deck — KRACK and Colonial Pipeline — are near-certain to appear as a long question.',
+  topics: [
+    {
+      id:'ans1-fw', title:'Firewalls — definition and the four types',
+      def:'A firewall is a network security device that monitors incoming and outgoing traffic and permits or blocks it according to a defined set of security rules. It establishes a barrier between a trusted internal network and untrusted external networks.',
+      points:[
+        '<b>Packet-Filtering firewall</b> — inspects each packet in isolation against ACLs: source/destination IP, source/destination port, protocol. Stateless. Fast and cheap, but it has no memory of what came before, so it cannot tell a reply from an unsolicited packet.',
+        '<b>Stateful Inspection firewall</b> — keeps a <i>state table</i> of active connections. A packet is allowed only if it belongs to an established session or legitimately starts one. Catches everything a packet filter misses about connection context.',
+        '<b>Proxy firewall (Application-level gateway)</b> — terminates the connection and opens a second one on the client\'s behalf, so the two ends never touch. It can inspect the actual application payload (HTTP verbs, FTP commands). Highest security, highest latency.',
+        '<b>Next-Generation Firewall (NGFW)</b> — stateful inspection plus deep packet inspection, integrated IPS, application awareness (blocks "Facebook chat" not just "port 443"), user-identity awareness and threat-intelligence feeds.',
+        '<b>Advantages:</b> traffic control, single enforcement point, logging/auditing, network segmentation, hides the internal topology (with NAT).',
+        '<b>Disadvantages:</b> cannot inspect encrypted traffic without breaking TLS; no defence against insider threats; misconfiguration is the single biggest cause of failure; a bottleneck under load; useless against attacks that ride an allowed protocol.'
+      ],
+      extra:[
+        'Say the OSI layer for each type and you separate yourself instantly: packet-filter = Layer 3/4, stateful = Layer 4 (with L3 context), proxy = Layer 7, NGFW = Layer 3 through 7.',
+        '<b>DMZ</b> — a demilitarised zone is a subnet between two firewalls holding the public-facing servers (web, mail, DNS). Anything in the DMZ is assumed compromisable; it gets no trusted route inward.',
+        '<b>Default-deny vs default-allow.</b> A correctly written rulebase ends in an implicit <code>deny any any</code>. Rule order matters — the first match wins, so a broad allow near the top silently disables every deny beneath it.',
+        '<b>Egress filtering</b> is the half everyone forgets. Filtering what leaves is how you catch data exfiltration and command-and-control beaconing after the perimeter has already failed.'
+      ],
+      trap:['A <b>stateful</b> firewall tracks connections; a <b>proxy</b> firewall terminates and rebuilds them. Both are "more than packet filtering" but only the proxy actually reads the application payload.'],
+      qa:[{q:'Why can a packet-filtering firewall not stop a TCP ACK scan?',a:'Because it evaluates each packet on its own. An ACK packet with no matching session looks like ordinary mid-conversation traffic to a stateless filter — only a stateful firewall, which keeps a table of established connections, can see that no such connection exists.'}]
+    },
+    {
+      id:'ans1-ids', title:'IDS vs IPS — placement, action, and the cost of being wrong',
+      def:'An IDS (Intrusion Detection System) observes traffic and raises an alert. An IPS (Intrusion Prevention System) sits in the traffic path and blocks it. Detection versus prevention is the whole difference and it is the most commonly asked comparison in this module.',
+      table:{head:['','IDS','IPS'],rows:[
+        ['Action','Detects and alerts only','Detects and actively blocks/drops'],
+        ['Placement','Out-of-band — on a SPAN/mirror port, sees a copy','In-line — all traffic passes through it'],
+        ['Response','Passive; a human decides what to do','Automatic; drops, resets, or quarantines'],
+        ['Impact on traffic','None — cannot introduce latency or an outage','Adds latency; a failure or false positive can drop legitimate traffic'],
+        ['Cost of a false positive','A noisy alert','A real user is cut off']
+      ]},
+      points:[
+        '<b>NIDS (Network-based)</b> — deployed at a network choke point, watches traffic for many hosts. Sees the network but not what happens inside an encrypted session or on the host itself.',
+        '<b>HIDS (Host-based)</b> — an agent on a single machine watching system calls, file integrity, logs and registry. Sees what the host does even when the traffic was encrypted, but only for that one host.',
+        '<b>Signature-based detection</b> — matches traffic against a database of known attack patterns. Very low false-positive rate, very fast. <b>Limitation:</b> blind to zero-days and to any variant not yet in the database; requires constant signature updates.',
+        '<b>Anomaly-based detection</b> — builds a statistical baseline of "normal" and flags deviation. Can catch novel attacks. <b>Limitation:</b> high false-positive rate; the baseline period can be poisoned if the network was already compromised while it learned.',
+        '<b>Tools:</b> <b>Snort</b> — the open-source reference, rule-based, can run as IDS or inline IPS. <b>Suricata</b> — open-source, multi-threaded so it scales to higher throughput, and does file extraction and TLS logging. <b>Cisco IPS / Firepower</b> — commercial, integrated with the wider Cisco security fabric.'
+      ],
+      extra:[
+        'Add <b>hybrid detection</b>: real deployments run signature and anomaly engines together, signatures for the known, anomaly for the new — and increasingly a third, <b>stateful protocol analysis</b>, which compares traffic against a vendor-supplied model of how the protocol is *supposed* to behave.',
+        'Name the four outcomes and you can talk about tuning credibly: true positive, false positive, true negative, <b>false negative</b> — and note that the false negative is the dangerous one, because nobody ever gets an alert about it.',
+        '<b>WIPS</b> (Wireless IPS) is the wireless-specific cousin — it detects rogue APs, honeypots and deauth floods. Cisco Adaptive Wireless IPS, Extreme AirDefense, WatchGuard WIPS and Aruba RFProtect are the named products in your slides.',
+        'Real-world use cases from the deck: detecting port scans and reconnaissance, catching malware beaconing to C2, blocking SQL injection at the perimeter, and satisfying compliance requirements (PCI-DSS explicitly requires IDS/IPS).'
+      ],
+      trap:['"IDS is placed in-line" is the classic wrong answer. It is <b>out-of-band</b> — that is precisely why it cannot block, and precisely why it can never take the network down.'],
+      mnem:['<b>D</b>etect = <b>D</b>etective (after the fact). <b>P</b>revent = <b>P</b>oliceman (in the way).']
+    },
+    {
+      id:'ans1-vpn', title:'VPN — definition, purpose, and how the tunnel actually works',
+      def:'A VPN (Virtual Private Network) extends a private network across a public network, letting a user send and receive data as if their device were directly attached to the private network — by encrypting the traffic and encapsulating it inside another packet.',
+      points:[
+        '<b>Purpose:</b> confidentiality on untrusted networks, remote access to internal resources, bypassing location restrictions, hiding the source IP from the destination, and joining two physically separate offices into one logical network.',
+        '<b>How it works — the five steps:</b> (1) the client authenticates to the VPN gateway; (2) the two negotiate a shared session key; (3) each outbound packet is encrypted; (4) the encrypted packet is <i>encapsulated</i> inside a new outer packet addressed to the gateway — this is the tunnel; (5) the gateway decapsulates, decrypts, and forwards the original packet onto the internal network. The reply follows the reverse path.',
+        '<b>Remote Access VPN</b> — one user to a corporate network. Use case: working from home, a laptop in a café.',
+        '<b>Site-to-Site VPN</b> — gateway to gateway, joining two whole networks. Sub-types: <i>intranet</i> (two offices of one company), <i>extranet</i> (your network to a partner\'s). Users are unaware it exists.',
+        '<b>Mobile VPN</b> — designed for endpoints whose IP address and network change mid-session (moving between cell towers and Wi-Fi). It keeps the session alive across the change rather than dropping it.',
+        '<b>Cloud VPN / VPNaaS</b> — the gateway is hosted by a cloud provider, connecting users or on-prem networks to cloud workloads without any on-site hardware.'
+      ],
+      table:{head:['Protocol','Security','Speed','Stability','Compatibility'],rows:[
+        ['<b>PPTP</b>','Weak — MS-CHAPv2 is broken; considered obsolete','Very fast','Good','Universal (legacy)'],
+        ['<b>L2TP/IPsec</b>','Good — L2TP has no encryption of its own, IPsec supplies it','Moderate (double encapsulation)','Good','Very wide, built into most OSes'],
+        ['<b>OpenVPN</b>','Excellent — SSL/TLS, AES-256, open source and audited','Good','Excellent, traverses NAT and firewalls on port 443','Needs a client app'],
+        ['<b>IKEv2/IPsec</b>','Excellent','Very fast','Excellent — best at reconnecting after a network change (MOBIKE)','Native on iOS/Windows; the usual mobile-VPN choice'],
+        ['<b>WireGuard</b>','Excellent — modern, fixed cipher suite (ChaCha20, Curve25519)','Fastest','Excellent','Growing; ~4,000 lines of code vs IPsec\'s ~400,000']
+      ]},
+      extra:[
+        'The small code-base of WireGuard is a security argument, not a performance one: a smaller attack surface is easier to audit exhaustively. Say that and you have made the point the slide implies.',
+        '<b>IPsec has two modes.</b> <i>Transport mode</i> encrypts only the payload, leaving the original IP header — used host-to-host. <i>Tunnel mode</i> encrypts the entire original packet and wraps it in a new header — used gateway-to-gateway, and it is what hides the internal addressing. Site-to-site VPNs are tunnel mode.',
+        '<b>AH vs ESP.</b> IPsec\'s Authentication Header gives integrity and authentication but <i>no encryption</i>; Encapsulating Security Payload gives confidentiality as well. ESP is what is actually deployed; AH breaks through NAT.',
+        '<b>Split tunnelling vs full tunnelling.</b> Split sends only corporate traffic through the VPN (faster, cheaper) but the endpoint is simultaneously on the open internet — a bridge into the corporate network. Full tunnelling forces everything through the gateway so all of it is inspected.',
+        '<b>Kill switch</b> — blocks all traffic if the tunnel drops, so nothing leaks in cleartext during a reconnect. Naming this shows you have thought about failure, not just operation.'
+      ],
+      trap:['L2TP <b>does not encrypt anything</b>. It is a tunnelling protocol only. "L2TP/IPsec" is always written as a pair because IPsec is the half doing the security.'],
+      qa:[
+        {q:'Why is IKEv2 the protocol of choice for a mobile VPN?',a:'Because of MOBIKE (IKEv2 Mobility and Multihoming). It lets the tunnel survive a change of the client\'s IP address — moving from Wi-Fi to cellular — by re-anchoring the existing security association instead of tearing down and renegotiating the whole session.'},
+        {q:'A VPN encrypts your traffic. Does it make you anonymous?',a:'No. It moves trust rather than removing it: the ISP can no longer see the traffic, but the VPN provider now can. Anonymity would also require that no logs are kept and that the traffic is not correlatable by timing or by the account paying for it.'}
+      ]
+    },
+    {
+      id:'ans1-wterm', title:'Wireless terminology — the twelve terms from the deck',
+      points:[
+        '<b>GSM</b> — Global System for Mobile Communications; the universal digital cellular standard for voice and data.',
+        '<b>Bandwidth</b> — the amount of information transmitted per unit time, described in bits per second.',
+        '<b>Access Point (AP)</b> — the device that connects wireless clients to a wired network; the bridge between the two media.',
+        '<b>BSSID</b> — Basic Service Set Identifier: the MAC address of the access point\'s radio. Unique per radio, and the thing an attacker actually targets.',
+        '<b>ISM band</b> — Industrial, Scientific and Medical: the licence-free frequency bands (2.4 GHz, 5.8 GHz) Wi-Fi shares with microwaves, Bluetooth and cordless phones.',
+        '<b>Hotspot</b> — a place where a public wireless network is available.',
+        '<b>Association</b> — the process of a client joining a specific AP; it must associate before it can pass data.',
+        '<b>SSID</b> — Service Set Identifier: the human-readable 32-character network name, broadcast in beacon frames.',
+        '<b>MIMO-OFDM</b> — Multiple Input Multiple Output with OFDM; multiple antennas transmit and receive simultaneously, multiplying throughput without more spectrum. This is what makes 802.11n and later fast.',
+        '<b>DSSS</b> — Direct-Sequence Spread Spectrum; spreads the signal over a wide band by multiplying it with a chipping code, giving resistance to narrowband interference.',
+        '<b>OFDM</b> — Orthogonal Frequency-Division Multiplexing; splits the channel into many closely spaced orthogonal sub-carriers. Very resistant to multipath fading.',
+        '<b>FHSS</b> — Frequency-Hopping Spread Spectrum; rapidly switches carrier frequency across many channels in a sequence known to both ends. Used by Bluetooth.'
+      ],
+      extra:[
+        '<b>SSID vs BSSID vs ESSID</b> in one line each: SSID is the name; BSSID is the AP radio\'s MAC address; ESSID is the same SSID shared by several APs so a client can roam between them under one network name.',
+        'Note the security consequence: <b>SSID is not a security control.</b> Hiding it (SSID cloaking) only removes it from beacon frames — it still appears in probe requests and association frames, so any passive sniffer recovers it in seconds.'
+      ]
+    },
+    {
+      id:'ans1-std', title:'802.11 standards and the IEEE wireless family',
+      table:{head:['Standard','Frequency','Modulation','Speed','Range'],rows:[
+        ['802.11 (legacy)','2.4 GHz','FHSS / DSSS','2 Mbps','~100 m'],
+        ['802.11a','5 GHz','OFDM','54 Mbps','~30 m (shorter — higher frequency)'],
+        ['802.11b','2.4 GHz','DSSS','11 Mbps','~35–100 m'],
+        ['802.11d','—','—','Regulatory extension: adapts to country-specific frequency rules','—'],
+        ['802.11e','—','—','QoS extension for voice and video','—'],
+        ['802.11g','2.4 GHz','OFDM','54 Mbps','~38–100 m; backward compatible with b'],
+        ['802.11i','—','—','The <b>security</b> amendment — defines WPA2 / RSN with AES-CCMP','—'],
+        ['802.11n','2.4 &amp; 5 GHz','MIMO-OFDM','up to 600 Mbps','~70–250 m'],
+        ['802.15.1 <b>Bluetooth</b>','2.4 GHz','FHSS','1–3 Mbps','~10 m (WPAN)'],
+        ['802.15.4 <b>ZigBee</b>','868/915 MHz, 2.4 GHz','DSSS','250 kbps','10–100 m — low power, mesh, the IoT workhorse'],
+        ['802.16 <b>WiMAX</b>','2–66 GHz','OFDM/SOFDMA','up to 70 Mbps','up to 50 km (MAN)']
+      ]},
+      extra:[
+        '<b>802.11i is the one to memorise by number.</b> Examiners love asking "which amendment defines WPA2" — the answer is 802.11i, and WPA was the interim subset of it released before ratification.',
+        'Beyond the deck, for currency: <b>802.11ac</b> (Wi-Fi 5, 5 GHz, MU-MIMO), <b>802.11ax</b> (Wi-Fi 6/6E, OFDMA, adds WPA3 as mandatory), <b>802.11be</b> (Wi-Fi 7). Mentioning that WPA3 is mandatory for Wi-Fi 6 certification links this table to the encryption topic.',
+        'Why 802.11a has shorter range than 802.11b despite being faster: higher frequencies attenuate faster and penetrate walls poorly. Physics, not protocol — and a nice one-line answer.',
+        '<b>ZigBee (802.15.4) is the IoT link in this module.</b> Low data rate, very low power, self-healing mesh — which is exactly why it is used in sensors and why its security (a network-wide AES-128 key that is often transmitted in the clear during joining) is a known weakness.'
+      ]
+    },
+    {
+      id:'ans1-enc', title:'WEP → WPA → WPA2 → WPA3 — the encryption ladder',
+      def:'The single most examinable table in the module. Learn it as a story: each generation exists because the previous one was broken, and you should be able to say exactly how.',
+      table:{head:['','WEP','WPA','WPA2','WPA3'],rows:[
+        ['Algorithm','RC4 (stream cipher)','RC4 with <b>TKIP</b>','<b>AES-CCMP</b>','<b>AES-GCMP-256</b>'],
+        ['IV size','24-bit','48-bit','48-bit packet number','—'],
+        ['Key length','40 / 104-bit','128-bit','128-bit','192-bit (Enterprise)'],
+        ['Key management','None — static, manually shared','4-way handshake, per-packet key mixing','4-way handshake','<b>SAE</b> (Dragonfly) handshake'],
+        ['Integrity check','CRC-32','<b>Michael</b> MIC','CCMP (CBC-MAC)','HMAC-SHA-384'],
+        ['Status','Broken in minutes','Deprecated','Vulnerable to KRACK (patched)','Current standard']
+      ]},
+      points:[
+        '<b>Why WEP fell:</b> the 24-bit IV is far too small — on a busy network it repeats within hours, and RC4 keystream reuse plus the known-plaintext of ARP frames lets an attacker recover the key statistically. CRC-32 is a linear error-detecting code, not a cryptographic MAC, so packets can be modified and the checksum fixed up.',
+        '<b>Why WPA was only a stopgap:</b> TKIP was designed to run on existing WEP hardware, so it kept RC4 and bolted on per-packet key mixing, a sequence counter against replay, and the Michael MIC. Michael is weak by design (it had to be cheap enough for 1990s silicon) and comes with countermeasures that shut the network down for 60 seconds on two failures — itself a denial-of-service lever.',
+        '<b>WPA2</b> replaced the cipher entirely: AES in CCMP mode (Counter mode for confidentiality, CBC-MAC for integrity). Two flavours — <b>Personal</b> (PSK, one shared passphrase) and <b>Enterprise</b> (802.1X/EAP with a RADIUS server, per-user credentials).',
+        '<b>WPA3</b> replaces the PSK handshake with <b>SAE (Simultaneous Authentication of Equals)</b>, a variant of the Dragonfly key exchange. It is a password-authenticated key exchange, so an eavesdropper who captures the handshake <i>cannot</i> take it offline and brute-force it — which is the entire attack against WPA2-PSK. It also adds forward secrecy, protected management frames, and <b>OWE</b> (Opportunistic Wireless Encryption) so even open hotspots are encrypted.',
+        'WPA3-Enterprise uses GCMP-256 for encryption, HMAC-SHA-384 for key derivation, and ECDSA-384 for certificate authentication — the 192-bit suite.'
+      ],
+      extra:[
+        '<b>The one-sentence answer to "why is WPA3 better".</b> WPA2-PSK lets you capture the 4-way handshake once and then guess passwords forever, offline, at billions per second. SAE makes every guess require a fresh live interaction with the AP — so a weak password stops being catastrophic. That is forward secrecy plus offline-dictionary resistance in one change.',
+        '<b>PMF / 802.11w</b> — Protected Management Frames. Mandatory in WPA3. Management frames (including deauthentication) were historically unauthenticated, which is why deauth attacks work at all. PMF signs them, killing the deauth flood that step 3 of the Aircrack-ng chain depends on.',
+        '<b>Dragonblood</b> (2019) — the side-channel and downgrade attacks found against early WPA3-SAE implementations. Mentioning it shows you know WPA3 is not magic; it was patched, and the transition mode that allows WPA2 fallback is where the downgrade risk lives.',
+        '<b>CCMP expanded:</b> Counter mode with Cipher-Block-Chaining Message Authentication Code Protocol. Being able to expand the acronym is a free mark.'
+      ],
+      trap:[
+        'WPA2 uses <b>AES-CCMP</b>. WPA uses <b>RC4-TKIP</b>. Writing "WPA uses AES" is the single most common error in this topic.',
+        'The IV in WEP is <b>24-bit</b>, not 128. The 128 you are half-remembering is the WPA key length.'
+      ],
+      mnem:['<b>W</b>eak <b>E</b>ncryption <b>P</b>rotocol — WEP. RC4 with a 24-bit IV, held together with CRC-32 tape.']
+    },
+    {
+      id:'ans1-att', title:'Wireless attacks — every attack in the deck',
+      points:[
+        '<b>Rogue AP</b> — an unauthorised AP plugged into the corporate LAN, usually by a well-meaning employee wanting better coverage. It bypasses every perimeter control because it sits <i>inside</i> the trust boundary.',
+        '<b>Client Mis-association</b> — a legitimate client connects to a nearby AP that is not the corporate one (often automatically, from a saved profile), and the attacker rides that association into the client.',
+        '<b>Misconfigured AP</b> — default SSID, default admin password, WEP still enabled, or SSID broadcast with no encryption. No attack skill required; the door is open.',
+        '<b>Unauthorized Association (soft AP)</b> — soft APs are client cards or embedded WLAN radios in laptops and PDAs that can be launched inadvertently <i>or by a virus</i>. The attacker infects a victim machine, activates the soft AP, and connects to the enterprise network through it rather than through a real AP.',
+        '<b>Ad-Hoc Connection Attack</b> — Wi-Fi clients can talk directly in ad-hoc mode with no AP relaying packets. Ad-hoc mode is inherently insecure and provides no strong authentication or encryption, so an attacker on the same hotel or campus network can connect straight to a client operating in that mode.',
+        '<b>Honeypot AP</b> — the attacker broadcasts several attractive SSIDs (Starbucks, AT&amp;T, Vodafone, McDonald\'s) from one radio. Clients with those networks saved associate automatically, and all their traffic now runs through the attacker.',
+        '<b>AP MAC Spoofing</b> — the attacker clones the MAC address of an authorised client to defeat MAC-address filtering, then associates as that client and eavesdrops. MAC addresses are sent in the clear in every frame, so obtaining one takes no effort.',
+        '<b>Jamming</b> — a high-gain transmitter floods the 2.4 GHz band. This works because 802.11 is <b>CSMA/CA</b>: the collision-avoidance algorithm requires a period of silence before a radio may transmit, and jamming guarantees there is never one. A pure denial-of-service, effective against every wireless network regardless of encryption. Commercial jammers in the deck (CPB series) cover 10–150 m and 4–8 frequency bands.',
+        '<b>Evil Twin</b> — the honeypot variant that clones the <i>exact</i> SSID and BSSID of a real corporate AP, usually paired with a deauth flood to push clients off the genuine one.'
+      ],
+      extra:[
+        'Group them when you answer and you look organised rather than list-reciting: <b>rogue infrastructure</b> (rogue AP, honeypot, evil twin, soft AP), <b>identity spoofing</b> (MAC spoofing, mis-association), <b>availability</b> (jamming, deauth flood), <b>cryptographic</b> (WEP cracking, WPA-PSK offline cracking, KRACK).',
+        '<b>Why deauthentication works:</b> management frames were unauthenticated in the original 802.11. Anyone can forge a deauth frame claiming to be the AP. 802.11w/PMF is the fix, and it is mandatory under WPA3.',
+        '<b>Countermeasures from the deck, by category.</b> <i>SSID settings:</i> change the default SSID; do not use the company name or anything guessable; disable SSID broadcast; use SSID cloaking. <i>Authentication:</i> choose WPA2/WPA3 Enterprise with 802.1X rather than WPA or WEP. <i>Configuration:</i> set the router access password, enable the firewall, place a firewall or packet filter between the AP and the corporate intranet, disable remote router login and wireless administration, place APs in physically secure locations, and disable the network when it is not needed.'
+      ],
+      trap:['A <b>rogue AP</b> is connected to your network by an insider. An <b>evil twin</b> is the attacker\'s own AP impersonating yours from outside. Different attacks, different countermeasures — WIPS for the first, mutual authentication (802.1X with certificate validation) for the second.']
+    },
+    {
+      id:'ans1-krack', title:'KRACK — Key Reinstallation Attack (case study, near-certain question)',
+      def:'KRACK exploits the WPA2 four-way handshake by forcing nonce reuse. Discovered by Mathy Vanhoef in 2017. It works against every correctly-configured WPA2 network, which is what made it famous.',
+      points:[
+        '<b>The four-way handshake, in order:</b> (1) AP → client: <b>ANonce</b>. (2) Client → AP: <b>SNonce</b>, signed with the MIC. (3) AP → client: signed message containing the group key, and the instruction to <b>install the encryption key</b>. (4) Client → AP: acknowledgement.',
+        '<b>The flaw:</b> message 3 may legitimately be retransmitted if message 4 is lost. Each time the client receives message 3, it reinstalls the same PTK — and reinstalling resets the transmit nonce and replay counter to their initial values.',
+        '<b>The attack:</b> the attacker sits as a man-in-the-middle between client and AP (a cloned access point on a different channel), blocks message 4 from arriving, and replays message 3. The client reinstalls the key and restarts its nonce at zero — so the same keystream is now used to encrypt new packets. Keystream reuse in a stream cipher means the attacker can decrypt traffic, and in some configurations (Android 6.0 and wpa_supplicant 2.4/2.5, which installed an <i>all-zero</i> key) forge and inject packets too.',
+        '<b>Impact:</b> credit card numbers, passwords, chat messages, emails and photos can be read. The attacker never learns the Wi-Fi password — this is not a password-cracking attack, which is exactly why changing the password does not help.',
+        '<b>Response:</b> vendors shipped patches enforcing that each handshake message is processed only once. The client-side patch is the important one. It is backward-compatible — a patched client is safe even on an unpatched AP.',
+        '<b>Lesson:</b> a protocol-level flaw undermines even correctly configured encryption. Implementation review matters as much as key strength. KRACK directly motivated WPA3\'s SAE handshake, which resists this whole class of replay attack.'
+      ],
+      extra:[
+        'The exam-grade sentence: <b>"KRACK does not break AES and does not recover the passphrase — it breaks the state machine around the key."</b> If you write only one thing, write that.',
+        'Nonce means "number used once". The entire security of counter-mode AES rests on that promise. KRACK is a demonstration that if you can make a nonce repeat, the cipher underneath does not matter.'
+      ],
+      trap:['KRACK attacks the <b>client</b>, not the access point. Patching the router alone does not protect an unpatched phone.']
+    },
+    {
+      id:'ans1-crack', title:'Cracking WPA-PSK with Aircrack-ng, and the tool suite',
+      points:[
+        '<b>Step 1 — monitor:</b> <code>airmon-ng start eth1</code> puts the wireless interface into monitor mode so it captures all frames, not just those addressed to it.',
+        '<b>Step 2 — capture:</b> <code>airodump-ng --write capture eth1</code> collects traffic and writes it to a file, showing BSSID, channel, encryption, cipher, auth and ESSID for every network in range.',
+        '<b>Step 3 — deauthenticate:</b> <code>aireplay-ng --deauth 11 -a 02:24:2B:CD:68:EE</code> forces the client off. When it automatically reconnects, airodump captures the four-way handshake.',
+        '<b>Step 4 — crack:</b> <code>aircrack-ng -a 2 -w wordlist capture.cap</code> runs the captured handshake against a dictionary offline, producing the Master Key, the Transient Key and the EAPOL HMAC on success.',
+        '<b>The critical point:</b> steps 1–3 are online and take seconds; step 4 is <i>entirely offline</i>. The attacker can walk away and grind for weeks. This is why passphrase strength is the only thing standing between a captured handshake and a compromised network — and why WPA3-SAE, which makes each guess require a live exchange, is the structural fix.',
+        '<b>The suite:</b> <b>aircrack-ng</b> (the WEP/WPA-PSK cracker), <b>airmon-ng</b> (monitor mode), <b>airodump-ng</b> (packet capture / IV collection), <b>aireplay-ng</b> (traffic generation, fake auth, replay, ARP injection, deauth), <b>airbase-ng</b> (acts as an ad-hoc AP and captures handshakes), <b>airdecap-ng</b> (decrypts captures and strips wireless headers), <b>airgraph-ng</b> (client-to-AP relationship graphs), <b>airtun-ng</b> (virtual tunnel interface), <b>packetforge-ng</b> (crafts encrypted injection packets), <b>easside-ng</b> (communicate through a WEP AP without the key), <b>wesside-ng</b> (automated WEP key recovery in minutes), <b>tkiptun-ng</b> (WPA-TKIP MIC key and keystream recovery), <b>airolib-ng</b> (ESSID/password database for faster cracking), <b>airserv-ng</b> (share a Wi-Fi card over TCP), <b>airdecloak-ng</b> (removes WEP cloaking), <b>airdrop-ng</b> (rule-based deauthentication), <b>WZCook</b> (recovers WEP keys from Windows XP).',
+        '<b>Other named tools:</b> Wifiphisher (rogue-AP phishing), Reaver (WPS PIN brute force), Fern Wi-Fi Cracker, Ettercap (MITM), Elcomsoft Wireless Security Auditor, AirMagnet WiFi Analyzer PRO.'
+      ],
+      extra:[
+        '<b>WPS is the forgotten weak point.</b> Reaver attacks the 8-digit WPS PIN, which is validated in two halves — reducing the search space from 10⁸ to about 11,000 attempts. A network with a 30-character WPA2 passphrase and WPS enabled is not protected by that passphrase at all. Always list "disable WPS" among countermeasures.',
+        '<b>PMKID attack (2018)</b> — a newer technique that captures a hash from a single frame in the AP\'s first response, with no client and no deauth required. Worth one line: it makes the "wait for a handshake" step unnecessary.'
+      ]
+    },
+    {
+      id:'ans1-fund', title:'OSI, TCP/IP, PKI and SSL/TLS — the foundations section of the deck',
+      points:[
+        '<b>OSI, 7 layers:</b> Physical, Data Link, Network, Transport, Session, Presentation, Application. Wireless security operates mainly at the <b>Data Link (Layer 2)</b> — WPA/WEP encrypt the frame — and at the <b>Network layer (Layer 3)</b> for IPsec VPNs.',
+        '<b>TCP/IP, 4 layers:</b> Link, Internet, Transport, Application. Encryption and authentication occur at the Application and Transport layers (TLS) as well as at the Internet layer (IPsec).',
+        '<b>Operating system basics:</b> the OS manages hardware, memory, file systems, I/O and processes. Its security features are user authentication, access control and the host firewall; regular patching closes the vulnerabilities attackers exploit.',
+        '<b>Web basics:</b> client–server model; components are the browser, the server and cookies. HTTP is plaintext; HTTPS wraps it in SSL/TLS. Using unsecured HTTP over public Wi-Fi exposes session cookies to anyone on the same network.',
+        '<b>PKI</b> — Public Key Infrastructure uses asymmetric cryptography (a public/private key pair) and Certificate Authorities to issue digital certificates that bind an identity to a public key. It is the foundation of SSL/TLS.',
+        '<b>SSL/TLS</b> — secures data in transit; uses PKI certificates to establish an encrypted session. <b>TLS 1.3</b> is the current standard, with a shorter handshake (1-RTT) and the removal of legacy ciphers, RSA key transport and renegotiation.',
+        '<b>Wireless + PKI together:</b> WPA2-Enterprise and WPA3-Enterprise use <b>EAP with certificates</b> (EAP-TLS). Certificates prevent unauthorised devices from associating and — just as importantly — let the client verify the AP, which is the defence against an evil twin.'
+      ],
+      extra:[
+        '<b>Mnemonic for OSI:</b> "<b>P</b>lease <b>D</b>o <b>N</b>ot <b>T</b>hrow <b>S</b>ausage <b>P</b>izza <b>A</b>way" (Physical → Application).',
+        '<b>The EAP methods worth naming:</b> EAP-TLS (mutual certificates, strongest), PEAP (server certificate + inner password auth, most deployed), EAP-TTLS, and LEAP (Cisco legacy, broken by asleap).',
+        '<b>Emerging trends (2025) from the deck:</b> WPA4 in development with quantum-resistant encryption; AI-driven IDS/IPS; Wi-Fi 7 security enhancements.'
+      ]
+    },
+    {
+      id:'ans1-colonial', title:'Colonial Pipeline VPN breach, 2021 (case study)',
+      points:[
+        '<b>What happened:</b> attackers used a single leaked password to log into a legacy remote-access VPN account that had <b>no multi-factor authentication</b>. The account was inactive but had never been disabled, giving an unmonitored entry point into the corporate network. Ransomware was deployed on IT systems, and the company shut down fuel delivery across the U.S. East Coast.',
+        '<b>Lesson 1:</b> a remote-access VPN is only as strong as its weakest credential. MFA is essential, not optional.',
+        '<b>Lesson 2:</b> dormant accounts must be <i>disabled</i>, not merely deprioritised — they remain a live attack surface with nobody watching them.',
+        '<b>Lesson 3:</b> this incident reinforced the shift toward Zero Trust and continuous verification, and away from perimeter VPN trust — which is exactly the argument Module II opens with.'
+      ],
+      extra:[
+        'The structural point to make: the VPN worked <i>perfectly</i>. It authenticated a valid credential and granted the access that credential was entitled to. The failure was in identity lifecycle management, not in the tunnel — which is precisely why the answer is Zero Trust (verify continuously, grant least privilege) rather than "a better VPN".',
+        'Pair it with KRACK in an answer and you have both failure modes: KRACK is a <b>protocol</b> failure, Colonial is an <b>identity and process</b> failure. Examiners reward that contrast.'
+      ]
+    }
+  ]
+});
+</script>
+<script>
+SUBJECT.modules.push({
+  title: 'Zero Trust Architecture',
+  short: 'Zero Trust',
+  weight: '20%',
+  intro: 'Module II opens with the failure of the perimeter model — the castle-and-moat — and builds Zero Trust as the answer. Your slides cover perimeter defence, its hidden vulnerabilities and its limitations; the rest here is the standard NIST SP 800-207 framing that every question on this module is graded against.',
+  topics: [
+    {
+      id:'ans2-perim', title:'The perimeter model and why it failed (castle-and-moat)',
+      def:'Traditional perimeter security divides the world into a trusted inside and an untrusted outside, and concentrates defence at the boundary — firewalls, VPN gateways, IDS. Once you are inside, you are trusted.',
+      points:[
+        '<b>The castle-and-moat analogy:</b> heavy fortification at the wall, free movement within. It assumes the wall is the only way in and that everyone inside belongs there.',
+        '<b>Hidden vulnerability 1 — lateral movement.</b> An attacker who breaches the perimeter once faces almost no further resistance. One compromised laptop becomes the whole network.',
+        '<b>Hidden vulnerability 2 — the insider.</b> A malicious or careless employee is already inside the moat. The perimeter has no opinion about them at all.',
+        '<b>Hidden vulnerability 3 — the perimeter has dissolved.</b> Cloud workloads, SaaS, personal devices and remote work mean there is no longer a single boundary to defend. The data is outside the wall.',
+        '<b>Hidden vulnerability 4 — stolen credentials look legitimate.</b> A valid username and password passing through a VPN gateway is indistinguishable from a real user. Colonial Pipeline is precisely this.',
+        '<b>Limitations summarised:</b> implicit trust based on network location; no continuous verification after login; coarse, all-or-nothing access; poor visibility into east-west (internal) traffic; and no protection once encryption or a tunnel has been legitimately established.'
+      ],
+      extra:[
+        '<b>North-south vs east-west traffic.</b> Perimeter security inspects north-south (in and out of the network) and is blind to east-west (server to server, inside). Most of the damage in a modern breach happens east-west. Naming this pair is a strong, specific point.',
+        'The Forrester origin: John Kindervag coined "Zero Trust" in 2010 with the slogan <b>"never trust, always verify"</b>. Google\'s <b>BeyondCorp</b> (2014 onward) is the canonical real implementation, built after the Operation Aurora breach.'
+      ]
+    },
+    {
+      id:'ans2-zt', title:'Zero Trust — the principles and the NIST tenets',
+      def:'Zero Trust is a security model that eliminates implicit trust and requires continuous verification of every access request, regardless of where it originates or what resource it targets. Defined formally in NIST SP 800-207.',
+      points:[
+        '<b>Principle 1 — Verify explicitly.</b> Authenticate and authorise every request using all available signals: identity, device health, location, service, workload, data classification, and behavioural anomalies.',
+        '<b>Principle 2 — Least privilege access.</b> Just-enough-access (JEA) and just-in-time (JIT) access, with risk-based adaptive policies. Access expires; it is not permanent.',
+        '<b>Principle 3 — Assume breach.</b> Design as though the attacker is already inside. Minimise blast radius by segmenting; verify end-to-end encryption; use analytics to detect and respond.',
+        '<b>The core mechanism:</b> a <b>Policy Decision Point (PDP)</b> — made of a Policy Engine and a Policy Administrator — evaluates each request; a <b>Policy Enforcement Point (PEP)</b> sits in front of the resource and grants or denies. The subject never talks directly to the resource until the PDP has said yes.',
+        '<b>Micro-segmentation</b> — the network is divided into very small zones, each with its own access policy, so a compromise in one does not reach another. This is the direct answer to lateral movement.',
+        '<b>Continuous verification</b> — trust is re-evaluated during the session, not just at login. A device that fails a posture check mid-session loses access.',
+        '<b>ZTNA (Zero Trust Network Access)</b> replaces the VPN: instead of putting a user on the network, it brokers an authenticated connection to one specific application, and the rest of the network stays invisible.'
+      ],
+      table:{head:['','Perimeter / VPN model','Zero Trust'],rows:[
+        ['Trust basis','Network location','Identity + device posture + context'],
+        ['Verification','Once, at connection','Continuous, per request'],
+        ['Access granted','The network','One application or resource'],
+        ['Lateral movement','Largely unrestricted','Blocked by micro-segmentation'],
+        ['Default posture','Allow inside, deny outside','Deny by default, everywhere'],
+        ['Visibility','North-south only','All traffic, logged and analysed']
+      ]},
+      extra:[
+        '<b>The NIST SP 800-207 tenets</b> — quoting even three of these is a strong differentiator: all data sources and computing services are resources; all communication is secured regardless of network location; access is granted per-session; access is determined by dynamic policy including observable client state; the enterprise monitors the integrity and security posture of all assets; all authentication and authorisation are dynamic and strictly enforced before access; the enterprise collects as much information as possible about the current state of assets and uses it to improve its security posture.',
+        '<b>SASE</b> (Secure Access Service Edge) is the delivery model — ZTNA, CASB, SWG and FWaaS combined into one cloud-delivered service. Worth a line as "how Zero Trust is actually bought".',
+        '<b>Zero Trust is not a product.</b> Say this explicitly. It is an architectural principle implemented through identity, device management, segmentation and analytics — a vendor selling "a Zero Trust box" is selling a PEP.'
+      ],
+      trap:['Zero Trust does <b>not</b> mean "trust nothing ever". It means <b>no implicit trust based on network location</b> — trust is granted, explicitly, per request, and then re-checked.'],
+      mnem:['<b>N</b>ever <b>T</b>rust, <b>A</b>lways <b>V</b>erify — and the three pillars: <b>V</b>erify explicitly, <b>L</b>east privilege, <b>A</b>ssume breach (<b>VLA</b>).'],
+      qa:[
+        {q:'How would Zero Trust have changed the Colonial Pipeline outcome?',a:'The dormant account would have failed continuous verification (no MFA, unrecognised device, anomalous behaviour), access would have been scoped to a single application rather than the network, and micro-segmentation would have prevented the ransomware from moving laterally from the VPN entry point into the billing systems that forced the shutdown.'},
+        {q:'Name the two components of a Policy Decision Point.',a:'The Policy Engine, which makes the grant/deny decision using policy and external inputs (threat intelligence, SIEM, device posture, ID management), and the Policy Administrator, which executes that decision by establishing or tearing down the communication path at the PEP.'}
+      ]
+    }
+  ]
+});
+
+SUBJECT.modules.push({
+  title: 'IAM and Authentication Fundamentals',
+  short: 'IAM & AuthN',
+  weight: '20%',
+  intro: 'Identity is the new perimeter — this module is the "IAM" half of the course title. Expanded from the standard syllabus; check against your Module III deck when it is released.',
+  topics: [
+    {
+      id:'ans3-iam', title:'IAM — the four A\'s and the identity lifecycle',
+      def:'Identity and Access Management is the framework of policies and technologies ensuring that the right individuals access the right resources at the right times for the right reasons.',
+      points:[
+        '<b>Identification</b> — claiming an identity (a username). No proof yet.',
+        '<b>Authentication</b> — proving the claim. "Are you who you say you are?"',
+        '<b>Authorization</b> — deciding what that proven identity may do. "What are you allowed to touch?"',
+        '<b>Accounting / Auditing</b> — recording what they did. Non-repudiation lives here.',
+        '<b>Identity lifecycle:</b> <i>provisioning</i> (joiner) → <i>modification</i> (mover — role change) → <i>de-provisioning</i> (leaver). The Colonial Pipeline breach is a de-provisioning failure.',
+        '<b>Privilege creep</b> — a "mover" who accumulates the permissions of every role they have ever held because nothing was ever revoked. Countered by <b>access recertification</b> / periodic access review.',
+        '<b>PAM (Privileged Access Management)</b> — separate, heavily controlled handling of admin accounts: credential vaulting, session recording, just-in-time elevation, and break-glass procedures.'
+      ],
+      extra:[
+        '<b>SoD — Separation of Duties.</b> No single person should be able to both create a payment and approve it. IAM enforces this as a toxic-combination rule at role-assignment time.',
+        '<b>Access models, all four:</b> <b>DAC</b> (owner decides — file permissions), <b>MAC</b> (system-enforced labels — military classification), <b>RBAC</b> (permissions attached to roles, users to roles), <b>ABAC</b> (policy evaluated over attributes of subject, object, action and environment — the most expressive, and what Zero Trust policy engines actually use).',
+        '<b>Zero standing privilege</b> is the modern goal: nobody holds admin rights at rest; they are granted just-in-time, for a fixed window, with an approval trail.'
+      ]
+    },
+    {
+      id:'ans3-auth', title:'Authentication factors, MFA, and why SMS is the weak one',
+      points:[
+        '<b>The three classical factors:</b> something you <b>know</b> (password, PIN), something you <b>have</b> (token, phone, smartcard), something you <b>are</b> (fingerprint, face, iris). Sometimes extended with somewhere you <b>are</b> (geolocation) and something you <b>do</b> (behavioural biometrics — typing rhythm, gait).',
+        '<b>MFA requires factors from different categories.</b> A password plus a security question is <i>not</i> MFA — both are "something you know".',
+        '<b>OTP / TOTP</b> — Time-based One-Time Password (RFC 6238): a shared secret plus the current 30-second time window, hashed with HMAC-SHA1. HOTP is the counter-based variant.',
+        '<b>SMS OTP is the weakest second factor</b> — vulnerable to SIM swapping, SS7 interception and simple social engineering of the carrier. NIST has deprecated it for high-assurance use.',
+        '<b>FIDO2 / WebAuthn / passkeys</b> — public-key authentication where the private key never leaves the authenticator and the signature is bound to the origin domain. This makes it <b>structurally phishing-resistant</b>: a fake site gets a signature that is invalid for its own domain.',
+        '<b>Biometrics metrics:</b> FAR (False Accept Rate — a stranger let in, the security failure), FRR (False Reject Rate — the real user locked out, the usability failure), and CER/EER, the crossover point where the two are equal, used to compare systems. Biometrics cannot be revoked — a leaked fingerprint is leaked forever.',
+        '<b>Adaptive / risk-based authentication</b> — step up the requirement only when the context is unusual (new device, impossible travel, unusual hour). This is the authentication half of Zero Trust\'s "verify explicitly".'
+      ],
+      extra:[
+        '<b>Password storage is a favourite question.</b> Never store plaintext, never plain SHA-256. Use a slow, memory-hard KDF with a per-user <b>salt</b>: <b>bcrypt, scrypt, Argon2, PBKDF2</b>. Salt defeats rainbow tables; the deliberate slowness defeats GPU brute force; a <b>pepper</b> (a secret held outside the database) defeats an attacker who has only the database dump.',
+        '<b>MFA fatigue / push bombing</b> — spamming push approvals until the user taps yes. Countered by <b>number matching</b>. This is a current, real attack and naming it is a mark.',
+        '<b>Kerberos in three lines:</b> the client gets a Ticket Granting Ticket from the Authentication Server, presents the TGT to the Ticket Granting Server for a service ticket, and presents the service ticket to the service. The password never crosses the network, and timestamps prevent replay — which is why Kerberos is exquisitely sensitive to clock skew (5 minutes by default).'
+      ],
+      trap:['Two-factor means two <b>different</b> categories. Password + security question = single-factor. Password + fingerprint = two-factor.'],
+      qa:[{q:'Why is WebAuthn phishing-resistant when TOTP is not?',a:'A TOTP code is a shared secret the user can be tricked into typing into any site, and it is valid anywhere for 30 seconds. WebAuthn signs a challenge with a private key that never leaves the device, and the signature is cryptographically bound to the origin (the real domain). A phishing site receives a signature that its own domain cannot validate, so the credential is useless to it.'}]
+    },
+    {
+      id:'ans3-fed', title:'Federation — SSO, SAML, OAuth 2.0 and OpenID Connect',
+      points:[
+        '<b>SSO (Single Sign-On)</b> — authenticate once to an Identity Provider, then access many Service Providers without re-entering credentials. Improves usability <i>and</i> security (fewer passwords, one place to enforce MFA and to revoke), but concentrates risk: the IdP becomes a single point of failure and a very high-value target.',
+        '<b>SAML 2.0</b> — XML-based. The IdP issues a signed <i>assertion</i> about the user; the SP consumes it. Dominant in enterprise and university web SSO.',
+        '<b>OAuth 2.0 is authorization, not authentication.</b> It issues an access token letting an application act on a resource on the user\'s behalf, with a limited <i>scope</i>. It says nothing reliable about who the user is.',
+        '<b>OpenID Connect (OIDC)</b> is the thin identity layer on top of OAuth 2.0. It adds the <b>ID token</b> — a signed JWT containing claims about the user. "Sign in with Google" is OIDC, not bare OAuth.',
+        '<b>JWT structure:</b> header.payload.signature, base64url-encoded and dot-separated. The payload is <b>readable by anyone</b> — it is encoded, not encrypted — so never put a secret in it. The signature is what makes it trustworthy.'
+      ],
+      extra:[
+        '<b>The classic JWT vulnerability:</b> accepting <code>alg: none</code>, or allowing an algorithm switch from RS256 to HS256 so the attacker signs the token with the public key as the HMAC secret. Always pin the expected algorithm server-side.',
+        '<b>OAuth roles, all four:</b> Resource Owner (the user), Client (the app), Authorization Server (issues tokens), Resource Server (holds the API). The <b>Authorization Code flow with PKCE</b> is the only one you should recommend today — implicit flow is deprecated because the token travels in the URL fragment.',
+        '<b>SCIM</b> — System for Cross-domain Identity Management: the standard for <i>provisioning</i> accounts between systems, the automation that makes joiner/mover/leaver actually happen. Federation handles login; SCIM handles the account existing at all.'
+      ],
+      trap:['If an exam question says "use OAuth to log the user in", the correct answer is that OAuth 2.0 alone is an authorization framework and <b>OpenID Connect</b> is the authentication layer built on it.']
+    }
+  ]
+});
+
+SUBJECT.modules.push({
+  title: 'Secure Coding',
+  short: 'Secure Coding',
+  weight: '20%',
+  intro: 'Standard-syllabus expansion — align with your Module IV deck when released. The OWASP Top 10 and the classic memory-safety bugs are the reliable core.',
+  topics: [
+    {
+      id:'ans4-owasp', title:'OWASP Top 10 and the injection family',
+      points:[
+        '<b>The 2021 OWASP Top 10, in order:</b> A01 Broken Access Control, A02 Cryptographic Failures, A03 Injection, A04 Insecure Design, A05 Security Misconfiguration, A06 Vulnerable and Outdated Components, A07 Identification and Authentication Failures, A08 Software and Data Integrity Failures, A09 Security Logging and Monitoring Failures, A10 Server-Side Request Forgery.',
+        '<b>SQL injection</b> — untrusted input concatenated into a query changes its structure. <b>The fix is parameterised queries / prepared statements</b>, which send code and data on separate channels so data can never be parsed as code. Input validation and escaping are defence in depth, not the fix.',
+        '<b>XSS (Cross-Site Scripting)</b> — attacker script executes in the victim\'s browser in the site\'s origin. Three types: <i>stored</i> (persisted on the server), <i>reflected</i> (echoed back from the request), <i>DOM-based</i> (never touches the server; the sink is in client-side JS). Fix: contextual output encoding, a Content-Security-Policy, and <code>HttpOnly</code> cookies so a stolen script cannot read the session.',
+        '<b>CSRF</b> — the victim\'s browser is tricked into sending an authenticated request the user did not intend. Fix: anti-CSRF tokens and <code>SameSite</code> cookies.',
+        '<b>Broken access control</b> — including <b>IDOR</b> (Insecure Direct Object Reference): changing <code>/invoice?id=101</code> to <code>102</code> and getting someone else\'s data. Authorisation must be checked <b>server-side, on every request</b>, against the authenticated identity.',
+        '<b>Buffer overflow</b> — writing past the end of a buffer overwrites adjacent memory, classically the saved return address on the stack, redirecting execution to attacker-supplied shellcode. Caused by unbounded functions like <code>strcpy</code>, <code>gets</code>, <code>sprintf</code>. Fix: bounded alternatives (<code>strncpy</code>, <code>snprintf</code>), and memory-safe languages.',
+        '<b>Mitigations at the platform level:</b> <b>ASLR</b> (randomises memory layout so addresses cannot be predicted), <b>DEP/NX</b> (marks the stack non-executable), <b>stack canaries</b> (a known value before the return address; if it changed, abort), and compiler hardening flags.'
+      ],
+      extra:[
+        '<b>The one-line principle that answers half of secure coding: never mix code and data.</b> SQL injection, XSS, command injection, LDAP injection and template injection are all the same bug — a parser being handed attacker-controlled input as instructions.',
+        '<b>Race conditions / TOCTOU</b> (Time Of Check to Time Of Use): a resource is validated and then used, and the attacker changes it in between. Fix with atomic operations and locking, not with re-checking.',
+        '<b>Secure SDLC</b> — shift left. Threat modelling at design (<b>STRIDE</b>: Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, Elevation of privilege), <b>SAST</b> on source, <b>DAST</b> against a running app, <b>SCA</b> for third-party dependencies, then penetration testing. Name the four tool categories and you have covered the whole pipeline.',
+        '<b>Fail securely, and fail closed.</b> An error handler that grants access on exception is a vulnerability; and error messages must never leak stack traces, SQL text or internal paths.'
+      ],
+      trap:['Input <b>validation</b> alone does not stop SQL injection — blacklists are always incomplete. Parameterised queries stop it structurally, which is why they are the answer.'],
+      mnem:['OWASP injection triad by fix: <b>SQLi → parameterise. XSS → encode on output. CSRF → token + SameSite.</b>']
+    }
+  ]
+});
+
+SUBJECT.modules.push({
+  title: 'OT Security (Operational Technology)',
+  short: 'OT Security',
+  weight: '20%',
+  intro: 'Industrial control systems — where a security failure has a physical consequence. Standard-syllabus expansion; the Stuxnet and Colonial cases anchor it.',
+  topics: [
+    {
+      id:'ans5-ot', title:'OT vs IT, the Purdue model, and ICS protocols',
+      def:'Operational Technology is hardware and software that detects or causes change by directly monitoring and controlling physical devices, processes and events — SCADA, PLCs, DCS, RTUs.',
+      table:{head:['','IT','OT'],rows:[
+        ['Priority order','<b>C</b>onfidentiality → Integrity → Availability','<b>A</b>vailability → Integrity → Confidentiality (<b>reversed</b>)'],
+        ['Consequence of failure','Data loss, financial','Physical damage, environmental harm, loss of life'],
+        ['Patch cadence','Days to weeks','Years — a plant shutdown may cost more than the risk'],
+        ['Asset lifespan','3–5 years','15–30 years; unsupported OSes are normal'],
+        ['Protocols','TCP/IP, HTTPS','Modbus, DNP3, Profinet, EtherNet/IP — mostly with <b>no authentication</b>'],
+        ['Downtime tolerance','Scheduled maintenance is routine','Often unacceptable; 24/7 continuous process']
+      ]},
+      points:[
+        '<b>The reversed CIA triad is the single most examinable fact in this module.</b> In OT, availability comes first — a safety system that fails closed can kill someone.',
+        '<b>Purdue Enterprise Reference Architecture</b> — Level 0 physical process (sensors, actuators); Level 1 basic control (PLCs, RTUs); Level 2 area supervisory control (HMIs, SCADA); Level 3 site operations (historians, MES); Level 3.5 the <b>DMZ</b>; Levels 4–5 enterprise IT and business networks. Segmentation between levels, and especially the 3.5 DMZ, is the core defence.',
+        '<b>Modbus</b> — 1979, no authentication, no encryption, no integrity checking. Any device that can reach a PLC can command it. DNP3 and Profinet share the same original assumption: a physically isolated, trusted network.',
+        '<b>The air gap is largely a myth.</b> Remote maintenance links, contractor laptops, USB drives and IT/OT convergence have connected almost every "isolated" plant. Stuxnet crossed an air gap on removable media.',
+        '<b>Stuxnet (2010)</b> — targeted Siemens Step7 PLCs controlling uranium centrifuges at Natanz. Used four zero-days, spread by USB, and altered centrifuge speeds while <b>replaying recorded normal sensor data to the operators</b> so the HMI showed everything was fine. The first malware to cause physical destruction, and the reason OT security became a discipline.',
+        '<b>Standards:</b> <b>IEC 62443</b> is the OT security standard (zones and conduits, security levels SL1–SL4); <b>NIST SP 800-82</b> is the ICS security guide; NERC CIP is mandatory for the North American power grid.'
+      ],
+      extra:[
+        '<b>Zones and conduits</b> (IEC 62443) is OT\'s vocabulary for micro-segmentation: group assets with common security requirements into a <i>zone</i>, and permit traffic between zones only through a controlled <i>conduit</i>. Linking this back to Zero Trust in Module II is exactly the cross-module synthesis that earns top marks.',
+        '<b>A data diode</b> is the OT-specific control worth naming: a physically unidirectional gateway that lets telemetry flow out to the historian while making an inbound command electrically impossible. Not a firewall rule — physics.',
+        '<b>Other named incidents:</b> Ukraine power grid (2015, BlackEnergy — first confirmed grid takedown by cyberattack), TRITON/TRISIS (2017 — first malware to target a <i>Safety Instrumented System</i>, the layer that exists to prevent explosions), and Colonial Pipeline (2021 — the OT was shut down precautionarily because the IT billing system was compromised, which is itself the lesson about IT/OT convergence).',
+        '<b>Passive monitoring only.</b> An active vulnerability scan that would be routine on IT can crash a PLC — many have no tolerance for malformed packets. OT security tooling is deliberately read-only, using span ports and protocol-aware passive discovery.'
+      ],
+      trap:['Do not write the CIA triad in the usual order for OT. <b>Availability first</b> — and be able to say why: the process is physical and continuous, and stopping it safely is itself a dangerous operation.'],
+      qa:[{q:'Why can you not simply patch OT systems monthly like IT?',a:'Because patching requires a controlled shutdown of a continuous physical process, the equipment is often certified as a whole system so a patch voids vendor support, the OS may be long out of support, and the availability requirement means the risk of an unplanned outage from a bad patch can exceed the risk of the vulnerability. The compensating controls are segmentation, passive monitoring and strict conduit control instead.'}]
+  }
+  ]
+});
+
+SUBJECT.quiz = [
+  {q:'Compare IDS and IPS across action, placement and impact.',a:'IDS detects and alerts, sits out-of-band on a mirror port, and has no impact on traffic — a false positive is only noise. IPS detects and blocks, sits in-line so all traffic passes through it, adds latency, and a false positive cuts off a legitimate user. IDS is a detective control; IPS is a preventive one.'},
+  {q:'Explain the WPA2 four-way handshake and how KRACK subverts it.',a:'AP sends ANonce; client replies with SNonce and a MIC; AP sends message 3 containing the group key and the instruction to install the PTK; client acknowledges. Message 3 may be retransmitted if the ack is lost, and each receipt causes the client to reinstall the key, resetting the nonce and replay counter. KRACK sits as a MITM, blocks message 4, and replays message 3 — forcing nonce reuse, which yields keystream reuse and allows decryption (and, against some Android/wpa_supplicant versions that install an all-zero key, injection).'},
+  {q:'Why does WPA3 resist offline dictionary attacks when WPA2-PSK does not?',a:'WPA2-PSK lets an attacker capture the four-way handshake once and then test passphrase guesses offline, at unlimited speed. WPA3 replaces it with SAE (Dragonfly), a password-authenticated key exchange in which the captured exchange yields nothing testable — every guess requires a fresh live interaction with the AP, which is rate-limited and detectable. SAE also provides forward secrecy, so a later passphrase compromise does not decrypt past traffic.'},
+  {q:'Contrast tunnel mode and transport mode in IPsec.',a:'Transport mode encrypts only the IP payload and keeps the original header, so it is used host-to-host and the endpoints\' addresses remain visible. Tunnel mode encrypts the entire original packet and encapsulates it in a new IP header addressed to the gateways, hiding internal addressing — this is what site-to-site VPNs use.'},
+  {q:'Why did the perimeter security model fail, and what replaces it?',a:'It grants implicit trust by network location, so one breach permits free lateral movement; it has no view of insiders; and the perimeter itself has dissolved with cloud, SaaS and remote work, so the data is no longer inside the wall. Zero Trust replaces it: verify explicitly on every request using identity, device posture and context; grant least privilege just-in-time; assume breach and micro-segment to limit blast radius.'},
+  {q:'Distinguish authentication, authorization and accounting with an example.',a:'Authentication proves identity — the password and passkey at login. Authorization decides what that identity may do — this user may read the payroll report but not edit it. Accounting records what was done — an audit log entry showing the report was opened at 14:02, which supplies non-repudiation.'},
+  {q:'How do you defend against SQL injection, and why is input validation insufficient?',a:'Use parameterised queries or prepared statements so the SQL structure is fixed by the developer and user input can only ever be bound as data, never parsed as code. Input validation relies on enumerating bad patterns, and blacklists are always incomplete — encoding tricks, alternate character sets and second-order injection defeat them. Validation, least-privilege database accounts and a WAF are defence in depth on top of parameterisation, not substitutes for it.'},
+  {q:'Why is the CIA triad reordered in OT environments?',a:'Because OT controls a physical process. Loss of availability in an ICS can mean an uncontrolled shutdown, equipment destruction, environmental release or injury, so availability comes first, then integrity (a falsified sensor reading causes a wrong control action), and confidentiality last — the setpoint of a valve is rarely a secret worth an outage.'},
+  {q:'What is a honeypot AP and how does it differ from a rogue AP?',a:'A honeypot AP broadcasts several attractive, commonly-saved SSIDs so passing clients associate automatically and route their traffic through the attacker. A rogue AP is an unauthorised access point physically connected to the organisation\'s own wired network, usually by an employee, which bypasses the perimeter from inside. The honeypot is countered by mutual authentication and by not auto-joining open networks; the rogue AP is found by wireless IPS scanning and by port security on the switch.'},
+  {q:'Give three countermeasures for wireless attacks and justify each.',a:'Deploy WPA3 or WPA2-Enterprise with 802.1X rather than a shared PSK, so credentials are per-user, revocable, and there is no single handshake worth capturing. Enable Protected Management Frames (802.11w), which authenticates deauthentication frames and therefore breaks the deauth flood that both the Aircrack-ng handshake capture and evil-twin herding depend on. Place a firewall between the AP and the corporate intranet and run a WIPS, so that even a successful wireless compromise lands in a segmented zone and a rogue or honeypot AP is detected rather than trusted.'}
+];
+</script>
+<script>
+/* ==================================================================
+   RENDERER — one template, driven by the SUBJECT object above it.
+   Every subject file is this same code with a different SUBJECT, so a
+   fix here is a fix everywhere and the three files never drift apart.
+   State (checkboxes, open module) is namespaced by SUBJECT.slug, so
+   ticking a Blockchain topic never lights up an IoT one.
+   ================================================================== */
+(function(){
+  var S = window.SUBJECT;
+  var KEY = 'p1study:' + S.slug;
+  var done = {};              // topicId -> true
+  try { done = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch(e){ done = {}; }
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(done)); }catch(e){} }
+
+  document.title = 'PLAYER ONE — ' + S.name;
+  // Short label only. The hero heading below already carries the full name and
+  // code; repeating them here is what pushed the bar past the viewport width.
+  document.getElementById('brand').innerHTML = '▮ <b>' + esc(S.short || S.name) + '</b>';
+
+  // ---- flatten topics for search/progress ----
+  var allTopics = [];
+  S.modules.forEach(function(m){ (m.topics||[]).forEach(function(t){ allTopics.push(t); }); });
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+
+  // ---------------- sidebar ----------------
+  function buildSide(){
+    var el = document.getElementById('side');
+    var h = '<div class="tochead">'+esc(S.name)+'</div>';
+    h += '<button class="tocmod" onclick="scrollToId(\'top\')"><span class="n">▸</span>Overview &amp; exam plan</button>';
+    S.modules.forEach(function(m,i){
+      h += '<button class="tocmod" data-mod="'+i+'" onclick="openMod('+i+',true)">'
+         + '<span class="n">M'+(i+1)+'</span>'+esc(m.short||m.title)
+         + '<span class="pc" id="pc'+i+'"></span></button>';
+    });
+    if(S.exam){
+      h += '<div class="tochead">Self-test</div>';
+      h += '<button class="tocmod" onclick="scrollToId(\'quiz\')"><span class="n">?</span>Likely questions</button>';
+    }
+    el.innerHTML = h;
+  }
+
+  // ---------------- topic renderer ----------------
+  function renderTopic(t){
+    var cls = 'topic' + (done[t.id]?' done':'');
+    var h = '<div class="'+cls+'" id="'+t.id+'" data-topic="1">';
+    h += '<h3><input type="checkbox" class="chk" '+(done[t.id]?'checked':'')
+       + ' onchange="toggleTopic(\''+t.id+'\',this.checked)"><span>'+esc(t.title)+'</span>';
+    if(t.tag==='min') h += '';
+    h += '</h3>';
+    if(t.def) h += '<div class="def">'+t.def+'</div>';
+    if(t.points && t.points.length){
+      h += '<ul class="pts">';
+      t.points.forEach(function(p){ h += '<li>'+p+'</li>'; });
+      h += '</ul>';
+    }
+    if(t.table) h += renderTable(t.table);
+    if(t.extra) h += box('extra','EXTRA MARKS ✦', t.extra);
+    if(t.trap)  h += box('trap','EXAM TRAP ⚠', t.trap);
+    if(t.mnem)  h += box('mnem','REMEMBER IT ◆', t.mnem);
+    if(t.qa && t.qa.length){
+      t.qa.forEach(function(q){
+        h += '<div class="qa" onclick="this.classList.toggle(\'open\')">'
+           + '<div class="qq"><span class="m">Q</span><span>'+esc(q.q)+'</span></div>'
+           + '<div class="aa">'+q.a+'</div></div>';
+      });
+    }
+    h += '</div>';
+    return h;
+  }
+  function box(cls,label,body){
+    var inner = Array.isArray(body)
+      ? '<ul>'+body.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul>'
+      : '<div>'+body+'</div>';
+    return '<div class="box '+cls+'"><div class="bh">'+label+'</div>'+inner+'</div>';
+  }
+  function renderTable(tb){
+    var h = '<table><thead><tr>';
+    tb.head.forEach(function(c){ h += '<th>'+esc(c)+'</th>'; });
+    h += '</tr></thead><tbody>';
+    tb.rows.forEach(function(r){
+      h += '<tr>'+r.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';
+    });
+    h += '</tbody></table>';
+    return h;
+  }
+
+  // ---------------- main ----------------
+  function buildMain(){
+    var el = document.getElementById('main');
+    var h = '';
+    h += '<div class="hero" id="top">'
+       + '<div class="code">'+esc(S.code)+' · MINOR EXAM · '+esc(S.examLabel||'')+'</div>'
+       + '<h1>'+esc(S.name)+'</h1>'
+       + '<p>'+esc(S.blurb||'')+'</p>';
+    if(S.plan){
+      h += '<div class="box extra" style="margin-bottom:0"><div class="bh">HOW TO USE THIS ✦</div><ul>'
+         + S.plan.map(function(x){return '<li>'+x+'</li>';}).join('') + '</ul></div>';
+    }
+    h += '</div>';
+
+    S.modules.forEach(function(m,i){
+      h += '<section class="mod" id="mod'+i+'" data-mod="'+i+'">';
+      h += '<div class="modhead" onclick="openMod('+i+')">'
+         + '<span class="caret">▶</span>'
+         + '<h2><span style="color:var(--ink-3)">M'+(i+1)+'</span> &nbsp;'+esc(m.title)+'</h2>';
+      if(m.weight) h += '<span class="wt">'+esc(m.weight)+'</span>';
+      h += '</div>';
+      h += '<div class="modbody">';
+      if(m.intro) h += '<p style="color:var(--ink-2);font-size:12.5px;margin:8px 0 2px">'+m.intro+'</p>';
+      (m.topics||[]).forEach(function(t){ h += renderTopic(t); });
+      h += '</div></section>';
+    });
+
+    if(S.quiz && S.quiz.length){
+      h += '<section class="mod open" id="quiz"><div class="modhead"><span class="caret">▶</span>'
+         + '<h2><span style="color:var(--ink-3)">✱</span> &nbsp;Most likely questions — rapid self-test</h2></div>';
+      h += '<div class="modbody">';
+      h += '<p style="color:var(--ink-2);font-size:12.5px">Tap to reveal. If you can answer these cold, you are ready.</p>';
+      S.quiz.forEach(function(q){
+        h += '<div class="qa" onclick="this.classList.toggle(\'open\')">'
+           + '<div class="qq"><span class="m">Q</span><span>'+esc(q.q)+'</span></div>'
+           + '<div class="aa">'+q.a+'</div></div>';
+      });
+      h += '</div></section>';
+    }
+
+    h += '<div class="foot">'+ (S.foot||'') +'<br>Generated for Neel · PLAYER ONE life-dashboard · offline-ready, no network calls. '
+       + 'Progress is saved on this device. Print to PDF for a paper copy.</div>';
+    el.innerHTML = h;
+  }
+
+  // ---------------- interactions ----------------
+  window.openMod = function(i, fromNav){
+    var mod = document.getElementById('mod'+i);
+    if(!mod) return;
+    if(fromNav){ mod.classList.add('open'); }
+    else { mod.classList.toggle('open'); }
+    document.querySelectorAll('.tocmod[data-mod]').forEach(function(b){
+      b.classList.toggle('on', +b.getAttribute('data-mod')===i);
+    });
+    if(fromNav){ mod.scrollIntoView({behavior:'smooth',block:'start'}); closeSideMobile(); }
+    updateRail();
+  };
+  window.expandAll = function(on){
+    document.querySelectorAll('.mod').forEach(function(m){ if(m.id!=='quiz') m.classList.toggle('open',on); });
+    updateRail();
+  };
+  window.toggleTopic = function(id,val){
+    if(val) done[id]=true; else delete done[id];
+    save();
+    var t=document.getElementById(id); if(t) t.classList.toggle('done',!!val);
+    updateProgress();
+  };
+  window.scrollToId = function(id){ var e=document.getElementById(id); if(e){e.scrollIntoView({behavior:'smooth',block:'start'});} closeSideMobile(); };
+  window.jumpNext = function(){
+    for(var i=0;i<S.modules.length;i++){
+      var ts=S.modules[i].topics||[];
+      var undoneLeft = ts.some(function(t){return !done[t.id];});
+      if(undoneLeft){ openMod(i,true); return; }
+    }
+    scrollTo(0,0);
+  };
+  window.toggleSide = function(){
+    document.getElementById('side').classList.toggle('open');
+    document.getElementById('scrim').classList.toggle('on');
+  };
+  function closeSideMobile(){
+    if(window.innerWidth<=900){
+      document.getElementById('side').classList.remove('open');
+      document.getElementById('scrim').classList.remove('on');
+    }
+  }
+  window.toggleCRT = function(){ document.body.classList.toggle('plain'); };
+
+  // ---------------- progress ----------------
+  function updateProgress(){
+    var total=allTopics.length, n=0;
+    allTopics.forEach(function(t){ if(done[t.id]) n++; });
+    var pct = total? Math.round(n/total*100):0;
+    document.getElementById('pcnt').textContent = pct+'%';
+    document.getElementById('railfill').style.width = pct+'%';
+    S.modules.forEach(function(m,i){
+      var ts=m.topics||[], mn=0; ts.forEach(function(t){ if(done[t.id]) mn++; });
+      var el=document.getElementById('pc'+i);
+      if(el) el.textContent = ts.length? (mn+'/'+ts.length):'';
+    });
+  }
+  function updateRail(){ /* rail reflects scroll depth on wide screens */ }
+
+  // ---------------- search ----------------
+  var qEl = document.getElementById('q');
+  var timer=null;
+  qEl.addEventListener('input', function(){
+    clearTimeout(timer); timer=setTimeout(function(){ runSearch(qEl.value.trim().toLowerCase()); },120);
+  });
+  function runSearch(term){
+    var main=document.getElementById('main');
+    var old=document.getElementById('nores'); if(old) old.remove();
+    if(!term){
+      document.querySelectorAll('[data-topic]').forEach(function(t){ t.classList.remove('hidden'); unmark(t); });
+      document.querySelectorAll('.mod').forEach(function(m){ m.classList.remove('hidden'); });
+      return;
+    }
+    var hits=0;
+    document.querySelectorAll('.mod').forEach(function(m){
+      if(m.id==='quiz'){ m.classList.add('hidden'); return; }
+      var any=false;
+      m.querySelectorAll('[data-topic]').forEach(function(t){
+        var txt=t.textContent.toLowerCase();
+        var match=txt.indexOf(term)>=0;
+        t.classList.toggle('hidden',!match);
+        if(match){ any=true; hits++; }
+      });
+      m.classList.toggle('hidden',!any);
+      if(any) m.classList.add('open');
+    });
+    if(!hits){
+      var d=document.createElement('div'); d.id='nores';
+      d.textContent='No topic mentions “'+term+'”. Try a shorter word.';
+      main.appendChild(d);
+    }
+  }
+  function unmark(){}
+
+  // keyboard: "/" focuses search
+  document.addEventListener('keydown',function(e){
+    if(e.key==='/' && document.activeElement!==qEl){ e.preventDefault(); qEl.focus(); }
+    if(e.key==='Escape'){ qEl.value=''; runSearch(''); qEl.blur(); }
+  });
+
+  // ---------------- boot ----------------
+  buildSide(); buildMain(); updateProgress();
+  if(S.modules[0]) document.getElementById('mod0').classList.add('open');
+})();
+</script>
+</body>
+</html>

@@ -13,6 +13,7 @@ import { currencyOf } from '../lib/indiabook.js';
 import { fetchUsdInr } from '../lib/markets.js';
 import { activeDay, ROLLOVER_HOUR } from '../lib/schedule.js';
 import DashAllocation from '../components/money/DashAllocation.jsx';
+import { studyReminders } from '../lib/exams.js';
 
 const WD = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const briefPhase = h => (h < 17 ? 'morning' : h < 21 ? 'evening' : 'night');
@@ -80,6 +81,12 @@ export default function HQ({ go }) {
 
   // ---- reminders: overdue tasks, attendance risk, upcoming due + events ----
   const reminders = [];
+  // First, and deliberately so. The card renders seven rows, and these are the
+  // only entries whose deadline cannot be recovered: a missed Spanish FBL
+  // module may never be attempted later, and an exam does not reschedule. They
+  // come from lib/exams.js rather than from a todo, because they are fixed
+  // university dates that nobody has to remember to type in.
+  studyReminders(today).forEach(r => reminders.push(r));
   todos.filter(t => !t.completed && t.due_date && t.due_date < today).slice(0, 3)
     .forEach(t => reminders.push({ icon: '⚠', text: t.title, chip: 'overdue', c: 'var(--red)', go: 'todos' }));
   subjects.filter(s => { const p = attPct(s.attendance_pct); return p > 0 && p < 75; })

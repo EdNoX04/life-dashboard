@@ -6568,3 +6568,48 @@ th:hover .hold-info { color: var(--cyan); }
   line-height: 1.5;
   background: rgba(0, 0, 0, 0.22);
 }
+
+/* ============================================================ STUDY / EXAMS
+   Cards for the minor-exam block: the three dates, the day plan, the guide
+   launcher and the Spanish FBL windows. Everything here is grid or flex with
+   a min-width of 0 on the text columns, because the subject names are long
+   and a nowrap label is what pushes a card past the viewport on a phone.
+   ============================================================ */
+
+.exam-days{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.exam-day{border:1px solid var(--border-bright);border-radius:8px;padding:10px 11px;
+  background:rgba(255,255,255,.02);min-width:0}
+.exam-day.exam-past{opacity:.45}
+.exam-date{font-size:11px;letter-spacing:.14em;color:var(--ink-3);margin-bottom:6px}
+.exam-pick{width:100%;background:#0a0e1a;border:1px solid var(--border);border-radius:6px;
+  padding:6px 8px;font-family:inherit;font-size:12.5px;outline:none;max-width:100%}
+.exam-pick:focus{border-color:var(--cyan)}
+
+.guide-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:10px}
+.guide-card{border:1px solid var(--border-bright);border-radius:8px;padding:11px 12px;
+  background:rgba(255,255,255,.02);min-width:0}
+.guide-code{font-size:10px;letter-spacing:.16em;margin-bottom:4px}
+.guide-name{font-size:13px;color:var(--ink);line-height:1.35}
+.guide-mods{font-size:11px;color:var(--ink-3);margin-top:3px}
+
+.plan-days{display:flex;flex-direction:column;gap:8px}
+.plan-day{border-left:3px solid var(--border-bright);border-radius:0 8px 8px 0;
+  padding:8px 10px;background:rgba(255,255,255,.02);min-width:0}
+.plan-day.plan-now{background:rgba(0,229,255,.06);box-shadow:inset 0 0 0 1px rgba(0,229,255,.18)}
+.plan-day.plan-exam{background:rgba(255,77,90,.07)}
+.plan-day.plan-eve{background:rgba(255,210,63,.06)}
+.plan-head{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:4px}
+.plan-date{font-size:11px;letter-spacing:.1em;color:var(--ink-3);white-space:nowrap}
+.plan-title{font-size:12.5px;font-weight:600;min-width:0}
+.plan-list{margin:0;padding-left:16px}
+.plan-list li{font-size:12.5px;color:var(--ink-2);margin:3px 0;line-height:1.5}
+
+.fbl-list{display:flex;flex-direction:column;gap:4px}
+.fbl-row{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:6px 8px;
+  border-radius:6px;border:1px solid transparent;font-size:12.5px;min-width:0}
+.fbl-row.fbl-open{border-color:var(--cyan);background:rgba(0,229,255,.07)}
+.fbl-row.fbl-done{opacity:.42}
+.fbl-label{color:var(--ink);min-width:96px}
+.fbl-span{color:var(--ink-2);flex:1;min-width:0}
+.fbl-state{font-size:10px;letter-spacing:.12em;color:var(--ink-3);white-space:nowrap}
+.fbl-row.fbl-open .fbl-state{color:var(--cyan)}
