@@ -6613,3 +6613,63 @@ th:hover .hold-info { color: var(--cyan); }
 .fbl-span{color:var(--ink-2);flex:1;min-width:0}
 .fbl-state{font-size:10px;letter-spacing:.12em;color:var(--ink-3);white-space:nowrap}
 .fbl-row.fbl-open .fbl-state{color:var(--cyan)}
+
+/* ============================================================ FLIGHT RADAR
+   The globe is a wireframe on purpose — no coastline data ships with this app,
+   and drawing invented landmasses would put countries in the wrong place. A
+   graticule is honest about being a coordinate grid, and it is also exactly
+   the look of the vector radar displays the rest of the app is pastiching.
+   ============================================================ */
+
+.fg-wrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.fg-globe{touch-action:none;cursor:grab;user-select:none;display:block;
+  filter:drop-shadow(0 0 22px rgba(0,229,255,.10))}
+.fg-globe.fg-drag{cursor:grabbing}
+.fg-cap{font-size:11px;color:var(--ink-3);letter-spacing:.08em;text-align:center;
+  min-height:15px;font-variant-numeric:tabular-nums}
+/* The selection ping. Switched off for anyone who asked their machine to stop
+   moving things — a pulsing ring is exactly what that setting is about. */
+.fg-ping{animation:fg-ping 1.9s ease-out infinite;transform-origin:center}
+@keyframes fg-ping{
+  0%{opacity:.9;stroke-width:1.4}
+  70%{opacity:.12;stroke-width:.5}
+  100%{opacity:.9;stroke-width:1.4}
+}
+@media (prefers-reduced-motion:reduce){ .fg-ping{animation:none;opacity:.85} }
+
+.fl-split{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:12px;align-items:start}
+@media(max-width:900px){ .fl-split{grid-template-columns:minmax(0,1fr)} }
+
+.fl-list{display:flex;flex-direction:column;gap:3px;max-height:520px;overflow-y:auto;scrollbar-width:thin}
+.fl-row{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1.35fr) auto auto;
+  gap:8px;align-items:baseline;width:100%;text-align:left;background:transparent;
+  border:1px solid transparent;border-radius:6px;padding:6px 8px;cursor:pointer;
+  font-family:inherit;font-size:12.5px;color:var(--ink-2)}
+.fl-row:hover{background:var(--panel-2);border-color:var(--border-bright)}
+.fl-cs{color:var(--ink);font-weight:600;display:flex;gap:5px;align-items:center;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fl-type{color:var(--ink-3);font-size:11.5px;min-width:0;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.fl-alt{font-variant-numeric:tabular-nums;white-space:nowrap;font-size:11.5px}
+.fl-trk{font-size:11px;white-space:nowrap;min-width:30px;text-align:right}
+
+.fl-hero{border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:10px}
+.fl-hero-cs{font-size:22px;color:var(--cyan);letter-spacing:.06em;
+  text-shadow:0 0 18px currentColor;line-height:1.2;word-break:break-word}
+.fl-hero-sub{font-size:12px;color:var(--ink-3);margin-top:3px}
+.fl-cov{font-size:11.5px;margin-top:6px;letter-spacing:.04em}
+
+.fl-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:8px}
+.fl-stat{border:1px solid var(--border);border-radius:7px;padding:7px 9px;
+  background:rgba(255,255,255,.02);min-width:0}
+.fl-stat-l{font-size:9.5px;letter-spacing:.16em;color:var(--ink-3)}
+.fl-stat-v{font-size:13px;color:var(--ink);margin-top:2px;font-variant-numeric:tabular-nums;
+  word-break:break-word}
+
+.fl-route{border-top:1px solid var(--border);padding-top:10px}
+.fl-bar{position:relative;height:6px;border-radius:999px;background:#0a0e1a;
+  border:1px solid var(--border);margin:14px 0 6px}
+.fl-bar-fill{height:100%;border-radius:999px;
+  background:linear-gradient(90deg,var(--purple),var(--cyan));box-shadow:0 0 10px var(--cyan)}
+.fl-bar-plane{position:absolute;top:-9px;transform:translateX(-50%);font-size:13px;
+  color:var(--pink);text-shadow:0 0 8px currentColor;pointer-events:none}
