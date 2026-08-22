@@ -1,69 +1,111 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Empty } from '../components/ui.jsx';
+import { useCollection } from '../lib/hooks.js';
+import { upsertMemory } from '../lib/db.js';
 import FlightGlobe from '../components/flight/FlightGlobe.jsx';
+import FlightPicker from '../components/flight/FlightPicker.jsx';
 import {
   parseFeed, positioned, sortForList, feedSummary, routeQuery, toCallsigns,
-  coverage, phaseOf, progress, etaMinutes, fmtDuration, haversineKm, bearingDeg,
+  coverage, phaseOf, progress, etaMinutes, fmtDuration,
   compass, fmtAlt, fmtSpeed, fmtKm, fmtVs, fmtAge,
-  AIRPORTS, airport, PRESETS, clampRadius,
+  airport, PRESETS, clampRadius,
 } from '../lib/flights.js';
+import {
+  isoDate, dayLabel, trackability, flightsFromCalendar, planKey,
+  parseSchedule, delayMinutes, fmtLocal, SCHEDULE_UNAVAILABLE,
+} from '../lib/flightplan.js';
 
 // FLIGHT RADAR.
 //
-// Data is adsb.lol: a volunteer network of ADS-B receivers, free, keyless, and
-// BSD-3 licensed. That shapes what this screen can honestly claim. It shows
-// aircraft that a volunteer's antenna can currently hear — which over a city is
-// almost all of them and over open ocean is none. The screen says which of
-// those two situations it is in rather than letting a stationary marker imply
-// a stationary aircraft.
+// Two sources, kept visibly apart because they are different kinds of fact:
 //
-// It also has no schedules, no gates and no delay times: nobody gives those
-// away for free. Everything here is derived from the aircraft's own broadcast
-// — position, altitude, speed, track — plus geometry we compute ourselves.
+//   adsb.lol      — free, keyless, volunteer ADS-B. Where an aeroplane IS.
+//                   Live only, and only where a receiver can hear it.
+//   AeroDataBox   — optional, needs a key. What a flight is SCHEDULED to do:
+//                   terminal, gate, baggage belt, times.
+//
+// Everything works without the second one; the schedule panel then says what
+// is missing and why rather than showing blanks.
 
 const POLL_MS = 15000;
 const MODES = [
   { id: 'area', label: 'Area' },
-  { id: 'search', label: 'Search' },
   { id: 'mil', label: 'Military' },
   { id: 'emg', label: 'Squawk 7700' },
 ];
 
 export default function Flights() {
-  const [mode, setMode] = useState('area');
+  const today = isoDate();
+
+  const [plan, setPlan] = useState(null);          // the flight we are tracking
+  const [mode, setMode] = useState('area');        // browse mode when no plan
   const [preset, setPreset] = useState(PRESETS[0]);
   const [radius, setRadius] = useState(250);
-  const [query, setQuery] = useState('');
-  const [submitted, setSubmitted] = useState('');
   const [list, setList] = useState([]);
   const [sel, setSel] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  const [meta, setMeta] = useState(null);
   const [live, setLive] = useState(true);
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  const [meta, setMeta] = useState(null);
+  const [sched, setSched] = useState(null);        // { state, data, note }
+  const [saved, setSaved] = useState([]);
   const timer = useRef(null);
   const abort = useRef(null);
 
+  // ---- saved plans + calendar flights -----------------------------------
+  const { items: savedMem } = useCollection('memory', { filter: 'key=eq.flight_plans', order: 'key' });
+  const { items: calMem } = useCollection('memory', { filter: 'key=eq.calendar_events', order: 'key' });
+  useEffect(() => {
+    const v = savedMem?.[0]?.value;
+    if (Array.isArray(v)) setSaved(v);
+  }, [savedMem]);
+
+  // Flights the user never typed in: pulled out of the Google Calendar events
+  // this app already syncs. Deliberately conservative about what counts as a
+  // flight — see flightsFromCalendar.
+  const calFlights = useMemo(
+    () => flightsFromCalendar(calMem?.[0]?.value?.events || [], today),
+    [calMem, today],
+  );
+
+  const myFlights = useMemo(() => {
+    const seen = new Set();
+    return [...calFlights, ...saved].filter(f => {
+      const k = planKey(f);
+      if (!k || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  }, [calFlights, saved]);
+
+  async function savePlan(p) {
+    const next = [...saved.filter(x => planKey(x) !== planKey(p)), p]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(-40);
+    setSaved(next);
+    await upsertMemory('flight_plans', next).catch(() => {});
+  }
+  async function dropPlan(p) {
+    const next = saved.filter(x => planKey(x) !== planKey(p));
+    setSaved(next);
+    await upsertMemory('flight_plans', next).catch(() => {});
+  }
+
+  // ---- what to fetch -----------------------------------------------------
   const url = useCallback(() => {
+    if (plan) {
+      const t = trackability(plan.date, today);
+      if (!t.can) return null;                       // nothing live to look for
+      return `/api/flight?op=callsign&q=${encodeURIComponent(plan.callsign)}`;
+    }
     if (mode === 'mil') return '/api/flight?op=mil';
     if (mode === 'emg') return '/api/flight?op=sqk&q=7700';
-    if (mode === 'search') {
-      if (!submitted) return null;
-      const r = routeQuery(submitted);
-      if (!r) return null;
-      // toCallsigns turns "EK2" into "UAE2" — without it, searching your own
-      // boarding pass returns nothing, which is the first thing anyone tries.
-      const q = r.op === 'callsign' ? (toCallsigns(r.q)[0] || r.q) : r.q;
-      return `/api/flight?op=${r.op}&q=${encodeURIComponent(q)}`;
-    }
     return `/api/flight?op=point&lat=${preset.lat}&lon=${preset.lon}&r=${clampRadius(radius)}`;
-  }, [mode, preset, radius, submitted]);
+  }, [plan, mode, preset, radius, today]);
 
   const load = useCallback(async () => {
     const u = url();
-    if (!u) { setList([]); setMeta(null); return; }
+    if (!u) { setList([]); setMeta(null); setBusy(false); return; }
     abort.current?.abort();
     const ctl = new AbortController();
     abort.current = ctl;
@@ -75,137 +117,188 @@ export default function Flights() {
       if (!r.ok) { setErr(j.error || `request failed (${r.status})`); setBusy(false); return; }
       const parsed = parseFeed(j);
       setList(parsed);
-      setMeta({ cache: j._cache, ageMs: j._ageMs, warn: j._warn, at: Date.now() });
-      // Keep the selected aircraft's data fresh across polls rather than
-      // holding the record from whenever it was first clicked.
-      setSel(s => (s ? parsed.find(a => a.hex === s.hex) || s : s));
+      setMeta({ cache: j._cache, warn: j._warn, at: Date.now() });
+      // When tracking one flight, select it automatically — and keep the
+      // selection's data fresh across polls rather than holding the record
+      // from whenever it was first clicked.
+      setSel(s => {
+        if (plan) return parsed[0] || null;
+        return s ? parsed.find(a => a.hex === s.hex) || s : s;
+      });
       setErr(j._warn ? `showing cached data — ${j._warn}` : '');
     } catch (e) {
       if (e.name !== 'AbortError') setErr(String(e.message || e).slice(0, 160));
     } finally {
       if (!ctl.signal.aborted) setBusy(false);
     }
-  }, [url]);
+  }, [url, plan]);
 
   useEffect(() => { load(); }, [load]);
-
   useEffect(() => {
     clearInterval(timer.current);
     if (!live) return;
-    // Never poll a hidden tab. This is a background ornament for most of its
-    // life and there is no reason to spend a phone's battery on it.
+    // Never poll a hidden tab — this is a background ornament most of its life.
     timer.current = setInterval(() => { if (!document.hidden) load(); }, POLL_MS);
     return () => clearInterval(timer.current);
   }, [live, load]);
+
+  // ---- schedule (optional provider) --------------------------------------
+  useEffect(() => {
+    if (!plan) { setSched(null); return; }
+    let dead = false;
+    (async () => {
+      setSched({ state: 'loading' });
+      try {
+        const r = await fetch(`/api/flight?op=schedule&q=${encodeURIComponent(plan.iata + plan.number)}&date=${plan.date}`);
+        const j = await r.json();
+        if (dead) return;
+        if (r.status === 501) { setSched({ state: 'nokey' }); return; }
+        if (!r.ok) { setSched({ state: 'error', note: j.error }); return; }
+        const first = (j.flights || [])[0];
+        setSched(first ? { state: 'ok', data: parseSchedule(first) } : { state: 'none', note: j._note });
+      } catch (e) {
+        if (!dead) setSched({ state: 'error', note: String(e.message || e) });
+      }
+    })();
+    return () => { dead = true; };
+  }, [plan?.id]);
 
   const shown = useMemo(() => sortForList(list), [list]);
   const withPos = useMemo(() => positioned(shown), [shown]);
   const summary = useMemo(() => feedSummary(list), [list]);
 
-  const A = airport(from);
-  const B = airport(to);
+  // Route comes from the plan when we know it, otherwise from the schedule.
+  const A = airport(plan?.from || sched?.data?.departure?.airport);
+  const B = airport(plan?.to || sched?.data?.arrival?.airport);
   const route = A && B ? { from: A, to: B } : null;
 
   const cov = sel ? coverage(sel) : null;
   const ph = sel ? phaseOf(sel) : null;
   const prog = sel && route ? progress(A, B, sel) : null;
   const eta = prog ? etaMinutes(prog.leftKm, sel.groundSpeedKt) : null;
+  const track = plan ? trackability(plan.date, today) : null;
 
-  function submit(e) {
-    e.preventDefault();
-    setMode('search');
-    setSubmitted(query.trim());
-    setSel(null);
-  }
+  function startTracking(p) { setPlan(p); setSel(null); setErr(''); }
+  function stopTracking() { setPlan(null); setSel(null); setSched(null); setErr(''); }
 
   return (
     <>
       <h1 className="tab-title">FLIGHT RADAR</h1>
-      <p className="tab-sub">Live aircraft from volunteer ADS-B receivers. Search a flight, or just watch the sky. ✈</p>
+      <p className="tab-sub">Live aircraft from volunteer ADS-B receivers. Track your flight, or just watch the sky. ✈</p>
 
-      <Card title="Find a flight" color="var(--cyan)"
-        right={
-          <span className="flex" style={{ gap: 6, alignItems: 'center' }}>
-            <button className={`btn btn-sm ${live ? 'btn-green' : ''}`} onClick={() => setLive(v => !v)}>
-              {live ? '● live' : '‖ paused'}
-            </button>
-            <button className="btn btn-sm" onClick={load} disabled={busy}>{busy ? '…' : '↻'}</button>
-          </span>
-        }>
-        <form onSubmit={submit} className="flex" style={{ gap: 6, flexWrap: 'wrap' }}>
-          <input
-            style={{ flex: 1, minWidth: 190 }}
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="EK 2 · 6E 1492 · AI 916 · A6-EUR · 8963a9"
-            autoComplete="off" spellCheck="false"
-          />
-          <button className="btn btn-cyan" type="submit">Track</button>
-        </form>
-        <div className="small muted mt">
-          Flight number, tail number or ICAO hex. Your boarding pass says <b>EK 2</b>; the aircraft
-          transmits <b>UAE2</b> — the search handles the translation.
-        </div>
+      {!plan && (
+        <Card title="Track a flight" color="var(--cyan)">
+          <FlightPicker today={today} onTrack={startTracking} onSave={savePlan} />
+        </Card>
+      )}
 
-        <div className="flex mt" style={{ gap: 6, flexWrap: 'wrap' }}>
-          {MODES.map(m => (
-            <button key={m.id} className={`btn btn-sm ${mode === m.id ? 'btn-cyan' : ''}`}
-              onClick={() => { setMode(m.id); setSel(null); }}>{m.label}</button>
-          ))}
-        </div>
-
-        {mode === 'area' && (
-          <>
-            <div className="flex mt" style={{ gap: 6, flexWrap: 'wrap' }}>
-              {PRESETS.map(p => (
-                <button key={p.id} className={`btn btn-sm ${preset.id === p.id ? 'btn-purple' : ''}`}
-                  onClick={() => { setPreset(p); setSel(null); }}>{p.label}</button>
-              ))}
-            </div>
-            <div className="flex mt" style={{ gap: 8, alignItems: 'center' }}>
-              <span className="small muted">RADIUS</span>
-              <input type="range" min="25" max="250" step="25" value={radius}
-                onChange={e => setRadius(+e.target.value)} style={{ flex: 1 }} />
-              <span className="small">{radius} nm</span>
-            </div>
-          </>
-        )}
-
-        {mode === 'emg' && (
-          <div className="small mt" style={{ color: 'var(--yellow)', lineHeight: 1.55 }}>
-            7700 is the general emergency squawk. It is usually empty, and when it is not,
-            it is often a light aircraft with a minor problem rather than anything dramatic.
+      {!plan && myFlights.length > 0 && (
+        <Card title="My flights" color="var(--yellow)"
+          right={<span className="small muted">{calFlights.length} from calendar</span>}>
+          <div className="fl-mine">
+            {myFlights.map(f => {
+              const t = trackability(f.date, today);
+              return (
+                <div key={planKey(f)} className={`fl-mine-row${t.state === 'past' ? ' past' : ''}`}>
+                  <span className="fl-mine-no">{f.flightNo}</span>
+                  <span className="fl-mine-air">{f.airline}</span>
+                  <span className="fl-mine-rt">
+                    {f.from && f.to ? `${f.from} → ${f.to}` : <span className="muted">route unknown</span>}
+                  </span>
+                  <span className="fl-mine-day">{dayLabel(f.date, today)}</span>
+                  {f.source === 'calendar'
+                    ? <span className="chip c-yellow">cal</span>
+                    : <button className="btn btn-sm" title="remove" onClick={() => dropPlan(f)}>✕</button>}
+                  <button className="btn btn-sm btn-cyan" disabled={!t.can}
+                    title={t.text} onClick={() => startTracking(f)}>
+                    {t.can ? 'Track' : t.state === 'past' ? 'flown' : 'waiting'}
+                  </button>
+                </div>
+              );
+            })}
           </div>
-        )}
+          <div className="small muted mt" style={{ lineHeight: 1.55 }}>
+            Flights are read out of the Google Calendar events this app already syncs — anything
+            with a real airline code and a flight-shaped context. Only today&rsquo;s can be tracked
+            live; the rest sit here until their day comes.
+          </div>
+        </Card>
+      )}
 
-        {err && <div className="small mt" style={{ color: 'var(--yellow)' }}>{err}</div>}
-      </Card>
+      {plan && (
+        <Card title={plan.flightNo} color="var(--pink)"
+          right={
+            <span className="flex" style={{ gap: 6, alignItems: 'center' }}>
+              <button className={`btn btn-sm ${live ? 'btn-green' : ''}`} onClick={() => setLive(v => !v)}>
+                {live ? '● live' : '‖ paused'}
+              </button>
+              <button className="btn btn-sm" onClick={load} disabled={busy}>{busy ? '…' : '↻'}</button>
+              <button className="btn btn-sm" onClick={stopTracking}>✕ stop</button>
+            </span>
+          }>
+          <div className="fl-plan">
+            <span className="fl-plan-air">{plan.airline}</span>
+            <span className="fl-plan-cs">transmits as <b>{plan.callsign}</b></span>
+            <span className="fl-plan-day">{dayLabel(plan.date, today)}</span>
+          </div>
+          {!track.can && <div className="small mt" style={{ color: 'var(--yellow)' }}>{track.text}</div>}
+          {track.can && !sel && !busy && (
+            <div className="small mt" style={{ color: 'var(--yellow)', lineHeight: 1.55 }}>
+              Nothing is transmitting as {plan.callsign} right now. It may not have taken off yet,
+              it may have already landed, or it may be over an area with no receiver in range.
+            </div>
+          )}
+          {err && <div className="small mt" style={{ color: 'var(--yellow)' }}>{err}</div>}
+
+          <SchedulePanel sched={sched} />
+        </Card>
+      )}
 
       <div className="fl-split">
-        <Card title="Radar" color="var(--purple)"
-          right={<span className="small muted">{summary}</span>}>
-          <FlightGlobe
-            aircraft={withPos}
-            selected={sel}
-            route={route}
-            onPick={setSel}
-            size={340}
-          />
+        <Card title="Radar" color="var(--purple)" right={<span className="small muted">{summary}</span>}>
+          <FlightGlobe aircraft={withPos} selected={sel} route={route} onPick={setSel} size={340} />
           <div className="small muted mt" style={{ lineHeight: 1.55, textAlign: 'center' }}>
-            A coordinate grid, not a map — real coastlines are not in this file, so none are drawn.
-            Airport markers and every aircraft position are real.
+            Coastlines and borders are Natural Earth data. Drag to spin, scroll to zoom —
+            every aircraft position on it is real and live.
           </div>
         </Card>
 
-        <Card title={sel ? 'Selected flight' : 'In range'} color="var(--cyan)"
-          right={sel ? <button className="btn btn-sm" onClick={() => setSel(null)}>← list</button> : null}>
-          {!sel && shown.length === 0 && !busy && (
-            <Empty icon="✈" text={
-              mode === 'search' && submitted
-                ? `Nothing is transmitting as “${submitted}” right now. It may not be airborne, or it may be somewhere no receiver can hear it.`
-                : 'Nothing in range.'
-            } />
+        <Card title={sel ? 'Live position' : plan ? 'Searching…' : 'In range'} color="var(--cyan)"
+          right={sel && !plan ? <button className="btn btn-sm" onClick={() => setSel(null)}>← list</button> : null}>
+          {!plan && !sel && (
+            <>
+              <div className="flex" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                {MODES.map(m => (
+                  <button key={m.id} className={`btn btn-sm ${mode === m.id ? 'btn-cyan' : ''}`}
+                    onClick={() => { setMode(m.id); setSel(null); }}>{m.label}</button>
+                ))}
+              </div>
+              {mode === 'area' && (
+                <>
+                  <div className="flex" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                    {PRESETS.map(p => (
+                      <button key={p.id} className={`btn btn-sm ${preset.id === p.id ? 'btn-purple' : ''}`}
+                        onClick={() => { setPreset(p); setSel(null); }}>{p.label}</button>
+                    ))}
+                  </div>
+                  <div className="flex" style={{ gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                    <span className="small muted">RADIUS</span>
+                    <input type="range" min="25" max="250" step="25" value={radius}
+                      onChange={e => setRadius(+e.target.value)} style={{ flex: 1 }} />
+                    <span className="small">{radius} nm</span>
+                  </div>
+                </>
+              )}
+              {mode === 'emg' && (
+                <div className="small" style={{ color: 'var(--yellow)', lineHeight: 1.55, marginBottom: 8 }}>
+                  7700 is the general emergency squawk. Usually empty — and when it is not, it is
+                  most often a light aircraft with a minor problem rather than anything dramatic.
+                </div>
+              )}
+            </>
           )}
+
+          {!sel && shown.length === 0 && !busy && !plan && <Empty icon="✈" text="Nothing in range." />}
 
           {!sel && shown.length > 0 && (
             <div className="fl-list">
@@ -236,11 +329,9 @@ export default function Flights() {
             <>
               <div className="fl-hero">
                 <div className="fl-hero-cs">{sel.flightNo || sel.callsign || sel.hex}</div>
-                <div className="fl-hero-sub">
-                  {[sel.type, sel.reg, sel.callsign].filter(Boolean).join(' · ')}
-                </div>
-                {/* The honesty line. A marker that stops moving looks identical
-                    whether the aircraft landed or simply flew out of range. */}
+                <div className="fl-hero-sub">{[sel.type, sel.reg, sel.callsign].filter(Boolean).join(' · ')}</div>
+                {/* A marker that stops moving looks identical whether the
+                    aircraft landed or simply flew out of range. Say which. */}
                 <div className="fl-cov" style={{
                   color: cov.state === 'live' ? 'var(--green)'
                     : cov.state === 'stale' ? 'var(--yellow)' : 'var(--red)',
@@ -268,49 +359,26 @@ export default function Flights() {
                 </div>
               )}
 
-              {/* Route is opt-in because the feed does not carry one. Guessing
-                  origin and destination from a callsign would be fabrication. */}
-              <div className="fl-route mt">
-                <div className="small muted" style={{ marginBottom: 6 }}>
-                  The ADS-B broadcast carries no origin or destination — type them to draw the route and get an ETA.
-                </div>
-                <div className="flex" style={{ gap: 6, flexWrap: 'wrap' }}>
-                  <input style={{ width: 92 }} value={from} onChange={e => setFrom(e.target.value.toUpperCase())}
-                    placeholder="From" maxLength={3} />
-                  <input style={{ width: 92 }} value={to} onChange={e => setTo(e.target.value.toUpperCase())}
-                    placeholder="To" maxLength={3} />
-                  <span className="small muted" style={{ alignSelf: 'center' }}>
-                    {A && B ? `${A.city} → ${B.city}` : 'IATA codes — DXB, BOM, DEL…'}
-                  </span>
-                </div>
-
-                {route && prog && (
-                  <>
-                    <div className="fl-bar mt">
-                      <div className="fl-bar-fill" style={{ width: `${(prog.pct * 100).toFixed(1)}%` }} />
-                      <div className="fl-bar-plane" style={{ left: `${(prog.pct * 100).toFixed(1)}%` }}>✈</div>
-                    </div>
-                    <div className="flex" style={{ justifyContent: 'space-between' }}>
-                      <span className="small muted">{A.city}</span>
-                      <span className="small" style={{ color: 'var(--cyan)' }}>
-                        {Math.round(prog.pct * 100)}% · {fmtKm(prog.leftKm)} to run
-                        {eta != null && ` · ${fmtDuration(eta)}`}
-                      </span>
-                      <span className="small muted">{B.city}</span>
-                    </div>
-                    <div className="small muted mt" style={{ lineHeight: 1.55 }}>
-                      Progress is measured by great-circle distance and the ETA by current ground speed.
-                      Neither uses a published schedule, because free schedule data does not exist.
-                    </div>
-                  </>
-                )}
-                {from && to && !route && (
-                  <div className="small mt" style={{ color: 'var(--yellow)' }}>
-                    {!A && `${from} is not in the airport table. `}{!B && `${to} is not in the airport table. `}
-                    Try a major airport code.
+              {route && prog && (
+                <div className="fl-route mt">
+                  <div className="fl-bar">
+                    <div className="fl-bar-fill" style={{ width: `${(prog.pct * 100).toFixed(1)}%` }} />
+                    <div className="fl-bar-plane" style={{ left: `${(prog.pct * 100).toFixed(1)}%` }}>✈</div>
                   </div>
-                )}
-              </div>
+                  <div className="flex" style={{ justifyContent: 'space-between' }}>
+                    <span className="small muted">{A.city}</span>
+                    <span className="small" style={{ color: 'var(--cyan)' }}>
+                      {Math.round(prog.pct * 100)}% · {fmtKm(prog.leftKm)} to run
+                      {eta != null && ` · ${fmtDuration(eta)}`}
+                    </span>
+                    <span className="small muted">{B.city}</span>
+                  </div>
+                  <div className="small muted mt" style={{ lineHeight: 1.55 }}>
+                    Progress is great-circle distance and the ETA is from current ground speed —
+                    neither uses a published schedule.
+                  </div>
+                </div>
+              )}
             </>
           )}
         </Card>
@@ -318,20 +386,97 @@ export default function Flights() {
 
       <Card title="Where this comes from" color="var(--ink-3)">
         <div className="small muted" style={{ lineHeight: 1.6 }}>
-          Positions are from <b>adsb.lol</b>, a volunteer network of ADS-B receivers — free, no
-          account, no API key. Because it is volunteer-run, coverage follows where people live:
-          dense over cities and coastlines, absent over open ocean. A Dubai–Mumbai flight really
-          does go quiet for a stretch of the Arabian Sea, and this screen will say
-          &ldquo;out of receiver coverage&rdquo; rather than leave the aircraft parked mid-sea.
-          {meta?.at && (
-            <> Last updated {fmtAge((Date.now() - meta.at) / 1000)} ago
-              {meta.cache === 'hit' ? ' (from cache)' : ''}.</>
-          )}
+          Positions come from <b>adsb.lol</b>, a volunteer network of ADS-B receivers — free, no
+          account, no key. Coverage follows where people live: dense over cities and coastlines,
+          absent over open ocean. A Dubai–Mumbai flight really does go quiet for a stretch of the
+          Arabian Sea, and this screen says &ldquo;out of receiver coverage&rdquo; rather than
+          leaving the aircraft parked mid-sea. Terminal, gate and baggage belt are not in the ADS-B
+          broadcast at all and come from a separate schedule provider.
+          {meta?.at && <> Last updated {fmtAge((Date.now() - meta.at) / 1000)} ago.</>}
         </div>
       </Card>
     </>
   );
 }
+
+// ---------------------------------------------------------------- schedule
+
+function SchedulePanel({ sched }) {
+  if (!sched) return null;
+  if (sched.state === 'loading') return <div className="small muted mt">looking up the schedule…</div>;
+
+  if (sched.state === 'nokey') {
+    return (
+      <div className="fl-sched fl-sched-off mt">
+        <div className="fl-sched-h">TERMINAL · GATE · BELT</div>
+        <div className="small" style={{ lineHeight: 1.55 }}>{SCHEDULE_UNAVAILABLE}</div>
+      </div>
+    );
+  }
+  if (sched.state === 'none') {
+    return <div className="small muted mt">No schedule found for this flight and date.</div>;
+  }
+  if (sched.state === 'error') {
+    return <div className="small mt" style={{ color: 'var(--yellow)' }}>Schedule unavailable — {sched.note}</div>;
+  }
+
+  const d = sched.data;
+  if (!d) return null;
+  const dep = d.departure, arr = d.arrival;
+  const dDelay = delayMinutes(dep), aDelay = delayMinutes(arr);
+
+  return (
+    <div className="fl-sched mt">
+      <div className="fl-sched-grid">
+        <SideCol side={dep} title="Departure" delay={dDelay} />
+        <SideCol side={arr} title="Arrival" delay={aDelay} arrival />
+      </div>
+      <div className="small muted mt" style={{ lineHeight: 1.5 }}>
+        {d.status && <>Status <b>{d.status}</b>. </>}
+        {d.aircraft && <>{d.aircraft}{d.reg ? ` · ${d.reg}` : ''}. </>}
+        Gates and belts are assigned late and change — treat anything here as the airport&rsquo;s
+        current intention, not a guarantee.
+      </div>
+    </div>
+  );
+}
+
+function SideCol({ side, title, delay, arrival }) {
+  if (!side) return <div className="fl-side"><div className="fl-sched-h">{title}</div><div className="small muted">not reported</div></div>;
+  const t = fmtLocal(side.revised || side.scheduled);
+  const sch = fmtLocal(side.scheduled);
+  return (
+    <div className="fl-side">
+      <div className="fl-sched-h">{title} · {side.airport || '—'}</div>
+      <div className="fl-time">
+        {t || '—'}
+        {delay != null && delay !== 0 && (
+          <span className="fl-delay" style={{ color: delay > 0 ? 'var(--red)' : 'var(--green)' }}>
+            {delay > 0 ? `+${delay}m` : `${delay}m`}
+          </span>
+        )}
+      </div>
+      {/* Times are the airport's own clock, which is the number on the
+          departure board — not converted into the reader's timezone. */}
+      {delay != null && delay !== 0 && sch && <div className="fl-was">was {sch} local</div>}
+      <div className="fl-slots">
+        <Slot label="Terminal" v={side.terminal} />
+        <Slot label={arrival ? 'Belt' : 'Gate'} v={arrival ? side.belt : side.gate} />
+        {!arrival && side.checkInDesk && <Slot label="Check-in" v={side.checkInDesk} />}
+      </div>
+    </div>
+  );
+}
+
+// A blank slot says "not assigned yet" rather than showing an empty box —
+// the difference between "no gate exists" and "no gate has been chosen" is
+// the whole question you are asking when you look at this.
+const Slot = ({ label, v }) => (
+  <div className="fl-slot">
+    <div className="fl-slot-l">{label}</div>
+    <div className={`fl-slot-v${v ? '' : ' none'}`}>{v || 'not yet'}</div>
+  </div>
+);
 
 function Stat({ label, value }) {
   return (

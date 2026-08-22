@@ -6673,3 +6673,89 @@ th:hover .hold-info { color: var(--cyan); }
   background:linear-gradient(90deg,var(--purple),var(--cyan));box-shadow:0 0 10px var(--cyan)}
 .fl-bar-plane{position:absolute;top:-9px;transform:translateX(-50%);font-size:13px;
   color:var(--pink);text-shadow:0 0 8px currentColor;pointer-events:none}
+
+/* ============================================================ FLIGHT PICKER
+   Airline, number, date — the Flighty shape. The airline code sits INSIDE the
+   number field as a prefix rather than in placeholder text, so what you are
+   about to search stays visible the whole time you are typing it.
+   ============================================================ */
+
+.fp{display:flex;flex-direction:column;gap:10px}
+.fp-row{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:10px}
+@media(max-width:640px){ .fp-row{grid-template-columns:minmax(0,1fr)} }
+.fp-lbl{display:block;font-size:9.5px;letter-spacing:.16em;color:var(--ink-3);margin-bottom:4px}
+.fp-air{position:relative;min-width:0}
+.fp-airbtn{display:flex;gap:8px;align-items:center;width:100%;background:#0a0e1a;
+  border:1px solid var(--border-bright);border-radius:6px;padding:8px 10px;cursor:pointer;
+  font-family:inherit;font-size:13px;color:var(--ink)}
+.fp-airbtn:hover{border-color:var(--cyan)}
+.fp-code{background:var(--cyan);color:#080a12;font-weight:700;border-radius:4px;
+  padding:1px 7px;font-size:12px}
+.fp-name{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fp-caret{color:var(--ink-3);font-size:9px}
+.fp-drop{position:absolute;z-index:40;top:100%;left:0;right:0;margin-top:4px;
+  background:var(--panel-2);border:1px solid var(--cyan);border-radius:8px;
+  box-shadow:0 14px 40px rgba(0,0,0,.7);overflow:hidden}
+.fp-search{width:100%;border:0;border-bottom:1px solid var(--border);border-radius:0;background:#0a0e1a}
+.fp-list{max-height:260px;overflow-y:auto;scrollbar-width:thin}
+.fp-item{display:grid;grid-template-columns:36px 1fr auto;gap:8px;align-items:center;width:100%;
+  text-align:left;background:transparent;border:0;padding:7px 10px;cursor:pointer;
+  font-family:inherit;font-size:12.5px;color:var(--ink-2)}
+.fp-item:hover,.fp-item.on{background:rgba(0,229,255,.12);color:var(--ink)}
+.fp-icode{color:var(--cyan);font-weight:700}
+.fp-iicao{color:var(--ink-3);font-size:11px}
+.fp-num{min-width:0}
+.fp-numbox{display:flex;align-items:stretch;border:1px solid var(--border-bright);
+  border-radius:6px;background:#0a0e1a;overflow:hidden}
+.fp-numbox:focus-within{border-color:var(--cyan)}
+.fp-prefix{display:flex;align-items:center;padding:0 9px;background:rgba(0,229,255,.10);
+  color:var(--cyan);font-weight:700;font-size:13px;border-right:1px solid var(--border)}
+.fp-numin{flex:1;min-width:0;border:0;background:transparent;border-radius:0;
+  font-size:15px;letter-spacing:.08em}
+.fp-dates{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.fp-date{padding:4px 8px;font-size:11.5px;color-scheme:dark}
+.fp-go{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  border-top:1px solid var(--border);padding-top:9px}
+.fp-note{font-size:12px;color:var(--ink-2);flex:1;min-width:200px;line-height:1.5}
+.fp-note-today{color:var(--green)}
+.fp-note-future{color:var(--yellow)}
+.fp-note-past{color:var(--ink-3)}
+
+/* my flights, from the calendar */
+.fl-mine{display:flex;flex-direction:column;gap:4px}
+.fl-mine-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto auto auto;gap:9px;
+  align-items:center;padding:7px 9px;border:1px solid var(--border);border-radius:7px;font-size:12.5px}
+.fl-mine-row.past{opacity:.45}
+.fl-mine-no{color:var(--cyan);font-weight:700;white-space:nowrap}
+.fl-mine-air{color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fl-mine-rt{color:var(--ink-2);white-space:nowrap}
+.fl-mine-day{color:var(--yellow);font-size:11.5px;white-space:nowrap}
+@media(max-width:700px){
+  .fl-mine-row{grid-template-columns:auto 1fr auto;row-gap:4px}
+  .fl-mine-air,.fl-mine-rt{grid-column:1/-1}
+}
+.fl-plan{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;font-size:12.5px}
+.fl-plan-air{color:var(--ink);font-size:14px}
+.fl-plan-cs{color:var(--ink-3)}
+.fl-plan-day{color:var(--yellow)}
+
+/* terminal / gate / belt */
+.fl-sched{border:1px solid var(--border-bright);border-radius:9px;padding:11px;
+  background:rgba(255,255,255,.02)}
+.fl-sched-off{border-color:var(--ink-3);opacity:.85}
+.fl-sched-h{font-size:9.5px;letter-spacing:.16em;color:var(--ink-3);margin-bottom:6px}
+.fl-sched-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.fl-side{min-width:0}
+.fl-time{font-size:24px;color:var(--ink);line-height:1.1;font-variant-numeric:tabular-nums}
+.fl-delay{font-size:12px;margin-left:7px}
+.fl-was{font-size:11px;color:var(--ink-3);margin-top:2px}
+.fl-slots{display:flex;gap:7px;margin-top:8px;flex-wrap:wrap}
+.fl-slot{border:1px solid var(--border);border-radius:6px;padding:5px 8px;min-width:62px}
+.fl-slot-l{font-size:9px;letter-spacing:.14em;color:var(--ink-3)}
+.fl-slot-v{font-size:15px;color:var(--cyan);font-weight:700}
+/* "not yet" is deliberately quiet and small: an unassigned gate is not the
+   same fact as a gate, and must not look like one. */
+.fl-slot-v.none{font-size:11px;color:var(--ink-3);font-weight:400}
+
+.fg-ctl{display:flex;gap:6px;align-items:center;width:100%;max-width:300px}
+.fg-ctl input[type=range]{flex:1}

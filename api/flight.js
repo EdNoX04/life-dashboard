@@ -21,9 +21,22 @@
 
 const UPSTREAM = 'https://api.adsb.lol';
 
+// AeroDataBox, via RapidAPI, supplies the things ADS-B physically cannot:
+// schedules, terminals, gates and baggage belts. It is OPTIONAL — without a key
+// the radar works exactly as before and the schedule panel says what is
+// missing. The free tier is 600 requests a month, which is a few lookups a day,
+// so schedule results are cached far longer than positions.
+const ADB_HOST = 'aerodatabox.p.rapidapi.com';
+
 // Cache TTLs per operation, in ms. Positions genuinely change; the military
 // and emergency feeds are browsed rather than watched, so they can sit longer.
-const TTL = { callsign: 6000, hex: 6000, reg: 6000, point: 8000, mil: 20000, sqk: 15000 };
+const TTL = {
+  callsign: 6000, hex: 6000, reg: 6000, point: 8000, mil: 20000, sqk: 15000,
+  // Ten minutes. A schedule changes on the scale of tens of minutes, and the
+  // free quota is 600 a month — polling it like a position would exhaust the
+  // month in an afternoon.
+  schedule: 600000,
+};
 
 // Minimum gap between two upstream calls from THIS instance. Serverless means
 // several instances may exist, so this is a floor rather than a guarantee —
@@ -136,6 +149,39 @@ export default async function handler(req, res) {
   } else if (op !== 'mil') {
     if (!q) return json(res, 400, { error: 'q is required' });
     if (q.length > 12 || !/^[A-Za-z0-9-]+$/.test(q)) return json(res, 400, { error: 'q must be short and alphanumeric' });
+  }
+
+  // ---- schedule: a different upstream, a different key, its own cache ----
+  if (op === 'schedule') {
+    const date = String(url.searchParams.get('date') || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json(res, 400, { error: 'date must be YYYY-MM-DD' });
+    const key = process.env.AERODATABOX_KEY;
+    // 501 rather than 500: this is not broken, it is not configured. The client
+    // renders that distinction as "add a key to switch this on".
+    if (!key) return json(res, 501, { error: 'no schedule provider configured', needsKey: true });
+
+    const ck = `adb:${q}:${date}`;
+    const chit = cache.get(ck);
+    if (chit && Date.now() - chit.at < TTL.schedule) {
+      return json(res, 200, { flights: chit.body, _cache: 'hit' }, 600);
+    }
+    try {
+      const r2 = await fetch(
+        `https://${ADB_HOST}/flights/number/${encodeURIComponent(q)}/${date}?withAircraftImage=false&withLocation=false`,
+        { headers: { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': ADB_HOST, accept: 'application/json' } },
+      );
+      if (r2.status === 204 || r2.status === 404) {
+        return json(res, 200, { flights: [], _note: 'no schedule found for that flight and date' }, 600);
+      }
+      if (r2.status === 429) return json(res, 429, { error: 'schedule quota exhausted for this month' });
+      if (!r2.ok) return json(res, 502, { error: `schedule provider returned ${r2.status}` });
+      const body = await r2.json();
+      const flights = Array.isArray(body) ? body : [body];
+      cache.set(ck, { at: Date.now(), body: flights });
+      return json(res, 200, { flights, _cache: 'miss' }, 600);
+    } catch (e) {
+      return json(res, 502, { error: String(e.message || e).slice(0, 160) });
+    }
   }
 
   const path = pathFor(op, q, lat, lon, r);
