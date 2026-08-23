@@ -73,6 +73,39 @@ export function searchAirlines(q) {
     a.icao.toLowerCase() === s);
 }
 
+// ---------------------------------------------------------------- hubs
+
+// An airline's main hub, used for ONE purpose: when a flight number finds
+// nothing, we look at that airline's home airport to show what IS flying.
+//
+// Why that matters more than it sounds. A search for your own flight number
+// returns an empty list far more often than people expect — a flight is only
+// transmitting during the few hours it is actually airborne, so for most of
+// the day "EK 512" correctly finds nothing. An empty screen at that moment is
+// indistinguishable from a broken app, and that is exactly what it gets
+// reported as. Showing the airline's live traffic proves the pipe works and
+// turns "this is broken" into "mine is not up yet".
+//
+// Only airports present in flights.js AIRPORTS are listed; anything else
+// returns null and the fallback is simply skipped.
+const HUBS = {
+  EK: 'DXB', FZ: 'DXB', EY: 'AUH', G9: 'SHJ', QR: 'DOH', GF: 'BAH', WY: 'MCT',
+  KU: 'KWI', J9: 'KWI', SV: 'JED', XY: 'RUH', MS: 'CAI',
+  AI: 'DEL', '6E': 'DEL', SG: 'DEL', UK: 'DEL', IX: 'COK', QP: 'BOM', I5: 'BLR',
+  PK: 'KHI', UL: 'CMB', BG: 'DAC', RA: 'KTM',
+  BA: 'LHR', VS: 'LHR', U2: 'LGW', FR: 'LGW', LH: 'FRA', AF: 'CDG', KL: 'AMS',
+  IB: 'MAD', AZ: 'FCO', LX: 'ZRH', TK: 'IST',
+  AA: 'DFW', UA: 'ORD', DL: 'ATL', AS: 'SFO', B6: 'JFK', AC: 'YYZ', WS: 'YYZ',
+  AM: 'MEX', LA: 'GRU',
+  SQ: 'SIN', CX: 'HKG', JL: 'HND', NH: 'HND', KE: 'ICN', OZ: 'ICN', TG: 'BKK',
+  MH: 'KUL', CA: 'PEK', MU: 'PVG',
+  QF: 'SYD', VA: 'SYD', JQ: 'MEL', NZ: 'AKL',
+  ET: 'ADD', KQ: 'NBO', SA: 'JNB',
+};
+
+/** The hub airport CODE for an airline, or null if we do not have one. */
+export const hubFor = iata => HUBS[String(iata || '').toUpperCase()] || null;
+
 // ---------------------------------------------------------------- dates
 
 const pad = n => String(n).padStart(2, '0');

@@ -6759,3 +6759,22 @@ th:hover .hold-info { color: var(--cyan); }
 
 .fg-ctl{display:flex;gap:6px;align-items:center;width:100%;max-width:300px}
 .fg-ctl input[type=range]{flex:1}
+
+/* ---- the empty state ------------------------------------------------------
+   A searched flight finds nothing for most of the day, because a flight only
+   transmits while it is airborne. That correct answer looked identical to a
+   broken app and got reported as one, so it now shows the airline's live
+   traffic beside it: proof the radar works, and something to click.
+   -------------------------------------------------------------------------- */
+.fl-none{border:1px solid var(--yellow);border-radius:9px;padding:11px;
+  background:rgba(255,210,63,.06)}
+.fl-none-h{font-size:13px;color:var(--yellow);margin-bottom:5px}
+.fl-fleet{border-top:1px solid var(--border);padding-top:9px;margin-top:9px}
+.fl-fleet-h{font-size:11.5px;color:var(--green);margin-bottom:7px;line-height:1.5}
+.fl-fleet-list{display:flex;gap:6px;flex-wrap:wrap}
+.fl-fleet-item{display:flex;gap:7px;align-items:baseline;background:#0a0e1a;
+  border:1px solid var(--border-bright);border-radius:6px;padding:5px 9px;cursor:pointer;
+  font-family:inherit;font-size:12px;color:var(--ink-2)}
+.fl-fleet-item:hover{border-color:var(--cyan);color:var(--ink)}
+.fl-fleet-no{color:var(--cyan);font-weight:700}
+.fl-fleet-alt{font-size:11px;color:var(--ink-3)}

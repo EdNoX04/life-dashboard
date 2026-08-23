@@ -12,7 +12,7 @@ import {
 } from '../lib/flights.js';
 import {
   isoDate, dayLabel, trackability, flightsFromCalendar, planKey,
-  parseSchedule, delayMinutes, fmtLocal, SCHEDULE_UNAVAILABLE,
+  parseSchedule, delayMinutes, fmtLocal, SCHEDULE_UNAVAILABLE, hubFor,
 } from '../lib/flightplan.js';
 
 // FLIGHT RADAR.
@@ -49,6 +49,7 @@ export default function Flights() {
   const [meta, setMeta] = useState(null);
   const [sched, setSched] = useState(null);        // { state, data, note }
   const [saved, setSaved] = useState([]);
+  const [nearby, setNearby] = useState(null);   // the airline's other flights, when ours is not up
   const timer = useRef(null);
   const abort = useRef(null);
 
@@ -134,6 +135,36 @@ export default function Flights() {
   }, [url, plan]);
 
   useEffect(() => { load(); }, [load]);
+
+  // When a tracked flight finds nothing, look at the airline's hub and show
+  // what that airline IS flying right now.
+  //
+  // A flight only transmits during the hours it is airborne, so an empty
+  // result is the CORRECT answer most of the day — and an empty screen is
+  // indistinguishable from a broken app. This is what makes the difference
+  // legible: if six other Emirates flights appear, the pipe demonstrably
+  // works and yours simply is not up yet.
+  useEffect(() => {
+    if (!plan || busy || list.length > 0) { setNearby(null); return; }
+    if (!trackability(plan.date, today).can) { setNearby(null); return; }
+    const hub = hubFor(plan.iata);
+    const a = airport(hub);
+    if (!a) { setNearby({ state: 'nohub' }); return; }
+    let dead = false;
+    (async () => {
+      setNearby({ state: 'loading', hub: a });
+      try {
+        const r = await fetch(`/api/flight?op=point&lat=${a.lat}&lon=${a.lon}&r=250`);
+        const j = await r.json();
+        if (dead) return;
+        const mine = parseFeed(j).filter(x => x.airline === plan.icao);
+        setNearby({ state: 'ok', hub: a, list: sortForList(mine), total: (j.ac || []).length });
+      } catch {
+        if (!dead) setNearby({ state: 'error', hub: a });
+      }
+    })();
+    return () => { dead = true; };
+  }, [plan?.id, busy, list.length, today]);
   useEffect(() => {
     clearInterval(timer.current);
     if (!live) return;
@@ -243,9 +274,14 @@ export default function Flights() {
           </div>
           {!track.can && <div className="small mt" style={{ color: 'var(--yellow)' }}>{track.text}</div>}
           {track.can && !sel && !busy && (
-            <div className="small mt" style={{ color: 'var(--yellow)', lineHeight: 1.55 }}>
-              Nothing is transmitting as {plan.callsign} right now. It may not have taken off yet,
-              it may have already landed, or it may be over an area with no receiver in range.
+            <div className="fl-none mt">
+              <div className="fl-none-h">Not transmitting as {plan.callsign} right now</div>
+              <div className="small" style={{ lineHeight: 1.6, color: 'var(--ink-2)' }}>
+                A flight only appears while it is actually airborne, so for most of the day this
+                is the correct answer rather than a fault. It has probably not taken off yet, or
+                has already landed.
+              </div>
+              <NearbyFleet nearby={nearby} plan={plan} onPick={setSel} />
             </div>
           )}
           {err && <div className="small mt" style={{ color: 'var(--yellow)' }}>{err}</div>}
@@ -477,6 +513,51 @@ const Slot = ({ label, v }) => (
     <div className={`fl-slot-v${v ? '' : ' none'}`}>{v || 'not yet'}</div>
   </div>
 );
+
+/**
+ * The airline's other traffic, shown when the searched flight is not up.
+ *
+ * This exists to answer the question the empty screen actually raises, which
+ * is not "where is my flight" but "is this thing even working". A live list of
+ * the same airline's aircraft answers it immediately, and gives something to
+ * click instead of a dead end.
+ */
+function NearbyFleet({ nearby, plan, onPick }) {
+  if (!nearby) return null;
+  if (nearby.state === 'loading') {
+    return <div className="small muted mt">checking what {plan.airline} has airborne…</div>;
+  }
+  if (nearby.state === 'nohub') {
+    return <div className="small muted mt">No hub on file for {plan.airline}, so there is nothing to compare against.</div>;
+  }
+  if (nearby.state === 'error') {
+    return <div className="small muted mt">Could not reach the radar for a second look.</div>;
+  }
+  if (!nearby.list?.length) {
+    return (
+      <div className="small mt" style={{ color: 'var(--ink-3)', lineHeight: 1.55 }}>
+        No {plan.airline} aircraft are airborne near {nearby.hub.city} either — though
+        {' '}{nearby.total} other aircraft are, so the radar itself is working.
+      </div>
+    );
+  }
+  return (
+    <div className="fl-fleet mt">
+      <div className="fl-fleet-h">
+        {nearby.list.length} {plan.airline} {nearby.list.length === 1 ? 'flight' : 'flights'} airborne
+        near {nearby.hub.city} right now — so the radar is working
+      </div>
+      <div className="fl-fleet-list">
+        {nearby.list.slice(0, 12).map(a => (
+          <button key={a.hex} className="fl-fleet-item" onClick={() => onPick?.(a)}>
+            <span className="fl-fleet-no">{a.flightNo || a.callsign}</span>
+            <span className="fl-fleet-alt">{fmtAlt(a.altFt)}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function Stat({ label, value }) {
   return (

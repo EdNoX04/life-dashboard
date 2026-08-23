@@ -3,7 +3,7 @@ import {
   AIRLINE_LIST, airlineByIata, searchAirlines,
   isoDate, addDays, dayLabel, trackability,
   makePlan, planKey, flightsFromCalendar,
-  parseSchedule, delayMinutes, fmtLocal, SCHEDULE_UNAVAILABLE,
+  parseSchedule, delayMinutes, fmtLocal, SCHEDULE_UNAVAILABLE, hubFor,
 } from '../src/lib/flightplan.js';
 import { AIRLINES } from '../src/lib/flights.js';
 
@@ -270,4 +270,30 @@ test('the airport clock is independent of the machine running the code', () => {
 
 test('the no-key message says what is missing and why', () => {
   expect(SCHEDULE_UNAVAILABLE).toContain('ADS-B does not carry them');
+});
+
+// ---------------------------------------------------------------- hubs
+
+test('every hub we name is a real airport in the table', () => {
+  // A hub pointing at an airport flights.js does not know would make the
+  // fallback query silently impossible.
+  const { AIRPORTS } = require('../src/lib/flights.js');
+  AIRLINE_LIST.forEach(a => {
+    const h = hubFor(a.iata);
+    if (h) expect(AIRPORTS[h]).toBeTruthy();
+  });
+});
+
+test('the airlines most likely to be searched here all have a hub', () => {
+  expect(hubFor('EK')).toBe('DXB');
+  expect(hubFor('6E')).toBe('DEL');
+  expect(hubFor('AI')).toBe('DEL');
+  expect(hubFor('FZ')).toBe('DXB');
+  expect(hubFor('QR')).toBe('DOH');
+});
+
+test('an airline with no hub returns null rather than a wrong airport', () => {
+  expect(hubFor('ZZ')).toBe(null);
+  expect(hubFor(null)).toBe(null);
+  expect(hubFor('')).toBe(null);
 });
