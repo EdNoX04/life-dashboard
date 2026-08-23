@@ -4,6 +4,7 @@ import { useCollection } from '../lib/hooks.js';
 import { upsertMemory } from '../lib/db.js';
 import FlightGlobe from '../components/flight/FlightGlobe.jsx';
 import FlightPicker from '../components/flight/FlightPicker.jsx';
+import FlightCard from '../components/flight/FlightCard.jsx';
 import {
   parseFeed, positioned, sortForList, feedSummary, routeQuery, toCallsigns,
   coverage, phaseOf, progress, etaMinutes, fmtDuration,
@@ -257,22 +258,29 @@ export default function Flights() {
       )}
 
       {plan && (
-        <Card title={plan.flightNo} color="var(--pink)"
-          right={
-            <span className="flex" style={{ gap: 6, alignItems: 'center' }}>
-              <button className={`btn btn-sm ${live ? 'btn-green' : ''}`} onClick={() => setLive(v => !v)}>
-                {live ? '● live' : '‖ paused'}
-              </button>
-              <button className="btn btn-sm" onClick={load} disabled={busy}>{busy ? '…' : '↻'}</button>
-              <button className="btn btn-sm" onClick={stopTracking}>✕ stop</button>
-            </span>
-          }>
-          <div className="fl-plan">
-            <span className="fl-plan-air">{plan.airline}</span>
-            <span className="fl-plan-cs">transmits as <b>{plan.callsign}</b></span>
-            <span className="fl-plan-day">{dayLabel(plan.date, today)}</span>
-          </div>
+        <>
+          <FlightCard
+            plan={plan}
+            ac={sel}
+            sched={sched?.state === 'ok' ? sched.data : null}
+            route={route}
+            live={live}
+            busy={busy}
+            onToggleLive={() => setLive(v => !v)}
+            onRefresh={load}
+            onStop={stopTracking}
+          />
           {!track.can && <div className="small mt" style={{ color: 'var(--yellow)' }}>{track.text}</div>}
+          {sched?.state === 'nokey' && (
+            <div className="fl-sched fl-sched-off mt">
+              <div className="fl-sched-h">TERMINAL · GATE · BELT</div>
+              <div className="small" style={{ lineHeight: 1.55 }}>{SCHEDULE_UNAVAILABLE}</div>
+            </div>
+          )}
+          {sched?.state === 'none' && (
+            <div className="small muted mt">No schedule found for {plan.flightNo} on {dayLabel(plan.date, today).toLowerCase()}.</div>
+          )}
+          {err && <div className="small mt" style={{ color: 'var(--yellow)' }}>{err}</div>}
           {track.can && !sel && !busy && (
             <div className="fl-none mt">
               <div className="fl-none-h">Not transmitting as {plan.callsign} right now</div>
@@ -284,22 +292,19 @@ export default function Flights() {
               <NearbyFleet nearby={nearby} plan={plan} onPick={setSel} />
             </div>
           )}
-          {err && <div className="small mt" style={{ color: 'var(--yellow)' }}>{err}</div>}
-
-          <SchedulePanel sched={sched} />
-        </Card>
+        </>
       )}
 
       <div className="fl-split">
         <Card title="Radar" color="var(--purple)" right={<span className="small muted">{summary}</span>}>
-          <FlightGlobe aircraft={withPos} selected={sel} route={route} onPick={setSel} size={340} />
+          <FlightGlobe aircraft={withPos} selected={sel} route={route} onPick={setSel} size={360} />
           <div className="small muted mt" style={{ lineHeight: 1.55, textAlign: 'center' }}>
             Coastlines and borders are Natural Earth data. Drag to spin, scroll to zoom —
             every aircraft position on it is real and live.
           </div>
         </Card>
 
-        <Card title={sel ? 'Live position' : plan ? 'Searching…' : 'In range'} color="var(--cyan)"
+        <Card title={plan ? 'Nearby traffic' : sel ? 'Live position' : 'In range'} color="var(--cyan)"
           right={sel && !plan ? <button className="btn btn-sm" onClick={() => setSel(null)}>← list</button> : null}>
           {!plan && !sel && (
             <>

@@ -6778,3 +6778,64 @@ th:hover .hold-info { color: var(--cyan); }
 .fl-fleet-item:hover{border-color:var(--cyan);color:var(--ink)}
 .fl-fleet-no{color:var(--cyan);font-weight:700}
 .fl-fleet-alt{font-size:11px;color:var(--ink-3)}
+
+/* ============================================================ GLOBE (canvas)
+   The map is painted on a canvas underneath the SVG. Canvas because it is the
+   expensive layer and needs no hit-testing: as SVG the same map cost 16ms and
+   ~90KB of path string per frame for React to reconcile; on canvas, with each
+   country filled separately, it is 4.7ms and creates no DOM at all.
+   ============================================================ */
+.fg-stack{position:relative}
+.fg-canvas{position:absolute;inset:0;border-radius:50%;display:block;pointer-events:none}
+.fg-globe{position:relative;touch-action:none;cursor:grab;user-select:none;display:block}
+.fg-globe.fg-drag{cursor:grabbing}
+
+/* ============================================================ FLIGHT CARD
+   The boarding-pass strip. Every slot renders three ways — a value, "not yet"
+   (the airport has not assigned one), or "—" (no provider configured). Those
+   are three different facts and a blank box would conflate them.
+   ============================================================ */
+.fc{border:1px solid var(--cyan);border-radius:12px;padding:14px;margin-bottom:12px;
+  background:linear-gradient(160deg,rgba(0,229,255,.05),rgba(124,77,255,.04))}
+.fc-top{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;
+  flex-wrap:wrap;margin-bottom:14px}
+.fc-no{font-size:27px;color:var(--cyan);letter-spacing:.06em;line-height:1;
+  text-shadow:0 0 20px currentColor}
+.fc-sub{font-size:12px;color:var(--ink-3);margin-top:5px}
+.fc-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.fc-status{font-size:10px;letter-spacing:.16em;border:1px solid;border-radius:999px;
+  padding:4px 11px;font-weight:700;white-space:nowrap}
+.fc-route{display:grid;grid-template-columns:auto minmax(70px,1fr) auto;gap:12px;align-items:start}
+.fc-side{min-width:74px}
+.fc-side-r{text-align:right}
+.fc-code{font-size:23px;color:var(--ink);letter-spacing:.09em;line-height:1.1}
+.fc-time{font-size:17px;color:var(--cyan);font-variant-numeric:tabular-nums;margin-top:2px}
+.fc-notime{font-size:11px;color:var(--ink-3);letter-spacing:.06em}
+.fc-delay{font-size:10.5px;margin-top:2px}
+.fc-city{font-size:11px;color:var(--ink-3);margin-top:3px}
+.fc-line{padding-top:24px}
+.fc-track{position:relative;height:2px}
+.fc-track-bg{position:absolute;inset:0;border-top:2px dashed var(--border-bright)}
+.fc-track-done{position:absolute;left:0;top:0;height:2px;background:var(--pink);
+  box-shadow:0 0 10px var(--pink)}
+.fc-plane{position:absolute;top:-11px;transform:translateX(-50%);font-size:15px;
+  color:var(--pink);text-shadow:0 0 10px currentColor}
+/* No live fix means no position on the bar. Sliding the plane along by the
+   clock alone would draw a journey that may not be happening. */
+.fc-plane-idle{left:0;color:var(--ink-3);text-shadow:none}
+.fc-line-meta{text-align:center;font-size:11px;color:var(--ink-2);margin-top:11px;line-height:1.4}
+.fc-slots{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px;padding-top:12px;
+  border-top:1px solid var(--border)}
+.fc-slot{border:1px solid var(--border);border-radius:7px;padding:5px 10px;min-width:66px}
+.fc-slot-l{font-size:8.5px;letter-spacing:.15em;color:var(--ink-3)}
+.fc-slot-v{font-size:16px;color:var(--cyan);font-weight:700;line-height:1.2}
+.fc-slot.soon .fc-slot-v{font-size:10.5px;color:var(--ink-3);font-weight:400}
+.fc-slot.none{opacity:.5}
+.fc-slot.none .fc-slot-v{font-size:14px;color:var(--ink-3);font-weight:400}
+.fc-tele{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;padding-top:11px;
+  border-top:1px solid var(--border)}
+.fc-t{display:flex;flex-direction:column;gap:1px;border:1px solid var(--border);
+  border-radius:6px;padding:4px 9px}
+.fc-t-l{font-size:8.5px;letter-spacing:.14em;color:var(--ink-3)}
+.fc-t-v{font-size:12.5px;color:var(--ink);font-variant-numeric:tabular-nums}
+.fc-cov{font-size:11px;margin-top:9px;letter-spacing:.03em}
