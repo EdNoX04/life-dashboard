@@ -13,6 +13,7 @@ import Subjects from './tabs/Subjects.jsx';
 import DSA from './tabs/DSA.jsx';
 import Study from './tabs/Study.jsx';
 import Flights from './tabs/Flights.jsx';
+import Meetings from './tabs/Meetings.jsx';
 import Placement from './tabs/Placement.jsx';
 import Books from './tabs/Books.jsx';
 import Notes from './tabs/Notes.jsx';
@@ -42,6 +43,7 @@ const TABS = [
   ['dsa', 'DSA', 'var(--green)', DSA],
   ['study', 'Study', 'var(--yellow)', Study],
   ['flights', 'Flights', 'var(--cyan)', Flights],
+  ['meetings', 'Meetings', 'var(--orange)', Meetings],
   ['subjects', 'Subjects', 'var(--orange)', Subjects],
   ['notes', 'Notes', 'var(--cyan)', Notes],
   ['books', 'Books', 'var(--pink)', Books],
