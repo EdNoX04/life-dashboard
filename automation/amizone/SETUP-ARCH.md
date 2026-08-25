@@ -143,6 +143,83 @@ journalctl --user -u playerone-amizone -n 50           # what systemd saw
 tail -f amizone.log                                     # what the script saw
 ```
 
+## Step 8 — stop the laptop sleeping (the lid question)
+
+The timer is only as reliable as the machine being awake. Three separate things
+can put it to sleep, and they are controlled in three different places.
+
+**What does NOT matter:** the screen locking, blanking, or the screensaver. The
+sync runs under Xvfb on a display nobody is looking at, so `omarchy toggle idle`
+and the lock timings are irrelevant to it. Let the screen do whatever it likes —
+it saves power and costs nothing. Only real *suspend* stops the sync.
+
+**Lid close.** Handled by systemd-logind, which suspends by default. Override it
+with a drop-in — deliberately in `/etc`, because Omarchy updates have been known
+to reset files under `~/.config/hypr`:
+
+```bash
+sudo mkdir -p /etc/systemd/logind.conf.d
+sudo tee /etc/systemd/logind.conf.d/99-playerone.conf >/dev/null <<'CONF'
+[Login]
+HandleLidSwitch=ignore
+HandleLidSwitchDocked=ignore
+HandleLidSwitchExternalPower=ignore
+CONF
+```
+
+**Idle suspend.** Lives in `~/.config/hypr/hypridle.conf`. Comment out or delete
+the listener whose `on-timeout` runs `systemctl suspend`. Leave the lock and
+screen-off listeners alone.
+
+**The belt-and-braces.** Because hypridle.conf can be reset by an Omarchy update
+and a reset would silently reintroduce sleep, mask the sleep targets outright.
+On a machine whose entire job is to stay on, this is the setting that actually
+expresses the intent:
+
+```bash
+sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+```
+
+After that, lid close and hypridle can both ask for suspend and nothing happens.
+To undo it later: `sudo systemctl unmask sleep.target suspend.target
+hibernate.target hybrid-sleep.target`.
+
+Reboot, then confirm:
+
+```bash
+systemctl status suspend.target | head -3
+journalctl -b -u systemd-logind | grep -i lid
+```
+
+Close the lid for a minute, open it, and check the machine never went down:
+
+```bash
+uptime
+systemctl --user list-timers playerone-amizone.timer
+```
+
+If `uptime` shows no interruption and the timer's next run is still in the
+future, it is set up correctly.
+
+### Why `Persistent=true` is still on the timer
+
+Belt and braces again. If sleep ever does slip through — a kernel update resets
+something, someone unmasks a target — a missed 13:00 slot runs once on resume
+instead of being skipped silently to tomorrow. Silent skipping is the failure
+mode this whole rebuild exists to eliminate.
+
+## A note on the Windows-in-Docker container
+
+Running the old Windows setup inside `dockurr/windows` would work, and is still
+the wrong choice: it needs KVM and several GB of RAM permanently, puts you back
+on Task Scheduler and a GUI session inside a VM, and gains nothing — the only
+thing that made the Windows laptop work was its residential IP, which Arch has
+natively. Run it on the host.
+
+One thing to watch: if the Windows container is set `restart: always`, it and a
+headful Chromium will both want memory at 07:00. If the box is tight on RAM,
+give the container a hard `mem_limit`, or stagger it away from the sync slots.
+
 ## If it ever stops updating
 
 The saved Amizone session expires eventually. The script tries to log back in on
