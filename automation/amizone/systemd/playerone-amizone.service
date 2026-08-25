@@ -1,0 +1,15 @@
+[Unit]
+Description=PLAYER ONE - Amizone attendance + timetable sync
+Documentation=file:%h/life-dashboard/automation/amizone/SETUP-ARCH.md
+# The scrape is worthless without a route to Amizone and to Supabase, and a run
+# that fires during early boot before DNS is up fails in a way that looks like a
+# login problem.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/life-dashboard/automation/amizone
+ExecStart=%h/life-dashboard/automation/amizone/run-amizone.sh
+# A normal run is ~90s. Ten minutes is the point at which it is stuck, not slow.
+TimeoutStartSec=600

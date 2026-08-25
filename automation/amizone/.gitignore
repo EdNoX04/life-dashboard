@@ -10,3 +10,5 @@ node_modules/
 # working name, that copy must never be committed — it now holds a service key,
 # which bypasses row-level security on every table.
 amizone.config.local.json
+# run logs (rotated copy)
+amizone.log.1

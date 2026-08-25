@@ -14,14 +14,28 @@
 // dashboard and you just run `--login` once more.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { chromium } from 'playwright';
+// Playwright is imported LAZILY, below, for the same reason amizone-sync.mjs
+// does it: `--check` exists precisely to answer "can this machine write to
+// Supabase" in two seconds with no browser involved, and a static import means
+// that question cannot be asked until a 300 MB dependency is installed. It also
+// turns a missing/broken `npm install playwright` into a plain sentence instead
+// of an ERR_MODULE_NOT_FOUND stack above every other message.
+let chromium;
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PROFILE_DIR = path.join(HERE, '.amizone-profile');   // persistent login lives here
-const CFG_PATH = path.join(HERE, 'amizone.config.json');
+// Config path. The .local.json name is the one .gitignore covers, so it is
+// tried FIRST and is the file you are meant to fill in. The plain name is kept
+// as a fallback only because the Windows laptop already had it filled in — but
+// that file is TRACKED, and a filled-in copy puts a service_role key (which
+// bypasses row-level security on every table) one `git add -A` from being
+// published. The warning below fires whenever the tracked file is the live one.
+const CFG_LOCAL = path.join(HERE, 'amizone.config.local.json');
+const CFG_TRACKED = path.join(HERE, 'amizone.config.json');
+const CFG_PATH = fs.existsSync(CFG_LOCAL) ? CFG_LOCAL : CFG_TRACKED;
 const LOGIN_MODE = process.argv.includes('--login');
 const CHECK_MODE = process.argv.includes('--check');
 
@@ -39,6 +53,18 @@ const SUPA_URL = cfg.supabaseUrl.replace(/\/$/, '');
 // while the College tab carries on showing three-week-old attendance as though it
 // were today's.
 const SUPA_KEY = cfg.supabaseServiceKey || cfg.supabaseKey;
+
+// Loud, every run, because the cost of missing it is a leaked service key and
+// the cost of seeing it is two lines of log.
+// Detect a REAL key positively rather than trying to enumerate what a
+// placeholder looks like. The first attempt blacklisted "<", "placeholder" and
+// "your", and the template says PUT_THE_SERVICE_ROLE_KEY_HERE — so it warned on
+// every untouched checkout and would have been muted as noise long before it
+// ever fired on something that mattered. Supabase keys start sb_ or eyJ.
+if (CFG_PATH === CFG_TRACKED && /^(sb_|eyJ)/.test(String(SUPA_KEY || ''))) {
+  console.error('WARNING: real credentials are in amizone.config.json, which git TRACKS.');
+  console.error('         Rename it to amizone.config.local.json (gitignored) before you commit anything.');
+}
 
 if (/^sb_publishable_|^eyJ.*anon/.test(String(SUPA_KEY))) {
   console.error('\nThis config still has the PUBLISHABLE key in it.');
@@ -231,6 +257,17 @@ async function check() {
 
 async function main() {
   if (CHECK_MODE) return check();
+
+  try {
+    ({ chromium } = await import('playwright'));
+  } catch {
+    console.error('\nPlaywright is not installed here. In this folder run:\n');
+    console.error('  npm install playwright@1.48.0\n');
+    console.error('(`node amizone-auto.mjs --check` works without it — use that to');
+    console.error(' test the Supabase key before installing anything.)\n');
+    process.exit(1);
+  }
+
   fs.mkdirSync(PROFILE_DIR, { recursive: true });
   // Anti-automation: Cloudflare Turnstile fails "automated" browsers. These flags
   // strip the automation fingerprint so it's treated as an ordinary Chrome.
@@ -247,8 +284,41 @@ async function main() {
     args: antiBotArgs,
     ignoreDefaultArgs: ['--enable-automation'],
   };
-  const ctx = await chromium.launchPersistentContext(PROFILE_DIR, { channel: 'chrome', ...opts })
-    .catch(async () => chromium.launchPersistentContext(PROFILE_DIR, opts));
+  // Browser resolution, widest-net first.
+  //
+  // On Windows `channel: 'chrome'` always found Google Chrome. On Arch there may
+  // be no Chrome at all — Omarchy ships Chromium — and Playwright's 'chrome'
+  // channel looks only in /opt/google/chrome, so it throws. Each candidate is
+  // tried in turn and the LAST error is reported, because a bare
+  // "browserType.launchPersistentContext: Chromium distribution 'chrome' is not
+  // found" says nothing about the three other things that were attempted.
+  //
+  // Real Chrome first: Turnstile is measurably happier with it than with
+  // Chromium, and that is the entire reason this runs on a home machine.
+  const explicit = process.env.AMIZONE_CHROME || cfg.chromePath;
+  const candidates = [
+    ...(explicit ? [{ what: `executablePath ${explicit}`, o: { executablePath: explicit } }] : []),
+    { what: "channel 'chrome'", o: { channel: 'chrome' } },
+    { what: "channel 'chromium'", o: { channel: 'chromium' } },
+    { what: '/usr/bin/google-chrome-stable', o: { executablePath: '/usr/bin/google-chrome-stable' } },
+    { what: '/usr/bin/chromium', o: { executablePath: '/usr/bin/chromium' } },
+    { what: "Playwright's bundled Chromium", o: {} },
+  ];
+  let ctx = null, lastErr = null;
+  for (const c of candidates) {
+    try {
+      ctx = await chromium.launchPersistentContext(PROFILE_DIR, { ...c.o, ...opts });
+      log(`browser: ${c.what}`);
+      break;
+    } catch (e) { lastErr = e; }
+  }
+  if (!ctx) {
+    console.error('\nNo usable browser. Tried: ' + candidates.map(c => c.what).join(', '));
+    console.error('Last error:', lastErr?.message);
+    console.error('\nOn Arch:  yay -S google-chrome     (preferred)');
+    console.error('      or:  sudo pacman -S chromium');
+    process.exit(1);
+  }
 
   // extra insurance: hide the webdriver flag Cloudflare checks
   await ctx.addInitScript(() => { try { Object.defineProperty(navigator, 'webdriver', { get: () => undefined }); } catch (e) {} });

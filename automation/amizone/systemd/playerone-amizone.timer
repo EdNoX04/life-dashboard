@@ -1,0 +1,16 @@
+[Unit]
+Description=Run the Amizone sync through the day
+
+[Timer]
+# 07:00 then every three hours to 22:00 - same cadence the Windows Task
+# Scheduler job used, so a class added or dropped shows up within a few hours.
+OnCalendar=*-*-* 07,10,13,16,19,22:00:00
+# If the laptop was asleep or off when a slot passed, run once on resume rather
+# than silently skipping to tomorrow.
+Persistent=true
+# Never hit Amizone at exactly 07:00:00 every single day.
+RandomizedDelaySec=300
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

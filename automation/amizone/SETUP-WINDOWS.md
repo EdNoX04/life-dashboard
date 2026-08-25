@@ -1,3 +1,13 @@
+> **Superseded — the Windows laptop was reformatted to Omarchy on 25 Aug 2026.**
+> Use **[SETUP-ARCH.md](SETUP-ARCH.md)** instead. Kept for reference only.
+>
+> Two things in here are now WRONG and were wrong on Windows too:
+> - It says to fill in `amizone.config.json`. That file is **tracked by git**.
+>   Fill in `amizone.config.local.json` — the gitignored name the script now
+>   prefers — or your service_role key rides along with your next commit.
+> - Step 3's `npx playwright install chromium` is unnecessary once Chrome is
+>   installed from a package manager.
+
 # Amizone auto-sync — Windows setup (one time, ~10 min)
 
 After this, your laptop scrapes Amizone on its own several times a day and pushes
