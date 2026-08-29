@@ -7,7 +7,7 @@ import WhatsAppImport from '../components/college/WhatsAppImport.jsx';
 import { announcementLink } from '../lib/whatsapp.js';
 
 // Amizone stores attendance as a fraction (0.81) OR a percent (81); normalize to %.
-const attPct = raw => { const n = Number(raw) || 0; return n > 0 && n <= 1 ? Math.round(n * 1000) / 10 : n; };
+import { attPct, isLowAttendance } from '../lib/attendance.js';
 
 export default function College() {
   const { items: timetable, refresh: rT } = useCollection('timetable', { order: 'start_time', asc: true });
@@ -30,9 +30,9 @@ export default function College() {
   const viewDay = activeDay();
   const todayName = viewDay.name;
   // average only over subjects that actually have attendance data (skip unsynced 0s)
-  const rated = subjects.map(s => attPct(s.attendance_pct)).filter(p => p > 0);
+  const rated = subjects.map(s => attPct(s.attendance_pct)).filter(p => p != null);
   const avgAtt = rated.length ? Math.round(rated.reduce((a, b) => a + b, 0) / rated.length) : null;
-  const lowAtt = subjects.filter(s => { const p = attPct(s.attendance_pct); return p > 0 && p < 75; });
+  const lowAtt = subjects.filter(s => isLowAttendance(attPct(s.attendance_pct)));
 
   return (
     <>
@@ -83,8 +83,8 @@ export default function College() {
             <div className="att-row" key={s.id}>
               <span className="att-name">{s.name}</span>
               <div className="att-meter">
-                <div className="pbar"><div style={{ width: `${Math.min(100, pct)}%`, background: pct < 75 ? 'var(--bad)' : 'var(--ok)' }} /></div>
-                <span className={`chip ${pct < 75 ? 'c-red' : 'c-green'}`}>{pct ? pct + '%' : '—'}</span>
+                <div className="pbar"><div style={{ width: `${Math.min(100, pct ?? 0)}%`, background: isLowAttendance(pct) ? 'var(--bad)' : 'var(--ok)' }} /></div>
+                <span className={`chip ${isLowAttendance(pct) ? 'c-red' : pct == null ? '' : 'c-green'}`}>{pct != null ? pct + '%' : '—'}</span>
               </div>
             </div>
           );

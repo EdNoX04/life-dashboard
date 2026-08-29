@@ -1,0 +1,50 @@
+{
+  "$comment": [
+    "Security headers for PLAYER ONE. There were none before this file existed.",
+    "",
+    "The threat worth designing against here is NOT someone guessing the password.",
+    "It is script injection: the session token lives in localStorage, so any script",
+    "that runs on this origin can read it and then has full access to every table",
+    "for as long as the token lasts. RLS does not help — the stolen token IS a",
+    "valid authenticated session.",
+    "",
+    "script-src 'self' is the directive that matters: the built app loads exactly",
+    "one script, from this origin, and has zero inline scripts (measured on the",
+    "live site, not assumed). So an injected <script src=evil> or inline handler",
+    "has nothing to fall back on.",
+    "",
+    "connect-src, img-src, media-src and frame-src are deliberately left wide.",
+    "This dashboard talks to a long tail of APIs — Supabase, market data, news,",
+    "TMDB, flights — and an allowlist assembled by guesswork would break whichever",
+    "one nobody happened to exercise before deploying. A tab that silently stops",
+    "loading a week later is a worse outcome than the narrow gain of pinning them,",
+    "and none of those directives is what stops token theft anyway.",
+    "",
+    "style-src needs 'unsafe-inline': React writes style={{...}} attributes all",
+    "over this app (the attendance bars, for one), and CSP counts those as inline",
+    "styles. Styles cannot exfiltrate a token, so this is a real cost of near zero.",
+    "",
+    "CSP ships as Report-Only FIRST. An enforcing policy that gets one directive",
+    "wrong breaks a tab, and this project has spent enough weeks on things that",
+    "fail quietly. Violations appear in the browser console; once every tab has",
+    "been walked with a clean console, rename the header to",
+    "'Content-Security-Policy' to enforce it."
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy-Report-Only",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss:; frame-src https:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        },
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), payment=(), usb=(), interest-cohort=()" },
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" }
+      ]
+    }
+  ]
+}

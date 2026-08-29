@@ -30,7 +30,7 @@ function useDashCols() {
   }, []);
   return n;
 }
-const attPct = raw => { const n = Number(raw) || 0; return n > 0 && n <= 1 ? Math.round(n * 1000) / 10 : n; };
+import { attPct, isLowAttendance } from '../lib/attendance.js';
 
 export default function HQ({ go }) {
   const cols = useDashCols();
@@ -89,7 +89,7 @@ export default function HQ({ go }) {
   studyReminders(today).forEach(r => reminders.push(r));
   todos.filter(t => !t.completed && t.due_date && t.due_date < today).slice(0, 3)
     .forEach(t => reminders.push({ icon: '⚠', text: t.title, chip: 'overdue', c: 'var(--red)', go: 'todos' }));
-  subjects.filter(s => { const p = attPct(s.attendance_pct); return p > 0 && p < 75; })
+  subjects.filter(s => isLowAttendance(attPct(s.attendance_pct)))
     .forEach(s => reminders.push({ icon: '%', text: `${s.name} attendance low`, chip: `${attPct(s.attendance_pct)}%`, c: 'var(--red)', go: 'college' }));
   todos.filter(t => !t.completed && t.due_date && t.due_date >= today && t.due_date <= plus7)
     .sort((a, b) => a.due_date.localeCompare(b.due_date)).slice(0, 3)

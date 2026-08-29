@@ -299,7 +299,7 @@ export function classNow(timetable, now = new Date()) {
 // Amizone stores attendance as a fraction (0.81) or a percent (81). Same
 // normalisation the College tab uses — duplicated deliberately rather than
 // imported from a tab, because a lib importing a tab is the wrong direction.
-const attPct = raw => { const n = Number(raw) || 0; return n > 0 && n <= 1 ? Math.round(n * 1000) / 10 : n; };
+import { attPct } from './attendance.js';
 
 export function homeContext({
   timetable = [], todos = [], events = [], habits = [], goals = [], subjects = [], now = new Date(),
@@ -373,7 +373,7 @@ export function homeContext({
   // Attendance. The single most-asked question about this app's college data,
   // and the dock could not answer it at all — subjects were never passed in.
   const rated = subjects.map(x => ({ name: x.name || x.code, pct: attPct(x.attendance_pct) }))
-    .filter(x => x.name && x.pct > 0);
+    .filter(x => x.name && x.pct != null);
   if (rated.length) {
     const avg = Math.round(rated.reduce((n, x) => n + x.pct, 0) / rated.length);
     parts.push('Attendance by subject: ' + rated.map(x => `${clip(x.name, 50)} ${x.pct}%`).join('; ')

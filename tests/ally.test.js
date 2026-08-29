@@ -223,14 +223,21 @@ const att = homeContext({
     { name: 'IoT System Design', attendance_pct: 100 },
     { name: 'Blockchain', attendance_pct: 0.9 },      // fraction form
     { name: 'Prof Programming', attendance_pct: 72 },
-    { name: 'Unsynced Thing', attendance_pct: 0 },
+    // These two used to be the same value. `attendance_pct: 0` meant BOTH
+    // "never synced" and "attended none of them", so the dock could only ever
+    // report one of them, and it chose to hide both. Spanish sat at 0/1 for a
+    // week and PLAYER TWO said nothing.
+    { name: 'Unsynced Thing', attendance_pct: null },
+    { name: 'Spanish FBL', attendance_pct: 0 },
   ],
 });
 ok(/IoT System Design 100%/.test(att), 'percent values pass through');
 ok(/Blockchain 90%/.test(att), 'fraction values are normalised to percent');
-ok(!/Unsynced Thing/.test(att), 'subjects with no attendance yet are not reported as 0%');
-ok(/Below the 75% requirement: Prof Programming \(72%\)/.test(att), 'a subject under 75% is called out by name');
-ok(/Average 87%/.test(att), 'and the average is over rated subjects only');
+ok(!/Unsynced Thing/.test(att), 'a null percentage is absent, not reported as 0%');
+ok(/Spanish FBL 0%/.test(att), 'a real 0% IS reported — it is a value, not a blank');
+ok(/Below the 75% requirement: Prof Programming \(72%\), Spanish FBL \(0%\)/.test(att),
+  'both subjects under 75% are called out, the 0% one included');
+ok(/Average 66%/.test(att), 'the average counts the 0% and skips the unknown');
 
 const safe = homeContext({ now: HNOW, subjects: [{ name: 'X', attendance_pct: 90 }] });
 ok(/Nothing is below the 75%/.test(safe), 'the all-clear is stated rather than left as silence');

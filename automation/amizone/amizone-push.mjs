@@ -199,18 +199,29 @@ async function main() {
   // still never appear on the dashboard. Ask for the representation back so a
   // no-op is visible instead of looking like a success.
   const unmatched = [];
+  const patch = async (filter, pct) => {
+    const res = await supa(`subjects?${filter}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ attendance_pct: pct }),
+    });
+    return DRY ? 1 : (Array.isArray(res) ? res.length : 0);
+  };
   for (const c of courses) {
-    if (!c.code || c.pct == null) continue;
+    if (c.pct == null) continue;
     try {
-      const res = await supa(`subjects?code=eq.${encodeURIComponent(c.code)}`, {
-        method: 'PATCH',
-        headers: { Prefer: 'return=representation' },
-        body: JSON.stringify({ attendance_pct: c.pct }),
-      });
-      if (!DRY && Array.isArray(res) && res.length === 0) unmatched.push(c.code);
+      let hit = c.code ? await patch(`code=eq.${encodeURIComponent(c.code)}`, c.pct) : 0;
+      // Rows added by hand in the Subjects tab have an optional code, so a
+      // subject can exist on the dashboard with code null and never be matched
+      // by the code filter — the percentage is written to nothing and the row
+      // shows "—" forever, looking exactly like a course with no data. Fall back
+      // to the name Amizone gives, which is the string that row was named from.
+      if (!hit && c.name) hit = await patch(`name=eq.${encodeURIComponent(c.name)}`, c.pct);
+      if (!hit) unmatched.push(`${c.code || '?'} (${c.name})`);
+      else if (!DRY) log(`   subjects: ${c.code || c.name} → ${c.pct}%`);
     } catch (e) { log('subject patch', c.code, String(e)); }
   }
-  if (unmatched.length) log(`subjects: no row matches ${unmatched.join(', ')} — add them or the % goes nowhere`);
+  if (unmatched.length) log(`subjects: NO ROW MATCHES ${unmatched.join('; ')} — add them in the Subjects tab or the % goes nowhere`);
 
   let ttWritten = 0;
   if (!SYNC_TT) {
