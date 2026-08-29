@@ -4,6 +4,8 @@ import { homeContext } from '../lib/ally.js';
 import { useCollection } from '../lib/hooks.js';
 import { signOut } from '../lib/auth.js';
 import { ownsTab, PLAYER_TWO } from '../lib/assistants.js';
+import * as db from '../lib/db.js';
+import { THREAD_KEY, sanitizeThread, trimForStore, trimForSend, threadChanged } from '../lib/thread.js';
 
 // PLAYER TWO — the co-op partner, reachable from every screen.
 //
@@ -44,6 +46,12 @@ export default function PlayerTwo({ tab }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const endRef = useRef(null);
+  // Nothing may be SAVED until the stored thread has been LOADED. Without this
+  // the empty initial state races the load and writes {} over a real
+  // conversation — the classic hydrate-then-persist bug, and one that destroys
+  // exactly the thing this feature exists to keep.
+  const hydrated = useRef(false);
+  const savedRef = useRef([]);
 
   const { items: timetable } = useCollection('timetable', { order: 'id' });
   const { items: todos } = useCollection('todos', { order: 'due_date', asc: true });
@@ -57,6 +65,48 @@ export default function PlayerTwo({ tab }) {
 
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }); }, [msgs, busy, open]);
 
+  // ---- load once ----
+  useEffect(() => {
+    let dead = false;
+    (async () => {
+      try {
+        const rows = await db.list('memory', { filter: `key=eq.${THREAD_KEY}`, order: 'key' });
+        const stored = sanitizeThread(rows?.[0]?.value);
+        if (dead) return;
+        savedRef.current = stored;
+        // Only adopt it if nothing has been typed in the meantime. A slow load
+        // must never wipe a message sent while it was in flight.
+        setMsgs(m => (m.length ? m : stored));
+      } catch {
+        // A thread that will not load is not worth blocking the assistant over.
+      } finally {
+        if (!dead) hydrated.current = true;
+      }
+    })();
+    return () => { dead = true; };
+  }, []);
+
+  // ---- save, debounced ----
+  // Deliberately NOT inside send(): a reply that arrives after an error, or a
+  // thread cleared from the header, has to be persisted too, and one effect
+  // watching the state covers every path by construction.
+  useEffect(() => {
+    if (!hydrated.current) return;
+    if (!threadChanged(savedRef.current, msgs)) return;
+    const t = setTimeout(async () => {
+      const body = trimForStore(msgs);
+      try {
+        await db.upsertMemory(THREAD_KEY, body);
+        savedRef.current = body;
+      } catch {
+        // Left unsaved on purpose. savedRef is unchanged, so the next edit
+        // retries; failing to store a chat line is not worth an error banner
+        // over the conversation.
+      }
+    }, 800);
+    return () => clearTimeout(t);
+  }, [msgs]);
+
   async function send(text) {
     const body = String(text ?? q).trim();
     if (!body || busy) return;
@@ -68,7 +118,10 @@ export default function PlayerTwo({ tab }) {
         subjects: subjects || [],
         events: calMem?.[0]?.value?.events || [],
       });
-      const { text: reply } = await aiChat(next, {
+      // The tail, not the whole thread. Every message goes to the model on every
+      // turn, so an un-capped history makes each reply slower and dearer than
+      // the last — and now that the thread outlives the tab, nothing else caps it.
+      const { text: reply } = await aiChat(trimForSend(next), {
         system: SYSTEM + '\n\n--- CONTEXT ---\n' + context,
         agent: 'home',
         // Two or three sentences is the whole brief, so 400 is generous. This is
@@ -106,6 +159,15 @@ export default function PlayerTwo({ tab }) {
           <div className="p2-head">
             <span className="p2-title">PLAYER TWO</span>
             <span className="p2-sub">everything except money</span>
+            {/* A thread that survives reloads needs a way to end. Without this
+                the only way to start fresh would be to scroll past it forever. */}
+            {msgs.length > 0 && (
+              <button
+                className="p2-out"
+                onClick={() => { setMsgs([]); setErr(''); }}
+                title="Start a new thread"
+              >NEW</button>
+            )}
             <button className="p2-out" onClick={() => signOut()} title="Sign out">SIGN OUT</button>
           </div>
 
