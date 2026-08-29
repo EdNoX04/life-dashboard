@@ -12,3 +12,6 @@ node_modules/
 amizone.config.local.json
 # run logs (rotated copy)
 amizone.log.1
+# debug captures from a failed run
+debug-failed.png
+debug-failed.html

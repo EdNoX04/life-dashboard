@@ -366,52 +366,43 @@ async function main() {
   fs.mkdirSync(PROFILE_DIR, { recursive: true });
   // Anti-automation: Cloudflare Turnstile fails "automated" browsers. These flags
   // strip the automation fingerprint so it's treated as an ordinary Chrome.
-  // Every flag here is a trade between convenience and how automated the
-  // browser looks. Cloudflare Turnstile reads exactly these.
+  // The automated run must look like the login run.
   //
-  // REMOVED: '--disable-features=IsolateOrigins,site-per-process'. Turnstile
-  // runs inside a cross-origin iframe and leans on site isolation; switching
-  // that off is both unusual enough to flag and capable of breaking the
-  // challenge outright. It bought us nothing and is the most likely single
-  // cause of "Verification failed" on this machine.
+  // This is what broke it. --login was de-automated so a human could clear
+  // Cloudflare, and it worked — 20KB of cookies landed in the profile. But the
+  // scheduled run then reopened that same profile through Playwright with a
+  // DIFFERENT flag set and a browser Playwright picked by its own channel
+  // guessing. Cloudflare binds cf_clearance to the browser fingerprint, so from
+  // its side that was a different browser presenting a stolen cookie, and it
+  // re-challenged. The cookie was never the problem; the mismatch was.
+  //
+  // So: same binary (resolved by findBrowser, exactly as --login does), and the
+  // same three flags. Nothing that says "automated" beyond what Playwright must
+  // do to drive the page at all.
   const antiBotArgs = [
-    '--disable-blink-features=AutomationControlled',
     '--no-first-run',
     '--no-default-browser-check',
+    // Plain Chrome reports navigator.webdriver === false. Playwright's Chrome
+    // reports true unless this flag is set, so this makes the automated run
+    // MATCH the login run rather than diverge from it.
+    '--disable-blink-features=AutomationControlled',
   ];
-  antiBotArgs.push('--start-minimized');   // scheduled runs only; login never reaches here
   const opts = {
     headless: false,                       // headful passes Cloudflare far more reliably
-    viewport: null,                        // use the real window size (looks human)
+    viewport: null,
     args: antiBotArgs,
-    // Playwright defaults chromiumSandbox to FALSE, which makes Chrome start
-    // with --no-sandbox and print "You are using an unsupported command-line
-    // flag: --no-sandbox" across the top of the window. A browser announcing a
-    // disabled sandbox is about the loudest automation signal there is, and it
-    // was visible in the screenshot of the failing login. Turn the sandbox on.
-    chromiumSandbox: true,
+    chromiumSandbox: true,                 // no --no-sandbox banner, no free bot signal
     ignoreDefaultArgs: ['--enable-automation'],
   };
-  // Browser resolution, widest-net first.
-  //
-  // On Windows `channel: 'chrome'` always found Google Chrome. On Arch there may
-  // be no Chrome at all — Omarchy ships Chromium — and Playwright's 'chrome'
-  // channel looks only in /opt/google/chrome, so it throws. Each candidate is
-  // tried in turn and the LAST error is reported, because a bare
-  // "browserType.launchPersistentContext: Chromium distribution 'chrome' is not
-  // found" says nothing about the three other things that were attempted.
-  //
-  // Real Chrome first: Turnstile is measurably happier with it than with
-  // Chromium, and that is the entire reason this runs on a home machine.
-  const explicit = process.env.AMIZONE_CHROME || cfg.chromePath;
-  const candidates = [
-    ...(explicit ? [{ what: `executablePath ${explicit}`, o: { executablePath: explicit } }] : []),
-    { what: "channel 'chrome'", o: { channel: 'chrome' } },
-    { what: "channel 'chromium'", o: { channel: 'chromium' } },
-    { what: '/usr/bin/google-chrome-stable', o: { executablePath: '/usr/bin/google-chrome-stable' } },
-    { what: '/usr/bin/chromium', o: { executablePath: '/usr/bin/chromium' } },
-    { what: "Playwright's bundled Chromium", o: {} },
-  ];
+
+  const bin = findBrowser();
+  if (!bin) {
+    console.error('\nNo browser found. Install one:');
+    console.error('  yay -S google-chrome        (Arch, preferred)');
+    console.error('  sudo pacman -S chromium     (fallback)');
+    process.exit(1);
+  }
+  const candidates = [{ what: bin, o: { executablePath: bin } }];
   let ctx = null, lastErr = null;
   for (const c of candidates) {
     try {
@@ -428,8 +419,9 @@ async function main() {
     process.exit(1);
   }
 
-  // extra insurance: hide the webdriver flag Cloudflare checks
-  await ctx.addInitScript(() => { try { Object.defineProperty(navigator, 'webdriver', { get: () => undefined }); } catch (e) {} });
+  // No navigator.webdriver patch: --disable-blink-features=AutomationControlled
+  // already makes it false, and an overridden getter is itself detectable — it
+  // would make this run LESS like the plain Chrome that did the login.
 
   const page = ctx.pages()[0] || await ctx.newPage();
 
@@ -446,7 +438,32 @@ async function main() {
   }
 
   if (data.needLogin || !data.courses?.length) {
-    log('NOT logged in and could not auto-login. Run:  node amizone-auto.mjs --login');
+    // Write down what the browser was actually looking at. Three rounds of this
+    // failing were spent guessing between "the cookie did not persist", "Cloudflare
+    // re-challenged" and "the selectors moved" — all of which look identical from
+    // a log line. A screenshot answers it in one glance, and the HTML answers it
+    // precisely. Both are gitignored.
+    try {
+      await page.screenshot({ path: path.join(HERE, 'debug-failed.png'), fullPage: true });
+      fs.writeFileSync(path.join(HERE, 'debug-failed.html'), await page.content());
+      log('Wrote debug-failed.png and debug-failed.html — open the PNG, it shows what Amizone served.');
+    } catch (e) { log('(could not capture debug output: ' + e.message + ')'); }
+
+    // Name the three possibilities instead of one generic instruction, because
+    // the fix is different for each.
+    const title = await page.title().catch(() => '');
+    const body = (await page.evaluate(() => document.body?.innerText?.slice(0, 400) || '').catch(() => '')) || '';
+    log(`page title: ${JSON.stringify(title)}`);
+    if (/just a moment|checking your browser|cf-|cloudflare/i.test(title + body)) {
+      log('DIAGNOSIS: Cloudflare challenged this run. The saved profile is fine, but this');
+      log('           browser did not look like the one that cleared the check.');
+    } else if (/login|username|password/i.test(title + body)) {
+      log('DIAGNOSIS: Amizone served the LOGIN page — the session cookie has expired or');
+      log('           was not carried over. Re-run:  node amizone-auto.mjs --login');
+    } else {
+      log('DIAGNOSIS: logged in, but no courses were parsed — the page layout may have');
+      log('           changed. debug-failed.html has what it saw.');
+    }
     await upsertMemory('amizone_last_sync', { at: new Date().toISOString(), ok: false, reason: 'needs manual login' });
     await ctx.close();
     process.exitCode = 2;
