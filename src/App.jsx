@@ -102,8 +102,12 @@ export default function App() {
         </ErrorBoundary>
       </main>
       {/* At the root, not inside a tab: an assistant that disappears when you
-          navigate is a widget, not a partner. The thread survives the move. */}
-      <PlayerTwo />
+          navigate is a widget, not a partner. The thread survives the move —
+          including across Money and Media, where it renders nothing because
+          LEDGER and Ally own those screens (see lib/assistants.js). Passing the
+          tab rather than mounting conditionally is what keeps the thread alive
+          while the dock is away. */}
+      <PlayerTwo tab={tab} />
     </div>
   );
 }

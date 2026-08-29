@@ -3,6 +3,7 @@ import { aiChat } from '../lib/ai.js';
 import { homeContext } from '../lib/ally.js';
 import { useCollection } from '../lib/hooks.js';
 import { signOut } from '../lib/auth.js';
+import { ownsTab, PLAYER_TWO } from '../lib/assistants.js';
 
 // PLAYER TWO — the co-op partner, reachable from every screen.
 //
@@ -18,6 +19,17 @@ import { signOut } from '../lib/auth.js';
 // ways this has no machinery for. The two must not blur — the whole reason the
 // Money tab has its own assistant is that a general chat window holding a
 // portfolio is a different and worse product.
+//
+// Which is why it also has to be INVISIBLE there. Not seeing money was only half
+// the rule; the other half was never built, so this dock sat on top of LEDGER on
+// Money and on top of Ally on Media — the assistant that cannot help, covering
+// the one that can, and announcing its own uselessness in its subtitle.
+//
+// It hides by rendering nothing, NOT by unmounting. Unmounting would take `msgs`
+// with it, so a trip to the Money tab would silently end the conversation — the
+// exact widget-not-a-partner failure the root mount above exists to avoid. The
+// component stays alive, the thread survives, and even the open/closed state is
+// where you left it when you come back.
 
 const OPENERS = [
   'When is my next class?',
@@ -25,7 +37,7 @@ const OPENERS = [
   'What should I study today?',
 ];
 
-export default function PlayerTwo() {
+export default function PlayerTwo({ tab }) {
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState([]);
   const [q, setQ] = useState('');
@@ -72,6 +84,12 @@ export default function PlayerTwo() {
       setBusy(false);
     }
   }
+
+  // Another assistant owns this screen. Every hook above has already run — this
+  // guard is deliberately the LAST thing before the render, because an early
+  // return placed among the hooks would change how many run between tabs and
+  // React would throw.
+  if (!ownsTab(PLAYER_TWO, tab)) return null;
 
   return (
     <>

@@ -29,10 +29,15 @@ no defence — the stolen token *is* the credential RLS asks for.
   exercised before deploying, and a tab that silently stops loading a week later
   is worse than the narrow gain. None of these is what stops token theft.
 
-**It ships as `Content-Security-Policy-Report-Only`.** An enforcing policy with
-one directive wrong breaks a tab quietly. Violations appear in the browser
-console; once every tab has been walked with a clean console, rename the header
-to `Content-Security-Policy` to enforce it.
+**It shipped as `Content-Security-Policy-Report-Only` first, and is now
+enforcing.** An enforcing policy with one directive wrong breaks a tab quietly,
+which is not a thing to find out from a user. So it went out in report-only mode,
+then all 25 tabs were walked with a `securitypolicyviolation` listener attached:
+**0 violations**. Only then was the header renamed.
+
+The walk exercises what each tab loads on mount, not every interaction inside it.
+If something ever stops working with a "Refused to…" line in the console, the
+revert is one word — put `-Report-Only` back on that header key and redeploy.
 
 ## The other headers
 
