@@ -313,6 +313,23 @@ export const JS = `
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 /**
+ * The exam's day label, DERIVED from examISO rather than typed by hand.
+ *
+ * The first version had the weekday written into each data file as a string.
+ * They were wrong — 2 Sept is a Wednesday and 3 Sept a Thursday, not Tuesday
+ * and Wednesday — and nothing could catch it, because a hand-typed weekday is
+ * unfalsifiable data. The app's own Study tab computed the right ones from the
+ * date and disagreed with the guides, which is how it surfaced. Deriving it
+ * makes that class of mistake impossible.
+ *
+ * Timezone is pinned to Asia/Kolkata so the label does not shift if this is
+ * ever built on a machine in another zone.
+ */
+export const examDayLabel = isoTs => new Date(isoTs).toLocaleDateString('en-IN', {
+  weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata',
+});
+
+/**
  * Build one subject page.
  *
  * `sections` is a flat list, each carrying the module it belongs to. Flat
@@ -350,7 +367,7 @@ export function render(s) {
 <header class="top"><div class="top-in">
   <div class="brand">
     <b>${esc(s.code)} · ${esc(s.title)}</b>
-    <span>${esc(s.examLabel)} · minor exam · modules 1–2</span>
+    <span>${esc(examDayLabel(s.examISO))}, ${esc(s.examTime)} · minor exam · modules 1–2</span>
   </div>
   <div class="cd" id="cd" data-when="${s.examISO}">&nbsp;</div>
   <input class="search" id="q" type="search" placeholder="/ to search…" aria-label="Search this guide">

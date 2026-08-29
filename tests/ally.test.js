@@ -14,7 +14,7 @@ import {
   SCOPES, scopeFor, mediaContext, buildContext, systemPrompt, PROMPTS, MAX_CONTEXT_CHARS,
 } from '../src/lib/ally.js';
 
-import { homeContext, HOME_READS, HOME_WITHHELD } from '../src/lib/ally.js';
+import { homeContext, classNow, HOME_READS, HOME_WITHHELD } from '../src/lib/ally.js';
 
 let pass = 0, fail = 0;
 const ok = (cond, name) => { if (cond) { pass++; } else { fail++; console.log('FAIL ' + name); } };
@@ -132,8 +132,10 @@ ok(PROMPTS.every(p => p.label && p.text), 'each has a label and a real question'
 ok(PROMPTS.some(p => /90 minutes/i.test(p.text)), 'one asks about time available, as requested');
 ok(PROMPTS.every(p => p.text.length > 30), 'and none is a bare greeting — an opener should do something');
 
-console.log(`${pass}/${pass + fail} passing`);
-if (fail) process.exit(1);
+// (The summary used to print HERE, in the middle of the file. Everything below
+// it still ran, but its failures were counted after the total had been printed
+// and after the only `process.exit(1)` — so the entire home-dock context
+// section could not fail the suite. Moved to the true end of the file.)
 
 // --------------------------------------------------- the home dock's context
 
@@ -180,8 +182,74 @@ for (const k of HOME_WITHHELD) {
 }
 ok(/not available to you/.test(hc), 'and the model is told what it cannot see, so it says so instead of guessing');
 
+// ---------------------------------------------------------------------------
+// The clock. The dock answered "what is my next period" with "I have no access
+// to your schedule" while holding the timetable, because it was never told the
+// time. These guard the three defects that caused it.
+
+// Local, not UTC. 23:30 IST is still the 29th; toISOString() would say the 30th
+// while getDay() beside it still said Saturday — a context contradicting itself.
+const LATE = new Date(2026, 7, 29, 23, 30);      // Sat 29 Aug 2026, 23:30 local
+const late = homeContext({ timetable: TT, now: LATE });
+ok(/2026-08-29/.test(late), 'an evening in IST still reports today, not tomorrow');
+ok(/Saturday/.test(late), 'and the weekday agrees with the date it printed');
+ok(!/2026-08-30/.test(late), 'the UTC rollover bug is gone');
+
+// The time of day itself, without which "next" is unanswerable.
+ok(/23:30/.test(late), 'the context states the current time, not just the date');
+ok(/Right now it is/.test(late), 'and states it first, where it will be read');
+
+// Next class is COMPUTED. A model doing this arithmetic itself gets it wrong.
+const sat = classNow(TT, new Date(2026, 7, 29, 12, 0));   // Saturday, no classes
+ok(/Next class: Operating Systems at 09:00/.test(sat.next), 'from a Saturday it looks forward to Monday 09:00');
+ok(/on Monday/.test(sat.next), 'and names the day rather than leaving it to be inferred');
+ok(/No class is in progress/.test(sat.current), 'and says plainly that nothing is running now');
+
+const mon = classNow(TT, new Date(2026, 7, 31, 9, 30));   // Monday 09:30, mid-OS
+ok(/In progress right now: Operating Systems/.test(mon.current), 'a class that has started and not ended is in progress');
+ok(/Next class: DBMS at 11:00/.test(mon.next), 'and the next one is the following slot, not tomorrow');
+ok(/later today/.test(mon.next), 'described as later today');
+
+const fri = classNow(TT, new Date(2026, 8, 4, 12, 0));    // Friday — wraps the week
+ok(/Operating Systems/.test(fri.next), 'the search wraps past Sunday to next Monday');
+
+ok(classNow([], new Date()) === null, 'no timetable returns null rather than a confident sentence');
+
+// Attendance — the most obvious college question, previously unanswerable
+// because subjects were never passed in at all.
+const att = homeContext({
+  now: HNOW,
+  subjects: [
+    { name: 'IoT System Design', attendance_pct: 100 },
+    { name: 'Blockchain', attendance_pct: 0.9 },      // fraction form
+    { name: 'Prof Programming', attendance_pct: 72 },
+    { name: 'Unsynced Thing', attendance_pct: 0 },
+  ],
+});
+ok(/IoT System Design 100%/.test(att), 'percent values pass through');
+ok(/Blockchain 90%/.test(att), 'fraction values are normalised to percent');
+ok(!/Unsynced Thing/.test(att), 'subjects with no attendance yet are not reported as 0%');
+ok(/Below the 75% requirement: Prof Programming \(72%\)/.test(att), 'a subject under 75% is called out by name');
+ok(/Average 87%/.test(att), 'and the average is over rated subjects only');
+
+const safe = homeContext({ now: HNOW, subjects: [{ name: 'X', attendance_pct: 90 }] });
+ok(/Nothing is below the 75%/.test(safe), 'the all-clear is stated rather than left as silence');
+
+// Exams and the FBL deadline are imported facts, so no caller can omit them.
+ok(/Minor exams/.test(hc), 'the exam timetable is always present');
+ok(/Blockchain 4:00 PM/.test(hc), 'with real times, not just dates');
+// HNOW (15 Aug) sits BETWEEN FBL windows, so the absence of an FBL line there is
+// correct — module 1 opens on the 17th. Asserted on a date inside a window.
+const fblOpen = homeContext({ now: new Date(2026, 7, 19, 10, 0) });   // 19 Aug, module 1 open
+ok(/Spanish FBL/.test(fblOpen), 'an OPEN FBL window is stated, deadline and all');
+ok(/cannot be attempted later/.test(fblOpen), 'together with the rule that makes it urgent');
+ok(!/Spanish FBL/.test(hc), 'and nothing is claimed when no window is open');
+
 // An absent section reads to a model as "nothing scheduled", and "you have no
 // classes" is a wrong answer wearing a helpful face.
 const empty = homeContext({ now: HNOW });
 ok(/No timetable rows are stored/.test(empty), 'an empty timetable is stated, not left silent');
 ok(/No open tasks/.test(empty), 'and so is an empty task list');
+
+console.log(`${pass}/${pass + fail} passing`);
+if (fail) process.exit(1);

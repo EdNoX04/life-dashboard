@@ -303,7 +303,7 @@ export default {
   code: 'CSE337',
   title: 'Advanced Network Security & IAM',
   blurb: 'Retro study guide for the CSE337 minor exam — Modules 1 (VPN & Wireless) and 2 (Zero Trust).',
-  examLabel: 'Wed 3 Sep, 10–11 AM',
+  examTime: '10–11 AM',
   examISO: '2026-09-03T10:00:00+05:30',
   lede: 'Everything from Dr Sharma’s three decks, plus the IPSec internals, WPA3 weaknesses and IAM material the decks skip but past papers ask for. <span class="kbd">/</span> to search · <b>Cram</b> shows only definitions, tables and extra-marks boxes.',
   sections,

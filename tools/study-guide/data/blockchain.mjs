@@ -232,7 +232,7 @@ export default {
   code: 'CSE475',
   title: 'Blockchain Technologies',
   blurb: 'Retro study guide for the CSE475 minor exam — Modules 1 (platforms) and 2 (Ethereum).',
-  examLabel: 'Tue 2 Sep, 4–5 PM',
+  examTime: '4–5 PM',
   examISO: '2026-09-02T16:00:00+05:30',
   lede: 'From all five source files, plus the platforms (Hyperledger, IBM, Corda, BigChainDB, IPFS) and PBFT that past papers ask for but your decks skip. <span class="kbd">/</span> to search · <b>Cram</b> shows only definitions, tables and extra-marks boxes.',
   sections,

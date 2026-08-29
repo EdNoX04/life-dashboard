@@ -18,6 +18,8 @@
 // cannot see, and it never recommends something already in the diary — the two
 // failures that would make it useless within a week.
 
+import { schedule, examCountdown, fblStatus, fmtTime, fmtDay } from './exams.js';
+
 export const MAX_CONTEXT_CHARS = 6000;
 
 // What each tab is allowed to put in a prompt. A tab that is not in this table
@@ -216,16 +218,108 @@ export const PROMPTS = [
 // Habit and goal TITLES rather than their logs: "Gym" and "Read 20 pages" say
 // what someone is trying to do; the streak and the misses are a record of how
 // they are coping, which is a different and more personal thing.
-export const HOME_READS = ['timetable', 'todos', 'calendar_events', 'habits', 'goals'];
+// 'subjects' carries attendance percentages. It is added knowingly: the College
+// tab's own assistant already reads the same table on the same free-tier route,
+// so this widens what the HOME dock sees without widening what leaves the app.
+export const HOME_READS = ['timetable', 'todos', 'calendar_events', 'habits', 'goals', 'subjects'];
 export const HOME_WITHHELD = ['money', 'health', 'journal', 'body'];
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+// ---------------------------------------------------------------------------
+// Time, and the things the dock could not answer without it.
+//
+// The dock shipped saying "I don't have access to your class schedule" when
+// asked what the next period was. It had the timetable. What it did not have
+// was a CLOCK: the context said "Today is Saturday 2026-08-29" and stopped, so
+// "next" was unanswerable — the model knew the day and not the hour, and
+// correctly refused rather than guessing. Three fixes below, in order of how
+// wrong they were:
+//
+//   1. The date was built with toISOString(), which is UTC. In IST (+5:30) that
+//      reports TOMORROW from 18:30 onward, while the weekday beside it came
+//      from getDay() and stayed local — so every evening the context stated a
+//      day and a date that disagreed. Now both come from local time.
+//   2. There was no time of day at all. There is now, with the timezone named.
+//   3. "Next class" is date arithmetic across a week boundary, which is exactly
+//      what language models get quietly wrong. So it is COMPUTED here and handed
+//      over as a finished sentence, rather than left as an inference.
+
+const hhmm = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+const isoLocal = d =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const rowDay   = r => String(r.day || r.weekday || '');
+const rowStart = r => String(r.start || r.start_time || '');
+const rowEnd   = r => String(r.end || r.end_time || '');
+const rowName  = r => r.subject || r.name || r.title || 'class';
+const onDay    = (r, day) => rowDay(r).toLowerCase().startsWith(day.slice(0, 3).toLowerCase());
+const describe = r =>
+  `${rowName(r)}${rowStart(r) ? ` at ${rowStart(r)}` : ''}${rowEnd(r) ? `–${rowEnd(r)}` : ''}`
+  + `${r.room ? ` in ${r.room}` : ''}`;
+
+/**
+ * The class happening right now, and the next one due — searched forward across
+ * a whole week so a Saturday question still answers with Monday's first class.
+ * Returns finished sentences, or null when there is no timetable to search.
+ */
+export function classNow(timetable, now = new Date()) {
+  if (!timetable || !timetable.length) return null;
+  const t = hhmm(now);
+
+  const todayRows = timetable.filter(r => onDay(r, DAYS[now.getDay()]))
+    .sort((a, b) => rowStart(a).localeCompare(rowStart(b)));
+
+  // In progress: started at or before now, and either has no end or ends later.
+  const current = todayRows.find(r => rowStart(r) && rowStart(r) <= t && (!rowEnd(r) || rowEnd(r) > t)) || null;
+
+  // Next up: later today first, then forward day by day. Seven, not six, so a
+  // timetable with classes only on today's weekday still resolves — to next week.
+  let next = null, offset = 0;
+  const later = todayRows.find(r => rowStart(r) > t);
+  if (later) { next = later; offset = 0; }
+  else {
+    for (let i = 1; i <= 7 && !next; i++) {
+      const rows = timetable.filter(r => onDay(r, DAYS[(now.getDay() + i) % 7]))
+        .sort((a, b) => rowStart(a).localeCompare(rowStart(b)));
+      if (rows.length) { next = rows[0]; offset = i; }
+    }
+  }
+
+  const when = offset === 0 ? 'later today'
+    : offset === 1 ? 'tomorrow'
+    : `on ${DAYS[(now.getDay() + offset) % 7]}`;
+
+  return {
+    current: current ? `In progress right now: ${describe(current)}.` : 'No class is in progress right now.',
+    next: next ? `Next class: ${describe(next)}, ${when}.` : 'No classes are scheduled anywhere in the timetable.',
+  };
+}
+
+// Amizone stores attendance as a fraction (0.81) or a percent (81). Same
+// normalisation the College tab uses — duplicated deliberately rather than
+// imported from a tab, because a lib importing a tab is the wrong direction.
+const attPct = raw => { const n = Number(raw) || 0; return n > 0 && n <= 1 ? Math.round(n * 1000) / 10 : n; };
+
 export function homeContext({
-  timetable = [], todos = [], events = [], habits = [], goals = [], now = new Date(),
+  timetable = [], todos = [], events = [], habits = [], goals = [], subjects = [], now = new Date(),
 } = {}) {
-  const today = now.toISOString().slice(0, 10);
-  const parts = [`Today is ${DAYS[now.getDay()]} ${today}.`];
+  // LOCAL date. toISOString() is UTC and reported tomorrow from 18:30 IST
+  // onwards, while the weekday beside it came from getDay() and stayed local —
+  // so the context contradicted itself every evening.
+  const today = isoLocal(now);
+  let tz = '';
+  try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { /* older engines */ }
+  const parts = [
+    `Right now it is ${hhmm(now)} on ${DAYS[now.getDay()]} ${today}${tz ? ` (${tz})` : ''}.`,
+    'Use this clock for any question about what is next, what is now, or how long is left.',
+  ];
+
+  // Computed, not inferred. "What is my next period" is date arithmetic across a
+  // week boundary, and a model asked to do that from a raw list will answer
+  // confidently and sometimes wrongly.
+  const cn = classNow(timetable, now);
+  if (cn) parts.push(cn.current, cn.next);
 
   // Grouped by day and kept IN ORDER, because "second class on Monday" is a
   // question about position in a sequence. A flat list sorted by anything else
@@ -275,6 +369,35 @@ export function homeContext({
 
   if (habits.length) parts.push(`Habits being tracked: ${habits.map(h => clip(h.name || h.title, 40)).filter(Boolean).join(', ')}.`);
   if (goals.length)  parts.push(`Current goals: ${goals.map(g => clip(g.title || g.name, 60)).filter(Boolean).join(', ')}.`);
+
+  // Attendance. The single most-asked question about this app's college data,
+  // and the dock could not answer it at all — subjects were never passed in.
+  const rated = subjects.map(x => ({ name: x.name || x.code, pct: attPct(x.attendance_pct) }))
+    .filter(x => x.name && x.pct > 0);
+  if (rated.length) {
+    const avg = Math.round(rated.reduce((n, x) => n + x.pct, 0) / rated.length);
+    parts.push('Attendance by subject: ' + rated.map(x => `${clip(x.name, 50)} ${x.pct}%`).join('; ')
+      + `. Average ${avg}%.`);
+    const low = rated.filter(x => x.pct < 75);
+    parts.push(low.length
+      ? `Below the 75% requirement: ${low.map(x => `${clip(x.name, 50)} (${x.pct}%)`).join(', ')}.`
+      : 'Nothing is below the 75% attendance requirement.');
+  } else if (subjects.length) {
+    parts.push('Subjects are listed but no attendance percentages have synced yet.');
+  }
+
+  // Exams and the Spanish FBL deadline are fixed facts, imported rather than
+  // passed, so no caller can forget them. Dropped once the block has passed —
+  // stale exam dates in a prompt are worse than none.
+  const cd = examCountdown(today);
+  if (cd.state !== 'after') {
+    parts.push('Minor exams — ' + schedule()
+      .map(e => `${fmtDay(e.date)} ${e.short} ${fmtTime(e.start)}`).join('; ') + `. ${cd.text}.`);
+  }
+  const fbl = fblStatus(today);
+  if (fbl.state === 'open') {
+    parts.push(`Spanish FBL: ${fbl.text}. A missed module cannot be attempted later.`);
+  }
 
   parts.push('You can see the above and nothing else. Money, health and journal data are '
     + 'not available to you — if asked, say so plainly and point at the Money or Health tab '

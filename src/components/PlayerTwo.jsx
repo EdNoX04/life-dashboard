@@ -20,9 +20,9 @@ import { signOut } from '../lib/auth.js';
 // portfolio is a different and worse product.
 
 const OPENERS = [
-  'What is due this week?',
   'When is my next class?',
-  'What have I not touched in a while?',
+  'What is my attendance?',
+  'What should I study today?',
 ];
 
 export default function PlayerTwo() {
@@ -37,6 +37,10 @@ export default function PlayerTwo() {
   const { items: todos } = useCollection('todos', { order: 'due_date', asc: true });
   const { items: habits } = useCollection('habits', { order: 'id' });
   const { items: goals } = useCollection('goals', { order: 'id' });
+  // Attendance lives here. Without it the dock could not answer the most
+  // obvious college question there is, which is what its own College tab shows
+  // on the front page.
+  const { items: subjects } = useCollection('subjects', { order: 'name', asc: true });
   const { items: calMem } = useCollection('memory', { filter: 'key=eq.calendar_events', order: 'key' });
 
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }); }, [msgs, busy, open]);
@@ -49,6 +53,7 @@ export default function PlayerTwo() {
     try {
       const context = homeContext({
         timetable: timetable || [], todos: todos || [], habits: habits || [], goals: goals || [],
+        subjects: subjects || [],
         events: calMem?.[0]?.value?.events || [],
       });
       const { text: reply } = await aiChat(next, {
@@ -124,6 +129,8 @@ const SYSTEM = [
   'Answer in two or three sentences of plain prose. No headings, no bullet lists unless asked.',
   'Be brief. Do not restate the question, do not explain your reasoning, do not list what you looked at — give the answer.',
   'Answer from the CONTEXT below when it covers the question.',
+  'The context begins with the current date and time. Use it for anything involving "next", "now", "today" or "how long" — do not claim you cannot tell the time.',
+  'Next class and current class are already computed for you in the context. Repeat them; do not recalculate from the weekly list and do not contradict them.',
   'If the context does not contain the answer, say so plainly and name the tab that would have it. Never invent a class, a task, a date or a number.',
   'You do NOT have access to money or the journal. The Money tab has its own assistant, LEDGER, with data you cannot see — send financial questions there rather than guessing.',
   'A list marked "showing N of M" is a window, not the whole set; do not conclude anything from what is missing from it.',

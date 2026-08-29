@@ -243,7 +243,7 @@ export default {
   code: 'ECE441',
   title: 'IoT System Design',
   blurb: 'Retro study guide for the ECE441 minor exam — Modules 1 (Embedded IoT) and 2 (Automation).',
-  examLabel: 'Wed 3 Sep, 4–5 PM',
+  examTime: '4–5 PM',
   examISO: '2026-09-03T16:00:00+05:30',
   lede: 'Module 1 from your ten decks; Module 2 (ESP8266, MicroPython, Wi-Fi, MQTT, interrupts) is mostly added from standard sources because the decks skip it. <span class="kbd">/</span> to search · <b>Cram</b> shows only definitions, tables and extra-marks boxes.',
   sections,
