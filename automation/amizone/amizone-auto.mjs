@@ -325,6 +325,20 @@ async function loginMode() {
     `--user-data-dir=${PROFILE_DIR}`,
     '--no-first-run',
     '--no-default-browser-check',
+    // --password-store=basic is not optional on Linux, and it is almost
+    // certainly why the cookies did not carry.
+    //
+    // Chrome encrypts its cookie values with a key from the desktop keyring
+    // (gnome-keyring / kwallet). A window launched inside a Hyprland session
+    // reaches that keyring; the same Chrome launched by a systemd timer under
+    // Xvfb, with no session bus, does not — so it falls back to a different
+    // store, cannot decrypt what the login wrote, and silently sees no cookies
+    // at all. Which presents exactly as "Amizone served the login page".
+    //
+    // 'basic' uses an obfuscated built-in key instead of the keyring, so both
+    // runs read the same jar. It must be identical in BOTH launches or the
+    // mismatch simply moves.
+    '--password-store=basic',
     AMIZONE + '/',
   ], { detached: true, stdio: 'ignore' });
   child.unref();
@@ -339,8 +353,23 @@ async function loginMode() {
 
   const cookies = path.join(PROFILE_DIR, 'Default', 'Cookies');
   if (fs.existsSync(cookies)) {
-    log(`Profile saved (${Math.round(fs.statSync(cookies).size / 1024)}KB of cookies).`);
-    log('Next: ./run-amizone.sh   — that run is automated and should need no login.');
+    // File SIZE proves nothing — an empty Chrome cookie DB is already ~20KB,
+    // so the old check reported success on a profile with no login in it.
+    // SQLite stores host_key as plain text even when the value is encrypted,
+    // so the domain is literally searchable in the file. No sqlite3 needed.
+    const jar = fs.readFileSync(cookies);
+    if (jar.includes('amizone')) {
+      log('Profile saved — it contains Amizone cookies.');
+      log('Next: ./run-amizone.sh   — that run is automated and should need no login.');
+    } else {
+      console.error('\nThe cookie store was written but contains NO amizone.net cookie.');
+      console.error('The login did not stick. Usual causes:');
+      console.error('  · the browser was already running, so it opened a tab in your');
+      console.error('    normal profile instead of this one — quit Chrome entirely first;');
+      console.error('  · you pressed Enter before the dashboard finished loading.');
+      console.error('\nRe-run:  node amizone-auto.mjs --login');
+      process.exitCode = 1;
+    }
   } else {
     console.error('\nNo cookie store was written to ' + PROFILE_DIR + '.');
     console.error('That usually means the browser was already running with a different');
@@ -382,6 +411,21 @@ async function main() {
   const antiBotArgs = [
     '--no-first-run',
     '--no-default-browser-check',
+    // --password-store=basic is not optional on Linux, and it is almost
+    // certainly why the cookies did not carry.
+    //
+    // Chrome encrypts its cookie values with a key from the desktop keyring
+    // (gnome-keyring / kwallet). A window launched inside a Hyprland session
+    // reaches that keyring; the same Chrome launched by a systemd timer under
+    // Xvfb, with no session bus, does not — so it falls back to a different
+    // store, cannot decrypt what the login wrote, and silently sees no cookies
+    // at all. Which presents exactly as "Amizone served the login page".
+    //
+    // 'basic' uses an obfuscated built-in key instead of the keyring, so both
+    // runs read the same jar. It must be identical in BOTH launches or the
+    // mismatch simply moves.
+    '--password-store=basic',
+
     // Plain Chrome reports navigator.webdriver === false. Playwright's Chrome
     // reports true unless this flag is set, so this makes the automated run
     // MATCH the login run rather than diverge from it.

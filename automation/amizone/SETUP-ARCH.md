@@ -108,6 +108,13 @@ yourself. Once you land on your dashboard it says *"Login captured"* and closes.
 This is the only step that needs a visible window — do it from a terminal inside
 your Hyprland session, not over SSH.
 
+> **If a sync ever says Amizone served the login page**, and `strings
+> .amizone-profile/Default/Cookies | grep -c amizone` returns a number
+> greater than zero, the cookies are present but unreadable — that is the
+> keyring/password-store mismatch. Both launches pass
+> `--password-store=basic` to avoid it; changing that setting invalidates
+> every previously saved cookie and requires a fresh `--login`.
+
 ## Step 6 — one real run, the way the timer will do it
 
 ```bash
