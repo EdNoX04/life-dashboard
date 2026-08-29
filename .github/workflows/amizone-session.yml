@@ -1,0 +1,67 @@
+name: Amizone sync (saved session)
+
+# The previous Amizone workflow logged IN from the runner and failed every time
+# with turnstile=MISSING: Cloudflare will not issue a Turnstile token to a
+# datacenter IP, and no amount of scraper fixing changes that. It is disabled
+# and should stay disabled.
+#
+# This one never logs in. It presents a session captured on a machine where a
+# human already cleared Cloudflare, stored in the AMIZONE_SESSION secret. The
+# open question — genuinely untested — is whether Amizone and Cloudflare accept
+# that session from a different IP. If they do, the always-on laptop stops being
+# necessary at all. If they don't, this fails loudly and the laptop stays.
+#
+# To (re)fill the secret, on a machine where you can log in:
+#   node automation/amizone/amizone-auto.mjs --login
+#   cat automation/amizone/amizone-session.json     # paste into the secret
+
+on:
+  schedule:
+    - cron: '0 1 * * *'      # 06:30 IST
+    - cron: '0 13 * * *'     # 18:30 IST
+  workflow_dispatch:
+
+concurrency:
+  group: amizone-session
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Install Playwright + Chromium
+        working-directory: automation/amizone
+        run: |
+          npm init -y >/dev/null 2>&1 || true
+          npm install playwright@1.48.0
+          npx playwright install --with-deps chromium
+
+      - name: Sync
+        working-directory: automation/amizone
+        env:
+          CI: 'true'
+          AMIZONE_SESSION: ${{ secrets.AMIZONE_SESSION }}
+          AMIZONE_USER: ${{ secrets.AMIZONE_USER }}
+          AMIZONE_PASS: ${{ secrets.AMIZONE_PASS }}
+          SUPABASE_URL: https://xroynvkzephebhcztvfo.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # Playwright's bundled Chromium; there is no system Chrome on a runner
+          # and no Turnstile to impress, because we are not logging in.
+          AMIZONE_CHROME: ''
+        run: node amizone-auto.mjs
+
+      - name: Upload the failure screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: amizone-debug
+          path: |
+            automation/amizone/debug-failed.png
+            automation/amizone/debug-failed.html
+          if-no-files-found: ignore

@@ -40,9 +40,25 @@ const CFG_TRACKED = path.join(HERE, 'amizone.config.json');
 const CFG_PATH = fs.existsSync(CFG_LOCAL) ? CFG_LOCAL : CFG_TRACKED;
 const LOGIN_MODE = process.argv.includes('--login');
 const CHECK_MODE = process.argv.includes('--check');
+// --capture attaches to a Chrome YOU started, with YOUR everyday profile.
+// A brand-new profile has no history, no prior Cloudflare clearance and no
+// signed-in anything, which is the profile shape Turnstile trusts least — so
+// "log in inside a fresh throwaway profile" can be the one thing that never
+// works, no matter how correct the rest of the plumbing is.
+const CAPTURE_MODE = process.argv.includes('--capture');
 
 // ---- config (creds are read from YOUR local file; this script never sends them anywhere but Amizone) ----
-const cfg = JSON.parse(fs.readFileSync(CFG_PATH, 'utf8'));
+// Config from a file locally, from the environment in CI. A runner has no
+// config file and must never have one committed for it.
+const cfg = fs.existsSync(CFG_PATH)
+  ? JSON.parse(fs.readFileSync(CFG_PATH, 'utf8'))
+  : {
+      amizoneUser: process.env.AMIZONE_USER,
+      amizonePass: process.env.AMIZONE_PASS,
+      supabaseUrl: process.env.SUPABASE_URL,
+      supabaseServiceKey: process.env.SUPABASE_SERVICE_KEY,
+      syncTimetable: process.env.AMIZONE_SYNC_TIMETABLE !== 'false',
+    };
 const SUPA_URL = cfg.supabaseUrl.replace(/\/$/, '');
 // The SERVICE key, not the publishable one.
 //
@@ -63,7 +79,11 @@ const SUPA_KEY = cfg.supabaseServiceKey || cfg.supabaseKey;
 // "your", and the template says PUT_THE_SERVICE_ROLE_KEY_HERE — so it warned on
 // every untouched checkout and would have been muted as noise long before it
 // ever fired on something that mattered. Supabase keys start sb_ or eyJ.
-if (CFG_PATH === CFG_TRACKED && /^(sb_|eyJ)/.test(String(SUPA_KEY || ''))) {
+// Only when that file genuinely EXISTS and was the source. In CI the config
+// comes from the environment and no file is present, so warning about a tracked
+// file holding secrets would be crying wolf on every single run — which is how
+// a warning that matters gets ignored.
+if (CFG_PATH === CFG_TRACKED && fs.existsSync(CFG_TRACKED) && /^(sb_|eyJ)/.test(String(SUPA_KEY || ''))) {
   console.error('WARNING: real credentials are in amizone.config.json, which git TRACKS.');
   console.error('         Rename it to amizone.config.local.json (gitignored) before you commit anything.');
 }
@@ -312,6 +332,72 @@ async function check() {
  * block the one step that has to work by hand.
  */
 const SESSION_FILE = path.join(HERE, 'amizone-session.json');
+
+/**
+ * Only cookies for Amizone and its Cloudflare front door are ever written out.
+ *
+ * --capture attaches to the user's REAL browser, which holds cookies for their
+ * mail, their bank and everything else. Saving that jar wholesale to a file on
+ * disk would be an unforced privacy disaster in aid of reading a timetable.
+ */
+const RELEVANT = c => /amizone/i.test(c.domain) || /^(cf_|__cf)/.test(c.name);
+
+/** Show what the attached browser actually has open. Ends the guessing. */
+async function reportTabs(ctx) {
+  const pages = ctx.pages();
+  if (!pages.length) { console.error('  (that browser has no tabs open)'); return; }
+  console.error('  tabs open in the browser I am attached to:');
+  for (const pg of pages) {
+    let t = ''; try { t = await pg.title(); } catch {}
+    console.error(`    · ${pg.url()}  ${t ? '— ' + t : ''}`);
+  }
+}
+
+/**
+ * Attach to a browser on the CDP port, confirm the session is really logged in
+ * by loading the courses page, and save the cookies if so.
+ */
+async function captureFrom(port) {
+  let browser;
+  try { browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`); }
+  catch (e) {
+    console.error(`\nCould not attach on port ${port}: ${e.message}`);
+    console.error('The browser must be running AND started with --remote-debugging-port=' + port + '.');
+    return false;
+  }
+  const ctx = browser.contexts()[0];
+  const cookies = await ctx.cookies();
+  const mine = cookies.filter(c => /amizone/i.test(c.domain));
+
+  const page = await ctx.newPage();
+  await page.goto(AMIZONE + '/Academics/MyCourses', { waitUntil: 'domcontentloaded' }).catch(() => {});
+  await page.waitForTimeout(2500);
+  const loggedIn = await page.evaluate(() =>
+    !document.querySelector('input[type="password"]')).catch(() => false);
+  if (!loggedIn) {
+    await page.screenshot({ path: path.join(HERE, 'login-check.png') }).catch(() => {});
+  }
+  await page.close().catch(() => {});
+
+  if (loggedIn && mine.length) {
+    const keep = cookies.filter(RELEVANT);
+    fs.writeFileSync(SESSION_FILE, JSON.stringify(keep, null, 2), { mode: 0o600 });
+    log(`Verified: logged in. Saved ${keep.length} cookies for amizone/cloudflare only.`);
+    const sess = keep.filter(c => !c.expires || c.expires < 0);
+    if (sess.length) log(`${sess.length} are session cookies — the ones Chrome would have discarded.`);
+    log('Next: ./run-amizone.sh');
+    await browser.close().catch(() => {});
+    return true;
+  }
+
+  console.error('');
+  console.error('Not logged in yet — the courses page still shows a password field.');
+  console.error(`  (cookies seen: ${cookies.length} total, ${mine.length} for amizone.net)`);
+  await reportTabs(ctx);
+  console.error('  wrote login-check.png — that is the page I got.');
+  await browser.close().catch(() => {});
+  return false;
+}
 const CDP_PORT = 9222;
 
 /**
@@ -340,8 +426,12 @@ const CDP_PORT = 9222;
  * fetching the thing we came for, not by inferring it from a file.
  */
 async function loginMode() {
+  // A system browser is strongly preferred on a laptop (Cloudflare likes real
+  // Chrome). On a CI runner there may be none, and it does not matter there —
+  // nothing has to pass a challenge, the session is already in hand — so fall
+  // back to Playwright's bundled Chromium rather than refusing to run.
   const bin = findBrowser();
-  if (!bin) {
+  if (!bin && !process.env.CI) {
     console.error('\nNo browser found:  yay -S google-chrome   or   sudo pacman -S chromium');
     process.exit(1);
   }
@@ -370,64 +460,63 @@ async function loginMode() {
 
   for (;;) {
     await askLine('Press Enter once your Amizone dashboard is on screen… ');
-
-    let browser;
-    try {
-      browser = await chromium.connectOverCDP(`http://127.0.0.1:${CDP_PORT}`);
-    } catch (e) {
-      console.error('\nCould not attach to the browser on port ' + CDP_PORT + ': ' + e.message);
-      console.error('Is the window still open? It must stay open for this step.');
-      continue;
-    }
-
-    const ctx = browser.contexts()[0];
-    const cookies = await ctx.cookies();
-    const mine = cookies.filter(c => /amizone/i.test(c.domain));
-
-    // Empirical check: fetch the page we actually want, in the live session.
-    const page = await ctx.newPage();
-    await page.goto(AMIZONE + '/Academics/MyCourses', { waitUntil: 'domcontentloaded' }).catch(() => {});
-    await page.waitForTimeout(2500);
-    const loggedIn = await page.evaluate(() =>
-      !/login/i.test(document.title) && !document.querySelector('input[type="password"]')).catch(() => false);
-    await page.close().catch(() => {});
-
-    if (loggedIn && mine.length) {
-      fs.writeFileSync(SESSION_FILE, JSON.stringify(cookies, null, 2), { mode: 0o600 });
-      log(`Verified: logged in. Saved ${cookies.length} cookies (${mine.length} for amizone.net).`);
-      const session = mine.filter(c => !c.expires || c.expires < 0);
-      if (session.length) log(`${session.length} of them are session cookies — exactly what Chrome would have thrown away.`);
-      log('Next: ./run-amizone.sh');
-      await browser.close().catch(() => {});
-      log('You can close the browser window now.');
-      return;
-    }
-
+    if (await captureFrom(CDP_PORT)) return;
     console.error('');
-    console.error(loggedIn
-      ? 'The courses page loaded but no amizone.net cookies were found — unexpected.'
-      : 'That is still the login page, not your dashboard.');
-    console.error(`(cookies visible: ${cookies.length} total, ${mine.length} for amizone.net)`);
-    console.error('Finish logging in, then press Enter again. The browser is still open.');
-    await browser.close().catch(() => {});
+    console.error('If you cannot get logged in in THAT window, use your everyday Chrome');
+    console.error('instead — a brand-new profile is what Cloudflare trusts least:');
+    console.error('  Ctrl+C here, then:');
+    console.error('    pkill chrome; sleep 2');
+    console.error(`    google-chrome-stable --remote-debugging-port=${CDP_PORT} &`);
+    console.error('    (log into Amizone normally, then)');
+    console.error('    node amizone-auto.mjs --capture');
+    console.error('');
   }
 }
 
 async function main() {
   if (CHECK_MODE) return check();
   if (LOGIN_MODE) return loginMode();
+  if (CAPTURE_MODE) {
+    try { ({ chromium } = await import('playwright')); }
+    catch { console.error('\nnpm install playwright@1.48.0'); process.exit(1); }
+    log(`Attaching to the Chrome you started on port ${CDP_PORT}…`);
+    const ok = await captureFrom(CDP_PORT);
+    if (!ok) {
+      console.error('\nStart Chrome like this, log into Amizone, then re-run --capture:');
+      console.error('  pkill chrome; sleep 2');
+      console.error(`  google-chrome-stable --remote-debugging-port=${CDP_PORT} &`);
+      process.exit(2);
+    }
+    return;
+  }
 
   // Checked BEFORE Playwright is imported. "You have no session, run --login"
   // is answerable without a browser, and making the user install 300MB just to
   // be told that is the same mistake --check exists to avoid.
-  if (!fs.existsSync(SESSION_FILE)) {
+  // The session may come from the file (a laptop) or from the environment (a
+  // cloud runner). This is the change that makes the machine interchangeable:
+  // the runner never logs in, it only presents a session captured somewhere a
+  // human could. Whether Cloudflare accepts that session from a datacenter IP
+  // is the open question, and the failure is loud rather than silent.
+  let saved = null, sessionFrom = '', ageH = null;
+  if (process.env.AMIZONE_SESSION) {
+    try { saved = JSON.parse(process.env.AMIZONE_SESSION); sessionFrom = 'AMIZONE_SESSION env'; }
+    catch (e) { console.error('AMIZONE_SESSION is not valid JSON: ' + e.message); process.exit(2); }
+  } else if (fs.existsSync(SESSION_FILE)) {
+    saved = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
+    sessionFrom = 'amizone-session.json';
+    ageH = Math.round((Date.now() - fs.statSync(SESSION_FILE).mtimeMs) / 3600000);
+  } else {
     console.error('\nNo saved session. Run:  node amizone-auto.mjs --login');
+    console.error('(or set AMIZONE_SESSION to the contents of amizone-session.json)');
     await upsertMemory('amizone_last_sync', { at: new Date().toISOString(), ok: false, reason: 'needs manual login' })
       .catch(() => {});
     process.exit(2);
   }
-  const saved = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
-  const ageH = Math.round((Date.now() - fs.statSync(SESSION_FILE).mtimeMs) / 3600000);
+  if (!Array.isArray(saved) || !saved.length) {
+    console.error('The saved session is empty. Re-run --login or --capture.');
+    process.exit(2);
+  }
 
   try {
     ({ chromium } = await import('playwright'));
@@ -486,7 +575,10 @@ async function main() {
     '--disable-blink-features=AutomationControlled',
   ];
   const opts = {
-    headless: false,                       // headful passes Cloudflare far more reliably
+    // Headful locally (a real window is what Cloudflare is happiest with);
+    // headless in CI, where there is no display and no Turnstile to satisfy —
+    // the session is already in hand.
+    headless: !!process.env.CI,
     viewport: null,
     args: antiBotArgs,
     chromiumSandbox: true,                 // no --no-sandbox banner, no free bot signal
@@ -499,10 +591,10 @@ async function main() {
     process.exit(1);
   }
 
-  const browser = await chromium.launch({ executablePath: bin, ...opts });
+  const browser = await chromium.launch({ ...(bin ? { executablePath: bin } : {}), ...opts });
   const ctx = await browser.newContext({ viewport: null });
   await ctx.addCookies(saved);
-  log(`browser: ${bin} · injected ${saved.length} cookies (captured ${ageH}h ago)`);
+  log(`browser: ${bin || "playwright chromium"} · injected ${saved.length} cookies from ${sessionFrom}${ageH != null ? ` (captured ${ageH}h ago)` : ''}`);
 
   const page = await ctx.newPage();
 
