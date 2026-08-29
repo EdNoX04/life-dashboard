@@ -311,104 +311,123 @@ async function check() {
  * driver, and keeping the dependency out means a broken npm install cannot
  * block the one step that has to work by hand.
  */
+const SESSION_FILE = path.join(HERE, 'amizone-session.json');
+const CDP_PORT = 9222;
+
+/**
+ * SETUP MODE — log in by hand, then capture the cookies OURSELVES.
+ *
+ * Every previous version leaned on Chrome's own profile to carry the session
+ * from the login to the scheduled run, and it never arrived. The reason, in
+ * hindsight, is that Amizone's session cookie has no expiry — and Chrome
+ * deliberately never writes expiry-less cookies to disk. Closing the browser
+ * destroyed it every time. Three rounds were spent reading cookie databases for
+ * a value that was only ever in memory.
+ *
+ * So the profile is no longer the transport. Chrome is started with a remote
+ * debugging port, you log in as a human, and then we attach and read the live
+ * cookie jar out of the running browser — in-memory session cookies included —
+ * and write it to amizone-session.json. Scheduled runs inject that jar into a
+ * fresh context. Nothing depends on Chrome's storage format, its cookie-file
+ * location, the desktop keyring, or which cookies it considers worth saving.
+ *
+ * The debugging port is opened but not used to drive anything until AFTER the
+ * human has finished, so Cloudflare sees an ordinary browser during the part
+ * that it actually inspects.
+ *
+ * And the check at the end is empirical: it loads the courses page in that same
+ * live browser and looks for courses. "Did the login work" is answered by
+ * fetching the thing we came for, not by inferring it from a file.
+ */
 async function loginMode() {
   const bin = findBrowser();
   if (!bin) {
-    console.error('\nNo browser found. Install one:');
-    console.error('  yay -S google-chrome        (Arch, preferred — Turnstile prefers real Chrome)');
-    console.error('  sudo pacman -S chromium     (fallback)');
+    console.error('\nNo browser found:  yay -S google-chrome   or   sudo pacman -S chromium');
     process.exit(1);
   }
+  try { ({ chromium } = await import('playwright')); }
+  catch { console.error('\nnpm install playwright@1.48.0   (needed to read the cookies back)'); process.exit(1); }
+
   fs.mkdirSync(PROFILE_DIR, { recursive: true });
   log(`browser: ${bin}`);
-  log('Opening a NORMAL browser window — no automation, no flags Cloudflare dislikes.');
+  log('Opening a NORMAL browser window. No automation while you log in.');
   console.log('');
-  console.log('  1. Log into Amizone in the window that just opened.');
+  console.log('  1. Log into Amizone in the window that opened.');
   console.log('  2. Clear the Cloudflare check if it asks.');
-  console.log('  3. Get as far as your dashboard, then come back to this terminal.');
+  console.log('  3. Wait until your DASHBOARD is on screen.');
+  console.log('  4. Come back here and press Enter. Do NOT close the browser.');
   console.log('');
 
   const child = spawn(bin, [
     `--user-data-dir=${PROFILE_DIR}`,
+    `--remote-debugging-port=${CDP_PORT}`,
     '--no-first-run',
     '--no-default-browser-check',
-    // --password-store=basic is not optional on Linux, and it is almost
-    // certainly why the cookies did not carry.
-    //
-    // Chrome encrypts its cookie values with a key from the desktop keyring
-    // (gnome-keyring / kwallet). A window launched inside a Hyprland session
-    // reaches that keyring; the same Chrome launched by a systemd timer under
-    // Xvfb, with no session bus, does not — so it falls back to a different
-    // store, cannot decrypt what the login wrote, and silently sees no cookies
-    // at all. Which presents exactly as "Amizone served the login page".
-    //
-    // 'basic' uses an obfuscated built-in key instead of the keyring, so both
-    // runs read the same jar. It must be identical in BOTH launches or the
-    // mismatch simply moves.
     '--password-store=basic',
     AMIZONE + '/',
   ], { detached: true, stdio: 'ignore' });
   child.unref();
 
-  await askLine('Press Enter here ONCE you are logged in and can see your dashboard… ');
+  for (;;) {
+    await askLine('Press Enter once your Amizone dashboard is on screen… ');
 
-  // The cookie jar is only flushed to disk when the browser exits cleanly, so a
-  // profile captured while Chrome is still running can come back logged out.
-  console.log('');
-  log('Now CLOSE the browser window completely (all of it, not just the tab).');
-  await askLine('Press Enter again once it is closed… ');
-  closeAsk();
-
-  // Find the cookie store WHEREVER Chrome actually put it.
-  //
-  // This is the bug that made the last three rounds unreadable. Chrome moved
-  // the cookie database from Default/Cookies to Default/Network/Cookies years
-  // ago, but still leaves an empty legacy Default/Cookies behind — about 20KB,
-  // which is precisely the "20KB of cookies" the first version of this check
-  // reported as success. Both earlier checks read the empty file and drew
-  // confident conclusions from it.
-  //
-  // So do not hardcode a path. Walk the profile, collect every file named
-  // Cookies, and search all of them. SQLite stores host_key as plain text even
-  // when the value is encrypted, so the domain is findable without sqlite3.
-  const stores = [];
-  const walk = dir => {
-    let entries = [];
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-    for (const e of entries) {
-      const full = path.join(dir, e.name);
-      if (e.isDirectory()) walk(full);
-      else if (e.name === 'Cookies') stores.push(full);
+    let browser;
+    try {
+      browser = await chromium.connectOverCDP(`http://127.0.0.1:${CDP_PORT}`);
+    } catch (e) {
+      console.error('\nCould not attach to the browser on port ' + CDP_PORT + ': ' + e.message);
+      console.error('Is the window still open? It must stay open for this step.');
+      continue;
     }
-  };
-  walk(PROFILE_DIR);
 
-  const hit = stores.find(f => { try { return fs.readFileSync(f).includes('amizone'); } catch { return false; } });
-  if (hit) {
-    log(`Profile saved — Amizone cookies found in ${path.relative(PROFILE_DIR, hit)}`);
-    log('Next: ./run-amizone.sh   — that run is automated and should need no login.');
-  } else if (stores.length) {
-    console.error('\nCookie stores exist but none mentions amizone.net:');
-    for (const f of stores) {
-      console.error(`  ${path.relative(PROFILE_DIR, f)}  ${Math.round(fs.statSync(f).size / 1024)}KB`);
+    const ctx = browser.contexts()[0];
+    const cookies = await ctx.cookies();
+    const mine = cookies.filter(c => /amizone/i.test(c.domain));
+
+    // Empirical check: fetch the page we actually want, in the live session.
+    const page = await ctx.newPage();
+    await page.goto(AMIZONE + '/Academics/MyCourses', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.waitForTimeout(2500);
+    const loggedIn = await page.evaluate(() =>
+      !/login/i.test(document.title) && !document.querySelector('input[type="password"]')).catch(() => false);
+    await page.close().catch(() => {});
+
+    if (loggedIn && mine.length) {
+      fs.writeFileSync(SESSION_FILE, JSON.stringify(cookies, null, 2), { mode: 0o600 });
+      log(`Verified: logged in. Saved ${cookies.length} cookies (${mine.length} for amizone.net).`);
+      const session = mine.filter(c => !c.expires || c.expires < 0);
+      if (session.length) log(`${session.length} of them are session cookies — exactly what Chrome would have thrown away.`);
+      log('Next: ./run-amizone.sh');
+      await browser.close().catch(() => {});
+      log('You can close the browser window now.');
+      return;
     }
-    console.error('\nThe login did not complete. Most likely:');
-    console.error('  · Enter was pressed before the login actually finished — the dashboard');
-    console.error('    has to be on screen first, not just the login page;');
-    console.error('  · or the window that opened was an existing Chrome, not this profile.');
-    console.error('\nRe-run:  node amizone-auto.mjs --login');
-    process.exitCode = 1;
-  } else {
-    console.error('\nNo cookie store was written to ' + PROFILE_DIR + '.');
-    console.error('That usually means the browser was already running with a different');
-    console.error('profile and reused that window. Quit every Chrome window and retry.');
-    process.exitCode = 1;
+
+    console.error('');
+    console.error(loggedIn
+      ? 'The courses page loaded but no amizone.net cookies were found — unexpected.'
+      : 'That is still the login page, not your dashboard.');
+    console.error(`(cookies visible: ${cookies.length} total, ${mine.length} for amizone.net)`);
+    console.error('Finish logging in, then press Enter again. The browser is still open.');
+    await browser.close().catch(() => {});
   }
 }
 
 async function main() {
   if (CHECK_MODE) return check();
   if (LOGIN_MODE) return loginMode();
+
+  // Checked BEFORE Playwright is imported. "You have no session, run --login"
+  // is answerable without a browser, and making the user install 300MB just to
+  // be told that is the same mistake --check exists to avoid.
+  if (!fs.existsSync(SESSION_FILE)) {
+    console.error('\nNo saved session. Run:  node amizone-auto.mjs --login');
+    await upsertMemory('amizone_last_sync', { at: new Date().toISOString(), ok: false, reason: 'needs manual login' })
+      .catch(() => {});
+    process.exit(2);
+  }
+  const saved = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
+  const ageH = Math.round((Date.now() - fs.statSync(SESSION_FILE).mtimeMs) / 3600000);
 
   try {
     ({ chromium } = await import('playwright'));
@@ -476,33 +495,17 @@ async function main() {
 
   const bin = findBrowser();
   if (!bin) {
-    console.error('\nNo browser found. Install one:');
-    console.error('  yay -S google-chrome        (Arch, preferred)');
-    console.error('  sudo pacman -S chromium     (fallback)');
-    process.exit(1);
-  }
-  const candidates = [{ what: bin, o: { executablePath: bin } }];
-  let ctx = null, lastErr = null;
-  for (const c of candidates) {
-    try {
-      ctx = await chromium.launchPersistentContext(PROFILE_DIR, { ...c.o, ...opts });
-      log(`browser: ${c.what}`);
-      break;
-    } catch (e) { lastErr = e; }
-  }
-  if (!ctx) {
-    console.error('\nNo usable browser. Tried: ' + candidates.map(c => c.what).join(', '));
-    console.error('Last error:', lastErr?.message);
-    console.error('\nOn Arch:  yay -S google-chrome     (preferred)');
-    console.error('      or:  sudo pacman -S chromium');
+    console.error('\nNo browser found:  yay -S google-chrome   or   sudo pacman -S chromium');
     process.exit(1);
   }
 
-  // No navigator.webdriver patch: --disable-blink-features=AutomationControlled
-  // already makes it false, and an overridden getter is itself detectable — it
-  // would make this run LESS like the plain Chrome that did the login.
+  const browser = await chromium.launch({ executablePath: bin, ...opts });
+  const ctx = await browser.newContext({ viewport: null });
+  await ctx.addCookies(saved);
+  log(`browser: ${bin} · injected ${saved.length} cookies (captured ${ageH}h ago)`);
 
-  const page = ctx.pages()[0] || await ctx.newPage();
+  const page = await ctx.newPage();
+
 
   // normal run
   await page.goto(AMIZONE + '/Academics/MyCourses', { waitUntil: 'domcontentloaded' }).catch(() => {});
@@ -544,7 +547,7 @@ async function main() {
       log('           changed. debug-failed.html has what it saw.');
     }
     await upsertMemory('amizone_last_sync', { at: new Date().toISOString(), ok: false, reason: 'needs manual login' });
-    await ctx.close();
+    await ctx.close(); await browser.close().catch(() => {});
     process.exitCode = 2;
     return;
   }
@@ -632,7 +635,7 @@ async function main() {
 
   log(`DONE · ${courses.length} subjects, ${ttRows.length} class slots, day-wise for ${logCourses.filter(c => c.records.length).length} courses`);
   courses.forEach(c => log(`   ${c.code || '—'}  ${c.pct ?? '—'}%  (${(c.records || []).length} days)`));
-  await ctx.close();
+  await ctx.close(); await browser.close().catch(() => {});
 }
 
 main().catch(async (e) => {

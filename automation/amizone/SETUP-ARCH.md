@@ -99,6 +99,17 @@ write  : OK — this laptop can update the dashboard
 
 ## Step 5 — seed the login (once, with a real window)
 
+The session is captured into `amizone-session.json`, **not** into Chrome's
+profile. That is deliberate: Amizone's session cookie has no expiry, and Chrome
+never writes expiry-less cookies to disk, so a profile-based handoff loses the
+login every time the browser closes. Chrome is started with a debugging port,
+you log in as a human, and the live cookie jar is read out of the running
+browser afterwards — in-memory cookies included.
+
+**Leave the browser OPEN when you press Enter.** The old instructions said to
+close it; that was exactly what destroyed the session.
+
+
 ```bash
 node amizone-auto.mjs --login
 ```
