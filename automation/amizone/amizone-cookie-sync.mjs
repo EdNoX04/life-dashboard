@@ -139,24 +139,55 @@ const looksLoggedOut = (html) =>
 
 const isChallenge = (html) => /challenge-platform|Just a moment|Attention Required|cf_chl_opt/i.test(html);
 
+// MyCourses is FOUR tables, not one. Core courses sit in the first; electives and
+// Foreign Business Language sit in a second ("Open/Domain/FBL Courses"); a third
+// lists the same electives again as Amigo links. Only the first table's rows carry
+// an FnAttendance button, so keying off that button — which every version of this
+// scraper did — silently dropped Spanish and HCI entirely. Neel spotted it because
+// he knew he had missed a Spanish class and no absence ever appeared.
+//
+// So: find courses by the COURSE CODE, which every table has, and treat the
+// attendance button as optional detail rather than as the thing that defines a
+// course. SPAN145 is 4 letters + 3 digits, hence {2,6} and {2,4} in CODE.
+const CODE = /^[A-Z]{2,6}\d{2,4}$/;
+// "32/40 (80.00)". Anchored, so a stray parenthesised number elsewhere in the row
+// cannot be mistaken for a percentage — and courses showing "NA" (Industry
+// Internship, Minor Project, an elective with no classes held yet) fall through to
+// null rather than being written as a confident 0%.
+const PCT = /^(\d+)\s*\/\s*(\d+)\s*\(\s*([\d.]+)\s*\)$/;
+
 function parseCourses(html) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
-  const courses = [];
+  const found = [];
   for (const tr of doc.querySelectorAll('tr')) {
-    const btn = tr.querySelector('[onclick*="FnAttendance"]');
-    if (!btn) continue;
-    const attId = (btn.getAttribute('onclick').match(/FnAttendance\(\s*['"]?(\d+)/) || [])[1];
     const cells = [...tr.querySelectorAll('td')].map(td => td.textContent.replace(/\s+/g, ' ').trim());
-    const rowText = cells.join(' | ');
-    const pctM = rowText.match(/\(\s*([\d.]+)\s*\)/);
-    const pct = pctM ? Math.round(parseFloat(pctM[1])) : null;
-    const code = (cells.find(c => /^[A-Z]{2,4}\d{2,4}$/.test(c)) || '').trim();
+    const code = cells.find(c => CODE.test(c));
+    if (!code) continue;
+    const pm = cells.map(c => c.match(PCT)).find(Boolean);
+    const btn = tr.querySelector('[onclick*="FnAttendance"]');
+    const attId = btn ? (btn.getAttribute('onclick').match(/FnAttendance\(\s*['"]?(\d+)/) || [])[1] : null;
     const name = cells
-      .filter(c => c !== code && /[A-Za-z]{4,}/.test(c) && !/\d\/\d/.test(c) && !/present|absent|attendance/i.test(c))
+      .filter(c => c !== code && /[A-Za-z]{4,}/.test(c) && !PCT.test(c)
+        && !/^(view|na)$/i.test(c) && !/Group Name/i.test(c) && !/^compulsory$/i.test(c))
       .sort((a, b) => b.length - a.length)[0] || code;
-    if (attId || code) courses.push({ code, name, pct, attId });
+    found.push({
+      code, name, attId: attId || null,
+      attended: pm ? +pm[1] : null, held: pm ? +pm[2] : null,
+      pct: pm ? Math.round(parseFloat(pm[3])) : null,
+    });
   }
-  return courses;
+  // The Amigo table repeats each elective with no attendance cell, so the same
+  // code arrives twice. Merge rather than let arrival order decide which wins:
+  // keep the attendance figures wherever they appeared, and the longest name.
+  const byCode = new Map();
+  for (const f of found) {
+    const prev = byCode.get(f.code);
+    if (!prev) { byCode.set(f.code, f); continue; }
+    if (!prev.attId && f.attId) prev.attId = f.attId;
+    if (prev.pct == null && f.pct != null) { prev.pct = f.pct; prev.attended = f.attended; prev.held = f.held; }
+    if (f.name.length > prev.name.length) prev.name = f.name;
+  }
+  return [...byCode.values()];
 }
 
 function parseRecords(html) {
@@ -228,20 +259,54 @@ async function main() {
     } catch (e) { c.recErr = String(e.message || e); }
   }
 
+  // THE DIARY HAS A RANGE CLIFF, and it fails silently.
+  //
+  // GetDiaryEvents drops every class event (sType 'C') once the requested range
+  // gets long enough, and still returns 200 with the holidays and notices intact.
+  // Measured against the live endpoint on 2026-08-29:
+  //
+  //     7d → 22 classes   14d → 38   28d → 71   35d → 87   42d → 117   60d → 0
+  //
+  // A cliff, not a taper. Every previous version of this sync asked for -60…+14
+  // days — 74 days — and therefore received ZERO classes on every run it ever
+  // made, while looking perfectly successful. That is why the timetable has never
+  // once come from Amizone and Neel has been living off a weekly grid typed out
+  // from a photo in July.
+  //
+  // So the window is fetched in 28-day chunks and merged, well inside the cliff.
+  const CHUNK_DAYS = 28;
   const now = new Date();
-  const from = new Date(now); from.setDate(from.getDate() - 60);
+  const from = new Date(now); from.setDate(from.getDate() - 56);
   const to = new Date(now); to.setDate(to.getDate() + 14);
   const startDate = fmt(from), endDate = fmt(to);
+
+  const seen = new Set();
   let events = [];
-  try {
-    const r = await get(`/Calendar/home/GetDiaryEvents?start=${startDate}&end=${endDate}`, cookie);
-    if (r.refreshed) cookie = `.ASPXAUTH=${r.refreshed}`;
-    const j = JSON.parse(r.body);
-    events = (Array.isArray(j) ? j : []).map(e => ({
-      title: e.title, start: e.start, end: e.end, code: e.CourseCode,
-      faculty: e.FacultyName, room: e.RoomNo, sType: e.sType, allDay: e.allDay,
-    }));
-  } catch { events = []; }
+  for (let cur = new Date(from); cur < to;) {
+    const chunkEnd = new Date(cur); chunkEnd.setDate(chunkEnd.getDate() + CHUNK_DAYS);
+    const hi = chunkEnd > to ? to : chunkEnd;
+    try {
+      const r = await get(`/Calendar/home/GetDiaryEvents?start=${fmt(cur)}&end=${fmt(hi)}`, cookie);
+      if (r.refreshed) cookie = `.ASPXAUTH=${r.refreshed}`;
+      const j = JSON.parse(r.body);
+      for (const e of (Array.isArray(j) ? j : [])) {
+        // Chunks overlap at their boundary dates; id is Amizone's own, and the
+        // start+title fallback keeps notices (which have no id) from doubling up.
+        const k = String(e.id ?? `${e.start}|${e.title}`);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        events.push({
+          title: e.title, start: e.start, end: e.end, code: e.CourseCode,
+          faculty: e.FacultyName, room: e.RoomNo, sType: e.sType, allDay: e.allDay,
+          attendColor: e.AttndColor,
+        });
+      }
+    } catch { /* one bad chunk must not cost the whole window */ }
+    cur = hi;
+  }
+  const classCount = events.filter(e => String(e.sType).toUpperCase() === 'C').length;
+  log(`diary: ${events.length} events (${classCount} classes) across ${startDate}…${endDate}`);
+  if (!classCount) log('  WARNING: zero class events — the range cliff may have moved, or term is out');
 
   // Persist the (possibly renewed) ticket. Written unconditionally so a value
   // bootstrapped from AMIZONE_COOKIE lands in Supabase on the first run.

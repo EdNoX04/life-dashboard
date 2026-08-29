@@ -40,11 +40,20 @@ const cfg = CFG_PATH && fs.existsSync(CFG_PATH)
   : {};
 const SUPA_URL = String(process.env.SUPABASE_URL || cfg.supabaseUrl || '').replace(/\/$/, '');
 const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY || cfg.supabaseServiceKey || cfg.supabaseKey || '';
-// syncTimetable defaults OFF. amizone-auto.mjs carries a comment saying the
-// hand-verified weekly timetable is left alone unless this is turned on — but
-// the code below that comment overwrites it unconditionally, so the config flag
-// has never actually done anything. Honour it here.
-const SYNC_TT = cfg.syncTimetable === true || process.env.AMIZONE_SYNC_TIMETABLE === 'true';
+// The timetable now comes from Amizone. It used to default OFF for a good
+// reason — the derivation unioned makeups and both lab batches into a noisy
+// superset — but that was downstream of a bug: the diary was being asked for a
+// 74-day range, past the endpoint's silent range cliff, so it returned no
+// classes at all. Fetched in 28-day chunks and filtered to what recurs, the
+// derived grid matches the real one. Set AMIZONE_SYNC_TIMETABLE=false (or
+// syncTimetable: false in the config) to go back to a hand-maintained table.
+const SYNC_TT = process.env.AMIZONE_SYNC_TIMETABLE === 'false' ? false
+  : cfg.syncTimetable === false ? false
+  : true;
+// Never replace a healthy timetable with a suspiciously thin one. A scrape that
+// half-worked used to DELETE everything and insert whatever it had — the exact
+// failure that wiped the table in August and reported success.
+const COLLAPSE_RATIO = 0.5;
 
 // A placeholder is not a key. Real Supabase keys start sb_ or eyJ; anything else
 // means the config was never filled in, and a run that silently no-ops is how
@@ -117,15 +126,49 @@ async function main() {
       const status = r.present === 0 ? 'absent' : r.absent === 0 ? 'present' : 'partial';
       return iso ? { date: iso, day: dayFromIso(iso), timings: r.timings, present: r.present, absent: r.absent, status } : null;
     }).filter(Boolean).sort((a, b) => (a.date < b.date ? -1 : 1));
-    const present = records.reduce((s, r) => s + (r.status !== 'absent' ? 1 : 0), 0);
-    return { code: c.code, name: c.name, present, absent: records.length - present, total: records.length, pct: c.pct ?? 0, records };
+
+    // Electives and Foreign Business Language have no day-wise page — Amizone
+    // only publishes the running total for them. Counting their days from an
+    // empty records list would report Spanish as 0 classes held, which reads as
+    // "nothing to worry about" when the truth is one class held and one missed.
+    // Fall back to the attended/held pair off MyCourses.
+    const hasRecords = records.length > 0;
+    const present = hasRecords
+      ? records.reduce((s, r) => s + (r.status !== 'absent' ? 1 : 0), 0)
+      : (c.attended ?? 0);
+    const total = hasRecords ? records.length : (c.held ?? 0);
+
+    return {
+      code: c.code, name: c.name,
+      present, absent: total - present, total,
+      // null, never 0. A course with no classes held yet (Industry Internship,
+      // Minor Project) is not a course at 0% attendance, and the dashboard must
+      // be able to tell those apart.
+      pct: c.pct ?? null,
+      detail: hasRecords ? 'day-wise' : (c.held != null ? 'totals-only' : 'none'),
+      records,
+    };
   });
 
-  // weekly timetable, same recurrence filter as amizone-auto.mjs
+  // ---- weekly timetable, derived from the diary ----
+  // A real weekly class recurs on the same weekday and time across weeks; a
+  // makeup or an extra session does not. Grouping by weekday|time|subject and
+  // keeping only what appears on 2+ distinct dates is what separates them.
+  // Measured over August: 16 slots at x4, Friday IoT at x3 (one week missed),
+  // and a pair of Wednesday CSE337 slots at x1 — the makeups, correctly dropped.
+  // Friday came out with exactly one IoT class, which is what Neel has been
+  // saying all along against a photo-derived grid that showed more.
+  //
+  // Only the last RECURRENCE_DAYS are considered. Reaching further back drags in
+  // the previous timetable revision and unions it with the current one.
+  const RECURRENCE_DAYS = 35;
+  const cutoff = new Date(Date.now() - RECURRENCE_DAYS * 86400000);
   const groups = {};
   for (const e of (data.events || [])) {
     const t = String(e.sType || '').toUpperCase();
     if (t === 'H' || t === 'E' || e.allDay === true) continue;
+    const when = parseAmzDT(e.start);
+    if (!when || new Date(when.iso + 'T00:00:00') < cutoff) continue;
     const sdt = parseAmzDT(e.start), edt = parseAmzDT(e.end);
     const st = sdt?.hm, et = edt?.hm || '', iso = sdt?.iso;
     const day = iso ? dayFromIso(iso) : '';
@@ -151,24 +194,46 @@ async function main() {
     picked: ttRows.map(r => `${r.day} ${r.start_time}-${r.end_time} ${r.subject}`).sort(),
   }).catch(() => {});
 
+  // PATCH silently matches nothing when the subject isn't in the table — which is
+  // how a newly discovered course (Spanish, say) can be scraped correctly and
+  // still never appear on the dashboard. Ask for the representation back so a
+  // no-op is visible instead of looking like a success.
+  const unmatched = [];
   for (const c of courses) {
     if (!c.code || c.pct == null) continue;
-    await supa(`subjects?code=eq.${encodeURIComponent(c.code)}`, { method: 'PATCH', body: JSON.stringify({ attendance_pct: c.pct }) })
-      .catch(e => log('subject patch', c.code, String(e)));
+    try {
+      const res = await supa(`subjects?code=eq.${encodeURIComponent(c.code)}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify({ attendance_pct: c.pct }),
+      });
+      if (!DRY && Array.isArray(res) && res.length === 0) unmatched.push(c.code);
+    } catch (e) { log('subject patch', c.code, String(e)); }
   }
+  if (unmatched.length) log(`subjects: no row matches ${unmatched.join(', ')} — add them or the % goes nowhere`);
 
-  if (SYNC_TT && ttRows.length) {
-    await supa('timetable?id=not.is.null', { method: 'DELETE' }).catch(() => {});
-    await supa('timetable', { method: 'POST', body: JSON.stringify(ttRows) }).catch(e => log('timetable insert', String(e)));
-    log(`timetable: ${ttRows.length} recurring slots written (from ${allSlots.length} distinct diary slots)`);
+  let ttWritten = 0;
+  if (!SYNC_TT) {
+    log(`timetable: sync disabled (${ttRows.length} slots parsed, left alone)`);
+  } else if (!ttRows.length) {
+    log('timetable: parsed 0 recurring slots — left alone rather than wiped');
   } else {
-    log(`timetable: left alone (${ttRows.length} slots parsed, syncTimetable=${SYNC_TT})`);
+    const before = (await supa('timetable?select=id').catch(() => null))?.length ?? 0;
+    if (before && ttRows.length < before * COLLAPSE_RATIO) {
+      log(`timetable: REFUSED — ${ttRows.length} slots would replace ${before}; that is a collapse, not an update`);
+      await reportStatus({ ok: false, configured: true, reason: `timetable collapse refused (${ttRows.length} vs ${before})` }).catch(() => {});
+    } else {
+      await supa('timetable?id=not.is.null', { method: 'DELETE' }).catch(() => {});
+      await supa('timetable', { method: 'POST', body: JSON.stringify(ttRows) }).catch(e => log('timetable insert', String(e)));
+      ttWritten = ttRows.length;
+      log(`timetable: ${ttRows.length} recurring slots written, replacing ${before} (from ${allSlots.length} distinct diary slots)`);
+    }
   }
 
   await upsertMemory('attendance_log', { updated: new Date().toISOString(), courses: logCourses });
   await upsertMemory('amizone_last_sync', {
     at: new Date().toISOString(), ok: true, via: 'browser-pane',
-    subjects: courses.length, classes: SYNC_TT ? ttRows.length : 0,
+    subjects: courses.length, classes: ttWritten,
   });
   // session comes from the cookie path only; the browser-pane path has no ticket
   // of its own to age. Surfacing it here is what turns "how long will this last?"
@@ -176,7 +241,7 @@ async function main() {
   await reportStatus({
     ok: true, configured: true, reason: '',
     via: data.session ? 'cookie' : 'browser-pane',
-    subjects: courses.length, classes: SYNC_TT ? ttRows.length : 0,
+    subjects: courses.length, classes: ttWritten,
     ...(data.session ? { session_age_hours: data.session.age_hours, session_renewed: data.session.renewed_this_run } : {}),
   });
 
@@ -187,7 +252,10 @@ async function main() {
   logCourses.forEach(c => {
     const raw = (courses.find(x => x.code === c.code && x.name === c.name)?.records || []).length;
     const drop = raw - c.records.length;
-    log(`   ${(c.code || '—').padEnd(8)} ${String(c.pct ?? '—').padStart(3)}%  (${c.records.length} days${drop ? `, ${drop} unparsed` : ''})`);
+    const shape = c.detail === 'day-wise' ? `${c.present}/${c.total} days${drop ? `, ${drop} unparsed` : ''}`
+      : c.detail === 'totals-only' ? `${c.present}/${c.total}, totals only`
+      : 'no classes held';
+    log(`   ${(c.code || '—').padEnd(8)} ${String(c.pct ?? '—').padStart(3)}%  (${shape})`);
   });
 }
 
