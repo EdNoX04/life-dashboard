@@ -18,7 +18,7 @@
 // cannot see, and it never recommends something already in the diary — the two
 // failures that would make it useless within a week.
 
-import { schedule, examCountdown, fblStatus, fmtTime, fmtDay } from './exams.js';
+import { schedule, examCountdown, fblStatus, todayPlan, fmtTime, fmtDay } from './exams.js';
 
 export const MAX_CONTEXT_CHARS = 6000;
 
@@ -302,7 +302,8 @@ export function classNow(timetable, now = new Date()) {
 import { attPct } from './attendance.js';
 
 export function homeContext({
-  timetable = [], todos = [], events = [], habits = [], goals = [], subjects = [], now = new Date(),
+  timetable = [], todos = [], events = [], habits = [], goals = [], subjects = [],
+  habitLogs = [], doneMap = {}, now = new Date(),
 } = {}) {
   // LOCAL date. toISOString() is UTC and reported tomorrow from 18:30 IST
   // onwards, while the weekday beside it came from getDay() and stayed local —
@@ -367,7 +368,20 @@ export function homeContext({
       + `${e.accountLabel ? `, ${e.accountLabel}` : ''})`).join('; ') + '.');
   }
 
-  if (habits.length) parts.push(`Habits being tracked: ${habits.map(h => clip(h.name || h.title, 40)).filter(Boolean).join(', ')}.`);
+  // Habits, WITH today's state. Listing the names alone was the shape of the
+  // answer without the answer in it: "have I done my habits today" is a daily
+  // question and the dock could only recite what he had signed up for. The
+  // dashboard has shown "HABITS 0/5" on the home screen the whole time.
+  const liveHabits = habits.filter(h => !h.archived);
+  if (liveHabits.length) {
+    const isDone = h => habitLogs.some(l => l.habit_id === h.id && l.date === today);
+    const outstanding = liveHabits.filter(h => !isDone(h));
+    const label = h => clip(h.name || h.title, 40);
+    parts.push(`Habits today: ${liveHabits.length - outstanding.length}/${liveHabits.length} done.`
+      + (outstanding.length
+        ? ` Still outstanding: ${outstanding.map(label).filter(Boolean).join(', ')}.`
+        : ' All of them.'));
+  }
   if (goals.length)  parts.push(`Current goals: ${goals.map(g => clip(g.title || g.name, 60)).filter(Boolean).join(', ')}.`);
 
   // Attendance. The single most-asked question about this app's college data,
@@ -394,9 +408,25 @@ export function homeContext({
     parts.push('Minor exams — ' + schedule()
       .map(e => `${fmtDay(e.date)} ${e.short} ${fmtTime(e.start)}`).join('; ') + `. ${cd.text}.`);
   }
-  const fbl = fblStatus(today);
+  // doneMap matters here. Without it this said "Module 2 closes Fri 11 Sept" to
+  // someone who had already ticked it that morning — the dock contradicting the
+  // two screens that had just agreed. Anything the app lets him mark done, the
+  // assistant has to know is done.
+  const fbl = fblStatus(today, doneMap);
   if (fbl.state === 'open') {
     parts.push(`Spanish FBL: ${fbl.text}. A missed module cannot be attempted later.`);
+  } else if (fbl.state === 'ahead' && fbl.next) {
+    parts.push(`Spanish FBL: ${fbl.finished.label} is done. Next is ${fbl.next.label}, opening ${fmtDay(fbl.next.from)}.`);
+  }
+
+  // "What should I study today?" is one of the three questions this dock OFFERS
+  // as an opener, and it could only answer it from exam dates — the plan itself,
+  // which the Study tab builds for that exact date, was never passed in.
+  const plan = todayPlan(today);
+  if (plan && (plan.items || []).length) {
+    parts.push(`Study plan for today (${plan.kind === 'exam' ? 'exam day' : plan.kind === 'eve' ? 'eve of a paper' : 'study day'})`
+      + `${plan.title ? ` — ${plan.title}` : ''}:\n`
+      + plan.items.map(i => `- ${clip(i, 180)}`).join('\n'));
   }
 
   parts.push('You can see the above and nothing else. Money, health and journal data are '

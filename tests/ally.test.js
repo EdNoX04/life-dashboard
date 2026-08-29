@@ -258,5 +258,45 @@ const empty = homeContext({ now: HNOW });
 ok(/No timetable rows are stored/.test(empty), 'an empty timetable is stated, not left silent');
 ok(/No open tasks/.test(empty), 'and so is an empty task list');
 
+
+// ---------------------------------------------------------------- 7.2 context
+// Three gaps, each found by reading the code rather than guessing.
+
+// 1) Habits had names but no state. "Have I done my habits today" is a daily
+//    question and the home screen has shown "HABITS 0/5" the entire time.
+const HAB_NOW = new Date('2026-08-29T10:00:00+05:30');
+const habits3 = [
+  { id: 1, name: 'Read' },
+  { id: 2, name: 'Gym' },
+  { id: 3, name: 'Old thing', archived: true },
+];
+const hctx = homeContext({ now: HAB_NOW, habits: habits3, habitLogs: [{ habit_id: 1, date: '2026-08-29' }] });
+ok(/Habits today: 1\/2 done/.test(hctx), 'habit state is counted, not just listed');
+ok(/Still outstanding: Gym/.test(hctx), 'and the undone one is named');
+ok(!/Old thing/.test(hctx), 'an archived habit is neither counted nor chased');
+const allDoneCtx = homeContext({
+  now: HAB_NOW, habits: [{ id: 1, name: 'Read' }], habitLogs: [{ habit_id: 1, date: '2026-08-29' }],
+});
+ok(/Habits today: 1\/1 done\. All of them\./.test(allDoneCtx), 'a finished day says so');
+const staleCtx = homeContext({
+  now: HAB_NOW, habits: [{ id: 1, name: 'Read' }], habitLogs: [{ habit_id: 1, date: '2026-08-28' }],
+});
+ok(/Habits today: 0\/1 done/.test(staleCtx), "yesterday's log does not count as today's");
+
+// 2) The FBL tick. HQ and Study agree the moment a module is ticked; the dock
+//    did not, and would have chased a module finished that same morning.
+const fblCtx = homeContext({ now: HAB_NOW });
+ok(/Module 2 closes/.test(fblCtx), 'untouched, the open module is chased');
+const fblDoneCtx = homeContext({ now: HAB_NOW, doneMap: { 'fbl:2026-08-29': 'x' } });
+ok(!/Module 2 closes/.test(fblDoneCtx), 'ticked, it stops being chased');
+ok(/Module 2 is done/.test(fblDoneCtx), 'and is reported as done');
+ok(/Next is Module 3/.test(fblDoneCtx), 'with the next one named');
+
+// 3) "What should I study today?" is one of the dock's OWN suggested openers,
+//    and the plan the Study tab builds for that date was never in the prompt.
+ok(/Study plan for today/.test(fblCtx), "the day's plan is in the context");
+ok(/Network Security|Blockchain|IoT/.test(fblCtx.split('Study plan for today')[1] || ''),
+  'and it names actual material, not just a heading');
+
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);

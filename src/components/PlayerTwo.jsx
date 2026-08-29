@@ -6,6 +6,7 @@ import { signOut } from '../lib/auth.js';
 import { ownsTab, PLAYER_TWO } from '../lib/assistants.js';
 import * as db from '../lib/db.js';
 import { THREAD_KEY, sanitizeThread, trimForStore, trimForSend, threadChanged } from '../lib/thread.js';
+import { useReminderDone } from '../lib/useReminderDone.js';
 
 // PLAYER TWO — the co-op partner, reachable from every screen.
 //
@@ -62,6 +63,12 @@ export default function PlayerTwo({ tab }) {
   // on the front page.
   const { items: subjects } = useCollection('subjects', { order: 'name', asc: true });
   const { items: calMem } = useCollection('memory', { filter: 'key=eq.calendar_events', order: 'key' });
+  // Habit NAMES were already here; what was missing was whether any of them had
+  // been done today, which is the only part of a habit anyone asks about.
+  const { items: habitLogs } = useCollection('habit_logs', { order: 'date' });
+  // The same tick map HQ and Study read. Without it the dock would still be
+  // chasing a module Neel ticked this morning on the two screens either side.
+  const { doneMap } = useReminderDone();
 
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }); }, [msgs, busy, open]);
 
@@ -117,6 +124,8 @@ export default function PlayerTwo({ tab }) {
         timetable: timetable || [], todos: todos || [], habits: habits || [], goals: goals || [],
         subjects: subjects || [],
         events: calMem?.[0]?.value?.events || [],
+        habitLogs: habitLogs || [],
+        doneMap,
       });
       // The tail, not the whole thread. Every message goes to the model on every
       // turn, so an un-capped history makes each reply slower and dearer than
