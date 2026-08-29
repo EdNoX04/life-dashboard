@@ -170,7 +170,15 @@ async function main() {
     at: new Date().toISOString(), ok: true, via: 'browser-pane',
     subjects: courses.length, classes: SYNC_TT ? ttRows.length : 0,
   });
-  await reportStatus({ ok: true, configured: true, reason: '', via: 'browser-pane', subjects: courses.length, classes: SYNC_TT ? ttRows.length : 0 });
+  // session comes from the cookie path only; the browser-pane path has no ticket
+  // of its own to age. Surfacing it here is what turns "how long will this last?"
+  // from a guess into a number on the dashboard.
+  await reportStatus({
+    ok: true, configured: true, reason: '',
+    via: data.session ? 'cookie' : 'browser-pane',
+    subjects: courses.length, classes: SYNC_TT ? ttRows.length : 0,
+    ...(data.session ? { session_age_hours: data.session.age_hours, session_renewed: data.session.renewed_this_run } : {}),
+  });
 
   log(`DONE · ${courses.length} subjects, day-wise for ${logCourses.filter(c => c.records.length).length} courses`);
   // Print the SHAPED record count, not the raw one. A date Amizone formats in a

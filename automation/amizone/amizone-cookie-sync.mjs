@@ -92,13 +92,18 @@ async function reportStatus(patch) {
  */
 async function loadCookies() {
   const envCookie = (process.env.AMIZONE_COOKIE || '').trim();
-  let stored = '';
+  let stored = '', firstSeen = null;
   try {
     const rows = await supa('memory?key=eq.amizone_cookie&select=value');
     const v = rows?.[0]?.value;
     stored = String((typeof v === 'string' ? v : v?.value) || '').trim();
+    firstSeen = (typeof v === 'object' && v?.first_seen) || null;
   } catch { /* first ever run: the row does not exist yet */ }
-  return { primary: stored || envCookie, fallback: stored && envCookie && stored !== envCookie ? envCookie : '' };
+  return {
+    primary: stored || envCookie,
+    fallback: stored && envCookie && stored !== envCookie ? envCookie : '',
+    firstSeen,
+  };
 }
 
 /** Normalise whatever was pasted into a bare `name=value` cookie header. */
@@ -175,7 +180,7 @@ const pad = n => String(n).padStart(2, '0');
 const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 async function main() {
-  const { primary, fallback } = await loadCookies();
+  const { primary, fallback, firstSeen } = await loadCookies();
   if (!primary) {
     await reportStatus({ ok: false, configured: false, reason: 'no Amizone cookie stored — paste .ASPXAUTH into the AMIZONE_COOKIE secret' });
     console.error('FATAL: no cookie in memory.amizone_cookie and no AMIZONE_COOKIE set.');
@@ -240,11 +245,25 @@ async function main() {
 
   // Persist the (possibly renewed) ticket. Written unconditionally so a value
   // bootstrapped from AMIZONE_COOKIE lands in Supabase on the first run.
-  await upsertMemory('amizone_cookie', { value: cookie, updated_at: new Date().toISOString() });
+  //
+  // first_seen is the answer to "how long does this session actually last": it
+  // survives while the ticket VALUE is unchanged and resets the moment a
+  // different one takes over. Without it the only way to learn the lifetime is
+  // to wait for a failure and guess backwards from it. `renewed` says whether
+  // the server reissued the ticket on this run — the direct evidence that
+  // sliding expiration is on, and therefore that the session can outlive its
+  // nominal timeout for as long as the sync keeps calling.
+  const started = normaliseCookie(primary);
+  const renewed = cookie !== started;
+  const first_seen = renewed || !firstSeen ? new Date().toISOString() : firstSeen;
+  const ageHours = +((Date.now() - Date.parse(first_seen)) / 3.6e6).toFixed(1);
+  await upsertMemory('amizone_cookie', { value: cookie, first_seen, updated_at: new Date().toISOString() });
 
   fs.writeFileSync(OUT, JSON.stringify({
     needLogin: false, window: { start: startDate, end: endDate }, courses, events,
+    session: { first_seen, age_hours: ageHours, renewed_this_run: renewed },
   }, null, 2));
+  log(`session: ${renewed ? 'RENEWED by the server this run' : 'same ticket'} · age ${ageHours}h`);
   log(`wrote ${OUT} · ${courses.length} subjects, ${events.length} diary events`);
   courses.forEach(c => log(`   ${(c.code || '—').padEnd(8)} ${String(c.pct ?? '—').padStart(3)}%  (${c.records.length} days)`));
 }
