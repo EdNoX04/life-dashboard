@@ -150,6 +150,8 @@ export function examCountdown(today) {
 // The rule that matters, and the reason this is a reminder rather than a note:
 // a missed module CANNOT be attempted later. You may move on to the next one,
 // but the missed one is gone.
+import { fblDoneKey } from './reminders.js';
+
 export const FBL_MODULES = [
   { n: 1, label: 'Module 1', from: '2026-08-17', to: '2026-08-28' },
   { n: 2, label: 'Module 2', from: '2026-08-29', to: '2026-09-11' },
@@ -360,6 +362,10 @@ export function studyReminders(today) {
       chip: fbl.daysLeft === 0 ? 'today' : `${fbl.daysLeft}d left`,
       c: fbl.urgency === 'now' ? 'var(--red)' : fbl.urgency === 'soon' ? 'var(--yellow)' : 'var(--cyan)',
       go: 'study',
+      // The one row on this card that is a task rather than a state — you can
+      // sit down and finish a module. Nothing recorded that, so it nagged for
+      // the whole window even once it was done.
+      done: { kind: 'memory', key: fblDoneKey(fbl.current) },
     });
   } else if (fbl.state === 'between' && fbl.daysToNext != null && fbl.daysToNext <= 3) {
     out.push({ icon: 'ES', text: `Spanish FBL ${fbl.next.label} opens`, chip: fmtDay(fbl.next.from), c: 'var(--cyan)', go: 'study' });

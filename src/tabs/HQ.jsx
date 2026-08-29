@@ -14,6 +14,8 @@ import { fetchUsdInr } from '../lib/markets.js';
 import { activeDay, ROLLOVER_HOUR } from '../lib/schedule.js';
 import DashAllocation from '../components/money/DashAllocation.jsx';
 import { studyReminders } from '../lib/exams.js';
+import { DONE_KEY, isHidden, withDone } from '../lib/reminders.js';
+import * as db from '../lib/db.js';
 
 const WD = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const briefPhase = h => (h < 17 ? 'morning' : h < 21 ? 'evening' : 'night');
@@ -34,12 +36,18 @@ import { attPct, isLowAttendance } from '../lib/attendance.js';
 
 export default function HQ({ go }) {
   const cols = useDashCols();
+  const [doneBusy, setDoneBusy] = useState(null);
+  const [doneErr, setDoneErr] = useState('');
   const now = useNow();
   const today = todayStr();
   const plus7 = todayStr(new Date(Date.now() + 7 * 864e5));
 
   const { items: briefs } = useCollection('briefs', { order: 'date' });
-  const { items: todos } = useCollection('todos');
+  const { items: todos, refresh: rTodos } = useCollection('todos');
+  // Which derived reminders Neel has already ticked. One blob, because these are
+  // a handful of booleans and a whole table for them would be a schema change
+  // (and a migration he would have to run) for no gain.
+  const { items: doneMem, refresh: rDone } = useCollection('memory', { filter: `key=eq.${DONE_KEY}`, order: 'key' });
   const { items: habits } = useCollection('habits');
   const { items: logs } = useCollection('habit_logs');
   const { items: timetable } = useCollection('timetable', { order: 'start_time', asc: true });
@@ -80,6 +88,30 @@ export default function HQ({ go }) {
   const spark = useDailySpark();
 
   // ---- reminders: overdue tasks, attendance risk, upcoming due + events ----
+  const doneMap = doneMem?.[0]?.value || {};
+
+  async function markDone(r) {
+    if (!r.done || doneBusy) return;
+    const tag = r.done.kind === 'todo' ? `todo:${r.done.id}` : r.done.key;
+    setDoneBusy(tag); setDoneErr('');
+    try {
+      if (r.done.kind === 'todo') {
+        // The same act as ticking it in the Todo tab, not a second record of it.
+        await db.update('todos', r.done.id, { completed: true });
+        await rTodos();
+      } else {
+        await db.upsertMemory(DONE_KEY, withDone(doneMap, r.done.key, true));
+        await rDone();
+      }
+    } catch (e) {
+      // Say so. A tick that appears to work and is gone after a refresh is
+      // worse than one that visibly failed.
+      setDoneErr(String(e.message || e));
+    } finally {
+      setDoneBusy(null);
+    }
+  }
+
   const reminders = [];
   // First, and deliberately so. The card renders seven rows, and these are the
   // only entries whose deadline cannot be recovered: a missed Spanish FBL
@@ -88,15 +120,19 @@ export default function HQ({ go }) {
   // university dates that nobody has to remember to type in.
   studyReminders(today).forEach(r => reminders.push(r));
   todos.filter(t => !t.completed && t.due_date && t.due_date < today).slice(0, 3)
-    .forEach(t => reminders.push({ icon: '⚠', text: t.title, chip: 'overdue', c: 'var(--red)', go: 'todos' }));
+    .forEach(t => reminders.push({ icon: '⚠', text: t.title, chip: 'overdue', c: 'var(--red)', go: 'todos', done: { kind: 'todo', id: t.id } }));
   subjects.filter(s => isLowAttendance(attPct(s.attendance_pct)))
     .forEach(s => reminders.push({ icon: '%', text: `${s.name} attendance low`, chip: `${attPct(s.attendance_pct)}%`, c: 'var(--red)', go: 'college' }));
   todos.filter(t => !t.completed && t.due_date && t.due_date >= today && t.due_date <= plus7)
     .sort((a, b) => a.due_date.localeCompare(b.due_date)).slice(0, 3)
-    .forEach(t => reminders.push({ icon: '◷', text: t.title, chip: t.due_date === today ? 'today' : t.due_date, c: 'var(--yellow)', go: 'todos' }));
+    .forEach(t => reminders.push({ icon: '◷', text: t.title, chip: t.due_date === today ? 'today' : t.due_date, c: 'var(--yellow)', go: 'todos', done: { kind: 'todo', id: t.id } }));
   gEvents.filter(e => { const d = (e.start || '').slice(0, 10); return d >= today && d <= plus7; })
     .sort((a, b) => (a.start || '').localeCompare(b.start || '')).slice(0, 3)
     .forEach(e => reminders.push({ icon: '★', text: e.summary || 'Event', chip: (e.start || '').slice(5, 10), c: 'var(--cyan)', go: 'calendar' }));
+
+  // Ticked rows drop off the card. Todo-backed ones already disappear via
+  // `completed` upstream; this covers the derived ones.
+  const visibleReminders = reminders.filter(r => !isHidden(doneMap, r));
 
   // ---- time-aware brief body ----
   const phase = briefPhase(hour);
@@ -161,14 +197,32 @@ export default function HQ({ go }) {
   const CalendarCard = <MiniCalendar key="calendar" go={go} />;
   const RemindersCard = (
     <Card key="reminders" title="Reminders" color="var(--red)">
-      {reminders.length === 0 && <Empty icon="✓" text="All clear — nothing needs your attention." />}
-      {reminders.slice(0, 7).map((r, i) => (
-        <div className="row" key={i} style={{ cursor: 'pointer' }} onClick={() => go(r.go)}>
-          <span className="rem-ico" style={{ color: r.c }}>{r.icon}</span>
-          <span style={{ flex: 1 }} className="small">{r.text}</span>
-          <span className="chip" style={{ color: r.c, borderColor: r.c }}>{r.chip}</span>
-        </div>
-      ))}
+      {visibleReminders.length === 0 && <Empty icon="✓" text="All clear — nothing needs your attention." />}
+      {doneErr && <div className="small" style={{ color: 'var(--red)' }}>Could not save that: {doneErr}</div>}
+      {visibleReminders.slice(0, 7).map((r, i) => {
+        const tag = r.done ? (r.done.kind === 'todo' ? `todo:${r.done.id}` : r.done.key) : null;
+        return (
+          <div className="row" key={tag || i} style={{ cursor: 'pointer' }} onClick={() => go(r.go)}>
+            <span className="rem-ico" style={{ color: r.c }}>{r.icon}</span>
+            <span style={{ flex: 1 }} className="small">{r.text}</span>
+            <span className="chip" style={{ color: r.c, borderColor: r.c }}>{r.chip}</span>
+            {/* Only rows that can actually be finished get a box. "Attendance is
+                67%" is a state of the world, and a tick that hid it would be
+                hiding the truth rather than completing anything. */}
+            {r.done && (
+              <button
+                className="btn btn-sm"
+                title="Mark done"
+                aria-label={`Mark done: ${r.text}`}
+                disabled={doneBusy === tag}
+                onClick={e => { e.stopPropagation(); markDone(r); }}
+              >
+                {doneBusy === tag ? '·' : '✓'}
+              </button>
+            )}
+          </div>
+        );
+      })}
     </Card>
   );
   const PrioritiesCard = (
