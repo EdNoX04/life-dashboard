@@ -23,6 +23,8 @@
 let chromium;
 import fs from 'node:fs';
 import path from 'node:path';
+import readline from 'node:readline';
+import { spawn, execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -76,6 +78,34 @@ if (/^sb_publishable_|^eyJ.*anon/.test(String(SUPA_KEY))) {
   process.exit(1);
 }
 const AMIZONE = 'https://s.amizone.net';
+
+/**
+ * Find a real browser binary on PATH, preferring genuine Google Chrome.
+ *
+ * Needed because the login step no longer goes through Playwright (see the
+ * LOGIN_MODE block for why), so we cannot lean on Playwright's channel
+ * resolution and have to locate the binary ourselves.
+ */
+function findBrowser() {
+  const named = process.env.AMIZONE_CHROME || cfg.chromePath;
+  if (named && fs.existsSync(named)) return named;
+  const candidates = [
+    'google-chrome-stable', 'google-chrome', 'chromium', 'chromium-browser', 'brave',
+    '/opt/google/chrome/chrome',
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  ];
+  for (const c of candidates) {
+    if (c.startsWith('/')) { if (fs.existsSync(c)) return c; continue; }
+    try { return execSync(`command -v ${c}`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); }
+    catch { /* not on PATH */ }
+  }
+  return null;
+}
+
+const askLine = q => new Promise(res => {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  rl.question(q, a => { rl.close(); res(a); });
+});
 
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
@@ -255,8 +285,73 @@ async function check() {
   process.exit(process.exitCode || 0);
 }
 
+/**
+ * SETUP MODE — open a completely ordinary browser and let the human log in.
+ *
+ * This used to drive the login through Playwright, and on Arch that failed at
+ * the Cloudflare Turnstile widget with "Verification failed". The reason is
+ * simple in hindsight: no matter how many anti-detection flags we set, a
+ * Playwright-launched browser is still a browser under the CDP automation
+ * protocol, and Turnstile is specifically built to notice.
+ *
+ * So it is not automated any more. We spawn the real browser as a normal
+ * process, pointed at the same --user-data-dir Playwright will later reuse,
+ * and wait for you to say you are done. Cloudflare sees a person using Chrome,
+ * because that is exactly what is happening. The cookies it writes into the
+ * profile are what the scheduled runs then ride on.
+ *
+ * Deliberately never imports Playwright: this step needs a browser, not a
+ * driver, and keeping the dependency out means a broken npm install cannot
+ * block the one step that has to work by hand.
+ */
+async function loginMode() {
+  const bin = findBrowser();
+  if (!bin) {
+    console.error('\nNo browser found. Install one:');
+    console.error('  yay -S google-chrome        (Arch, preferred — Turnstile prefers real Chrome)');
+    console.error('  sudo pacman -S chromium     (fallback)');
+    process.exit(1);
+  }
+  fs.mkdirSync(PROFILE_DIR, { recursive: true });
+  log(`browser: ${bin}`);
+  log('Opening a NORMAL browser window — no automation, no flags Cloudflare dislikes.');
+  console.log('');
+  console.log('  1. Log into Amizone in the window that just opened.');
+  console.log('  2. Clear the Cloudflare check if it asks.');
+  console.log('  3. Get as far as your dashboard, then come back to this terminal.');
+  console.log('');
+
+  const child = spawn(bin, [
+    `--user-data-dir=${PROFILE_DIR}`,
+    '--no-first-run',
+    '--no-default-browser-check',
+    AMIZONE + '/',
+  ], { detached: true, stdio: 'ignore' });
+  child.unref();
+
+  await askLine('Press Enter here ONCE you are logged in and can see your dashboard… ');
+
+  // The cookie jar is only flushed to disk when the browser exits cleanly, so a
+  // profile captured while Chrome is still running can come back logged out.
+  console.log('');
+  log('Now CLOSE the browser window completely (all of it, not just the tab).');
+  await askLine('Press Enter again once it is closed… ');
+
+  const cookies = path.join(PROFILE_DIR, 'Default', 'Cookies');
+  if (fs.existsSync(cookies)) {
+    log(`Profile saved (${Math.round(fs.statSync(cookies).size / 1024)}KB of cookies).`);
+    log('Next: ./run-amizone.sh   — that run is automated and should need no login.');
+  } else {
+    console.error('\nNo cookie store was written to ' + PROFILE_DIR + '.');
+    console.error('That usually means the browser was already running with a different');
+    console.error('profile and reused that window. Quit every Chrome window and retry.');
+    process.exitCode = 1;
+  }
+}
+
 async function main() {
   if (CHECK_MODE) return check();
+  if (LOGIN_MODE) return loginMode();
 
   try {
     ({ chromium } = await import('playwright'));
@@ -271,17 +366,30 @@ async function main() {
   fs.mkdirSync(PROFILE_DIR, { recursive: true });
   // Anti-automation: Cloudflare Turnstile fails "automated" browsers. These flags
   // strip the automation fingerprint so it's treated as an ordinary Chrome.
+  // Every flag here is a trade between convenience and how automated the
+  // browser looks. Cloudflare Turnstile reads exactly these.
+  //
+  // REMOVED: '--disable-features=IsolateOrigins,site-per-process'. Turnstile
+  // runs inside a cross-origin iframe and leans on site isolation; switching
+  // that off is both unusual enough to flag and capable of breaking the
+  // challenge outright. It bought us nothing and is the most likely single
+  // cause of "Verification failed" on this machine.
   const antiBotArgs = [
     '--disable-blink-features=AutomationControlled',
     '--no-first-run',
     '--no-default-browser-check',
-    '--disable-features=IsolateOrigins,site-per-process',
   ];
-  if (!LOGIN_MODE) antiBotArgs.push('--start-minimized');
+  antiBotArgs.push('--start-minimized');   // scheduled runs only; login never reaches here
   const opts = {
     headless: false,                       // headful passes Cloudflare far more reliably
     viewport: null,                        // use the real window size (looks human)
     args: antiBotArgs,
+    // Playwright defaults chromiumSandbox to FALSE, which makes Chrome start
+    // with --no-sandbox and print "You are using an unsupported command-line
+    // flag: --no-sandbox" across the top of the window. A browser announcing a
+    // disabled sandbox is about the loudest automation signal there is, and it
+    // was visible in the screenshot of the failing login. Turn the sandbox on.
+    chromiumSandbox: true,
     ignoreDefaultArgs: ['--enable-automation'],
   };
   // Browser resolution, widest-net first.
@@ -324,17 +432,6 @@ async function main() {
   await ctx.addInitScript(() => { try { Object.defineProperty(navigator, 'webdriver', { get: () => undefined }); } catch (e) {} });
 
   const page = ctx.pages()[0] || await ctx.newPage();
-
-  if (LOGIN_MODE) {
-    log('SETUP MODE — a Chrome window will open. Log into Amizone, then leave it.');
-    await page.goto(AMIZONE + '/', { waitUntil: 'domcontentloaded' });
-    log('Waiting up to 3 minutes for you to reach your dashboard…');
-    await page.waitForSelector('[onclick*="FnAttendance"], a[href*="Logout"]', { timeout: 180000 }).catch(() => {});
-    log('Login captured (profile saved). You can close this. Daily runs are now hands-off.');
-    await page.waitForTimeout(1500);
-    await ctx.close();
-    return;
-  }
 
   // normal run
   await page.goto(AMIZONE + '/Academics/MyCourses', { waitUntil: 'domcontentloaded' }).catch(() => {});
