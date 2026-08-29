@@ -1,13 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Empty } from '../components/ui.jsx';
 import { useCollection, todayStr } from '../lib/hooks.js';
-import { upsertMemory } from '../lib/db.js';
 import LofiRadio from '../components/LofiRadio.jsx';
 import * as amb from '../lib/ambient.js';
 import * as pomo from '../lib/pomodoro.js';
 import {
-  SUBJECTS, EXAM_DATES, EXAM_WINDOW, FBL_MODULES, FBL_RULE,
-  examCountdown, fblStatus, revisionPlan, todayPlan, allAssigned, guideUrl, fmtDay,
+  SUBJECTS, EXAM_WINDOW, FBL_MODULES, FBL_RULE,
+  examCountdown, fblStatus, revisionPlan, todayPlan, schedule, guideUrl, fmtDay, fmtTime,
 } from '../lib/exams.js';
 
 // The study room, now with an exam in it.
@@ -31,33 +30,15 @@ export default function Study({ go }) {
   const today = todayStr();
 
   // ---- exam block -------------------------------------------------------
-  // The subject→date mapping lives in memory rather than in code, because the
-  // university published three dates without saying which paper is on which.
-  // An empty assignment is a legitimate state, not an error, and the planner
-  // is written to say what it cannot know rather than to guess.
-  const { items: orderMem } = useCollection('memory', { filter: 'key=eq.exam_order', order: 'key' });
-  const [assign, setAssign] = useState({});
-  useEffect(() => {
-    const saved = orderMem?.[0]?.value;
-    if (saved && typeof saved === 'object') setAssign(saved);
-  }, [orderMem]);
-
-  async function setPaper(slug, date) {
-    // One date per paper: assigning a date that another subject already holds
-    // moves it rather than duplicating it, so the saved state can never reach
-    // the "two papers on Tuesday" shape the planner refuses to plan for.
-    const next = { ...assign };
-    Object.keys(next).forEach(k => { if (next[k] === date) delete next[k]; });
-    if (date) next[slug] = date; else delete next[slug];
-    setAssign(next);
-    await upsertMemory('exam_order', next).catch(() => {});
-  }
+  // The timetable is now confirmed (with times) and lives in EXAM_SCHEDULE, so
+  // there is nothing for the user to assign — the plan reads the real dates,
+  // including the double-paper day (3 Sept: Network Security 10 AM, IoT 4 PM).
+  const exams = useMemo(() => schedule(), []);
 
   const cd = useMemo(() => examCountdown(today), [today]);
-  const plan = useMemo(() => revisionPlan(today, assign), [today, assign]);
-  const mine = useMemo(() => todayPlan(today, assign), [today, assign]);
+  const plan = useMemo(() => revisionPlan(today), [today]);
+  const mine = useMemo(() => todayPlan(today), [today]);
   const fbl = useMemo(() => fblStatus(today), [today]);
-  const ready = allAssigned(assign);
 
   const [openGuide, setOpenGuide] = useState(null);
   const [showAll, setShowAll] = useState(false);
@@ -117,32 +98,31 @@ export default function Study({ go }) {
       <Card title="Minor exams" color={cdColor}
         right={<span className="chip" style={{ borderColor: cdColor, color: cdColor }}>{cd.text}</span>}>
         <div className="exam-days">
-          {EXAM_DATES.map(d => {
-            const s = SUBJECTS.find(x => assign[x.slug] === d);
-            const past = d < today;
+          {exams.map((e) => {
+            const past = e.date < today;
+            const isToday = e.date === today;
             return (
-              <div key={d} className={`exam-day${past ? ' exam-past' : ''}`}
-                style={{ borderColor: s ? s.color : 'var(--border-bright)' }}>
-                <div className="exam-date">{fmtDay(d)}</div>
-                <select value={s?.slug || ''}
-                  onChange={e => setPaper(e.target.value, d)}
-                  className="exam-pick"
-                  style={{ color: s ? s.color : 'var(--ink-3)' }}>
-                  <option value="">— which paper? —</option>
-                  {SUBJECTS.map(x => <option key={x.slug} value={x.slug}>{x.name}</option>)}
-                </select>
+              <div key={e.slug} className={`exam-day${past ? ' exam-past' : ''}`}
+                style={{ borderColor: e.color }}>
+                <div className="exam-date">
+                  {fmtDay(e.date)}{isToday ? ' · today' : ''}
+                </div>
+                <div className="exam-pick" style={{ color: e.color, fontWeight: 600 }}>
+                  {e.short}
+                </div>
+                <div className="small muted" style={{ marginTop: 2 }}>
+                  {fmtTime(e.start)}–{fmtTime(e.end)} · {e.code}
+                </div>
               </div>
             );
           })}
         </div>
-        {!ready && (
-          // Said plainly rather than left as an empty dropdown. The plan below
-          // is materially better once this is set, and there is no way for the
-          // app to find it out on its own.
-          <div className="small mt" style={{ color: 'var(--yellow)' }}>
-            Set which paper falls on which date — the schedule then reserves each evening for the right subject.
-          </div>
-        )}
+        <div className="small mt muted" style={{ lineHeight: 1.55 }}>
+          3 Sept is a double — {' '}
+          <b style={{ color: 'var(--cyan)' }}>Network Security 10 AM</b> then{' '}
+          <b style={{ color: 'var(--green)' }}>IoT 4 PM</b>. The plan below reserves each
+          evening for the next paper and keeps the 11 AM–4 PM gap on the 3rd for IoT.
+        </div>
       </Card>
 
       {/* ---------------- today ---------------- */}

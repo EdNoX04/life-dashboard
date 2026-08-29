@@ -2,7 +2,8 @@ import { test, expect } from 'bun:test';
 import {
   EXAM_WINDOW, EXAM_DATES, SUBJECTS, FBL_MODULES, FBL_RULE,
   iso, daysBetween, addDays, fmtDay,
-  examCountdown, fblStatus, withDates, allAssigned,
+  examCountdown, fblStatus, fmtTime,
+  EXAM_SCHEDULE, papersOn, examDays, schedule,
   revisionPlan, todayPlan, studyReminders, guideUrl,
 } from '../src/lib/exams.js';
 
@@ -135,40 +136,36 @@ test('fblStatus before the first window and after the last', () => {
   expect(fblStatus('2026-12-01')).toMatchObject({ state: 'done' });
 });
 
-// ---------------------------------------------------------------- assignment
+// ---------------------------------------------------------------- schedule
 
-test('withDates leaves the date null until a real exam date is assigned', () => {
-  expect(withDates({}).every(s => s.date === null)).toBe(true);
-  const one = withDates({ blockchain: '2026-09-02' });
-  expect(one.find(s => s.slug === 'blockchain').date).toBe('2026-09-02');
-  expect(withDates({ blockchain: '2026-09-09' }).find(s => s.slug === 'blockchain').date).toBe(null);
+test('fmtTime turns 24h into a readable 12h clock', () => {
+  expect(fmtTime('10:00')).toBe('10:00 AM');
+  expect(fmtTime('16:00')).toBe('4:00 PM');
+  expect(fmtTime('00:30')).toBe('12:30 AM');
+  expect(fmtTime('12:00')).toBe('12:00 PM');
+  expect(fmtTime('nonsense')).toBe('');
 });
 
-test('allAssigned needs all three AND all distinct', () => {
-  expect(allAssigned({})).toBe(false);
-  expect(allAssigned({ 'advanced-network-security': '2026-09-01', blockchain: '2026-09-02' })).toBe(false);
-  expect(allAssigned({
-    'advanced-network-security': '2026-09-01',
-    blockchain: '2026-09-01',
-    'iot-system-design': '2026-09-03',
-  })).toBe(false);
-  expect(allAssigned({
-    'advanced-network-security': '2026-09-01',
-    blockchain: '2026-09-02',
-    'iot-system-design': '2026-09-03',
-  })).toBe(true);
+test('the confirmed timetable has two papers on 3 Sept and none on 1 Sept', () => {
+  expect(examDays()).toEqual(['2026-09-02', '2026-09-03']);
+  expect(papersOn('2026-09-01').length).toBe(0);
+  expect(papersOn('2026-09-02').map(p => p.short)).toEqual(['Blockchain']);
+  const third = papersOn('2026-09-03');
+  expect(third.map(p => p.short)).toEqual(['Network Security', 'IoT']); // time order
+  expect(third[0].start).toBe('10:00');
+  expect(third[1].start).toBe('16:00');
+});
+
+test('schedule() is date-then-time ordered and subject-merged', () => {
+  const sc = schedule();
+  expect(sc.map(e => e.short)).toEqual(['Blockchain', 'Network Security', 'IoT']);
+  expect(sc.every(e => e.code && e.color && e.start && e.end)).toBe(true);
 });
 
 // ---------------------------------------------------------------- planner
 
-const FULL = {
-  'advanced-network-security': '2026-09-01',
-  blockchain: '2026-09-02',
-  'iot-system-design': '2026-09-03',
-};
-
 test('the plan runs from today to the last paper with no gaps', () => {
-  const { days } = revisionPlan('2026-08-19', FULL);
+  const { days } = revisionPlan('2026-08-19');
   expect(days[0].date).toBe('2026-08-19');
   expect(days[days.length - 1].date).toBe('2026-09-03');
   expect(days.length).toBe(16);
@@ -177,26 +174,44 @@ test('the plan runs from today to the last paper with no gaps', () => {
   }
 });
 
-test('exam days are marked as exams, not as study days', () => {
-  const { days } = revisionPlan('2026-08-19', FULL);
+test('only the real paper-days are exam days — 1 Sept is not one', () => {
+  const { days } = revisionPlan('2026-08-19');
   const exams = days.filter(d => d.kind === 'exam');
-  expect(exams.map(d => d.date)).toEqual(EXAM_DATES);
-  expect(exams[0].title).toContain('Network Security');
-  expect(exams[1].title).toContain('Blockchain');
-  expect(exams[2].title).toContain('IoT');
+  expect(exams.map(d => d.date)).toEqual(['2026-09-02', '2026-09-03']);
+  expect(days.find(d => d.date === '2026-09-01').kind).not.toBe('exam');
 });
 
-test('the evening before a paper is reserved for THAT paper and nothing else', () => {
-  const { days } = revisionPlan('2026-08-19', FULL);
-  const eve = days.find(d => d.date === '2026-08-31');
+test('the double-paper day carries both papers, in time order', () => {
+  const { days } = revisionPlan('2026-08-19');
+  const third = days.find(d => d.date === '2026-09-03');
+  expect(third.kind).toBe('exam');
+  expect(third.papers.map(p => p.short)).toEqual(['Network Security', 'IoT']);
+  expect(third.title).toContain('Network Security');
+  expect(third.title).toContain('IoT');
+  // the between-papers gap is scheduled for the afternoon paper
+  expect(third.items.join(' ')).toContain('IoT');
+  expect(third.items.some(i => /gap/i.test(i))).toBe(true);
+});
+
+test('an exam day that precedes another paper-day flags tonight as the next eve', () => {
+  const { days } = revisionPlan('2026-08-19');
+  const sep2 = days.find(d => d.date === '2026-09-02');
+  expect(sep2.kind).toBe('exam');            // Blockchain paper
+  expect(sep2.title).toContain('Blockchain');
+  // after the Blockchain paper, tonight becomes the Network Security final pass
+  expect(sep2.items.join(' ')).toContain('Network Security');
+});
+
+test('the evening before a paper-day is reserved for that day\'s first paper', () => {
+  const { days } = revisionPlan('2026-08-19');
+  const eve = days.find(d => d.date === '2026-09-01'); // night before Blockchain (2 Sept)
   expect(eve.kind).toBe('eve');
-  expect(eve.title).toContain('Network Security');
-  expect(eve.items.join(' ')).not.toContain('Blockchain');
+  expect(eve.title).toContain('Blockchain');
   expect(eve.items.join(' ')).not.toContain('IoT');
 });
 
-test('every module of every subject appears exactly once in the plan', () => {
-  const { days } = revisionPlan('2026-08-19', FULL);
+test('every module of every subject appears exactly once in the study days', () => {
+  const { days } = revisionPlan('2026-08-19');
   const text = days.filter(d => d.kind === 'study').flatMap(d => d.items).join('\n');
   SUBJECTS.forEach(s => {
     s.modules.forEach(m => {
@@ -207,15 +222,15 @@ test('every module of every subject appears exactly once in the plan', () => {
 });
 
 test('study days interleave subjects rather than blocking one at a time', () => {
-  const { days } = revisionPlan('2026-08-19', FULL);
+  const { days } = revisionPlan('2026-08-19');
   const first = days.find(d => d.kind === 'study');
   const subjectsThatDay = new Set(first.items.map(i => i.split(' · ')[0]));
   expect(subjectsThatDay.size).toBeGreaterThan(1);
 });
 
 test('a plan started late still covers every day and never crashes', () => {
-  for (const start of ['2026-08-19', '2026-08-25', '2026-08-30', '2026-08-31', '2026-09-01', '2026-09-03']) {
-    const p = revisionPlan(start, FULL);
+  for (const start of ['2026-08-19', '2026-08-25', '2026-08-30', '2026-09-01', '2026-09-02', '2026-09-03']) {
+    const p = revisionPlan(start);
     expect(Array.isArray(p.days)).toBe(true);
     expect(p.days[0]?.date).toBe(start);
     p.days.forEach(d => {
@@ -225,25 +240,15 @@ test('a plan started late still covers every day and never crashes', () => {
   }
 });
 
-test('a plan asked for after the exams returns empty and says so, not a negative range', () => {
-  const p = revisionPlan('2026-09-10', FULL);
+test('a plan asked for after the exams returns empty and says so', () => {
+  const p = revisionPlan('2026-09-10');
   expect(p.days).toEqual([]);
   expect(p.note).toContain('passed');
 });
 
-test('with no assignment the plan still works and admits what it does not know', () => {
-  const p = revisionPlan('2026-08-19', {});
-  expect(p.assigned).toBe(false);
-  expect(p.note).toContain('Set which paper');
-  expect(p.days.length).toBe(16);
-  expect(p.days.filter(d => d.kind === 'exam').length).toBe(3);
-  const eve = p.days.find(d => d.date === '2026-08-31');
-  expect(eve.kind).not.toBe('eve');
-});
-
 test('no study day is left with an empty item list', () => {
   for (const start of ['2026-08-19', '2026-08-22', '2026-08-28']) {
-    revisionPlan(start, FULL).days.forEach(d => {
+    revisionPlan(start).days.forEach(d => {
       expect(d.items.length).toBeGreaterThan(0);
       expect(d.title).toBeTruthy();
     });
@@ -251,8 +256,8 @@ test('no study day is left with an empty item list', () => {
 });
 
 test('todayPlan picks out today, and returns null once past the window', () => {
-  expect(todayPlan('2026-08-19', FULL).date).toBe('2026-08-19');
-  expect(todayPlan('2026-09-10', FULL)).toBe(null);
+  expect(todayPlan('2026-08-19').date).toBe('2026-08-19');
+  expect(todayPlan('2026-09-10')).toBe(null);
 });
 
 // ---------------------------------------------------------------- reminders

@@ -5,11 +5,11 @@
 // `new Date()` inside the function is a countdown you cannot test, and this
 // one has to be right on the morning of the first paper.
 //
-// One honest limitation, stated in the data rather than hidden: the university
-// gave three dates (1, 2, 3 September) but not which subject sits on which day.
-// So `SUBJECTS[].date` starts null and the user assigns it. Until they do, the
-// planner treats the three days as one block and says so, rather than inventing
-// an order and building a schedule on top of a guess.
+// The schedule was published as three dates without a subject order, so this
+// module used to leave the mapping null and ask the user. The university has
+// since confirmed it, WITH times — and two papers fall on the same day — so the
+// mapping is now a known constant (EXAM_SCHEDULE) and the planner is built
+// around real per-paper date+time, not one-paper-per-day.
 
 export const EXAM_WINDOW = { from: '2026-09-01', to: '2026-09-03', label: '1–3 September 2026' };
 
@@ -58,6 +58,17 @@ export const SUBJECTS = [
   },
 ];
 
+// The confirmed timetable. Times are 24h, local (IST). This is the single
+// source of truth the planner reads — note two papers on 3 Sept, and 1 Sept is
+// free (so it is a study/eve day, not an exam day).
+export const EXAM_SCHEDULE = [
+  { slug: 'blockchain', date: '2026-09-02', start: '16:00', end: '17:00' },
+  { slug: 'advanced-network-security', date: '2026-09-03', start: '10:00', end: '11:00' },
+  { slug: 'iot-system-design', date: '2026-09-03', start: '16:00', end: '17:00' },
+];
+
+// The calendar days of the exam block (1–3 Sept). Kept for the countdown strip.
+// Which of them actually hold a paper is derived from EXAM_SCHEDULE, not assumed.
 export const EXAM_DATES = ['2026-09-01', '2026-09-02', '2026-09-03'];
 
 // ---------------------------------------------------------------- dates
@@ -100,6 +111,16 @@ const fmtDay = s => {
   return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 };
 export { fmtDay };
+
+/** "16:00" → "4:00 PM". Pure string math so it needs no Date and no locale. */
+export function fmtTime(hhmm) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || '').trim());
+  if (!m) return '';
+  let h = +m[1];
+  const ampm = h < 12 ? 'AM' : 'PM';
+  h = h % 12 || 12;
+  return `${h}:${m[2]} ${ampm}`;
+}
 
 // ---------------------------------------------------------------- countdown
 
@@ -178,88 +199,123 @@ export function fblStatus(today) {
   };
 }
 
-// ---------------------------------------------------------------- planner
+// ---------------------------------------------------------------- schedule
 
-/** Subject → its assigned exam date, from saved config. Unassigned stays null. */
-export function withDates(assignment = {}) {
-  return SUBJECTS.map(s => ({ ...s, date: EXAM_DATES.includes(assignment[s.slug]) ? assignment[s.slug] : null }));
+const byId = slug => SUBJECTS.find(s => s.slug === slug);
+
+/** Papers on a given date, in time order, each merged with its subject. */
+export function papersOn(date) {
+  return EXAM_SCHEDULE
+    .filter(e => e.date === date)
+    .map(e => ({ ...byId(e.slug), ...e }))
+    .sort((a, b) => a.start.localeCompare(b.start));
 }
 
-export const allAssigned = (assignment = {}) =>
-  SUBJECTS.every(s => EXAM_DATES.includes(assignment[s.slug])) &&
-  new Set(SUBJECTS.map(s => assignment[s.slug])).size === SUBJECTS.length;
+/** Distinct dates that actually hold a paper, sorted. */
+export const examDays = () => [...new Set(EXAM_SCHEDULE.map(e => e.date))].sort();
+
+/** The whole timetable, subject-merged and in date/time order — for the UI strip. */
+export function schedule() {
+  return [...EXAM_SCHEDULE]
+    .map(e => ({ ...byId(e.slug), ...e }))
+    .sort((a, b) => (a.date === b.date ? a.start.localeCompare(b.start) : a.date.localeCompare(b.date)));
+}
+
+// ---------------------------------------------------------------- planner
 
 /**
- * A day-by-day plan from `today` to the last paper.
+ * A day-by-day plan from `today` to the last paper, built from EXAM_SCHEDULE.
  *
- * Two rules, and they are the whole design:
- *  1. The evening before a paper belongs to that paper. Nothing else is
- *     scheduled then — cramming a different subject the night before is how
- *     people walk into the wrong exam half-prepared.
- *  2. Everything else is a round-robin across subjects rather than three days
- *     of one subject then three of the next. Interleaving is worse for how
- *     fluent the material feels and better for what you can actually retrieve
- *     under pressure, which is the thing being marked.
- *
- * If the subject/date assignment is unknown, rule 1 cannot be applied, so the
- * plan reserves the last two days as "all three, final pass" and says so.
+ * The rules, and they are the whole design:
+ *  1. A day may hold zero, one or TWO papers. The planner reads the real
+ *     timetable rather than assuming one paper per day.
+ *  2. The evening before a paper-day belongs to that day's FIRST paper — the
+ *     one with no daytime runway. A later same-day paper is caught in the gap
+ *     between papers, so it is noted, not crammed tonight.
+ *  3. On a two-paper day, the window between the papers is scheduled: it is the
+ *     single best time to do the afternoon paper's final pass.
+ *  4. An exam evening that is itself the night before the next paper-day gets a
+ *     trailing "after the paper, tonight becomes…" note, so back-to-back exam
+ *     days (2 Sept → 3 Sept) are handled honestly.
+ *  5. Everything else is a round-robin across subjects, not one subject blocked
+ *     at a time — interleaving recalls better under pressure, which is the thing
+ *     being marked.
  */
-export function revisionPlan(today, assignment = {}) {
+export function revisionPlan(today) {
   const start = parse(today);
   const last = parse(EXAM_WINDOW.to);
   if (!start || !last || start > last) return { days: [], note: 'The exam block has passed.' };
 
-  const subjects = withDates(assignment);
-  const assigned = allAssigned(assignment);
-  const byDate = {};
-  subjects.forEach(s => { if (s.date) byDate[s.date] = s; });
-
   // Every (subject, module) pair, interleaved so consecutive slots differ.
   const queue = [];
-  const maxLen = Math.max(...subjects.map(s => s.modules.length));
+  const maxLen = Math.max(...SUBJECTS.map(s => s.modules.length));
   for (let i = 0; i < maxLen; i++) {
-    subjects.forEach(s => {
-      if (s.modules[i]) queue.push({ slug: s.slug, subject: s.short, color: s.color, module: s.modules[i], n: i + 1 });
+    SUBJECTS.forEach(s => {
+      if (s.modules[i]) queue.push({ subject: s.short, module: s.modules[i], n: i + 1 });
     });
   }
 
-  // Which days are study days, and which are reserved.
   const days = [];
   for (let d = iso(start); d && d <= EXAM_WINDOW.to; d = addDays(d, 1)) {
-    const examToday = byDate[d];
-    const isExamDay = EXAM_DATES.includes(d);
+    const papers = papersOn(d);
     const tomorrow = addDays(d, 1);
-    const examTomorrow = byDate[tomorrow];
+    const nextPapers = papersOn(tomorrow);
 
-    if (isExamDay) {
+    if (papers.length) {
+      // An exam day. Could be one or two papers.
+      const names = papers.map(p => p.short).join(' + ');
+      const items = [];
+      papers.forEach((pp, i) => {
+        if (i === 0) {
+          items.push(`${fmtTime(pp.start)} — ${pp.short} paper. Before it: skim only the EXAM TRAP and “extra marks” boxes for ${pp.short}.`);
+        } else {
+          const prev = papers[i - 1];
+          items.push(`${fmtTime(prev.end)}–${fmtTime(pp.start)} — the gap is your last ${pp.short} pass: traps + “most likely questions” only, then stop.`);
+          items.push(`${fmtTime(pp.start)} — ${pp.short} paper.`);
+        }
+      });
+      // If tomorrow also holds a paper, tonight (after the last paper) is its eve.
+      if (nextPapers.length) {
+        const first = nextPapers[0];
+        items.push(`After ${papers[papers.length - 1].short} (${fmtTime(papers[papers.length - 1].end)}): tonight becomes the ${first.short} final pass — tomorrow is ${nextPapers.map(p => `${p.short} ${fmtTime(p.start)}`).join(' then ')}.`);
+      }
       days.push({
         date: d, label: fmtDay(d), kind: 'exam',
-        title: examToday ? `${examToday.short} paper` : 'Paper (subject not set)',
-        color: examToday?.color || 'var(--yellow)',
-        items: examToday
-          ? [`Morning: skim the EXAM TRAP and REMEMBER IT boxes for ${examToday.short} only.`]
-          : ['Set which paper is on which day in the Study tab and this will be specific.'],
+        title: papers.length > 1 ? `${names} papers` : `${names} paper`,
+        color: papers[0].color,
+        papers: papers.map(p => ({ short: p.short, start: p.start, end: p.end, color: p.color })),
+        items,
       });
       continue;
     }
-    if (examTomorrow) {
+
+    if (nextPapers.length) {
+      // The night before a paper-day.
+      const first = nextPapers[0];
+      const items = [
+        `Whole ${first.short} guide, skimming: read only the bold lead-ins and every definition box.`,
+        `Then its “most likely questions” end to end — answer out loud before revealing.`,
+      ];
+      if (nextPapers.length > 1) {
+        const later = nextPapers.slice(1).map(p => `${p.short} ${fmtTime(p.start)}`).join(', ');
+        items.unshift(`Tomorrow is a DOUBLE: ${nextPapers.map(p => `${p.short} ${fmtTime(p.start)}`).join(' then ')}. Tonight is ${first.short} — you’ll get the between-papers gap for ${nextPapers[1].short}.`);
+        items.push(`Leave ${later} for tomorrow’s gap; a shallow pass tonight on top of ${first.short} helps neither.`);
+      }
+      items.push('Sleep. A fourth hour tonight costs more in recall tomorrow than it adds.');
       days.push({
         date: d, label: fmtDay(d), kind: 'eve',
-        title: `${examTomorrow.short} — final pass`,
-        color: examTomorrow.color,
-        items: [
-          `Whole ${examTomorrow.short} guide, skimming: read only the bold lead-ins.`,
-          'Then the "Most likely questions" section end to end, answering out loud before revealing.',
-          'Sleep. A fourth hour tonight costs more in recall tomorrow than it adds.',
-        ],
+        title: `${first.short} — final pass`,
+        color: first.color,
+        items,
       });
       continue;
     }
+
     days.push({ date: d, label: fmtDay(d), kind: 'study', items: [], color: null });
   }
 
-  // Spread the queue over the study days, front-loaded: earlier days get more,
-  // because later days will also be carrying revision of the earlier ones.
+  // Spread the module queue over the study days, front-loaded: earlier days get
+  // more, because later days also carry revision of the earlier material.
   const studyDays = days.filter(x => x.kind === 'study');
   if (studyDays.length) {
     const per = Math.ceil(queue.length / studyDays.length);
@@ -270,34 +326,21 @@ export function revisionPlan(today, assignment = {}) {
       k += slice.length;
       day.items = slice.map(q => `${q.subject} · M${q.n} ${q.module}`);
       day.title = slice.length
-        ? `${[...new Set(slice.map(s => s.subject))].join(' + ')}`
+        ? [...new Set(slice.map(s => s.subject))].join(' + ')
         : 'Free pass — self-test only';
-      if (!slice.length) day.items = ['No new material. Run the "Most likely questions" for whichever subject feels weakest.'];
-    });
-  }
-
-  // The last two study days, when no assignment exists, become a general final pass.
-  if (!assigned) {
-    days.slice(-3).forEach(day => {
-      if (day.kind === 'study') {
-        day.title = 'All three — final pass';
-        day.items = ['Subject order is not set yet, so revise all three. Set the order in the Study tab to get a night-before plan.'];
-      }
+      if (!slice.length) day.items = ['No new material. Run the “most likely questions” for whichever subject feels weakest.'];
     });
   }
 
   return {
     days,
-    assigned,
-    note: assigned
-      ? 'The evening before each paper is reserved for that paper. Everything before it interleaves the three subjects on purpose — it feels harder and it recalls better.'
-      : 'Set which paper falls on which date and the plan will reserve each evening for the right subject.',
+    note: 'Built from the real timetable: 2 Sept Blockchain (4 PM), then 3 Sept is a double — Network Security (10 AM) and IoT (4 PM). The evening before each paper-day is reserved for its first paper, and the gap between the two papers on the 3rd is set aside for IoT.',
   };
 }
 
 /** What today looks like, for the Study tab header and the HQ card. */
-export function todayPlan(today, assignment = {}) {
-  const p = revisionPlan(today, assignment);
+export function todayPlan(today) {
+  const p = revisionPlan(today);
   return p.days.find(d => d.date === today) || null;
 }
 
