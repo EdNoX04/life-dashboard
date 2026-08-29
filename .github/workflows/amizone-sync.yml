@@ -1,9 +1,32 @@
 name: Amizone sync
 
+# Replaces the Playwright/Turnstile version, which never once succeeded: runs
+# #19-#25 all reported turnstile=MISSING, because Cloudflare Turnstile will not
+# issue a token to a datacenter IP. This workflow never logs in, so Turnstile is
+# never involved. It sends one already-valid .ASPXAUTH ticket (obtained by a
+# human logging in on a real browser, once) and parses HTML. No browser, no
+# Chromium download, no xvfb — a run is seconds instead of minutes.
+#
+# The ticket is stored in Supabase (memory.amizone_cookie), not here, so the
+# script can persist the value ASP.NET reissues under sliding expiration and the
+# session renews itself. The AMIZONE_COOKIE secret is only a bootstrap: it is
+# used on the very first run, and again if the stored ticket ever goes dead.
+#
+# When the ticket finally does expire for real, the run fails loudly AND writes
+# sync_status.amizone.ok = false with a reason, so the dashboard's Background
+# sync card says "re-paste the cookie" instead of quietly serving stale numbers.
+
 on:
   schedule:
-    - cron: '0 1 * * *'      # daily 06:30 IST (01:00 UTC)
-    - cron: '0 13 * * *'     # daily 18:30 IST (13:00 UTC) — catches afternoon classes
+    # every 2h across the college day, IST = UTC+5:30
+    - cron: '0 1 * * *'      # 06:30 IST
+    - cron: '0 3 * * *'      # 08:30 IST
+    - cron: '0 5 * * *'      # 10:30 IST
+    - cron: '0 7 * * *'      # 12:30 IST
+    - cron: '0 9 * * *'      # 14:30 IST
+    - cron: '0 11 * * *'     # 16:30 IST
+    - cron: '0 13 * * *'     # 18:30 IST
+    - cron: '0 15 * * *'     # 20:30 IST
   workflow_dispatch:          # manual "Sync now" button in the Actions tab
 
 concurrency:
@@ -13,7 +36,7 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
 
@@ -21,26 +44,33 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Playwright + Chromium + xvfb
-        run: |
-          npm init -y >/dev/null 2>&1 || true
-          npm install playwright@1.48.0
-          npx playwright install --with-deps chromium
-          sudo apt-get update && sudo apt-get install -y xvfb
+      # linkedom gives a real DOMParser, so the parsing code here is the SAME
+      # code that runs in the browser path. A different HTML parser would mean
+      # two parsers to keep in step, and a divergence nobody would notice until
+      # attendance quietly went wrong.
+      - name: Install linkedom
+        run: npm install --no-save linkedom@0.18.5
 
-      - name: Run Amizone sync (headful under virtual display)
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1366x900x24" node scripts/amizone-sync.mjs
+      - name: Fetch Amizone with the stored session
+        run: node automation/amizone/amizone-cookie-sync.mjs --out /tmp/amizone-payload.json
         env:
-          AMIZONE_USER: ${{ secrets.AMIZONE_USER }}
-          AMIZONE_PASS: ${{ secrets.AMIZONE_PASS }}
+          SUPABASE_URL: https://xroynvkzephebhcztvfo.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          AMIZONE_COOKIE: ${{ secrets.AMIZONE_COOKIE }}
+
+      - name: Push to Supabase
+        run: node automation/amizone/amizone-push.mjs --payload /tmp/amizone-payload.json
+        env:
           SUPABASE_URL: https://xroynvkzephebhcztvfo.supabase.co
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
 
-      - name: Upload debug screenshot on failure
+      # The payload is Neel's own attendance, no credentials — but it is still
+      # personal data, so it is kept only when a run failed and only for a day.
+      - name: Upload payload on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: amizone-debug
-          path: |
-            *.png
+          name: amizone-payload
+          path: /tmp/amizone-payload.json
+          retention-days: 1
           if-no-files-found: ignore
