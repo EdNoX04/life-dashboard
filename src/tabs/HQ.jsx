@@ -14,7 +14,8 @@ import { fetchUsdInr } from '../lib/markets.js';
 import { activeDay, ROLLOVER_HOUR } from '../lib/schedule.js';
 import DashAllocation from '../components/money/DashAllocation.jsx';
 import { studyReminders } from '../lib/exams.js';
-import { DONE_KEY, isHidden, withDone } from '../lib/reminders.js';
+import { isHidden } from '../lib/reminders.js';
+import { useReminderDone } from '../lib/useReminderDone.js';
 import * as db from '../lib/db.js';
 
 const WD = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -46,8 +47,9 @@ export default function HQ({ go }) {
   const { items: todos, refresh: rTodos } = useCollection('todos');
   // Which derived reminders Neel has already ticked. One blob, because these are
   // a handful of booleans and a whole table for them would be a schema change
-  // (and a migration he would have to run) for no gain.
-  const { items: doneMem, refresh: rDone } = useCollection('memory', { filter: `key=eq.${DONE_KEY}`, order: 'key' });
+  // (and a migration he would have to run) for no gain. Shared with the Study
+  // tab through this hook so both screens agree about what is finished.
+  const { doneMap, setDone, busy: doneBusy2, err: doneErr2 } = useReminderDone();
   const { items: habits } = useCollection('habits');
   const { items: logs } = useCollection('habit_logs');
   const { items: timetable } = useCollection('timetable', { order: 'start_time', asc: true });
@@ -88,8 +90,6 @@ export default function HQ({ go }) {
   const spark = useDailySpark();
 
   // ---- reminders: overdue tasks, attendance risk, upcoming due + events ----
-  const doneMap = doneMem?.[0]?.value || {};
-
   async function markDone(r) {
     if (!r.done || doneBusy) return;
     const tag = r.done.kind === 'todo' ? `todo:${r.done.id}` : r.done.key;
@@ -100,8 +100,7 @@ export default function HQ({ go }) {
         await db.update('todos', r.done.id, { completed: true });
         await rTodos();
       } else {
-        await db.upsertMemory(DONE_KEY, withDone(doneMap, r.done.key, true));
-        await rDone();
+        await setDone(r.done.key, true);
       }
     } catch (e) {
       // Say so. A tick that appears to work and is gone after a refresh is
@@ -118,7 +117,7 @@ export default function HQ({ go }) {
   // module may never be attempted later, and an exam does not reschedule. They
   // come from lib/exams.js rather than from a todo, because they are fixed
   // university dates that nobody has to remember to type in.
-  studyReminders(today).forEach(r => reminders.push(r));
+  studyReminders(today, doneMap).forEach(r => reminders.push(r));
   todos.filter(t => !t.completed && t.due_date && t.due_date < today).slice(0, 3)
     .forEach(t => reminders.push({ icon: '⚠', text: t.title, chip: 'overdue', c: 'var(--red)', go: 'todos', done: { kind: 'todo', id: t.id } }));
   subjects.filter(s => isLowAttendance(attPct(s.attendance_pct)))
@@ -198,7 +197,7 @@ export default function HQ({ go }) {
   const RemindersCard = (
     <Card key="reminders" title="Reminders" color="var(--red)">
       {visibleReminders.length === 0 && <Empty icon="✓" text="All clear — nothing needs your attention." />}
-      {doneErr && <div className="small" style={{ color: 'var(--red)' }}>Could not save that: {doneErr}</div>}
+      {(doneErr || doneErr2) && <div className="small" style={{ color: 'var(--red)' }}>Could not save that: {doneErr || doneErr2}</div>}
       {visibleReminders.slice(0, 7).map((r, i) => {
         const tag = r.done ? (r.done.kind === 'todo' ? `todo:${r.done.id}` : r.done.key) : null;
         return (
@@ -214,10 +213,10 @@ export default function HQ({ go }) {
                 className="btn btn-sm"
                 title="Mark done"
                 aria-label={`Mark done: ${r.text}`}
-                disabled={doneBusy === tag}
+                disabled={doneBusy === tag || doneBusy2 === tag}
                 onClick={e => { e.stopPropagation(); markDone(r); }}
               >
-                {doneBusy === tag ? '·' : '✓'}
+                {(doneBusy === tag || doneBusy2 === tag) ? '·' : '✓'}
               </button>
             )}
           </div>

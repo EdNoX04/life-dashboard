@@ -170,34 +170,69 @@ export const FBL_RULE =
  * `urgency` drives the colour: 'now' (≤2 days left) reads red, because the
  * penalty for missing is permanent and there is no catch-up.
  */
-export function fblStatus(today) {
+export function fblStatus(today, doneMap = {}) {
   const t = parse(today);
-  if (!t) return { state: 'unknown' };
-  const open = FBL_MODULES.find(m => today >= m.from && today <= m.to);
-  const next = FBL_MODULES.find(m => m.from > today);
+  if (!t) return { state: 'unknown', modules: [] };
 
-  if (!open) {
+  // Every module, each carrying whether Neel has ticked it. Both this file's
+  // callers (the HQ reminder and the Study card) need the same list with the
+  // same flags, and deriving it twice is how they would end up disagreeing.
+  const modules = FBL_MODULES.map(m => {
+    const key = fblDoneKey(m);
+    return {
+      ...m,
+      key,
+      done: Boolean(doneMap && Object.prototype.hasOwnProperty.call(doneMap, key) && doneMap[key]),
+      closed: today > m.to,   // the window has passed — not the same as finished
+    };
+  });
+
+  const containing = modules.find(m => today >= m.from && today <= m.to) || null;
+  // "Next" skips anything already finished. Ticking module 2 early should surface
+  // module 3, not the next unfinished thing in date order that happens to be 2.
+  const next = modules.find(m => m.from > today && !m.done) || null;
+
+  // Finished the module whose window is currently open. This is a real state and
+  // it did not exist before: previously the only way out of 'open' was for the
+  // window to close, so the card nagged for the full fortnight regardless.
+  if (containing && containing.done) {
+    return {
+      state: 'ahead',
+      current: null,
+      finished: containing,
+      next,
+      modules,
+      daysToNext: next ? daysBetween(today, next.from) : null,
+      urgency: 'later',
+      text: next
+        ? `${containing.label} done — ${next.label} opens ${fmtDay(next.from)}`
+        : `${containing.label} done — nothing left`,
+    };
+  }
+
+  if (!containing) {
     if (next) {
       return {
-        state: 'between', current: null, next,
+        state: 'between', current: null, next, modules,
         daysToNext: daysBetween(today, next.from),
         urgency: 'later',
         text: `${next.label} opens ${fmtDay(next.from)}`,
       };
     }
-    return { state: 'done', current: null, next: null, urgency: 'later', text: 'all FBL modules have closed' };
+    return { state: 'done', current: null, next: null, modules, urgency: 'later', text: 'all FBL modules have closed' };
   }
 
-  const left = daysBetween(today, open.to);
+  const left = daysBetween(today, containing.to);
   return {
     state: 'open',
-    current: open,
+    current: containing,
     next: next || null,
+    modules,
     daysLeft: left,
     urgency: left <= 2 ? 'now' : left <= 5 ? 'soon' : 'later',
     text: left === 0
-      ? `${open.label} closes TODAY`
-      : `${open.label} closes ${fmtDay(open.to)} — ${left} day${left === 1 ? '' : 's'} left`,
+      ? `${containing.label} closes TODAY`
+      : `${containing.label} closes ${fmtDay(containing.to)} — ${left} day${left === 1 ? '' : 's'} left`,
   };
 }
 
@@ -352,9 +387,9 @@ export function todayPlan(today) {
  * Rows for the HQ Reminders card. Same shape the tab already builds inline,
  * so it can concatenate without a translation layer.
  */
-export function studyReminders(today) {
+export function studyReminders(today, doneMap = {}) {
   const out = [];
-  const fbl = fblStatus(today);
+  const fbl = fblStatus(today, doneMap);
   if (fbl.state === 'open') {
     out.push({
       icon: 'ES',
@@ -366,6 +401,19 @@ export function studyReminders(today) {
       // sit down and finish a module. Nothing recorded that, so it nagged for
       // the whole window even once it was done.
       done: { kind: 'memory', key: fblDoneKey(fbl.current) },
+    });
+  } else if (fbl.state === 'ahead' && fbl.next) {
+    // The module in the open window is finished, so the useful thing to show is
+    // what replaces it. No distance test here, unlike 'between' below: this row
+    // exists precisely BECAUSE the slot it occupied just went quiet, and leaving
+    // the card blank would read as "nothing to do" rather than "you are ahead".
+    // No `done` descriptor — a module that has not opened cannot be completed.
+    out.push({
+      icon: 'ES',
+      text: `Spanish FBL ${fbl.next.label} opens`,
+      chip: fmtDay(fbl.next.from),
+      c: 'var(--green)',
+      go: 'study',
     });
   } else if (fbl.state === 'between' && fbl.daysToNext != null && fbl.daysToNext <= 3) {
     out.push({ icon: 'ES', text: `Spanish FBL ${fbl.next.label} opens`, chip: fmtDay(fbl.next.from), c: 'var(--cyan)', go: 'study' });

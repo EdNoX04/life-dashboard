@@ -8,6 +8,7 @@ import {
   SUBJECTS, EXAM_WINDOW, FBL_MODULES, FBL_RULE,
   examCountdown, fblStatus, revisionPlan, todayPlan, schedule, guideUrl, fmtDay, fmtTime,
 } from '../lib/exams.js';
+import { useReminderDone } from '../lib/useReminderDone.js';
 
 // The study room, now with an exam in it.
 //
@@ -38,7 +39,11 @@ export default function Study({ go }) {
   const cd = useMemo(() => examCountdown(today), [today]);
   const plan = useMemo(() => revisionPlan(today), [today]);
   const mine = useMemo(() => todayPlan(today), [today]);
-  const fbl = useMemo(() => fblStatus(today), [today]);
+  // Same source of truth as the HQ reminder: tick a module on either screen and
+  // both agree. Before this, Study derived "done" from the calendar alone, so a
+  // module Neel had actually finished still read as OPEN NOW for the fortnight.
+  const { doneMap, setDone, busy: doneBusy, err: doneErr } = useReminderDone();
+  const fbl = useMemo(() => fblStatus(today, doneMap), [today, doneMap]);
 
   const [openGuide, setOpenGuide] = useState(null);
   const [showAll, setShowAll] = useState(false);
@@ -215,17 +220,36 @@ export default function Study({ go }) {
         <div className="small" style={{ color: 'var(--red)', marginBottom: 10, lineHeight: 1.55 }}>
           ⚠ {FBL_RULE}
         </div>
+        {doneErr && <div className="small" style={{ color: 'var(--red)' }}>Could not save that: {doneErr}</div>}
         <div className="fbl-list">
-          {FBL_MODULES.map(m => {
-            const open = today >= m.from && today <= m.to;
-            const done = today > m.to;
+          {/* `closed` (the window has passed) and `done` (Neel finished it) were
+              the same variable here, both spelled "done". They are not the same
+              thing: a module can close unfinished, which is the failure this
+              card exists to prevent, and one he finished early is not closed. */}
+          {(fbl.modules || FBL_MODULES).map(m => {
+            const closed = m.closed ?? today > m.to;
+            const inWindow = today >= m.from && today <= m.to;
+            const open = inWindow && !m.done;
+            const state = m.done ? 'DONE' : inWindow ? 'OPEN NOW' : closed ? 'missed' : 'upcoming';
             return (
-              <div key={m.n} className={`fbl-row${open ? ' fbl-open' : ''}${done ? ' fbl-done' : ''}`}>
+              <div key={m.n} className={`fbl-row${open ? ' fbl-open' : ''}${(closed || m.done) ? ' fbl-done' : ''}`}>
                 <span className="fbl-label">{m.label}</span>
                 <span className="fbl-span">{fmtDay(m.from)} → {fmtDay(m.to)}</span>
-                <span className="fbl-state">
-                  {open ? 'OPEN NOW' : done ? 'closed' : 'upcoming'}
-                </span>
+                <span className="fbl-state" style={m.done ? { color: 'var(--green)' } : undefined}>{state}</span>
+                {/* Only a module whose window is open can be ticked. An upcoming
+                    one has nothing to finish yet, and a closed one cannot be
+                    attempted late — that is the rule in red above this list. */}
+                {(inWindow || m.done) && (
+                  <button
+                    className="btn btn-sm"
+                    title={m.done ? 'Mark not done' : 'Mark done'}
+                    aria-label={`${m.done ? 'Unmark' : 'Mark'} ${m.label} as done`}
+                    disabled={doneBusy === m.key}
+                    onClick={() => setDone(m.key, !m.done)}
+                  >
+                    {doneBusy === m.key ? '·' : m.done ? '↺' : '✓'}
+                  </button>
+                )}
               </div>
             );
           })}

@@ -61,5 +61,47 @@ is(fblRow && fblRow.done.key, 'fbl:2026-08-29', 'with the key for the open windo
 ok(examRow, 'the exam countdown row is produced too');
 ok(examRow && !examRow.done, 'but an exam is not something you can tick — it is a date, not a task');
 
+
+// ---------------------------------------------------------------- system-wide
+// Ticking a module must change what BOTH screens show, and must surface the next
+// one rather than leaving the slot blank.
+import { fblStatus } from '../src/lib/exams.js';
+
+const DAY = '2026-08-29';                       // first day of the Module 2 window
+const ticked = { [fblDoneKey({ from: '2026-08-29' })]: '2026-08-29T10:00:00Z' };
+
+const openState = fblStatus(DAY);
+is(openState.state, 'open', 'untouched, the open module reads as open');
+ok(/Module 2 closes/.test(openState.text), 'and the card nags about its deadline');
+
+const aheadState = fblStatus(DAY, ticked);
+is(aheadState.state, 'ahead', 'ticked, the state becomes "ahead" — a state that did not exist before');
+is(aheadState.finished && aheadState.finished.label, 'Module 2', 'it remembers which one was finished');
+is(aheadState.next && aheadState.next.label, 'Module 3', 'and points at the next one');
+ok(/Module 3 opens/.test(aheadState.text), 'the text names what comes next, not what is gone');
+
+// The Study card reads the same list, so its ticks and HQ's cannot disagree.
+const mods = aheadState.modules;
+is(mods.length, 6, 'every module comes back, not just the open one');
+is(mods[1].done, true, 'Module 2 is flagged done');
+is(mods[2].done, false, 'Module 3 is not');
+is(mods[0].closed, true, 'Module 1 closed on its own, without being ticked');
+ok(mods[1].closed === false, 'a module finished early is done but NOT closed — different things');
+
+// The reminder row swaps rather than vanishing.
+const rowsBefore = studyReminders(DAY).filter(r => /Spanish/.test(r.text));
+const rowsAfter = studyReminders(DAY, ticked).filter(r => /Spanish/.test(r.text));
+is(rowsBefore.length, 1, 'one Spanish row before');
+is(rowsAfter.length, 1, 'and still exactly one after — the slot is filled, not emptied');
+ok(/Module 2/.test(rowsBefore[0].text), 'before: the module being chased');
+ok(/Module 3 opens/.test(rowsAfter[0].text), 'after: the one that comes next');
+ok(!rowsAfter[0].done, 'and it offers no tick — you cannot finish a window that has not opened');
+
+// Tick every remaining module and the nagging stops entirely.
+const allDone = {};
+for (const m of FBL_MODULES) allDone[fblDoneKey(m)] = 'x';
+is(fblStatus(DAY, allDone).next, null, 'with everything ticked there is no next module');
+is(studyReminders(DAY, allDone).filter(r => /Spanish/.test(r.text)).length, 0, 'and no Spanish row at all');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
