@@ -102,10 +102,17 @@ function findBrowser() {
   return null;
 }
 
-const askLine = q => new Promise(res => {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  rl.question(q, a => { rl.close(); res(a); });
-});
+// ONE readline interface for the whole run, closed at the end.
+//
+// The first version created a new one per prompt. On a terminal that works; on
+// a pipe it does not — closing the first interface ends the shared stdin, so
+// the second prompt's callback never fires, the promise never settles, and node
+// exits silently with no output at all. That made the login step untestable
+// without a TTY, which is how a broken verification check survived two rounds.
+let _rl = null;
+const rl = () => (_rl ||= readline.createInterface({ input: process.stdin, output: process.stdout }));
+const askLine = q => new Promise(res => rl().question(q, res));
+const closeAsk = () => { if (_rl) { _rl.close(); _rl = null; } };
 
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
@@ -350,26 +357,47 @@ async function loginMode() {
   console.log('');
   log('Now CLOSE the browser window completely (all of it, not just the tab).');
   await askLine('Press Enter again once it is closed… ');
+  closeAsk();
 
-  const cookies = path.join(PROFILE_DIR, 'Default', 'Cookies');
-  if (fs.existsSync(cookies)) {
-    // File SIZE proves nothing — an empty Chrome cookie DB is already ~20KB,
-    // so the old check reported success on a profile with no login in it.
-    // SQLite stores host_key as plain text even when the value is encrypted,
-    // so the domain is literally searchable in the file. No sqlite3 needed.
-    const jar = fs.readFileSync(cookies);
-    if (jar.includes('amizone')) {
-      log('Profile saved — it contains Amizone cookies.');
-      log('Next: ./run-amizone.sh   — that run is automated and should need no login.');
-    } else {
-      console.error('\nThe cookie store was written but contains NO amizone.net cookie.');
-      console.error('The login did not stick. Usual causes:');
-      console.error('  · the browser was already running, so it opened a tab in your');
-      console.error('    normal profile instead of this one — quit Chrome entirely first;');
-      console.error('  · you pressed Enter before the dashboard finished loading.');
-      console.error('\nRe-run:  node amizone-auto.mjs --login');
-      process.exitCode = 1;
+  // Find the cookie store WHEREVER Chrome actually put it.
+  //
+  // This is the bug that made the last three rounds unreadable. Chrome moved
+  // the cookie database from Default/Cookies to Default/Network/Cookies years
+  // ago, but still leaves an empty legacy Default/Cookies behind — about 20KB,
+  // which is precisely the "20KB of cookies" the first version of this check
+  // reported as success. Both earlier checks read the empty file and drew
+  // confident conclusions from it.
+  //
+  // So do not hardcode a path. Walk the profile, collect every file named
+  // Cookies, and search all of them. SQLite stores host_key as plain text even
+  // when the value is encrypted, so the domain is findable without sqlite3.
+  const stores = [];
+  const walk = dir => {
+    let entries = [];
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) walk(full);
+      else if (e.name === 'Cookies') stores.push(full);
     }
+  };
+  walk(PROFILE_DIR);
+
+  const hit = stores.find(f => { try { return fs.readFileSync(f).includes('amizone'); } catch { return false; } });
+  if (hit) {
+    log(`Profile saved — Amizone cookies found in ${path.relative(PROFILE_DIR, hit)}`);
+    log('Next: ./run-amizone.sh   — that run is automated and should need no login.');
+  } else if (stores.length) {
+    console.error('\nCookie stores exist but none mentions amizone.net:');
+    for (const f of stores) {
+      console.error(`  ${path.relative(PROFILE_DIR, f)}  ${Math.round(fs.statSync(f).size / 1024)}KB`);
+    }
+    console.error('\nThe login did not complete. Most likely:');
+    console.error('  · Enter was pressed before the login actually finished — the dashboard');
+    console.error('    has to be on screen first, not just the login page;');
+    console.error('  · or the window that opened was an existing Chrome, not this profile.');
+    console.error('\nRe-run:  node amizone-auto.mjs --login');
+    process.exitCode = 1;
   } else {
     console.error('\nNo cookie store was written to ' + PROFILE_DIR + '.');
     console.error('That usually means the browser was already running with a different');
