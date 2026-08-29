@@ -425,6 +425,13 @@ async function main() {
     // runs read the same jar. It must be identical in BOTH launches or the
     // mismatch simply moves.
     '--password-store=basic',
+    // Force a desktop-sized window. debug-failed.png came back rendering
+    // Amizone's MOBILE layout: under Xvfb the window opens small, and with
+    // viewport:null Playwright inherits whatever the window is. The scraper's
+    // selectors were written against the desktop layout, so a narrow window
+    // would find nothing even on a perfectly logged-in session — a second
+    // failure hiding behind the first.
+    '--window-size=1440,900',
 
     // Plain Chrome reports navigator.webdriver === false. Playwright's Chrome
     // reports true unless this flag is set, so this makes the automated run
