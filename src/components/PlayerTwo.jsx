@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { aiChat } from '../lib/ai.js';
 import { homeContext } from '../lib/ally.js';
-import { useCollection } from '../lib/hooks.js';
+import { useCollection, todayStr } from '../lib/hooks.js';
 import { signOut } from '../lib/auth.js';
 import { ownsTab, PLAYER_TWO } from '../lib/assistants.js';
 import * as db from '../lib/db.js';
 import { THREAD_KEY, sanitizeThread, trimForStore, trimForSend, threadChanged } from '../lib/thread.js';
 import { useReminderDone } from '../lib/useReminderDone.js';
+import { fblStatus } from '../lib/exams.js';
+import { ACTION_INSTRUCTIONS, parseActions, describeAction, resolveTodo, resolveHabit } from '../lib/actions.js';
 
 // PLAYER TWO — the co-op partner, reachable from every screen.
 //
@@ -53,9 +55,15 @@ export default function PlayerTwo({ tab }) {
   // exactly the thing this feature exists to keep.
   const hydrated = useRef(false);
   const savedRef = useRef([]);
+  // Proposals from the LATEST reply only, and never persisted. A confirmation
+  // card restored after a reload would offer to add a task Neel may already
+  // have added by hand — a stale action is worse than no action.
+  const [pending, setPending] = useState([]);
+  const [acting, setActing] = useState(false);
+  const [actionNote, setActionNote] = useState('');
 
   const { items: timetable } = useCollection('timetable', { order: 'id' });
-  const { items: todos } = useCollection('todos', { order: 'due_date', asc: true });
+  const { items: todos, refresh: rTodos } = useCollection('todos', { order: 'due_date', asc: true });
   const { items: habits } = useCollection('habits', { order: 'id' });
   const { items: goals } = useCollection('goals', { order: 'id' });
   // Attendance lives here. Without it the dock could not answer the most
@@ -68,7 +76,7 @@ export default function PlayerTwo({ tab }) {
   const { items: habitLogs } = useCollection('habit_logs', { order: 'date' });
   // The same tick map HQ and Study read. Without it the dock would still be
   // chasing a module Neel ticked this morning on the two screens either side.
-  const { doneMap } = useReminderDone();
+  const { doneMap, setDone } = useReminderDone();
 
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }); }, [msgs, busy, open]);
 
@@ -118,7 +126,7 @@ export default function PlayerTwo({ tab }) {
     const body = String(text ?? q).trim();
     if (!body || busy) return;
     const next = [...msgs, { role: 'user', content: body }];
-    setMsgs(next); setQ(''); setBusy(true); setErr('');
+    setMsgs(next); setQ(''); setBusy(true); setErr(''); setPending([]); setActionNote('');
     try {
       const context = homeContext({
         timetable: timetable || [], todos: todos || [], habits: habits || [], goals: goals || [],
@@ -139,11 +147,63 @@ export default function PlayerTwo({ tab }) {
         // is permitted is time you might spend waiting for it.
         maxTokens: 400,
       });
-      setMsgs(m => [...m, { role: 'assistant', content: reply || '(no reply)' }]);
+      // The JSON block is machinery, not conversation: it is stripped before the
+      // reply is shown or stored, so the thread never contains a confirmation
+      // card's raw source.
+      const { prose, actions } = parseActions(reply || '');
+      setMsgs(m => [...m, { role: 'assistant', content: prose || reply || '(no reply)' }]);
+      setPending(actions);
     } catch (e) {
       setErr(String(e.message || e));
     } finally {
       setBusy(false);
+    }
+  }
+
+  // Nothing here runs off the model's say-so. `pending` is a proposal; this
+  // only ever runs from a click on the card below.
+  // Which module fbl_done would tick. Computed here, not taken from the model:
+  // the model is allowed to say "mark it done", never to say WHICH.
+  const fblOpenKey = fblStatus(todayStr(), doneMap)?.current?.key || '';
+
+  async function runAction(a) {
+    if (acting) return;
+    setActing(true); setActionNote('');
+    try {
+      if (a.do === 'add_todo') {
+        await db.insert('todos', {
+          title: a.title, due_date: a.due || null, due_time: null,
+          duration_min: null, priority: 0, list: 'Inbox', completed: false,
+        });
+        await rTodos();
+        setActionNote(`Added “${a.title}”.`);
+      } else if (a.do === 'complete_todo') {
+        const hit = resolveTodo(a.title, todos || []);
+        if (!hit.ok) { setActionNote(`Didn't do it — ${hit.reason}.`); return; }
+        await db.update('todos', hit.row.id, { completed: true });
+        await rTodos();
+        setActionNote(`Marked “${hit.row.title}” done.`);
+      } else if (a.do === 'log_habit') {
+        const hit = resolveHabit(a.name, habits || []);
+        if (!hit.ok) { setActionNote(`Didn't do it — ${hit.reason}.`); return; }
+        const day = todayStr();
+        if ((habitLogs || []).some(l => l.habit_id === hit.row.id && l.date === day)) {
+          setActionNote(`“${hit.row.name}” was already logged today.`);
+          return;
+        }
+        await db.insert('habit_logs', { habit_id: hit.row.id, date: day });
+        setActionNote(`Logged “${hit.row.name}”.`);
+      } else if (a.do === 'fbl_done') {
+        const open = fblOpenKey;
+        if (!open) { setActionNote("Didn't do it — no FBL module is open right now."); return; }
+        await setDone(open, true);
+        setActionNote('Marked the open Spanish module done.');
+      }
+    } catch (e) {
+      setActionNote(`Didn't do it — ${String(e.message || e)}`);
+    } finally {
+      setActing(false);
+      setPending(p => p.filter(x => x !== a));
     }
   }
 
@@ -173,7 +233,7 @@ export default function PlayerTwo({ tab }) {
             {msgs.length > 0 && (
               <button
                 className="p2-out"
-                onClick={() => { setMsgs([]); setErr(''); }}
+                onClick={() => { setMsgs([]); setErr(''); setPending([]); setActionNote(''); }}
                 title="Start a new thread"
               >NEW</button>
             )}
@@ -197,6 +257,28 @@ export default function PlayerTwo({ tab }) {
             {err && <div className="p2-err">{err}</div>}
             <div ref={endRef} />
           </div>
+
+          {/* The confirmation gate. The model proposed; nothing has happened.
+              Each card states exactly what will change in the words of the thing
+              itself, because "yes" to a vague description is not consent. */}
+          {pending.length > 0 && (
+            <div className="p2-actions">
+              {pending.map((a, i) => (
+                <div className="p2-action" key={i}>
+                  <span className="small" style={{ flex: 1 }}>{describeAction(a)}</span>
+                  <button className="btn btn-sm" disabled={acting} onClick={() => runAction(a)}>
+                    {acting ? '·' : 'DO IT'}
+                  </button>
+                  <button
+                    className="btn btn-sm"
+                    disabled={acting}
+                    onClick={() => setPending(p => p.filter(x => x !== a))}
+                  >NO</button>
+                </div>
+              ))}
+            </div>
+          )}
+          {actionNote && <div className="p2-note small">{actionNote}</div>}
 
           <form className="p2-form" onSubmit={e => { e.preventDefault(); send(); }}>
             <input
@@ -223,4 +305,4 @@ const SYSTEM = [
   'If the context does not contain the answer, say so plainly and name the tab that would have it. Never invent a class, a task, a date or a number.',
   'You do NOT have access to money or the journal. The Money tab has its own assistant, LEDGER, with data you cannot see — send financial questions there rather than guessing.',
   'A list marked "showing N of M" is a window, not the whole set; do not conclude anything from what is missing from it.',
-].join(' ');
+].join(' ') + '\n\n' + ACTION_INSTRUCTIONS;

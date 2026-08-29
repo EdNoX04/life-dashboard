@@ -6460,6 +6460,20 @@ th:hover .hold-info { color: var(--cyan); }
 .p2-assistant { align-self: flex-start; max-width: 92%; background: var(--bg); color: var(--ink-2); border: 1px solid var(--border); }
 .p2-busy { color: var(--ink-3); font-style: italic; }
 .p2-err { font-size: 12px; color: var(--red); line-height: 1.45; }
+/* The confirmation gate between what PLAYER TWO proposed and what happens.
+   Sits above the input, outside the scrolling log on purpose: a card that
+   scrolls away with the conversation is a card that gets confirmed blind. */
+.p2-actions {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 14px; border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--yellow) 7%, var(--bg));
+}
+.p2-action { display: flex; align-items: center; gap: 8px; }
+.p2-note {
+  padding: 8px 14px; border-top: 1px solid var(--border);
+  color: var(--ink-2);
+}
+
 .p2-form { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--border); }
 .p2-form input { flex: 1; font-size: 15px; }
 
