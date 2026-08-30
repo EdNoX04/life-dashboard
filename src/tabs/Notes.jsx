@@ -3,6 +3,7 @@ import { Card, Empty } from '../components/ui.jsx';
 import { useCollection } from '../lib/hooks.js';
 import * as db from '../lib/db.js';
 import Board from '../components/Board.jsx';
+import LectureRecorder from '../components/LectureRecorder.jsx';
 import { boardTitle, defaultBoardName, sortBoards } from '../lib/boards.js';
 
 // NOTES — a drawing surface that keeps what you draw.
@@ -180,23 +181,7 @@ export default function Notes() {
         </Card>
       )}
 
-      {!full && (
-        <Card title="Lecture recorder" color="var(--pink)">
-          <div className="small" style={{ lineHeight: 1.6 }}>
-            {/* Being straight about what is here rather than leaving the old copy,
-                which promised a "Summarize → study notes" button that does not
-                exist and on-device transcription that is neither on-device nor
-                good enough for an hour of a lecture hall. */}
-            Being rebuilt. The version that was here recorded the microphone and ran the browser’s speech API,
-            which is Chrome-only, degrades badly over an hour, and cannot hear a Teams or Meet call at all.
-            <div className="mt">
-              The replacement captures the mic <b>and</b> shared-tab audio, samples the slides while a professor is
-              screen-sharing, transcribes server-side, and writes the result into the vault so it shows up in Study
-              and in PLAYER TWO. Next build.
-            </div>
-          </div>
-        </Card>
-      )}
+      {!full && <LectureRecorder />}
 
       {!full && (
         <Card title="GoodNotes / iPad export" color="var(--yellow)">

@@ -6484,6 +6484,13 @@ th:hover .hold-info { color: var(--cyan); }
 .dec-title { color: var(--ink); text-decoration: none; border-bottom: 1px dotted var(--border-bright); }
 .dec-title:hover { color: var(--purple); border-bottom-color: var(--purple); }
 
+/* Kept slides from a lecture. A horizontal strip because they are a timeline,
+   and the timestamp under each is how you find the bit you missed. */
+.slide-strip { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0 4px; }
+.slide-strip figure { margin: 0; flex: none; width: 168px; }
+.slide-strip img { width: 100%; border: 1px solid var(--border); border-radius: 6px; display: block; }
+.slide-strip figcaption { text-align: center; margin-top: 3px; }
+
 /* ---- Notes board (Excalidraw) ---- */
 .board-wrap { display: flex; flex-direction: column; gap: 6px; }
 .board-bar { display: flex; align-items: center; gap: 10px; min-height: 16px; }
