@@ -5,6 +5,7 @@ import { getConfig, setConfig, isRemote, syncPushConfig } from '../lib/db.js';
 import { useCollection } from '../lib/hooks.js';
 import { THEMES, getTheme, setTheme } from '../lib/theme.js';
 import SyncStatus from '../components/SyncStatus.jsx';
+import AmizoneCookie from '../components/AmizoneCookie.jsx';
 
 export default function Settings() {
   const [cfg, setCfg] = useState(getConfig());
@@ -191,6 +192,10 @@ export default function Settings() {
       </Card>
 
       <SyncStatus />
+
+      {/* Directly under the sync card on purpose: when AMIZONE goes red, the
+          thing that fixes it is the next thing on the screen. */}
+      <AmizoneCookie />
 
       <Card title="Request queue (Cowork inbox)" color="var(--purple)">
         {requests.length === 0 && <div className="muted small">No requests yet. Refresh buttons and Ask-Cowork land here.</div>}
