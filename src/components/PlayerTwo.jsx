@@ -177,6 +177,13 @@ export default function PlayerTwo({ tab }) {
       // left on screen under an error message reads as a real answer with a
       // warning attached, which is exactly backwards.
       setStreaming('');
+      // And take the question back out. It was added optimistically; leaving it
+      // there on a failure means the thread PERSISTS a user turn with no reply,
+      // so the next attempt sends two identical questions in a row — which is
+      // exactly what happened when the free-tier model was retired. The text
+      // goes back in the box so it can simply be sent again.
+      setMsgs(m => (m.length && m[m.length - 1].role === 'user' ? m.slice(0, -1) : m));
+      setQ(body);
     } finally {
       setBusy(false);
     }

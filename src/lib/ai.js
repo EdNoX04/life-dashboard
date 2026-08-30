@@ -92,6 +92,7 @@ export async function aiChat(messages, { system, agent = '', model = '', maxToke
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j?.error || `Assistant unavailable (${r.status})`);
     logUsage(j.model, j.usage || { in: 0, out: 0 }).catch(() => {});
+    noteHealth(j).catch(() => {});
     return { text: j.text || '', provider: j.provider, model: j.model, citations: j.citations || [] };
   }
 
@@ -118,6 +119,7 @@ export async function aiChat(messages, { system, agent = '', model = '', maxToke
   if (streamErr) throw new Error(streamErr);
 
   logUsage(tail.model, tail.usage || { in: 0, out: 0 }).catch(() => {});
+  noteHealth(tail).catch(() => {});
   return { text, provider: tail.provider, model: tail.model, citations: [] };
 }
 
@@ -125,6 +127,48 @@ export async function aiChat(messages, { system, agent = '', model = '', maxToke
 // has the keys — so the honest answer is whether the session can reach it.
 export function pickProvider() { return 'proxy'; }
 export function providerLabel() { return 'PLAYER ONE'; }
+
+// Whether the assistant is actually working, written where the dashboard's
+// Background sync card already looks.
+//
+// This exists because of a nine-day silence: NVIDIA retired the free-tier model
+// on 21 August, every non-sensitive question failed from that morning, and the
+// only place it showed was an error message to whoever happened to ask. The
+// server now falls back through a chain of models, which fixes the outage — and
+// makes a NEW silence possible, because a fallback that works is invisible. So
+// it gets reported.
+//
+// Written from the browser rather than the server on purpose: the API function
+// has no Supabase service key, and giving it one to write a status row would be
+// a new secret in a new place for a status row. The session already writes
+// ai_usage from here.
+let lastHealth = null;
+
+async function noteHealth(info) {
+  // One write per change, not one per message. The value only moves when a model
+  // dies or comes back, and a status row rewritten on every question is just
+  // noise with a timestamp.
+  const state = `${info.fellBack ? 'down' : 'ok'}:${info.model}`;
+  if (state === lastHealth) return;
+  lastHealth = state;
+  try {
+    const rows = await list('memory', { filter: 'key=eq.sync_status', order: 'key' });
+    const value = rows?.[0]?.value || {};
+    await upsertMemory('sync_status', {
+      ...value,
+      ai: {
+        ok: !info.fellBack,
+        configured: true,
+        at: new Date().toISOString(),
+        model: info.model,
+        provider: info.provider,
+        reason: info.fellBack
+          ? `${info.fellBack.from} is gone — running on ${info.model}`
+          : '',
+      },
+    });
+  } catch { /* a health note is not worth failing a reply over */ }
+}
 
 async function logUsage(model, usage) {
   const month = new Date().toISOString().slice(0, 7);

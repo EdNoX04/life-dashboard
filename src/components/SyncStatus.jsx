@@ -29,6 +29,12 @@ const WORKERS = [
   { key: 'amizone',  label: 'AMIZONE',         hint: 'Timetable, subjects and attendance from s.amizone.net.' },
   { key: 'prices',   label: 'MARKET PRICES',   hint: 'Quote refresh for holdings and the watchlist.' },
   { key: 'binance',  label: 'BINANCE',         hint: 'Balances, P2P orders, deposits and withdrawals — read-only.' },
+  // Not a scheduled worker like the others — it reports whenever the assistant
+  // is used. It is here because the free-tier model was retired on 2026-08-21
+  // and the dashboard had no way to say so; the only symptom was an error to
+  // whoever happened to ask. Deliberately absent from STALE_AFTER below: not
+  // asking PLAYER TWO anything for a day is not a fault.
+  { key: 'ai',       label: 'ASSISTANT',       hint: 'Which model PLAYER TWO is answering on, and whether it fell back.' },
 ];
 
 function ago(iso) {

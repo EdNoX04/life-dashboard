@@ -52,12 +52,37 @@ const SENSITIVE = new Set(['money', 'ledger', 'finboy', 'journal', 'brief']);
 //
 // The lightning model is the default now because latency is what this tier is
 // for: the dock answers "when is my next class" and the wait is the product.
-const NVIDIA_DEFAULT = 'nvidia/nemotron-3.5-lightning-30b-a3b';
+// The free tier is a CHAIN, not a model. One id was a single point of failure:
+// glm-5.2 retired on 2026-08-21 and every non-sensitive question in the app
+// failed for nine days with nobody told.
+//
+// Ordered by what this tier is actually for — latency. The dock answers "when is
+// my next class", and the wait is the product; a 550B model that is three times
+// slower is not a better answer to that question, it is a worse one. So the
+// biggest model is LAST: it is the parachute, not the aspiration.
+//
+// All four are free endpoints on build.nvidia.com.
+const NVIDIA_CHAIN = [
+  'nvidia/nemotron-3.5-lightning-30b-a3b',   // fastest 30B A3B MoE
+  'moonshotai/kimi-k3',                      // ~2.8T hybrid MoE
+  'deepseek-ai/deepseek-v4-pro-0813',        // 1M context
+  'nvidia/nemotron-3-ultra-550b-a55b',       // the parachute
+];
+const NVIDIA_DEFAULT = NVIDIA_CHAIN[0];
 const ANTHROPIC_DEFAULT = 'claude-sonnet-5';
 
-// Where the free tier falls back to when NVIDIA has retired something. Haiku,
-// not Sonnet: this is the cheap path having a bad day, not a promotion.
+// When the whole free chain is gone, the paid path catches it. Haiku, not
+// Sonnet: this is the cheap tier having a bad day, not a promotion.
 const FALLBACK_MODEL = 'claude-haiku-4-5';
+
+/**
+ * The order to try, starting from whichever model was asked for. Exported so
+ * the ordering can be pinned by a test rather than trusted.
+ */
+export function nvidiaChainFrom(model) {
+  const first = NVIDIA_CHAIN.includes(model) ? model : NVIDIA_DEFAULT;
+  return [first, ...NVIDIA_CHAIN.filter(m => m !== first)];
+}
 
 // Only models this file names may be requested. The `model` field arrives from a
 // browser, and a proxy that forwards an arbitrary model string lets anyone with a
@@ -66,14 +91,10 @@ const ALLOWED = {
   // glm-5.2 is deliberately absent rather than merely un-defaulted: leaving a
   // retired id in the allowlist means a stale client can still ask for it and
   // get the same dead end.
-  nvidia: new Set([
-    'nvidia/nemotron-3.5-lightning-30b-a3b',
-    'nvidia/nemotron-3-super-120b-a12b',
-    'nvidia/nemotron-3-ultra-550b-a55b',
-    'moonshotai/kimi-k2.6',
-    'minimaxai/minimax-m3',
-    'deepseek-ai/deepseek-v4-pro',
-  ]),
+  // Exactly the chain. A model that is allowed but not in the chain can be
+  // requested and then never fallen back FROM, which is the hole this whole
+  // change exists to close.
+  nvidia: new Set(NVIDIA_CHAIN),
   anthropic: new Set(['claude-sonnet-5', 'claude-haiku-4-5', 'claude-opus-5']),
 };
 
@@ -375,6 +396,44 @@ async function streamNvidia({ model, system, messages, maxTokens }, res) {
   return usage;
 }
 
+/**
+ * Try the models in order until one answers.
+ *
+ * Only a "this model is gone" error advances the chain. A 500 or a rate limit
+ * is the provider having a bad minute, and quietly walking down four models —
+ * then onto the paid tier — because of a blip would turn a transient failure
+ * into a bill. Those propagate.
+ *
+ * `fellBack` carries what happened so the client can show it. The dashboard has
+ * been silently wrong about a dead assistant for nine days once already; the
+ * point of this is that the next retirement announces itself.
+ */
+export async function runChain(provider, model, _args, { canRetry, nvidia, anthropic }) {
+  const tried = [];
+  if (provider === 'nvidia') {
+    for (const m of nvidiaChainFrom(model)) {
+      try {
+        const result = await nvidia(m);
+        return {
+          result, provider: 'nvidia', model: m,
+          ...(tried.length ? { fellBack: { from: tried[0].model, to: m, reason: tried[0].reason, tried: tried.length } } : {}),
+        };
+      } catch (e) {
+        if (!modelIsGone(e) || !canRetry()) throw e;
+        tried.push({ model: m, reason: String(e.message || '').slice(0, 160) });
+      }
+    }
+    // Every free model refused. Cross to the paid path rather than fail: an
+    // assistant that costs a fraction of a cent beats one that is down.
+    const result = await anthropic(FALLBACK_MODEL);
+    return {
+      result, provider: 'anthropic', model: FALLBACK_MODEL,
+      fellBack: { from: tried[0]?.model || model, to: FALLBACK_MODEL, reason: tried[0]?.reason || 'free tier unavailable', tried: tried.length },
+    };
+  }
+  return { result: await anthropic(model), provider: 'anthropic', model };
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { error: 'POST only' });
 
@@ -408,20 +467,16 @@ export default async function handler(req, res) {
   const wantStream = body.stream === true && !(provider === 'anthropic' && body.web);
   if (wantStream) {
     try {
-      let used = { provider, model };
-      let usage;
-      try {
-        const stream = provider === 'anthropic' ? streamAnthropic : streamNvidia;
-        usage = await stream({ model, system: body.system, messages: body.messages, maxTokens, effort: body.effort }, res);
-      } catch (e) {
-        // Falling back only ever goes free-tier → Anthropic, never the other
-        // way. That direction is safe by construction: Anthropic is the MORE
-        // private path, so a retirement can degrade cost but never routing.
-        if (!(provider === 'nvidia' && modelIsGone(e) && !res.headersSent)) throw e;
-        used = { provider: 'anthropic', model: FALLBACK_MODEL, fellBack: String(e.message || '').slice(0, 200) };
-        usage = await streamAnthropic({ model: FALLBACK_MODEL, system: body.system, messages: body.messages, maxTokens, effort: body.effort }, res);
-      }
-      sendEvent(res, { done: true, usage, ...used });
+      const args = { system: body.system, messages: body.messages, maxTokens, effort: body.effort };
+      const out = await runChain(provider, model, args, {
+        // Once a byte has been written the status line is spent and the model
+        // cannot be swapped underneath the reader, so the chain only advances
+        // while nothing has been sent yet.
+        canRetry: () => !res.headersSent,
+        nvidia: (m) => streamNvidia({ ...args, model: m }, res),
+        anthropic: (m) => streamAnthropic({ ...args, model: m }, res),
+      });
+      sendEvent(res, { done: true, usage: out.result, provider: out.provider, model: out.model, ...(out.fellBack ? { fellBack: out.fellBack } : {}) });
       return res.end();
     } catch (e) {
       const msg = String(e.message || 'Upstream error').replace(/(nvapi|sk-ant)-[A-Za-z0-9_\-]+/g, '$1-***');
@@ -435,26 +490,23 @@ export default async function handler(req, res) {
   }
 
   try {
-    let call = provider === 'anthropic' ? callAnthropic : callNvidia;
     // Web search is only offered on the Anthropic path. NVIDIA's free tier is
     // where the non-personal questions go, and giving it a search budget would
     // be spending money on the half of the app that exists not to.
     const args = {
-      model, system: body.system, messages: body.messages, maxTokens,
+      system: body.system, messages: body.messages, maxTokens,
       effort: body.effort, web: provider === 'anthropic' ? body.web : 0,
     };
-    let used = { provider, model }, out;
-    try {
-      out = await call(args);
-    } catch (e) {
-      if (!(provider === 'nvidia' && modelIsGone(e))) throw e;
-      // Same one-shot fallback as the streaming path. Reported in the response
-      // rather than swallowed: an assistant quietly costing money on the paid
-      // tier for a month is its own kind of silent failure.
-      used = { provider: 'anthropic', model: FALLBACK_MODEL, fellBack: String(e.message || '').slice(0, 200) };
-      out = await callAnthropic({ ...args, model: FALLBACK_MODEL, web: 0 });
-    }
-    return json(res, 200, { ...out, ...used, effort: used.provider === 'anthropic' ? effortFor(body.effort) : undefined });
+    const out = await runChain(provider, model, args, {
+      canRetry: () => true,
+      nvidia: (m) => callNvidia({ ...args, model: m }),
+      anthropic: (m) => callAnthropic({ ...args, model: m, web: 0 }),
+    });
+    return json(res, 200, {
+      ...out.result, provider: out.provider, model: out.model,
+      ...(out.fellBack ? { fellBack: out.fellBack } : {}),
+      effort: out.provider === 'anthropic' ? effortFor(body.effort) : undefined,
+    });
   } catch (e) {
     // The provider's own message, minus anything that could carry a key. Errors
     // from these APIs echo request context back, and a 401 body is the one place
