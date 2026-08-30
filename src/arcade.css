@@ -6479,6 +6479,11 @@ th:hover .hold-info { color: var(--cyan); }
 .p2-caret { color: var(--cyan); animation: p2blink 1s steps(2, start) infinite; }
 @keyframes p2blink { to { visibility: hidden; } }
 
+/* A decision's title is a link into Obsidian, so it has to look like one —
+   but not like a web link, since it opens an app. */
+.dec-title { color: var(--ink); text-decoration: none; border-bottom: 1px dotted var(--border-bright); }
+.dec-title:hover { color: var(--purple); border-bottom-color: var(--purple); }
+
 .p2-form { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--border); }
 .p2-form input { flex: 1; font-size: 15px; }
 
