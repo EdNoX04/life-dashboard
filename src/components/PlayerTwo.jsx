@@ -8,6 +8,7 @@ import * as db from '../lib/db.js';
 import { THREAD_KEY, sanitizeThread, trimForStore, trimForSend, threadChanged } from '../lib/thread.js';
 import { useReminderDone } from '../lib/useReminderDone.js';
 import { fblStatus } from '../lib/exams.js';
+import { brainContext } from '../lib/brain.js';
 import { ACTION_INSTRUCTIONS, parseActions, stripActionsLive, describeAction, resolveTodo, resolveHabit } from '../lib/actions.js';
 
 // PLAYER TWO — the co-op partner, reachable from every screen.
@@ -77,6 +78,10 @@ export default function PlayerTwo({ tab }) {
   // Habit NAMES were already here; what was missing was whether any of them had
   // been done today, which is the only part of a habit anyone asks about.
   const { items: habitLogs } = useCollection('habit_logs', { order: 'date' });
+  // The Obsidian vault, indexed by the `brain` repo on every push. Loaded whole
+  // because retrieval happens here, in the browser — see lib/brain.js for where
+  // that stops being the right shape.
+  const { items: brainMem } = useCollection('memory', { filter: 'key=eq.brain_index', order: 'key' });
   // The same tick map HQ and Study read. Without it the dock would still be
   // chasing a module Neel ticked this morning on the two screens either side.
   const { doneMap, setDone } = useReminderDone();
@@ -141,11 +146,15 @@ export default function PlayerTwo({ tab }) {
       // The tail, not the whole thread. Every message goes to the model on every
       // turn, so an un-capped history makes each reply slower and dearer than
       // the last — and now that the thread outlives the tab, nothing else caps it.
+      // Retrieval is per-QUESTION, so it happens here rather than in
+      // homeContext: the live context is the same every turn, the notes are not.
+      const notes = brainContext(body, brainMem?.[0]?.value);
+
       const { text: reply } = await aiChat(trimForSend(next), {
         // Show it as it types. The tokens were always arriving this fast; the
         // old code just held them until the last one landed.
         onDelta: partial => setStreaming(stripActionsLive(partial)),
-        system: SYSTEM + '\n\n--- CONTEXT ---\n' + context,
+        system: SYSTEM + '\n\n--- CONTEXT ---\n' + context + (notes ? '\n\n' + notes : ''),
         agent: 'home',
         // Two or three sentences is the whole brief, so 400 is generous. This is
         // the single biggest lever on how long an answer takes: the endpoint is
@@ -321,4 +330,5 @@ const SYSTEM = [
   'If the context does not contain the answer, say so plainly and name the tab that would have it. Never invent a class, a task, a date or a number.',
   'You do NOT have access to money or the journal. The Money tab has its own assistant, LEDGER, with data you cannot see — send financial questions there rather than guessing.',
   'A list marked "showing N of M" is a window, not the whole set; do not conclude anything from what is missing from it.',
+  'A block headed FROM NEEL\u2019S NOTES is his own vault. Treat it as what HE wrote and believes, not as verified fact, and say which note it came from when you use it. If it contradicts the live context above, the live context wins \u2014 a note can be a year old.',
 ].join(' ') + '\n\n' + ACTION_INSTRUCTIONS;
