@@ -43,7 +43,12 @@
 // 'finboy' stays alongside 'ledger'. The name changed; a client still running
 // yesterday's bundle has not heard, and the one direction this set must never
 // fail is a money question quietly reaching the free tier.
-const SENSITIVE = new Set(['money', 'ledger', 'finboy', 'journal', 'brief']);
+// 'lecture' belongs here, and the reason is other people rather than Neel. A
+// lecture transcript is a recording of a professor and a room full of
+// classmates who did not agree to anything; sending that to a free tier whose
+// terms say inputs improve their models is not a decision Neel gets to make on
+// their behalf. It also happens to be the tier that cannot read the slides.
+const SENSITIVE = new Set(['money', 'ledger', 'finboy', 'journal', 'brief', 'lecture']);
 
 // z-ai/glm-5.2 reached end of life on 2026-08-21 and NVIDIA now refuses it
 // outright. It was the default here, so from that morning every question routed

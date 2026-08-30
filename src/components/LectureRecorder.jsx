@@ -2,10 +2,13 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Card } from './ui.jsx';
 import {
   CAPTURE_MODES, modeWarning, SAMPLE_EVERY_MS, slideDecision,
-  fmtElapsed, estimateCost, lecturePath,
+  fmtElapsed, estimateCost,
 } from '../lib/recorder.js';
 import { downsample, encodeWav, stitch, TARGET_RATE, CHUNK_SECONDS } from '../lib/wav.js';
 import { accessToken } from '../lib/auth.js';
+import { aiChat } from '../lib/ai.js';
+import * as db from '../lib/db.js';
+import { buildMessages, inboxRows, todayISO, SYSTEM as LECTURE_SYSTEM } from '../lib/lecturenote.js';
 
 // The lecture recorder.
 //
@@ -52,6 +55,8 @@ export default function LectureRecorder() {
   const [subject, setSubject] = useState('');
   const [err, setErr] = useState('');
   const [warn, setWarn] = useState('');
+  const [writing, setWriting] = useState(false);
+  const [written, setWritten] = useState(null);   // the queued paths, once filed
 
   const streams = useRef([]);
   const ctx = useRef(null);
@@ -235,6 +240,46 @@ export default function LectureRecorder() {
     setState('done');
   }
 
+  // ---- the write-up ----
+  //
+  // Transcript and slides → Claude → two rows in vault_inbox, which the brain
+  // repo turns into notes on its next run. The app cannot push to a private git
+  // repo, so the queue IS the write path; there is no second route.
+  async function writeUp() {
+    if (writing) return;
+    const est = estimateCost({ minutes: secs / 60, slides: slides.length });
+    // Neel's ceiling is about a pound a lecture. Asking above it beats
+    // discovering the bill afterwards — and the number is shown either way.
+    if (est > 1 && !window.confirm(
+      `This lecture is estimated at $${est.toFixed(2)} — above the usual $1. Write it up anyway?`)) return;
+
+    setWriting(true); setErr(''); setWarn('');
+    try {
+      const { text } = await aiChat(
+        buildMessages({ transcript, slides: slides.map(s => ({ ...s, label: fmtElapsed(s.at) })), subject }),
+        {
+          system: LECTURE_SYSTEM,
+          agent: 'lecture',     // routes to Anthropic — see the note in api/chat.js
+          maxTokens: 4000,      // real notes from an hour, not a paragraph
+        },
+      );
+      const rows = inboxRows({
+        notes: text,
+        transcript,
+        slides: slides.map(s => ({ label: fmtElapsed(s.at) })),
+        subject,
+        date: todayISO(),
+        minutes: secs / 60,
+      });
+      for (const r of rows) await db.insert('vault_inbox', r);
+      setWritten(rows.map(r => r.path));
+    } catch (e) {
+      setErr(String(e.message || e));
+    } finally {
+      setWriting(false);
+    }
+  }
+
   const transcript = stitch(parts);
   const cost = estimateCost({ minutes: secs / 60, slides: slides.length });
 
@@ -329,15 +374,32 @@ export default function LectureRecorder() {
               ))}
             </div>
           )}
-          <div className="small mt" style={{ color: 'var(--yellow)', lineHeight: 1.55 }}>
-            Writing this up into notes and filing it at <code>{lecturePath({ subject, date: new Date().toISOString() })}</code>{' '}
-            is the next build — the transcript and slides above are what it will be written from.
-          </div>
+          {written ? (
+            <div className="small mt" style={{ color: 'var(--green)', lineHeight: 1.6 }}>
+              Filed. {written.map(p => <div key={p}><code>{p}</code></div>)}
+              <div className="muted mt">
+                The vault picks these up within about fifteen minutes, and they show up in Study and in
+                PLAYER TWO once they land.
+              </div>
+            </div>
+          ) : (
+            <div className="small mt muted" style={{ lineHeight: 1.55 }}>
+              Writing it up files two notes: the study notes, and the raw transcript beside them — so a
+              summary that missed something can be redone without sitting through the lecture again.
+            </div>
+          )}
           <div className="flex mt" style={{ gap: 8, flexWrap: 'wrap' }}>
+            {!written && (
+              <button className="btn btn-green" onClick={writeUp} disabled={writing || !transcript}>
+                {writing ? 'writing…' : `✎ write it up · $${cost.toFixed(2)}`}
+              </button>
+            )}
             <button className="btn btn-sm" onClick={() => navigator.clipboard?.writeText(transcript)} disabled={!transcript}>
               ⧉ copy transcript
             </button>
-            <button className="btn btn-sm" onClick={() => { setState('idle'); setParts([]); setSlides([]); }}>new recording</button>
+            <button className="btn btn-sm" onClick={() => { setState('idle'); setParts([]); setSlides([]); setWritten(null); }}>
+              new recording
+            </button>
           </div>
         </>
       )}
