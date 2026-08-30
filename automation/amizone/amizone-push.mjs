@@ -55,14 +55,20 @@ const SYNC_TT = process.env.AMIZONE_SYNC_TIMETABLE === 'false' ? false
 // failure that wiped the table in August and reported success.
 const COLLAPSE_RATIO = 0.5;
 
-// A placeholder is not a key. Real Supabase keys start sb_ or eyJ; anything else
-// means the config was never filled in, and a run that silently no-ops is how
-// three weeks of stale attendance went unnoticed the first time.
-const keyLooksReal = /^(sb_|eyJ)/.test(SUPA_KEY);
+// A placeholder is not a key — and neither is the PUBLISHABLE key, which is the
+// trap this check originally walked into. `sb_publishable_…` starts with `sb_`,
+// so a `/^(sb_|eyJ)/` test passes it happily; the failure then arrives from
+// Postgres as `401 42501 new row violates row-level security policy`, which
+// reads like a broken policy rather than the wrong key. The publishable key
+// ships in the browser bundle; it is public and cannot write.
+const keyLooksReal = /^(sb_|eyJ)/.test(SUPA_KEY) && !/publishable|anon/i.test(SUPA_KEY);
 if (!DRY && (!SUPA_URL || !keyLooksReal)) {
   console.error('FATAL: no usable Supabase service key.');
   console.error('  Put it in the config file as "supabaseServiceKey", or set SUPABASE_SERVICE_KEY.');
-  console.error(`  (url ${SUPA_URL ? 'ok' : 'MISSING'}, key ${SUPA_KEY ? 'present but not a Supabase key' : 'MISSING'})`);
+  const why = !SUPA_KEY ? 'MISSING'
+    : /publishable|anon/i.test(SUPA_KEY) ? 'is the PUBLISHABLE key — use the SECRET one'
+    : 'present but not a Supabase key';
+  console.error(`  (url ${SUPA_URL ? 'ok' : 'MISSING'}, key ${why})`);
   process.exit(2);
 }
 

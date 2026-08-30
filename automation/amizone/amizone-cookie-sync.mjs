@@ -44,8 +44,11 @@ const OUT = arg('out', 'amizone-payload.json');
 
 const SUPA_URL = String(process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY || '';
-if (!SUPA_URL || !/^(sb_|eyJ)/.test(SUPA_KEY)) {
-  console.error('FATAL: SUPABASE_URL / SUPABASE_SERVICE_KEY missing or not a Supabase key.');
+// The publishable key passes a bare `sb_` test and then fails at the database
+// with an RLS error that looks like a policy bug. Name the real problem here.
+if (!SUPA_URL || !/^(sb_|eyJ)/.test(SUPA_KEY) || /publishable|anon/i.test(SUPA_KEY)) {
+  console.error('FATAL: SUPABASE_SERVICE_KEY is missing, not a Supabase key, or is the'
+    + ' PUBLISHABLE key (that one is public and cannot write — use the SECRET key).');
   process.exit(2);
 }
 const AMIZONE = 'https://s.amizone.net';

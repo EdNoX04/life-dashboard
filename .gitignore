@@ -14,3 +14,8 @@ __pycache__/
 
 # credentials for the overnight build runner — never committed
 scripts/.build.env
+
+# A source-only snapshot, tarred here so it can cross to the cloud container
+# for a real build check. The repo is private, so cloning it there is no longer
+# possible and this is the credential-free alternative.
+_build-snapshot.tgz
