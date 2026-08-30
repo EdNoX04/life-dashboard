@@ -8,7 +8,7 @@ import * as db from '../lib/db.js';
 import { THREAD_KEY, sanitizeThread, trimForStore, trimForSend, threadChanged } from '../lib/thread.js';
 import { useReminderDone } from '../lib/useReminderDone.js';
 import { fblStatus } from '../lib/exams.js';
-import { ACTION_INSTRUCTIONS, parseActions, describeAction, resolveTodo, resolveHabit } from '../lib/actions.js';
+import { ACTION_INSTRUCTIONS, parseActions, stripActionsLive, describeAction, resolveTodo, resolveHabit } from '../lib/actions.js';
 
 // PLAYER TWO — the co-op partner, reachable from every screen.
 //
@@ -59,6 +59,9 @@ export default function PlayerTwo({ tab }) {
   // card restored after a reload would offer to add a task Neel may already
   // have added by hand — a stale action is worse than no action.
   const [pending, setPending] = useState([]);
+  // The reply as it arrives. Kept out of `msgs` until it is complete, so a
+  // half-finished sentence is never persisted or sent back as history.
+  const [streaming, setStreaming] = useState('');
   const [acting, setActing] = useState(false);
   const [actionNote, setActionNote] = useState('');
 
@@ -126,7 +129,7 @@ export default function PlayerTwo({ tab }) {
     const body = String(text ?? q).trim();
     if (!body || busy) return;
     const next = [...msgs, { role: 'user', content: body }];
-    setMsgs(next); setQ(''); setBusy(true); setErr(''); setPending([]); setActionNote('');
+    setMsgs(next); setQ(''); setBusy(true); setErr(''); setPending([]); setActionNote(''); setStreaming('');
     try {
       const context = homeContext({
         timetable: timetable || [], todos: todos || [], habits: habits || [], goals: goals || [],
@@ -139,6 +142,9 @@ export default function PlayerTwo({ tab }) {
       // turn, so an un-capped history makes each reply slower and dearer than
       // the last — and now that the thread outlives the tab, nothing else caps it.
       const { text: reply } = await aiChat(trimForSend(next), {
+        // Show it as it types. The tokens were always arriving this fast; the
+        // old code just held them until the last one landed.
+        onDelta: partial => setStreaming(stripActionsLive(partial)),
         system: SYSTEM + '\n\n--- CONTEXT ---\n' + context,
         agent: 'home',
         // Two or three sentences is the whole brief, so 400 is generous. This is
@@ -153,8 +159,15 @@ export default function PlayerTwo({ tab }) {
       const { prose, actions } = parseActions(reply || '');
       setMsgs(m => [...m, { role: 'assistant', content: prose || reply || '(no reply)' }]);
       setPending(actions);
+      // Cleared only once the finished message is in the log, or the text would
+      // blink out and back in.
+      setStreaming('');
     } catch (e) {
       setErr(String(e.message || e));
+      // Whatever arrived before the failure is discarded. A truncated answer
+      // left on screen under an error message reads as a real answer with a
+      // warning attached, which is exactly backwards.
+      setStreaming('');
     } finally {
       setBusy(false);
     }
@@ -253,7 +266,10 @@ export default function PlayerTwo({ tab }) {
             {msgs.map((m, i) => (
               <div key={i} className={`p2-msg p2-${m.role}`}>{m.content}</div>
             ))}
-            {busy && <div className="p2-msg p2-assistant p2-busy">thinking…</div>}
+            {/* Once a single token has arrived, "thinking…" is a lie — the
+                answer is on screen and still growing. */}
+            {busy && !streaming && <div className="p2-msg p2-assistant p2-busy">thinking…</div>}
+            {streaming && <div className="p2-msg p2-assistant">{streaming}<span className="p2-caret">▮</span></div>}
             {err && <div className="p2-err">{err}</div>}
             <div ref={endRef} />
           </div>

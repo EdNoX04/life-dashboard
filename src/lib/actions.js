@@ -78,6 +78,29 @@ export function stripActions(text) {
 }
 
 /**
+ * The same, for text that is still arriving.
+ *
+ * While streaming, the closing fence has not been written yet, so `stripActions`
+ * sees no complete block and happily renders ```action {"do":"add_todo"… as it
+ * types itself out. The machinery would flash on screen for a second or two and
+ * then vanish — which looks like a glitch, and worse, shows the user the raw
+ * shape of something they were meant to meet as a button.
+ */
+export function stripActionsLive(text) {
+  let out = String(text || '').split('```action')[0];
+  // The fence itself arrives one character at a time, so the tail can be any
+  // PREFIX of it — a lone backtick, then two, then "```a", "```ac"… Trimming
+  // only the complete fence would let the opening tick-marks flicker on screen
+  // for a few frames each. Every prefix begins with a backtick, so ordinary
+  // prose (and a fence for some other language, "```js") is never touched.
+  const START = '```action';
+  for (let n = Math.min(START.length, out.length); n > 0; n--) {
+    if (out.endsWith(START.slice(0, n))) { out = out.slice(0, -n); break; }
+  }
+  return out.replace(/\n{3,}/g, '\n\n').trimEnd();
+}
+
+/**
  * Pull proposals out of a reply.
  * Returns { prose, actions, rejected } — `rejected` carries a reason per bad
  * block, because an action silently dropped is indistinguishable from a model

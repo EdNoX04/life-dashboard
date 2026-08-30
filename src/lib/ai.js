@@ -1,3 +1,4 @@
+import { createSSEParser } from './sse.js';
 // ---- AI client ----
 // Every call now goes to /api/chat on this same origin. Nothing here holds a key
 // and nothing here chooses a provider, because both of those decisions have to be
@@ -68,20 +69,56 @@ export const SENSITIVE_AGENTS = ['money', 'ledger', 'finboy', 'journal', 'brief'
 // may ask to spend LESS than the configured level, never more.
 // web: how many searches Claude may run for this answer (0 = none). Only honoured
 // on the Anthropic path — see api/chat.js for why the free tier gets no budget.
-export async function aiChat(messages, { system, agent = '', model = '', maxTokens = 1024, effort = '', web = 0 } = {}) {
+export async function aiChat(messages, { system, agent = '', model = '', maxTokens = 1024, effort = '', web = 0, onDelta = null } = {}) {
   const token = await accessToken();
   if (!token) throw new Error('Sign in to use the assistant.');
+
+  // Streaming only when a caller actually wants the partial text. Everything
+  // else — the brief, LEDGER, Ally — keeps the buffered path, which is simpler
+  // and has no half-answer states to reason about.
+  const stream = typeof onDelta === 'function';
 
   const r = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ agent, model, system, messages, maxTokens, effort, web }),
+    body: JSON.stringify({ agent, model, system, messages, maxTokens, effort, web, stream }),
   });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j?.error || `Assistant unavailable (${r.status})`);
 
-  logUsage(j.model, j.usage || { in: 0, out: 0 }).catch(() => {});
-  return { text: j.text || '', provider: j.provider, model: j.model, citations: j.citations || [] };
+  if (!stream || !r.body || !/text\/event-stream/i.test(r.headers.get('content-type') || '')) {
+    // Either the caller did not ask, or the server answered the old way — a
+    // failure before the stream opened, or a deployment where only half of this
+    // change has landed. Falling back rather than assuming is what stops that
+    // window from being an outage.
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j?.error || `Assistant unavailable (${r.status})`);
+    logUsage(j.model, j.usage || { in: 0, out: 0 }).catch(() => {});
+    return { text: j.text || '', provider: j.provider, model: j.model, citations: j.citations || [] };
+  }
+
+  let text = '';
+  let tail = { usage: { in: 0, out: 0 } };
+  let streamErr = '';
+  const parser = createSSEParser(ev => {
+    if (typeof ev.t === 'string') { text += ev.t; onDelta(text); }
+    else if (ev.error) streamErr = ev.error;
+    else if (ev.done) tail = ev;
+  });
+
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    parser.push(dec.decode(value, { stream: true }));
+  }
+  parser.flush();
+
+  // An error event mid-stream is still an error, even though some text arrived.
+  // Reporting the fragment as the answer is the failure this guards against.
+  if (streamErr) throw new Error(streamErr);
+
+  logUsage(tail.model, tail.usage || { in: 0, out: 0 }).catch(() => {});
+  return { text, provider: tail.provider, model: tail.model, citations: [] };
 }
 
 // Kept because callers still ask. There is always a provider now — the server

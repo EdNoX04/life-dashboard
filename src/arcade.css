@@ -6474,6 +6474,11 @@ th:hover .hold-info { color: var(--cyan); }
   color: var(--ink-2);
 }
 
+/* The cursor on a reply that is still being written. Blinking, because a
+   stalled stream and a finished answer look identical without it. */
+.p2-caret { color: var(--cyan); animation: p2blink 1s steps(2, start) infinite; }
+@keyframes p2blink { to { visibility: hidden; } }
+
 .p2-form { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--border); }
 .p2-form input { flex: 1; font-size: 15px; }
 

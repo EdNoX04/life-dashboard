@@ -212,6 +212,141 @@ async function callNvidia({ model, system, messages, maxTokens }) {
   };
 }
 
+// ---------------------------------------------------------------- streaming
+//
+// Why this exists: the endpoint returned one JSON blob, so the user waited for
+// the LAST token before seeing the FIRST. On a three-sentence answer that is a
+// couple of seconds of staring at a spinner, and the wait is entirely artificial
+// — the tokens were already arriving, we were just holding them.
+//
+// Both providers speak SSE and neither speaks the same dialect, so each is
+// translated into one small shape the browser understands:
+//
+//     data: {"t":"…"}                        a piece of text
+//     data: {"done":true,"usage":{…},…}      the tail: usage, model, citations
+//     data: {"error":"…"}                    an upstream failure MID-stream
+//
+// That last one matters. Once headers are sent the status code is spent, so a
+// provider that dies halfway cannot be reported as a 502 — without an explicit
+// error event the stream just stops and the client shows a half-sentence as if
+// it were the whole answer.
+function openStream(res) {
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  // Proxies that buffer would undo the entire point of this.
+  res.setHeader('X-Accel-Buffering', 'no');
+}
+const sendEvent = (res, obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+
+/** Read an upstream SSE body and hand each `data:` payload to `onLine`. */
+export async function pumpSSE(body, onLine) {
+  const reader = body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let nl;
+    while ((nl = buf.indexOf('\n')) !== -1) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line.startsWith('data:')) continue;
+      const payload = line.slice(5).trim();
+      if (!payload || payload === '[DONE]') continue;
+      try { onLine(JSON.parse(payload)); } catch { /* torn or non-JSON keepalive */ }
+    }
+  }
+}
+
+async function streamAnthropic({ model, system, messages, maxTokens, effort }, res) {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw Object.assign(new Error('Anthropic key is not configured on the server.'), { code: 503 });
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model, max_tokens: maxTokens, stream: true,
+      output_config: { effort: effortFor(effort) },
+      ...(system ? { system } : {}),
+      messages: messages.map(m => ({ role: m.role, content: m.content })),
+    }),
+  });
+  // Errors before the stream opens still arrive as ordinary JSON, so this is the
+  // last moment a real status code can be returned.
+  if (!r.ok || !r.body) {
+    const j = await r.json().catch(() => ({}));
+    throw Object.assign(new Error(j?.error?.message || `Anthropic ${r.status}`), { code: r.status });
+  }
+  openStream(res);
+  const usage = { in: 0, out: 0 };
+  await pumpSSE(r.body, ev => {
+    const step = anthropicStep(ev);
+    if (step.text) sendEvent(res, { t: step.text });
+    if (step.error) sendEvent(res, { error: step.error });
+    if (step.inTokens != null) usage.in = step.inTokens;
+    if (step.outTokens != null) usage.out = step.outTokens;
+  });
+  return usage;
+}
+
+// The two providers' event shapes, isolated and exported so they can be pinned
+// by tests. This is where a silent failure would live: mistake the field and the
+// stream still "works", it just never emits a single character.
+export function anthropicStep(ev) {
+  if (!ev || typeof ev !== 'object') return {};
+  if (ev.type === 'content_block_delta') return { text: ev.delta?.text || '' };
+  if (ev.type === 'message_start') return { inTokens: ev.message?.usage?.input_tokens || 0 };
+  if (ev.type === 'message_delta') return { outTokens: ev.usage?.output_tokens ?? null };
+  if (ev.type === 'error') return { error: ev.error?.message || 'stream error' };
+  return {};
+}
+
+export function nvidiaStep(ev) {
+  if (!ev || typeof ev !== 'object') return {};
+  const out = {};
+  const t = ev.choices?.[0]?.delta?.content;
+  if (typeof t === 'string' && t) out.text = t;
+  if (ev.usage) {
+    out.inTokens = ev.usage.prompt_tokens || 0;
+    out.outTokens = ev.usage.completion_tokens || 0;
+  }
+  return out;
+}
+
+async function streamNvidia({ model, system, messages, maxTokens }, res) {
+  const key = process.env.NVIDIA_API_KEY;
+  if (!key) throw Object.assign(new Error('NVIDIA key is not configured on the server.'), { code: 503 });
+  const r = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model, max_tokens: maxTokens, temperature: 0.6, top_p: 0.95,
+      chat_template_kwargs: { enable_thinking: false },
+      stream: true,
+      // OpenAI-compatible streams omit usage unless asked, and usage is what
+      // the client's spend log is built from.
+      stream_options: { include_usage: true },
+      messages: system ? [{ role: 'system', content: system }, ...messages] : messages,
+    }),
+  });
+  if (!r.ok || !r.body) {
+    const j = await r.json().catch(() => ({}));
+    throw Object.assign(new Error(j?.error?.message || j?.detail || `NVIDIA ${r.status}`), { code: r.status });
+  }
+  openStream(res);
+  const usage = { in: 0, out: 0 };
+  await pumpSSE(r.body, ev => {
+    const step = nvidiaStep(ev);
+    if (step.text) sendEvent(res, { t: step.text });
+    if (step.inTokens != null) usage.in = step.inTokens;
+    if (step.outTokens != null) usage.out = step.outTokens;
+  });
+  return usage;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { error: 'POST only' });
 
@@ -237,6 +372,28 @@ export default async function handler(req, res) {
   // Capped here rather than trusted from the client, because output tokens are
   // the expensive half and max_tokens is the only lever on them.
   const maxTokens = Math.min(Number(body.maxTokens) || 1024, 4096);
+
+  // Streaming is opt-in per request. Web search is not offered on the streaming
+  // path: citations arrive as their own block type and a half-cited answer is
+  // worse than a slower complete one, so a search request takes the buffered
+  // route regardless of what the client asked for.
+  const wantStream = body.stream === true && !(provider === 'anthropic' && body.web);
+  if (wantStream) {
+    try {
+      const stream = provider === 'anthropic' ? streamAnthropic : streamNvidia;
+      const usage = await stream({ model, system: body.system, messages: body.messages, maxTokens, effort: body.effort }, res);
+      sendEvent(res, { done: true, usage, provider, model });
+      return res.end();
+    } catch (e) {
+      const msg = String(e.message || 'Upstream error').replace(/(nvapi|sk-ant)-[A-Za-z0-9_\-]+/g, '$1-***');
+      // headersSent tells us which half of the request failed. Before the stream
+      // opens this is an ordinary HTTP error; after, the only channel left is an
+      // error EVENT — and staying silent would render a truncated answer as if
+      // it were complete.
+      if (res.headersSent) { sendEvent(res, { error: msg }); return res.end(); }
+      return json(res, e.code && e.code >= 400 && e.code < 600 ? e.code : 502, { error: msg, provider, model });
+    }
+  }
 
   try {
     const call = provider === 'anthropic' ? callAnthropic : callNvidia;
