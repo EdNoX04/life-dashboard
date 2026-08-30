@@ -6484,6 +6484,24 @@ th:hover .hold-info { color: var(--cyan); }
 .dec-title { color: var(--ink); text-decoration: none; border-bottom: 1px dotted var(--border-bright); }
 .dec-title:hover { color: var(--purple); border-bottom-color: var(--purple); }
 
+/* ---- Notes board (Excalidraw) ---- */
+.board-wrap { display: flex; flex-direction: column; gap: 6px; }
+.board-bar { display: flex; align-items: center; gap: 10px; min-height: 16px; }
+/* The save state is the whole point of this rebuild — the old board kept
+   nothing — so it is always on screen rather than a toast that fades. */
+.board-state { font-family: var(--font-pixel); font-size: 7px; letter-spacing: 1.2px; }
+.board-saved  { color: var(--ink-3); }
+.board-dirty  { color: var(--yellow); }
+.board-saving { color: var(--cyan); }
+.board-error  { color: var(--red); }
+.board-err { color: var(--red); }
+.board-canvas { height: min(70vh, 620px); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.note-full .board-canvas { height: calc(100vh - 96px); }
+.board-loading { display: grid; place-items: center; height: 100%; }
+.board-rename { font-size: 13px; padding: 4px 8px; }
+.board-row { gap: 8px; }
+.board-row.on { border-left: 2px solid var(--cyan); padding-left: 8px; }
+
 .p2-form { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--border); }
 .p2-form input { flex: 1; font-size: 15px; }
 
