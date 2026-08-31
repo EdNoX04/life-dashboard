@@ -8,8 +8,9 @@
 //
 // The old chore was: open Amizone, open devtools, run copy(document.cookie),
 // open GitHub, find Actions secrets, paste, re-run the workflow. Six steps and
-// a laptop. This makes it two: click a bookmarklet on the Amizone tab, paste
-// into the dashboard.
+// a laptop. Then it was two: click a bookmarklet, paste into the dashboard.
+// Now it is one: click the bookmarklet, and the tab it opens files the ticket
+// itself.
 //
 // The value is written with Neel's OWN logged-in session, so no service key goes
 // anywhere near a browser or a bookmark.
@@ -61,14 +62,95 @@ export function cookieState(row, now = Date.now()) {
   return { tone: 'ok', text: `Stored ${age}h ago.` };
 }
 
+// ---------------------------------------------------------------------------
+// The handoff
+//
+// A bookmarklet on s.amizone.net has the ticket but no way to reach the
+// database: writing needs Neel's Supabase session, which lives in this app's
+// origin and nowhere else. The two origins cannot see each other's storage, and
+// the one channel that survives crossing between them is the URL fragment.
+//
+// A fragment is not sent to any server — it never leaves the browser. What it
+// does do is sit in the address bar and in that tab's history entry, so it is
+// taken and scrubbed in the same tick as the page's first script, before React
+// renders and long before anything could screenshot or bookmark it. From then on
+// it exists only in this module's memory, and only until it is stored.
+//
+// This is not "a secret in a URL" in the sense that matters — no server sees it,
+// no log records it, and it is a read-only ticket that expires by itself. It is
+// a courier walking down one corridor.
+
+export const HANDOFF_KEY = 'amizone';
+
+let pending = null;
+
+/** Extract a ticket from a location hash. Pure, so the parsing can be tested. */
+export function parseHandoff(hash) {
+  const s = String(hash || '').replace(/^#/, '');
+  if (!s) return null;
+  const m = new RegExp(`(?:^|&)${HANDOFF_KEY}=([^&]+)`).exec(s);
+  if (!m) return null;
+  let raw;
+  try { raw = decodeURIComponent(m[1]); } catch { raw = m[1]; }
+  const p = parseCookie(raw);
+  return p.ok ? p.cookie : null;
+}
+
+/** The hash with the ticket removed, for putting back in the address bar. */
+export function scrubHash(hash) {
+  const s = String(hash || '').replace(/^#/, '');
+  const rest = s.split('&').filter(p => p && !p.startsWith(`${HANDOFF_KEY}=`)).join('&');
+  return rest ? `#${rest}` : '';
+}
+
 /**
- * The bookmarklet. Copies the ticket and says so.
- *
- * Deliberately does NOT post anywhere: a bookmarklet that talks to a database
- * needs a credential, and a credential in a bookmark is a credential in the
- * browser's sync, in every device signed into it, and in a text file somewhere.
- * Copying costs one extra paste and keeps the secret out of everything.
+ * Take the ticket out of the URL and hold it. Called once at startup, before
+ * render — the Settings card may not mount for another five clicks, and the
+ * fragment must not still be sitting there when it does.
  */
+export function takeHandoff(loc = typeof window !== 'undefined' ? window.location : null,
+                            hist = typeof window !== 'undefined' ? window.history : null) {
+  if (!loc) return null;
+  const found = parseHandoff(loc.hash);
+  if (!found) return null;
+  pending = found;
+  try {
+    hist?.replaceState(null, '', loc.pathname + loc.search + scrubHash(loc.hash));
+  } catch {
+    // A browser that refuses replaceState is not a reason to drop the ticket;
+    // it only means the fragment lingers in the bar until the next navigation.
+  }
+  return found;
+}
+
+/** The ticket waiting to be filed, if the bookmarklet sent one. */
+export function pendingHandoff() { return pending; }
+
+/** Forget it — after a successful write, or after a failure the user was told about. */
+export function clearHandoff() { pending = null; }
+
+/**
+ * The bookmarklet.
+ *
+ * It still holds no credential and still posts nowhere: all it does is open this
+ * app with the ticket in the fragment, which is the one place a value can cross
+ * an origin boundary without a server in the middle. If the browser blocks the
+ * popup it falls back to the clipboard, and the paste box below is still there.
+ */
+export function bookmarkletFor(origin) {
+  const base = String(origin || '').replace(/\/+$/, '');
+  return 'javascript:(function(){'
+    + 'var m=/\\.ASPXAUTH=([^;]+)/.exec(document.cookie);'
+    + 'if(!m){alert("Not signed in to Amizone in this tab.");return;}'
+    + `var u=${JSON.stringify(base)}+"/#${HANDOFF_KEY}="+encodeURIComponent(m[0]);`
+    + 'var w=window.open(u,"_blank");'
+    + 'if(!w){navigator.clipboard.writeText(m[0]).then(function(){'
+    + 'alert("Popup blocked. Ticket copied instead \\u2014 paste it into PLAYER ONE \\u2192 Settings.");'
+    + '},function(){prompt("Copy this:",m[0]);});}'
+    + '})();';
+}
+
+// Kept for the tests and for anywhere an origin is not to hand.
 export const BOOKMARKLET =
   'javascript:(function(){var m=/\\.ASPXAUTH=([^;]+)/.exec(document.cookie);'
   + 'if(!m){alert("Not signed in to Amizone in this tab.");return;}'

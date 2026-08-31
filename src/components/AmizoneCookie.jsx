@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card } from './ui.jsx';
 import { useCollection } from '../lib/hooks.js';
 import * as db from '../lib/db.js';
-import { COOKIE_KEY, parseCookie, cookieState, BOOKMARKLET } from '../lib/amizonecookie.js';
+import {
+  COOKIE_KEY, parseCookie, cookieState, bookmarkletFor,
+  pendingHandoff, clearHandoff,
+} from '../lib/amizonecookie.js';
 
 // Amizone session · Settings
 //
@@ -13,9 +16,10 @@ import { COOKIE_KEY, parseCookie, cookieState, BOOKMARKLET } from '../lib/amizon
 // bug in this app, and no amount of retrying changes it.
 //
 // So the goal here is not to pretend it is automatic. It is to make the manual
-// step take five seconds instead of five minutes. It used to mean: open
-// devtools, run copy(document.cookie), open GitHub, find Actions secrets, paste,
-// re-run the workflow. Now it is: click a bookmark, paste here.
+// step take one click. Click the bookmarklet on the Amizone tab; it opens this
+// app with the ticket in the fragment; startup takes it out of the URL and this
+// card files it. The paste box stays, because a popup blocker or a locked-down
+// browser should not leave him stranded.
 //
 // The value is written with Neel's own session. Nothing here needs — or has —
 // the service key, which is why this can live in a browser at all.
@@ -30,29 +34,55 @@ export default function AmizoneCookie() {
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
 
-  async function save() {
-    setErr(''); setMsg('');
-    const p = parseCookie(paste);
-    if (!p.ok) { setErr(p.reason); return; }
-    setBusy(true);
+  const store = useCallback(async (cookie, how) => {
+    setBusy(true); setErr(''); setMsg('');
     try {
       await db.upsertMemory(COOKIE_KEY, {
-        value: p.cookie,
+        value: cookie,
         // first_seen resets: this is a new ticket, and its age is what the sync
         // and the warning above are both reasoning about.
         first_seen: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
       await refresh();
-      setPaste('');
-      setMsg('Saved. The next sync — within two hours, or run it now from the Actions tab — will use it.');
+      setMsg(how === 'handoff'
+        ? 'Ticket received from the bookmarklet and stored. The next sync — within two hours, or run it now from the Actions tab — will use it.'
+        : 'Saved. The next sync — within two hours, or run it now from the Actions tab — will use it.');
+      return true;
     } catch (e) {
       setErr(String(e.message || e));
+      return false;
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
+  }, [refresh]);
+
+  // A ticket that arrived by bookmarklet. Filed without asking: he already made
+  // the decision when he clicked the bookmark, and a confirmation step here
+  // would just be the paste again under another name.
+  useEffect(() => {
+    const handoff = pendingHandoff();
+    if (!handoff) return;
+    let alive = true;
+    (async () => {
+      const ok = await store(handoff, 'handoff');
+      // Cleared either way: a failed write should not be retried silently on
+      // every remount, and the reason is on screen.
+      if (alive) clearHandoff();
+      if (!ok && alive) setErr(e => e || 'Could not store the ticket — try the paste box below.');
+    })();
+    return () => { alive = false; };
+  }, [store]);
+
+  async function save() {
+    setErr(''); setMsg('');
+    const p = parseCookie(paste);
+    if (!p.ok) { setErr(p.reason); return; }
+    if (await store(p.cookie, 'paste')) setPaste('');
   }
 
   const tone = { none: 'var(--red)', stale: 'var(--red)', warn: 'var(--yellow)', ok: 'var(--green)' }[state.tone];
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
 
   return (
     <Card title="Amizone session" color="var(--cyan)"
@@ -67,11 +97,14 @@ export default function AmizoneCookie() {
       </div>
 
       <ol className="small mt" style={{ lineHeight: 1.7, paddingLeft: '1.1rem', color: 'var(--ink-2)' }}>
-        <li>Drag this to your bookmarks bar, once: <a href={BOOKMARKLET} className="chip c-cyan" onClick={e => e.preventDefault()}>Amizone ticket</a></li>
+        <li>Drag this to your bookmarks bar, once: <a href={bookmarkletFor(origin)} className="chip c-cyan" onClick={e => e.preventDefault()}>Amizone ticket</a></li>
         <li>Open <b>s.amizone.net</b> and sign in as normal.</li>
-        <li>Click the bookmark — it copies the ticket.</li>
-        <li>Paste it below.</li>
+        <li>Click the bookmark. It opens this page and files the ticket itself.</li>
       </ol>
+
+      <div className="small muted mt" style={{ lineHeight: 1.55 }}>
+        If your browser blocks the popup, the bookmark copies the ticket instead — paste it here.
+      </div>
 
       <div className="flex mt" style={{ gap: 8, flexWrap: 'wrap' }}>
         <input
@@ -96,7 +129,8 @@ export default function AmizoneCookie() {
             it cannot change anything and it expires by itself — but it does read
             attendance, so it is worth knowing where it goes. */}
         The ticket is stored in your own database and used only by the sync. It is not a password: it grants read
-        access to your Amizone pages until it expires, and cannot be used to change anything.
+        access to your Amizone pages until it expires, and cannot be used to change anything. It travels in the URL
+        fragment, which browsers never send to any server, and is taken out of the address bar before this page draws.
       </div>
     </Card>
   );

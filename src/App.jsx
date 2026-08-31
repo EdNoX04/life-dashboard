@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import PlayerTwo from './components/PlayerTwo.jsx';
 import { syncPullConfig } from './lib/db.js';
+import { pendingHandoff } from './lib/amizonecookie.js';
 import HQ from './tabs/HQ.jsx';
 import Todos from './tabs/Todos.jsx';
 import Habits from './tabs/Habits.jsx';
@@ -61,7 +62,10 @@ const TABS = [
 ];
 
 export default function App() {
-  const [tab, setTab] = useState('hq');
+  // A ticket arriving from the Amizone bookmarklet opens on Settings, where the
+  // card files it and says so. Chosen as the initial state rather than an effect:
+  // a flash of HOME before jumping is the app looking like it lost the click.
+  const [tab, setTab] = useState(() => (pendingHandoff() ? 'settings' : 'hq'));
   const [clickId, setClickId] = useState(null); // drives the click-press animation
   // Placement is a temporary tab — drop it automatically once the season's over.
   const tabs = TABS;

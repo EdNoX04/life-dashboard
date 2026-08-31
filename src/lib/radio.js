@@ -37,17 +37,50 @@ export function useRadio() {
   return snap();
 }
 
+// Loading the YouTube IFrame API.
+//
+// This used to be a promise with no rejection path, which turned every possible
+// failure into the same symptom: the play button spins forever and says nothing.
+// That is exactly what happened when the Content-Security-Policy added in the
+// security pass tightened script-src to 'self' — the API script was blocked, the
+// promise never settled, and the radio looked broken with no explanation
+// anywhere. The CSP now allows www.youtube.com and s.ytimg.com; this rejects, so
+// that if it is ever blocked again the reason reaches the screen in ten seconds
+// instead of never.
+const YT_SRC = 'https://www.youtube.com/iframe_api';
+const YT_TIMEOUT_MS = 10000;
+
 function loadYT() {
-  return new Promise(res => {
+  return new Promise((res, rej) => {
     if (window.YT?.Player) return res(window.YT);
+
+    let settled = false;
+    const ok = () => { if (!settled) { settled = true; res(window.YT); } };
+    const no = msg => { if (!settled) { settled = true; rej(new Error(msg)); } };
+
     const prev = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => { prev && prev(); res(window.YT); };
-    if (!document.getElementById('yt-iframe-api')) {
-      const s = document.createElement('script');
+    window.onYouTubeIframeAPIReady = () => { prev && prev(); ok(); };
+
+    // A CSP refusal fires securitypolicyviolation, not onerror, so watch for both.
+    const onViolation = e => {
+      if (String(e.blockedURI || '').includes('youtube.com')) no('blocked-by-csp');
+    };
+    document.addEventListener('securitypolicyviolation', onViolation);
+
+    let s = document.getElementById('yt-iframe-api');
+    if (!s) {
+      s = document.createElement('script');
       s.id = 'yt-iframe-api';
-      s.src = 'https://www.youtube.com/iframe_api';
+      s.src = YT_SRC;
+      s.onerror = () => no('script-failed');
       document.head.appendChild(s);
     }
+
+    setTimeout(() => no('timeout'), YT_TIMEOUT_MS);
+
+    // Tidy up whichever way it went.
+    const done = () => document.removeEventListener('securitypolicyviolation', onViolation);
+    setTimeout(done, YT_TIMEOUT_MS + 100);
   });
 }
 
@@ -70,6 +103,7 @@ async function ensure() {
   if (player) return player;
   host();
   const YT = await loadYT();
+  if (!YT?.Player) throw new Error('yt-api-missing');
   return await new Promise(res => {
     const p = new YT.Player('ldx-radio-yt', {
       width: '100%', height: '100%', videoId: (S.stations[S.idx] || {}).id,
@@ -89,7 +123,10 @@ async function ensure() {
       },
     });
     player = p;
-    setTimeout(() => res(p), 4000); // safety if onReady is slow
+    // onReady is occasionally slow; resolving anyway is fine because loadVideoById
+    // queues. What must NOT happen is resolving when there is no player at all,
+    // which is why the YT.Player check above throws before we get here.
+    setTimeout(() => res(p), 4000);
   });
 }
 
@@ -110,9 +147,16 @@ export async function play(idx = S.idx) {
     p.loadVideoById(S.stations[idx].id);
     p.setVolume(S.vol);
     p.playVideo();
-  } catch {
-    S.err = 'Could not start the stream — tap play again.';
-    S.loading = false; emit();
+  } catch (e) {
+    // Name the failure. "Tap play again" is useless advice when the script is
+    // blocked, and it is what hid this bug for as long as it did.
+    const why = String(e?.message || '');
+    S.err = why === 'blocked-by-csp'
+      ? 'The browser blocked YouTube\u2019s player (content security policy). This needs a deploy to fix, not a retry.'
+      : why === 'timeout' || why === 'script-failed' || why === 'yt-api-missing'
+        ? 'Could not reach YouTube \u2014 check the connection, or an extension may be blocking it.'
+        : 'Could not start the stream \u2014 tap play again.';
+    S.loading = false; S.playing = false; emit();
   }
 }
 

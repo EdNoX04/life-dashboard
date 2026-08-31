@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CSE475 — Blockchain Technologies</title>
-<meta name="description" content="Retro study guide for the CSE475 minor exam — Modules 1 (platforms) and 2 (Ethereum).">
+<meta name="description" content="Complete study guide for the CSE475 minor exam — every syllabus topic in Module 1 (blockchain platforms) and Module 2 (Ethereum concepts).">
 <style>
 :root{
   --bg:#06080f; --bg-2:#0a0e1a; --panel:#0d1220; --panel-2:#111830;
@@ -235,31 +235,62 @@ hr{border:0;border-top:1px solid var(--line);margin:26px 0}
 <div class="wrap">
   <nav class="toc">
       <h4>Module 1 · Introduction to Blockchain Platforms</h4>
-      <a href="#m1-what">What a blockchain is</a>
-      <a href="#m1-consensus">Consensus &amp; the trilemma</a>
-      <a href="#m1-classify">Classifying platforms</a>
+      <a href="#m1-what">1 · What a blockchain is</a>
+      <a href="#m1-components">2 · Components &amp; architecture</a>
+      <a href="#m1-consensus">3 · Byzantine fault tolerance &amp; consensus</a>
+      <a href="#m1-classify">4 · Classification of platforms</a>
+      <a href="#m1-eth">5 · Ethereum as a platform</a>
+      <a href="#m1-hyperledger">6 · Hyperledger</a>
+      <a href="#m1-ibm">7 · IBM Blockchain</a>
+      <a href="#m1-multichain">8 · MultiChain</a>
+      <a href="#m1-hydrachain">9 · HydraChain</a>
+      <a href="#m1-ripple">10 · Ripple</a>
+      <a href="#m1-corda">11 · R3 Corda</a>
+      <a href="#m1-bigchaindb">12 · BigchainDB</a>
+      <a href="#m1-ipfs">13 · IPFS</a>
+      <a href="#m1-dapps">14 · DApps</a>
+      <a href="#m1-selection">15 · Selection criteria</a>
+      <a href="#m1-compare">16 · The one-page comparison</a>
 
-      <h4>Module 2 · Ethereum</h4>
-      <a href="#m2-basics">Ethereum basics</a>
-      <a href="#m2-accounts">Accounts, keys &amp; wallets</a>
-      <a href="#m2-tx">Transactions, gas &amp; the EVM</a>
-      <a href="#m2-testnets">Clients, testnets &amp; worked examples</a>
+      <h4>Module 2 · Ethereum Blockchain — concepts</h4>
+      <a href="#m2-basics">17 · Ethereum basics</a>
+      <a href="#m2-contracts">18 · Ethereum and smart contracts</a>
+      <a href="#m2-turing">19 · Turing completeness &amp; verification</a>
+      <a href="#m2-terms">20 · Concepts and terminologies</a>
+      <a href="#m2-client">21 · Ethereum client</a>
+      <a href="#m2-mist">22 · Mist Wallet &amp; wallets</a>
+      <a href="#m2-accounts">23 · Accounts</a>
+      <a href="#m2-solidity">24 · Ethereum smart contracts (Solidity)</a>
+      <a href="#m2-web3">25 · Web3.js and RPC protocols</a>
+      <a href="#m2-miners">26 · Miners</a>
+      <a href="#m2-tx">27 · Transaction and Block in Ethereum</a>
+      <a href="#m2-frontend">28 · Front end development</a>
 
-      <h4>Beyond the decks · exam scope</h4>
-      <a href="#x-gaps">What’s missing &amp; how the paper is set</a>
+      <h4>Exam craft</h4>
+      <a href="#x-map">29 · Syllabus → answer map</a>
+      <a href="#x-test">30 · Self test</a>
   </nav>
   <main>
-    <p class="lede">From all five source files, plus the platforms (Hyperledger, IBM, Corda, BigChainDB, IPFS) and PBFT that past papers ask for but your decks skip. <span class="kbd">/</span> to search · <b>Cram</b> shows only definitions, tables and extra-marks boxes.</p>
+    <p class="lede">Every topic named in the CSE475 syllabus for Modules 1 and 2 — all ten platforms, all twelve Ethereum concepts — built from your Blockchain folder (Corda whitepaper, MultiChain 1-pager, Mastering Ethereum, the 20CIC08 past paper) and standard-syllabus expansion where the decks are silent. <span class="kbd">/</span> to search · <b>Cram</b> shows only definitions, tables and extra-marks boxes.</p>
 
       <div class="mod">Module 1 · Introduction to Blockchain Platforms</div>
-      <h2 id="m1-what">What a blockchain is</h2>
+      <h2 id="m1-what">1 · What a blockchain is</h2>
+
 <div class="card">
-  <h3><span class="n">1.1</span>Definition & core properties<span class="tag t-hi">★ high yield</span></h3>
-  <div class="def"><b>Blockchain</b>A <b>decentralised, distributed, immutable</b> digital ledger of records (blocks) securely linked by <b>cryptographic hashes</b>.</div><div class="tw"><table>
-  <thead><tr><th>Property</th><th>Meaning</th></tr></thead>
-  <tbody><tr><td><b>Decentralisation</b></td><td>No central trusted authority; consensus keeps nodes consistent</td></tr><tr><td><b>Persistency / immutability</b></td><td>Once in the chain, a block is effectively impossible to alter or roll back</td></tr><tr><td><b>Anonymity</b></td><td>Users act through addresses, not real identities</td></tr><tr><td><b>Auditability</b></td><td>Every transaction references earlier ones, so all activity is verifiable</td></tr></tbody>
-</table></div><figure><svg viewBox="0 0 520 150" role="img" aria-label="Blocks linked by hash pointers">
-  
+  <h3><span class="n">1.1</span>Definition &amp; core properties<span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Blockchain</b>A <b>decentralised, distributed, immutable</b> digital ledger of records (blocks) securely linked by <b>cryptographic hashes</b>, replicated across a peer-to-peer network and updated only by <b>consensus</b>.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Property</th><th>Meaning</th><th>What provides it</th></tr></thead>
+  <tbody>
+  <tr><td><b>Decentralisation</b></td><td>No central trusted authority; every node holds a copy</td><td>P2P network + consensus</td></tr>
+  <tr><td><b>Persistency / immutability</b></td><td>Once committed, a block is effectively impossible to alter</td><td>Hash chaining + PoW/PoS cost</td></tr>
+  <tr><td><b>Anonymity / pseudonymity</b></td><td>Users act through addresses, not legal identities</td><td>Public-key cryptography</td></tr>
+  <tr><td><b>Auditability</b></td><td>Every transaction references earlier ones, so all activity is traceable</td><td>UTXO / account state history</td></tr>
+  <tr><td><b>Transparency</b></td><td>Anyone (in a public chain) can verify the whole history independently</td><td>Full replication</td></tr>
+  <tr><td><b>Finality</b></td><td>Point past which a transaction cannot be reversed</td><td>Consensus rule (probabilistic or absolute)</td></tr>
+  </tbody>
+</table></div>
+  <figure><svg viewBox="0 0 520 150" role="img" aria-label="Blocks linked by hash pointers">
   <rect x="20" y="30" width="150" height="90" rx="6" class="svg-b" stroke="var(--ink-3)"/>
   <text class="svg-t" x="95" y="20" text-anchor="middle" fill="var(--ink-3)">Block 9</text>
   <text class="svg-l" x="30" y="52">prev hash</text>
@@ -281,123 +312,1378 @@ hr{border:0;border-top:1px solid var(--line);margin:26px 0}
   <line x1="190" y1="52" x2="160" y2="52" stroke="var(--pink)" marker-end="url(#h)"/>
   <line x1="360" y1="52" x2="330" y2="52" stroke="var(--pink)" marker-end="url(#h)"/>
   <defs><marker id="h" markerWidth="9" markerHeight="9" refX="1" refY="4" orient="auto"><path d="M9,0 L1,4 L9,8 Z" fill="var(--pink)"/></marker></defs>
-</svg><figcaption>Each block stores the hash of the previous block. Change one block and every later hash breaks — this is immutability.</figcaption></figure><div class="edge"><b>Extra marks</b>History for a mark or two: David Chaum (1982) proposed the earliest blockchain-like protocol; Haber & Stornetta (1991) built cryptographically chained timestamps; Satoshi Nakamoto (2008) added proof-of-work to solve double-spending.</div>
-</div><div class="card">
-  <h3><span class="n">1.2</span>Anatomy of a block<span class="tag t-hi">★ high yield</span><span class="tag t-past">past paper</span></h3>
-  <p>A block = an <b>80-byte header</b> + a transaction counter + the body of transactions.</p><div class="tw"><table>
-  <thead><tr><th>Header field</th><th>Size</th><th>Purpose</th></tr></thead>
-  <tbody><tr><td>Version</td><td>4 B</td><td>Which validation rules apply</td></tr><tr><td>Previous block hash</td><td>32 B</td><td>The link to the parent — the chain itself</td></tr><tr><td>Merkle root</td><td>32 B</td><td>One hash summarising all transactions</td></tr><tr><td>Timestamp</td><td>4 B</td><td>Approx. Unix time of mining</td></tr><tr><td>Difficulty target</td><td>4 B</td><td>Threshold the block hash must fall under</td></tr><tr><td>Nonce</td><td>4 B</td><td>Counter miners vary to find a valid hash</td></tr></tbody>
-</table></div><figure><svg viewBox="0 0 480 200" role="img" aria-label="Merkle tree">
-  <rect x="185" y="10" width="110" height="30" rx="4" fill="rgba(255,210,63,.15)" stroke="var(--yellow)"/><text class="svg-t" x="240" y="30" text-anchor="middle" fill="var(--yellow)">Merkle Root</text>
-  <rect x="70" y="80" width="110" height="28" rx="4" class="svg-b"/><text class="svg-l" x="125" y="98" text-anchor="middle">H(1+2)</text>
-  <rect x="300" y="80" width="110" height="28" rx="4" class="svg-b"/><text class="svg-l" x="355" y="98" text-anchor="middle">H(3+4)</text>
-  <rect x="40" y="150" width="70" height="26" rx="4" fill="rgba(0,229,255,.1)" stroke="var(--cyan)"/><text class="svg-l" x="75" y="167" text-anchor="middle" fill="var(--cyan)">Tx1</text><rect x="130" y="150" width="70" height="26" rx="4" fill="rgba(0,229,255,.1)" stroke="var(--cyan)"/><text class="svg-l" x="165" y="167" text-anchor="middle" fill="var(--cyan)">Tx2</text><rect x="270" y="150" width="70" height="26" rx="4" fill="rgba(0,229,255,.1)" stroke="var(--cyan)"/><text class="svg-l" x="305" y="167" text-anchor="middle" fill="var(--cyan)">Tx3</text><rect x="360" y="150" width="70" height="26" rx="4" fill="rgba(0,229,255,.1)" stroke="var(--cyan)"/><text class="svg-l" x="395" y="167" text-anchor="middle" fill="var(--cyan)">Tx4</text>
-  <line x1="200" y1="40" x2="125" y2="80" stroke="var(--line-2)"/><line x1="280" y1="40" x2="355" y2="80" stroke="var(--line-2)"/>
-  <line x1="105" y1="108" x2="75" y2="150" stroke="var(--line-2)"/><line x1="145" y1="108" x2="165" y2="150" stroke="var(--line-2)"/>
-  <line x1="335" y1="108" x2="305" y2="150" stroke="var(--line-2)"/><line x1="375" y1="108" x2="395" y2="150" stroke="var(--line-2)"/>
-</svg><figcaption>A Merkle tree hashes transactions in pairs up to a single root — so a node can prove a transaction is in a block by checking just a few hashes (SPV), not the whole block.</figcaption></figure><div class="ask"><b>Likely question</b>“Explain the architecture of blockchain with a labelled diagram” and “components of blockchain” are Q6/Q7 on the 20CIC08 paper — the two diagrams above answer both.</div>
-</div>
-<h2 id="m1-consensus">Consensus &amp; the trilemma</h2>
-<div class="card">
-  <h3><span class="n">1.3</span>Proof of Work — and Byzantine fault tolerance<span class="tag t-hi">★ high yield</span><span class="tag t-past">past paper</span></h3>
-  <p><b>PoW loop:</b> a miner builds a candidate block → hashes <code>Prev Hash + Merkle Root + Nonce</code> → checks if hash ≤ difficulty target → if not, change the nonce and repeat (trillions of times) → if yes, broadcast; other nodes verify and append.</p><div class="def"><b>Byzantine Generals Problem</b>How can distributed parties agree when some may be faulty or malicious? <b>Consensus is the solution</b> — PoW makes cheating economically pointless. <b>PBFT (Practical Byzantine Fault Tolerance)</b> tolerates up to <b>⌊(n−1)/3⌋</b> faulty nodes and is used by permissioned chains like Hyperledger. <span class="tag t-add">+ added</span></div><div class="trap"><b>Exam trap</b>The decks never define the Byzantine Generals Problem or PBFT, but they’re Q6 on the past paper (5 marks). Added here.</div>
-</div><div class="card">
-  <h3><span class="n">1.4</span>The blockchain trilemma</h3>
-  <div class="def"><b>Trilemma</b>A base-layer blockchain can maximise only <b>two of three</b>: <b>Security · Decentralisation · Scalability</b>.</div><p>Bitcoin optimises security + decentralisation, sacrificing scalability (≈7 TPS). Fixes: <b>Layer 1</b> — PoW→PoS, sharding; <b>Layer 2</b> — rollups, state channels, sidechains.</p><div class="edge"><b>Extra marks</b>Energy angle worth a line: pre-Merge Ethereum ≈ 55 TWh/yr; Bitcoin ≈ 135 TWh/yr, ~1777 kWh per transaction versus Visa’s 0.0015 kWh. Ethereum’s move to PoS cut its energy ~99.95%.</div>
-</div>
-<h2 id="m1-classify">Classifying platforms</h2>
-<div class="card">
-  <h3><span class="n">1.5</span>Public / private / consortium / hybrid<span class="tag t-hi">★ high yield</span></h3>
-  <div class="tw"><table>
-  <thead><tr><th></th><th>Public</th><th>Private</th><th>Consortium</th><th>Hybrid</th></tr></thead>
-  <tbody><tr><td>Access</td><td>Open to all</td><td>One organisation</td><td>Selected orgs</td><td>Mixed</td></tr><tr><td>Consensus</td><td>Permissionless</td><td>Permissioned</td><td>Federated group</td><td>Flexible</td></tr><tr><td>Speed</td><td>Slow (7–15 TPS)</td><td>Fast (1000+)</td><td>Fast</td><td>Fast (2000+)</td></tr><tr><td>Example</td><td>Bitcoin, Ethereum</td><td>Internal enterprise</td><td>Supply-chain group</td><td>Regulated enterprise</td></tr></tbody>
-</table></div><p><b>Permissionless</b> = anyone can join and validate. <b>Permissioned</b> = a controller decides who can read, write and validate.</p>
-</div><div class="card">
-  <h3><span class="n">1.6</span>The named platforms<span class="tag t-add">+ added</span><span class="tag t-hi">★ high yield</span><span class="tag t-past">past paper</span></h3>
-  <div class="trap"><b>Exam trap</b>Your decks describe general architecture and Ethereum in depth, but <b>never cover the other named platforms</b> — yet Hyperledger, IBM Blockchain, BigChainDB and IPFS/DApps are all past-paper questions (Q4, Q8, Q9). This table fills that gap.</div><div class="tw"><table>
-  <thead><tr><th>Platform</th><th>Type</th><th>Consensus</th><th>Language / model</th><th>Used for</th></tr></thead>
-  <tbody><tr><td><b>Ethereum</b></td><td>Public, permissionless</td><td>Proof of Stake (post-Merge)</td><td>Solidity, account model</td><td>Smart contracts, DApps</td></tr><tr><td><b>Hyperledger Fabric</b></td><td>Private, permissioned</td><td>Pluggable (Raft, PBFT-style)</td><td>Go/Java/Node chaincode</td><td>Enterprise consortia</td></tr><tr><td><b>IBM Blockchain</b></td><td>Permissioned (Fabric-based)</td><td>Fabric ordering service</td><td>Chaincode</td><td>Supply chain (Food Trust)</td></tr><tr><td><b>R3 Corda</b></td><td>Permissioned</td><td>Notary (no global broadcast)</td><td>Kotlin/Java (CorDapps)</td><td>Finance, banking</td></tr><tr><td><b>Ripple</b></td><td>Permissioned</td><td>Ripple Protocol (RPCA)</td><td>XRP ledger</td><td>Cross-border payments</td></tr><tr><td><b>MultiChain</b></td><td>Private, permissioned</td><td>Round-robin mining</td><td>Bitcoin-derived</td><td>Multi-asset finance</td></tr><tr><td><b>BigChainDB</b></td><td>Permissioned DB</td><td>Tendermint (BFT)</td><td>MongoDB-backed</td><td>High-throughput asset DB</td></tr><tr><td><b>IPFS</b></td><td>P2P storage (not a chain)</td><td>Content addressing</td><td>Merkle DAG, CIDs</td><td>Decentralised file storage</td></tr></tbody>
-</table></div><p><b>DApp (Decentralised Application):</b> a front end + smart-contract back end running on a blockchain instead of a central server. <b>Selection criteria</b> for choosing a platform: permission model, throughput needed, consensus, privacy, smart-contract support, and cost.</p><div class="edge"><b>Extra marks</b><b>MultiChain</b> is the one non-Ethereum platform actually in your material (the 1-pager): a private, permissioned, multi-asset chain by Coin Sciences, built on an enhanced Bitcoin core with admin-controlled permissions and native multi-currency support. Cite it as the worked example of a private blockchain.</div>
+</svg><figcaption>Each block stores the hash of the previous block. Change one block and every later hash breaks — this is immutability, and it is the diagram to draw for "explain the architecture of blockchain".</figcaption></figure>
+  <div class="edge"><b>Extra marks</b>History for a mark or two: <b>David Chaum (1982)</b> proposed the earliest blockchain-like protocol in his dissertation; <b>Haber &amp; Stornetta (1991)</b> built cryptographically chained document timestamps; <b>Satoshi Nakamoto (2008)</b> added proof-of-work to solve double-spending without a trusted third party; <b>Vitalik Buterin (2013–15)</b> generalised it to arbitrary computation with Ethereum.</div>
 </div>
 
-      <div class="mod">Module 2 · Ethereum</div>
-      <h2 id="m2-basics">Ethereum basics</h2>
 <div class="card">
-  <h3><span class="n">2.1</span>The world computer<span class="tag t-hi">★ high yield</span></h3>
-  <div class="def"><b>Ethereum</b>A global, open-source platform for decentralised applications — a <b>distributed state machine</b> (“world computer”) whose state is a set of accounts and whose transitions are transactions, executed by the <b>Ethereum Virtual Machine (EVM)</b>.</div><p>Bitcoin is a distributed <b>ledger</b> (mostly currency); Ethereum is a distributed <b>state machine</b> running arbitrary programs. Its contract language is <b>Turing-complete</b> — it supports loops and unbounded computation, unlike Bitcoin’s deliberately limited Script.</p><div class="trap"><b>Exam trap</b><b>Verification challenge:</b> because the language is Turing-complete, you cannot prove in advance that a contract halts (the Halting Problem). Ethereum’s answer is <b>gas metering</b> — every operation costs gas, and execution stops when the gas limit is hit. This is the exam’s favourite “why does Ethereum need gas” point.</div>
-</div><div class="card">
-  <h3><span class="n">2.2</span>Consensus: PoW or PoS?<span class="tag t-hi">★ high yield</span></h3>
-  <div class="trap"><b>Exam trap</b>Your material is <b>mixed</b>. The 99-slide deck teaches Ethereum as <b>Proof of Work</b> (pre-2022 — miners, gasPrice, difficulty bomb). The modern 15-slide deck teaches <b>Proof of Stake</b> (post-Merge — validators, EIP-1559 fees). The <b>real, current answer is Proof of Stake</b> (The Merge, Sept 2022). If a question is rooted in the mining/difficulty narrative, it’s implicitly PoW; if it asks “what does Ethereum use today”, say <b>PoS</b>.</div><p><b>PoS:</b> validators stake ETH and are chosen to propose/attest blocks; misbehaviour is “slashed”. Separates an <b>execution client</b> from a <b>consensus client</b>. Cut Ethereum’s energy use by ~99.95%.</p><div class="tw"><table>
-  <thead><tr><th></th><th>Wei</th><th>Note</th></tr></thead>
-  <tbody><tr><td>wei</td><td>1</td><td>base atomic unit — all accounting is in wei</td></tr><tr><td>Gwei (shannon)</td><td>10⁹</td><td>the unit gas prices are quoted in</td></tr><tr><td>ether</td><td>10¹⁸</td><td>1 ETH = 10¹⁸ wei (cf. 1 BTC = 10⁸ satoshi)</td></tr></tbody>
+  <h3><span class="n">1.2</span>Anatomy of a block<span class="tag t-hi">★ high yield</span><span class="tag t-past">past paper</span></h3>
+  <p>A block = a <b>header</b> + a transaction counter + the body of transactions. Bitcoin's header is exactly <b>80 bytes</b>.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Header field</th><th>Size</th><th>Purpose</th></tr></thead>
+  <tbody>
+  <tr><td>Version</td><td>4 B</td><td>Which validation rules apply</td></tr>
+  <tr><td>Previous block hash</td><td>32 B</td><td>The link to the parent — the chain itself</td></tr>
+  <tr><td>Merkle root</td><td>32 B</td><td>One hash summarising every transaction in the body</td></tr>
+  <tr><td>Timestamp</td><td>4 B</td><td>Approximate creation time (seconds since epoch)</td></tr>
+  <tr><td>Difficulty target (nBits)</td><td>4 B</td><td>How hard the PoW puzzle is right now</td></tr>
+  <tr><td>Nonce</td><td>4 B</td><td>The number miners vary to find a valid hash</td></tr>
+  </tbody>
+</table></div>
+  <p>The <b>genesis block</b> is block 0 — hardcoded, no parent. Every chain begins there.</p>
+  <div class="edge"><b>Extra marks</b>A <b>Merkle tree</b> lets a light client prove one transaction is in a block by supplying only <b>log₂n</b> hashes, not the whole body. For 1,024 transactions that is 10 hashes instead of 1,024. Say this whenever "Merkle root" appears — it is the reason the field exists.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">1.3</span>Transaction lifecycle</h3>
+  <ol>
+    <li>User creates a transaction and <b>signs</b> it with their private key.</li>
+    <li>It is <b>broadcast</b> to peers over the gossip protocol.</li>
+    <li>Nodes <b>validate</b> it (signature valid, funds sufficient, not a double spend) and place it in the <b>mempool</b>.</li>
+    <li>A miner/validator selects transactions, builds a <b>candidate block</b> and runs the consensus procedure.</li>
+    <li>The winning block is <b>propagated</b>; other nodes re-verify and <b>append</b> it.</li>
+    <li>Successive blocks bury it until it is considered <b>final</b> (Bitcoin convention: 6 confirmations).</li>
+  </ol>
+  <div class="trap cram"><b>Exam trap</b>"Confirmed" ≠ "final" on a PoW chain. Finality there is <b>probabilistic</b> — the chance of reversal shrinks with depth but never reaches zero. PBFT-style and PoS-with-checkpointing chains give <b>absolute/economic finality</b>. Examiners love this distinction.</div>
+</div>
+
+      <h2 id="m1-components">2 · Components &amp; architecture</h2>
+
+<div class="card">
+  <h3><span class="n">2.1</span>The components of a blockchain<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <p>"Explain the components of blockchain" is a standing 4-mark question. The canonical list (Mastering Ethereum, Ch. 1):</p>
+  <div class="tw"><table>
+  <thead><tr><th>#</th><th>Component</th><th>Role</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td><b>P2P network</b></td><td>Connects participants; propagates transactions and blocks by a standardised gossip protocol</td></tr>
+  <tr><td>2</td><td><b>Messages (transactions)</b></td><td>Represent proposed state transitions</td></tr>
+  <tr><td>3</td><td><b>Consensus rules</b></td><td>Define what a valid transaction and a valid state transition are</td></tr>
+  <tr><td>4</td><td><b>State machine</b></td><td>Processes transactions according to those rules (in Ethereum, the EVM)</td></tr>
+  <tr><td>5</td><td><b>Chain of blocks</b></td><td>A cryptographically secured journal of all accepted state transitions</td></tr>
+  <tr><td>6</td><td><b>Consensus algorithm</b></td><td>Decentralises control by forcing participants to cooperate in enforcing the rules</td></tr>
+  <tr><td>7</td><td><b>Incentive scheme</b></td><td>Game-theoretically sound rewards (PoW cost + block reward) that secure the machine in an open environment</td></tr>
+  <tr><td>8</td><td><b>Client software</b></td><td>One or more open-source implementations of all of the above</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>Close the answer with the observation the book makes: all eight are usually bundled into <b>one</b> client — Bitcoin Core, for instance. Ethereum is the exception since The Merge: a node now runs <b>two</b> clients, execution and consensus. That one sentence shows you understand the list rather than reciting it.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">2.2</span>Layered architecture of a blockchain<span class="tag t-past">past paper</span></h3>
+  <p>"Explain the architecture of blockchain with a labelled diagram" — draw five layers, bottom to top.</p>
+  <figure><svg viewBox="0 0 520 230" role="img" aria-label="Five-layer blockchain architecture">
+  <rect x="70" y="10" width="380" height="34" rx="5" class="svg-b" stroke="var(--pink)"/>
+  <text class="svg-l" x="260" y="32" text-anchor="middle" fill="var(--pink)">Application layer — DApps, wallets, explorers, UI</text>
+  <rect x="70" y="52" width="380" height="34" rx="5" class="svg-b" stroke="var(--purple)"/>
+  <text class="svg-l" x="260" y="74" text-anchor="middle" fill="var(--purple)">Contract layer — smart contracts, scripts, chaincode, EVM</text>
+  <rect x="70" y="94" width="380" height="34" rx="5" class="svg-b" stroke="var(--yellow)"/>
+  <text class="svg-l" x="260" y="116" text-anchor="middle" fill="var(--yellow)">Incentive layer — issuance &amp; distribution of rewards, fees</text>
+  <rect x="70" y="136" width="380" height="34" rx="5" class="svg-b" stroke="var(--green)"/>
+  <text class="svg-l" x="260" y="158" text-anchor="middle" fill="var(--green)">Consensus layer — PoW, PoS, PBFT, RPCA …</text>
+  <rect x="70" y="178" width="380" height="34" rx="5" class="svg-b" stroke="var(--cyan)"/>
+  <text class="svg-l" x="260" y="200" text-anchor="middle" fill="var(--cyan)">Network layer — P2P, gossip propagation, verification</text>
+  <text class="svg-l" x="20" y="200" fill="var(--ink-3)">Data /</text>
+  <text class="svg-l" x="20" y="212" fill="var(--ink-3)">network</text>
+</svg><figcaption>Some textbooks split the bottom into a <b>data layer</b> (blocks, hashes, Merkle trees, timestamps) below the <b>network layer</b> — six layers instead of five. Either is accepted; say which convention you are using.</figcaption></figure>
+  <div class="edge"><b>Extra marks</b>Name what lives in each layer as you draw it. A labelled box with "consensus" written in it earns less than one that says "consensus layer — PoW/PoS/PBFT; decides which candidate block is appended".</div>
+</div>
+
+      <h2 id="m1-consensus">3 · Byzantine fault tolerance &amp; consensus</h2>
+
+<div class="card">
+  <h3><span class="n">3.1</span>The Byzantine Generals Problem<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Byzantine Generals Problem</b>Lamport, Shostak &amp; Pease (1982). Several divisions of the Byzantine army, each led by a general, surround a city. They can communicate only by messenger and must agree on a single plan — attack or retreat. Some generals are <b>traitors</b> who may send contradictory messages. The problem: find a protocol by which all <b>loyal</b> generals agree on the same plan, despite the traitors.</div>
+  <p>Formally it is the problem of reaching consensus in a distributed system where components may fail <b>arbitrarily</b> — not just by crashing, but by lying, by sending different answers to different peers, or by colluding.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Fault model</th><th>What a faulty node does</th><th>Tolerance</th></tr></thead>
+  <tbody>
+  <tr><td><b>Crash / fail-stop</b></td><td>Stops responding</td><td>n ≥ 2f + 1</td></tr>
+  <tr><td><b>Byzantine</b></td><td>Anything at all, including malicious lying</td><td><b>n ≥ 3f + 1</b></td></tr>
+  </tbody>
+</table></div>
+  <p><b>The classic result:</b> with oral (unsigned) messages, consensus is possible only if <b>more than two-thirds</b> of the generals are loyal — i.e. n &gt; 3f. With <b>signed</b> messages that cannot be forged, any number of traitors can be tolerated.</p>
+  <div class="edge"><b>Extra marks</b>Tie it to blockchain in one line: <b>Bitcoin's proof of work is a probabilistic solution to the Byzantine Generals Problem in an open network with unknown membership</b> — it replaces "count the generals" with "count the computation", so an attacker needs 51% of the hash power rather than a third of the identities.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">3.2</span>Practical Byzantine Fault Tolerance (PBFT)<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>PBFT</b>Castro &amp; Liskov (1999). The first Byzantine-fault-tolerant algorithm efficient enough for real systems: it tolerates <b>f</b> faulty nodes out of <b>n = 3f + 1</b>, achieves finality in a few communication rounds, and assumes a <b>known, fixed set of participants</b> (hence: permissioned chains).</div>
+  <p>One node is the <b>primary</b> (leader) for the current <b>view</b>; the rest are <b>backups</b>. Three phases:</p>
+  <figure><svg viewBox="0 0 520 190" role="img" aria-label="PBFT three-phase protocol">
+  <text class="svg-l" x="10" y="24" fill="var(--cyan)">Client</text>
+  <text class="svg-l" x="10" y="60" fill="var(--ink-2)">Primary (0)</text>
+  <text class="svg-l" x="10" y="96" fill="var(--ink-2)">Backup 1</text>
+  <text class="svg-l" x="10" y="132" fill="var(--ink-2)">Backup 2</text>
+  <text class="svg-l" x="10" y="168" fill="var(--red)">Backup 3 ✗</text>
+  <line x1="90" y1="20" x2="500" y2="20" stroke="var(--line-2)"/>
+  <line x1="90" y1="56" x2="500" y2="56" stroke="var(--line-2)"/>
+  <line x1="90" y1="92" x2="500" y2="92" stroke="var(--line-2)"/>
+  <line x1="90" y1="128" x2="500" y2="128" stroke="var(--line-2)"/>
+  <line x1="90" y1="164" x2="500" y2="164" stroke="var(--line-2)"/>
+  <text class="svg-t" x="140" y="185" text-anchor="middle" fill="var(--ink-3)">request</text>
+  <text class="svg-t" x="235" y="185" text-anchor="middle" fill="var(--yellow)">pre-prepare</text>
+  <text class="svg-t" x="330" y="185" text-anchor="middle" fill="var(--green)">prepare</text>
+  <text class="svg-t" x="420" y="185" text-anchor="middle" fill="var(--purple)">commit</text>
+  <text class="svg-t" x="490" y="185" text-anchor="middle" fill="var(--cyan)">reply</text>
+  <line x1="140" y1="20" x2="140" y2="56" stroke="var(--cyan)"/>
+  <line x1="235" y1="56" x2="235" y2="128" stroke="var(--yellow)"/>
+  <line x1="330" y1="92" x2="330" y2="56" stroke="var(--green)"/>
+  <line x1="330" y1="92" x2="330" y2="128" stroke="var(--green)"/>
+  <line x1="420" y1="56" x2="420" y2="128" stroke="var(--purple)"/>
+  <line x1="480" y1="128" x2="480" y2="20" stroke="var(--cyan)"/>
+</svg><figcaption>n = 4, f = 1. Backup 3 is faulty and is simply outvoted — the other three form the required 2f + 1 quorum.</figcaption></figure>
+  <ol>
+    <li><b>Pre-prepare</b> — the primary assigns a sequence number to the client's request and multicasts it.</li>
+    <li><b>Prepare</b> — each backup multicasts its agreement; a node is <i>prepared</i> once it has 2f matching prepares.</li>
+    <li><b>Commit</b> — nodes multicast commit; on 2f + 1 commits the request is executed and a reply sent to the client.</li>
+  </ol>
+  <p>The client accepts the result once it has <b>f + 1</b> identical replies. If the primary is faulty or silent, backups trigger a <b>view change</b> and elect the next primary.</p>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>PBFT</th><th>PoW</th></tr></thead>
+  <tbody>
+  <tr><td>Membership</td><td>Known, permissioned</td><td>Open, anonymous</td></tr>
+  <tr><td>Finality</td><td>Immediate, absolute</td><td>Probabilistic</td></tr>
+  <tr><td>Energy</td><td>Negligible</td><td>Very high</td></tr>
+  <tr><td>Message complexity</td><td><b>O(n²)</b> — limits it to tens/low hundreds of nodes</td><td>O(n) gossip</td></tr>
+  <tr><td>Used by</td><td>Hyperledger Fabric (older), Tendermint/BigchainDB, Zilliqa</td><td>Bitcoin, Ethereum pre-Merge, Litecoin</td></tr>
+  </tbody>
+</table></div>
+  <div class="trap cram"><b>Exam trap</b>PBFT's O(n²) messaging is <i>why</i> it cannot run a public chain, and that is the single sentence most answers omit. Also: PBFT tolerates f &lt; n/3, <b>not</b> f &lt; n/2.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">3.3</span>Consensus mechanisms compared<span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>Mechanism</th><th>How a block producer is chosen</th><th>Cost / weakness</th><th>Used by</th></tr></thead>
+  <tbody>
+  <tr><td><b>PoW</b> Proof of Work</td><td>First to find a nonce making H(header) &lt; target</td><td>Enormous energy; 51% attack</td><td>Bitcoin, Ethereum ≤ 2022, Litecoin</td></tr>
+  <tr><td><b>PoS</b> Proof of Stake</td><td>Pseudo-random selection weighted by staked coins</td><td>Nothing-at-stake, wealth concentration; slashing fixes the former</td><td>Ethereum (Gasper), Cardano, Algorand</td></tr>
+  <tr><td><b>DPoS</b> Delegated PoS</td><td>Token holders vote for a small set of witnesses</td><td>More centralised by design</td><td>EOS, TRON, BitShares</td></tr>
+  <tr><td><b>PoA</b> Proof of Authority</td><td>Pre-approved, identified validators take turns</td><td>Trusted authorities — permissioned only</td><td>HydraChain, Kovan/Rinkeby, private Besu</td></tr>
+  <tr><td><b>PBFT</b> / Tendermint</td><td>Leader proposes, quorum votes in rounds</td><td>O(n²) messages; needs known membership</td><td>Fabric (legacy), BigchainDB, Zilliqa</td></tr>
+  <tr><td><b>RPCA</b></td><td>Each node polls its trusted <b>UNL</b> until 80% agree</td><td>Trust in the UNL list</td><td>Ripple / XRP Ledger</td></tr>
+  <tr><td><b>PoET</b> Proof of Elapsed Time</td><td>Each node waits a random time inside a trusted enclave (SGX); shortest wait wins</td><td>Depends on Intel hardware</td><td>Hyperledger Sawtooth</td></tr>
+  <tr><td><b>Raft / Kafka</b> (CFT only)</td><td>Elected leader replicates a log</td><td><b>Not</b> Byzantine-tolerant — crash faults only</td><td>Fabric ordering service</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>The <b>blockchain trilemma</b> (Buterin): decentralisation, security, scalability — pick two. PoW buys decentralisation + security and pays in throughput (Bitcoin ~7 tps, Ethereum ~15–30 tps). PBFT/Ripple buy security + scalability and pay in decentralisation. Layer-2 rollups are the attempt to escape the triangle rather than choose a corner.</div>
+</div>
+
+      <h2 id="m1-classify">4 · Classification of blockchain platforms</h2>
+
+<div class="card">
+  <h3><span class="n">4.1</span>Four ways to classify<span class="tag t-hi">★ high yield</span></h3>
+  <p>The syllabus line is literally "Classification of Blockchain Platforms". Classify along <b>four independent axes</b> — that structure alone is worth marks.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Axis</th><th>Categories</th><th>Question it answers</th></tr></thead>
+  <tbody>
+  <tr><td><b>1. Access to data</b></td><td>Public · Private · Consortium (federated) · Hybrid</td><td>Who may read the ledger?</td></tr>
+  <tr><td><b>2. Permission to participate</b></td><td>Permissionless · Permissioned</td><td>Who may write / validate?</td></tr>
+  <tr><td><b>3. Purpose</b></td><td>Currency-only · Smart-contract platform · Application-specific · Storage / data</td><td>What is it <i>for</i>?</td></tr>
+  <tr><td><b>4. Data model</b></td><td>UTXO · Account/balance · State-object · Asset/DB</td><td>How is state represented?</td></tr>
+  </tbody>
+</table></div>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>Public</th><th>Consortium</th><th>Private</th></tr></thead>
+  <tbody>
+  <tr><td>Consensus by</td><td>All miners/validators</td><td>A selected set of nodes</td><td>One organisation</td></tr>
+  <tr><td>Read permission</td><td>Anyone</td><td>Public or restricted</td><td>Restricted</td></tr>
+  <tr><td>Immutability</td><td>Practically absolute</td><td>Could be tampered by the consortium</td><td>Could be tampered by the owner</td></tr>
+  <tr><td>Efficiency</td><td>Low</td><td>High</td><td>High</td></tr>
+  <tr><td>Centralisation</td><td>None</td><td>Partial</td><td>Full</td></tr>
+  <tr><td>Example</td><td>Bitcoin, Ethereum</td><td>Hyperledger, Corda, R3</td><td>MultiChain, private Besu</td></tr>
+  </tbody>
+</table></div>
+  <div class="trap cram"><b>Exam trap</b>Private ≠ permissioned. They are <b>different axes</b>. A consortium chain can be publicly <i>readable</i> and still permissioned for <i>writing</i>. Answers that treat "private" and "permissioned" as synonyms lose the mark for classification.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">4.2</span>Where each named platform sits<span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>Platform</th><th>Access</th><th>Permission</th><th>Purpose</th><th>Data model</th></tr></thead>
+  <tbody>
+  <tr><td>Ethereum</td><td>Public</td><td>Permissionless</td><td>General smart-contract platform</td><td>Account</td></tr>
+  <tr><td>Hyperledger Fabric</td><td>Private / consortium</td><td>Permissioned</td><td>Enterprise modular platform</td><td>Key–value world state</td></tr>
+  <tr><td>IBM Blockchain</td><td>Consortium</td><td>Permissioned</td><td>Managed Fabric (BaaS)</td><td>Key–value world state</td></tr>
+  <tr><td>MultiChain</td><td>Private</td><td>Permissioned</td><td>Multi-asset financial ledger</td><td>UTXO (bitcoin-derived)</td></tr>
+  <tr><td>HydraChain</td><td>Private / consortium</td><td>Permissioned</td><td>Ethereum-compatible enterprise chain</td><td>Account</td></tr>
+  <tr><td>Ripple / XRPL</td><td>Public</td><td>Permissioned validators</td><td>Cross-border payments</td><td>Account</td></tr>
+  <tr><td>R3 Corda</td><td>Private / consortium</td><td>Permissioned</td><td>Legal agreements between firms</td><td>State object (UTXO-like)</td></tr>
+  <tr><td>BigchainDB</td><td>Either</td><td>Configurable</td><td>Decentralised database for assets</td><td>Asset + transaction</td></tr>
+  <tr><td>IPFS</td><td>Public</td><td>Permissionless</td><td>Distributed file storage (<b>not</b> a blockchain)</td><td>Content-addressed Merkle DAG</td></tr>
+  </tbody>
 </table></div>
 </div>
-<h2 id="m2-accounts">Accounts, keys &amp; wallets</h2>
+
+      <h2 id="m1-eth">5 · Ethereum as a platform</h2>
+
 <div class="card">
-  <h3><span class="n">2.3</span>EOA vs contract account<span class="tag t-hi">★ high yield</span></h3>
+  <h3><span class="n">5.1</span>Ethereum in the platform comparison<span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Ethereum</b>An open-source, globally decentralised computing infrastructure that executes programs called <b>smart contracts</b>, uses a blockchain to synchronise and store the system's state changes, and uses a cryptocurrency, <b>ether</b>, to meter and constrain execution costs. Formally: a <b>deterministic but practically unbounded state machine</b> with a globally accessible singleton state and a virtual machine (the EVM) that applies changes to it.</div>
+  <p>As a <i>platform</i> (Module 1's angle — Module 2 goes into the internals):</p>
+  <ul>
+    <li><b>Launched</b> 30 July 2015 (Frontier). Proposed by Vitalik Buterin, 2013; Yellow Paper by Gavin Wood.</li>
+    <li><b>Generality</b> — Turing-complete contracts in Solidity/Vyper, vs Bitcoin's deliberately limited Script.</li>
+    <li><b>Largest developer ecosystem and tooling</b>: Remix, Hardhat, Foundry, OpenZeppelin, ERC standards.</li>
+    <li><b>Standards</b> — ERC-20 (fungible tokens), ERC-721 (NFTs), ERC-1155, ERC-4337 (account abstraction).</li>
+    <li><b>Weaknesses for enterprise</b> — everything is public to everyone, throughput ~15–30 tps on L1, fees volatile, no identity layer.</li>
+  </ul>
+  <div class="edge"><b>Extra marks</b>Quote the enterprise objection from the Corda whitepaper: the public Ethereum architecture is "exceedingly difficult to adapt or adopt … for enterprise use-cases" because <b>all data is shared with all parties</b>. That is the exact gap Fabric, Corda and Quorum were built to fill, and it makes your platform comparison read as an argument rather than a list.</div>
+</div>
+
+      <h2 id="m1-hyperledger">6 · Hyperledger</h2>
+
+<div class="card">
+  <h3><span class="n">6.1</span>Hyperledger — the umbrella<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Hyperledger</b>Not a blockchain and not a cryptocurrency — an <b>open-source collaborative project hosted by the Linux Foundation</b> (launched December 2015) that incubates a family of enterprise-grade, <b>permissioned</b> distributed-ledger frameworks and tools. Founding contributors include IBM, Intel and Digital Asset.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Framework</th><th>Contributed by</th><th>Distinctive feature</th></tr></thead>
+  <tbody>
+  <tr><td><b>Fabric</b></td><td>IBM</td><td>Modular, pluggable consensus, channels, chaincode in Go/Java/Node</td></tr>
+  <tr><td><b>Sawtooth</b></td><td>Intel</td><td>Proof of Elapsed Time (PoET) using SGX; parallel transaction execution</td></tr>
+  <tr><td><b>Iroha</b></td><td>Soramitsu</td><td>Mobile-oriented, simple C++ core, YAC consensus</td></tr>
+  <tr><td><b>Indy</b></td><td>Sovrin</td><td>Decentralised identity / self-sovereign identity</td></tr>
+  <tr><td><b>Besu</b></td><td>ConsenSys</td><td>Java <b>Ethereum</b> client — public or private, IBFT2/Clique/PoW</td></tr>
+  <tr><td><b>Burrow</b></td><td>Monax</td><td>Permissioned EVM with Tendermint consensus</td></tr>
+  </tbody>
+</table></div>
+  <p>Tools sit alongside: <b>Caliper</b> (benchmarking), <b>Cello</b> (as-a-service deployment), <b>Composer</b> (retired modelling tool), <b>Explorer</b>, <b>Quilt</b> (Interledger).</p>
+  <div class="trap cram"><b>Exam trap</b>Hyperledger has <b>no native cryptocurrency and no mining</b>. If a question asks "how are miners rewarded in Hyperledger", the answer is that the question does not apply: it is permissioned, participants are known and motivated by business need, so no incentive token is required.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">6.2</span>Hyperledger Fabric — architecture<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>Component</th><th>Role</th></tr></thead>
+  <tbody>
+  <tr><td><b>Peer</b></td><td>Hosts the ledger and chaincode. Sub-roles: <b>endorsing peer</b> (simulates and signs), <b>committing peer</b> (validates and writes), <b>anchor peer</b> (cross-org discovery), <b>leader peer</b> (receives blocks from the orderer for its org)</td></tr>
+  <tr><td><b>Orderer</b> (ordering service)</td><td>Puts endorsed transactions into a total order and cuts blocks. Consensus is <b>pluggable</b>: Raft (current default, crash-fault-tolerant), formerly Kafka/Zookeeper or Solo</td></tr>
+  <tr><td><b>Channel</b></td><td>A private sub-ledger between a subset of members — Fabric's answer to confidentiality</td></tr>
+  <tr><td><b>Chaincode</b></td><td>Fabric's smart contract, written in <b>Go, Java or Node.js</b> — general-purpose languages, not a DSL</td></tr>
+  <tr><td><b>MSP</b> (Membership Service Provider)</td><td>Maps X.509 certificates from a CA to organisations and roles — identity and permissions</td></tr>
+  <tr><td><b>Ledger</b></td><td>Two parts: an append-only <b>blockchain</b> of blocks, plus a <b>world state</b> key–value database (LevelDB, or CouchDB for rich JSON queries)</td></tr>
+  <tr><td><b>Private data collection</b></td><td>Shares actual data with a subset of a channel's members; only the hash goes on the shared ledger</td></tr>
+  </tbody>
+</table></div>
+</div>
+
+<div class="card">
+  <h3><span class="n">6.3</span>Fabric transaction flow — execute-order-validate<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <p>Fabric's signature design. Every other chain is <b>order-execute</b>: order the transactions, then every node runs them. Fabric inverts it.</p>
+  <figure><svg viewBox="0 0 530 210" role="img" aria-label="Fabric execute-order-validate transaction flow">
+  <rect x="10" y="70" width="86" height="46" rx="6" class="svg-b" stroke="var(--cyan)"/>
+  <text class="svg-l" x="53" y="90" text-anchor="middle" fill="var(--cyan)">Client</text>
+  <text class="svg-l" x="53" y="105" text-anchor="middle" fill="var(--ink-3)">SDK</text>
+  <rect x="140" y="18" width="110" height="40" rx="6" class="svg-b" stroke="var(--green)"/>
+  <text class="svg-l" x="195" y="42" text-anchor="middle" fill="var(--green)">Endorsing peer A</text>
+  <rect x="140" y="128" width="110" height="40" rx="6" class="svg-b" stroke="var(--green)"/>
+  <text class="svg-l" x="195" y="152" text-anchor="middle" fill="var(--green)">Endorsing peer B</text>
+  <rect x="290" y="70" width="100" height="46" rx="6" class="svg-b" stroke="var(--yellow)"/>
+  <text class="svg-l" x="340" y="90" text-anchor="middle" fill="var(--yellow)">Orderer</text>
+  <text class="svg-l" x="340" y="105" text-anchor="middle" fill="var(--ink-3)">Raft</text>
+  <rect x="425" y="70" width="95" height="46" rx="6" class="svg-b" stroke="var(--purple)"/>
+  <text class="svg-l" x="472" y="90" text-anchor="middle" fill="var(--purple)">Committing</text>
+  <text class="svg-l" x="472" y="105" text-anchor="middle" fill="var(--purple)">peers</text>
+  <line x1="96" y1="82" x2="140" y2="42" stroke="var(--green)" marker-end="url(#h2)"/>
+  <line x1="96" y1="104" x2="140" y2="146" stroke="var(--green)" marker-end="url(#h2)"/>
+  <line x1="250" y1="52" x2="290" y2="80" stroke="var(--yellow)" marker-end="url(#h2)"/>
+  <line x1="250" y1="138" x2="290" y2="108" stroke="var(--yellow)" marker-end="url(#h2)"/>
+  <line x1="390" y1="93" x2="425" y2="93" stroke="var(--purple)" marker-end="url(#h2)"/>
+  <text class="svg-t" x="118" y="16" fill="var(--ink-3)">1 propose</text>
+  <text class="svg-t" x="255" y="16" fill="var(--ink-3)">2 endorse (RW-set + sig)</text>
+  <text class="svg-t" x="300" y="140" fill="var(--ink-3)">3 order into blocks</text>
+  <text class="svg-t" x="405" y="140" fill="var(--ink-3)">4 validate + commit</text>
+  <defs><marker id="h2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor"/></marker></defs>
+</svg><figcaption>Only the endorsing peers named by the endorsement policy execute the chaincode — so a slow contract does not slow the whole network, and contract code stays off non-participating peers.</figcaption></figure>
+  <ol>
+    <li><b>Propose</b> — the client SDK sends a transaction proposal to the endorsing peers required by the <b>endorsement policy</b> (e.g. "AND(Org1, Org2)").</li>
+    <li><b>Execute / endorse</b> — each simulates the chaincode against its world state, producing a <b>read-write set</b>, and signs it. Nothing is written yet.</li>
+    <li><b>Collect</b> — the client checks the responses match and assembles them into a transaction.</li>
+    <li><b>Order</b> — the ordering service sequences transactions and cuts a block. It never sees the contract logic.</li>
+    <li><b>Validate</b> — every committing peer checks the endorsement policy was satisfied and runs <b>MVCC</b> version checks: if a key's version changed since simulation, the transaction is marked <b>invalid</b>.</li>
+    <li><b>Commit</b> — the block is appended; valid transactions update the world state; invalid ones stay in the block, flagged.</li>
+  </ol>
+  <div class="edge"><b>Extra marks</b>Two facts examiners reward: <b>(a)</b> invalid transactions are still <i>recorded</i> in the block, just marked invalid — the ledger is a complete audit trail; <b>(b)</b> execute-order-validate removes non-determinism as a consensus problem, which is exactly what allows chaincode in Go/Java rather than a restricted DSL.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">6.4</span>Membership and identity management<span class="tag t-past">past paper</span></h3>
+  <p>A named past-paper question. Fabric's identity stack:</p>
+  <ul>
+    <li><b>Identity = an X.509 certificate</b> issued by a Certificate Authority. Every actor — peer, orderer, admin, client application — has one.</li>
+    <li><b>Fabric CA</b> issues, renews and revokes those certificates; any standard CA can be used instead.</li>
+    <li><b>MSP</b> turns a certificate into a <i>role in an organisation</i>: it holds the org's root CAs, intermediate CAs, admin certs, and the revocation list. "Which certificates count as Org1?" is answered by Org1's MSP.</li>
+    <li><b>Local MSP</b> (on a node, defines who administers it) vs <b>Channel MSP</b> (defines org membership and rights on a channel).</li>
+    <li><b>Principal / policy</b> — access control is written against MSP roles: <code><span class="kw">Org1MSP.peer</span></code>, <code><span class="kw">Org1MSP.admin</span></code>, <code><span class="kw">Org1MSP.member</span></code>.</li>
+    <li><b>Idemix</b> — optional zero-knowledge credentials giving unlinkable, anonymous-but-authorised transactions.</li>
+  </ul>
+  <div class="edge"><b>Extra marks</b>One line that lands the concept: <b>PKI provides the identity, the MSP provides the meaning.</b> PKI says "this certificate is genuine"; the MSP says "and a genuine certificate from this CA counts as an administrator of Org1".</div>
+</div>
+
+      <h2 id="m1-ibm">7 · IBM Blockchain</h2>
+
+<div class="card">
+  <h3><span class="n">7.1</span>IBM Blockchain Platform<span class="tag t-past">past paper</span></h3>
+  <div class="def"><b>IBM Blockchain</b>A commercial <b>Blockchain-as-a-Service (BaaS)</b> offering built on <b>Hyperledger Fabric</b>, which IBM contributed to the Linux Foundation. It packages Fabric with hosting on IBM Cloud (or Kubernetes anywhere via Red Hat OpenShift), a management console, deployment tooling, and enterprise support and SLAs.</div>
+  <p>Draw it as a stack — that is the "labelled diagram" the question asks for:</p>
+  <figure><svg viewBox="0 0 520 200" role="img" aria-label="IBM Blockchain Platform stack">
+  <rect x="60" y="8" width="400" height="34" rx="5" class="svg-b" stroke="var(--pink)"/>
+  <text class="svg-l" x="260" y="30" text-anchor="middle" fill="var(--pink)">Industry solutions — Food Trust · TradeLens · World Wire</text>
+  <rect x="60" y="48" width="400" height="34" rx="5" class="svg-b" stroke="var(--purple)"/>
+  <text class="svg-l" x="260" y="70" text-anchor="middle" fill="var(--purple)">Applications + APIs · Fabric SDKs · VS Code extension</text>
+  <rect x="60" y="88" width="400" height="34" rx="5" class="svg-b" stroke="var(--yellow)"/>
+  <text class="svg-l" x="260" y="110" text-anchor="middle" fill="var(--yellow)">Platform console — membership, channels, chaincode lifecycle, monitoring</text>
+  <rect x="60" y="128" width="400" height="34" rx="5" class="svg-b" stroke="var(--green)"/>
+  <text class="svg-l" x="260" y="150" text-anchor="middle" fill="var(--green)">Hyperledger Fabric — peers, orderers, CA, MSP, chaincode</text>
+  <rect x="60" y="168" width="400" height="28" rx="5" class="svg-b" stroke="var(--cyan)"/>
+  <text class="svg-l" x="260" y="187" text-anchor="middle" fill="var(--cyan)">IBM Cloud · Kubernetes / OpenShift · LinuxONE secure hardware</text>
+</svg><figcaption>Everything below the console is open-source Fabric; everything above is IBM's commercial value-add. That split is the whole answer.</figcaption></figure>
+  <ul>
+    <li><b>IBM Food Trust</b> — Walmart, Nestlé, Dole: farm-to-shelf traceability. The famous demo: tracing a mango's origin fell from <b>~7 days to 2.2 seconds</b>.</li>
+    <li><b>TradeLens</b> — with Maersk, shipping-container documentation (wound down in 2023, but still the standard textbook example).</li>
+    <li><b>we.trade</b>, <b>World Wire</b> — trade finance and cross-border payments.</li>
+    <li><b>LinuxONE / Hyper Protect</b> — tamper-responsive hardware security modules for key custody.</li>
+  </ul>
+  <div class="trap cram"><b>Exam trap</b>IBM Blockchain is <b>not a separate blockchain protocol</b>. Writing that "IBM Blockchain uses its own consensus" is wrong — it is Fabric, so it is Raft ordering with endorsement policies. The differentiator is operations, tooling and support, not the ledger.</div>
+</div>
+
+      <h2 id="m1-multichain">8 · MultiChain</h2>
+
+<div class="card">
+  <h3><span class="n">8.1</span>MultiChain<span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>MultiChain</b>A <b>distributed database for multi-asset financial transactions</b> which uses an enhanced version of Bitcoin's blockchain technology inside a <b>private peer-to-peer network</b>. Built by Coin Sciences Ltd (Dr Gideon Greenspan). Because it is a Bitcoin fork, it keeps the <b>UTXO</b> model and offers a rich <b>JSON-RPC API</b> that is a superset of Bitcoin Core's.</div>
+  <p>Straight from the MultiChain 1-pager in your folder — the five enhancements over a standard blockchain:</p>
+  <div class="tw"><table>
+  <thead><tr><th>Enhancement</th><th>What it means</th></tr></thead>
+  <tbody>
+  <tr><td><b>Native multi-currency</b></td><td>Any number of assets issued and transacted in one network; quantities verified at network level, enabling <b>atomic</b> two- or multi-way exchange</td></tr>
+  <tr><td><b>Permission management</b></td><td>Administrators control exactly who may connect, create assets, and send / receive / <b>confirm ("mine")</b> transactions. Permissions are themselves stored and enforced <b>via the blockchain</b></td></tr>
+  <tr><td><b>Rapid deployment</b></td><td>Two commands to create a network, three to add a node — no manual configuration management</td></tr>
+  <tr><td><b>Multi-network</b></td><td>One server can connect to several chains simultaneously</td></tr>
+  <tr><td><b>Per-network custom parameters</b></td><td>Permitted transaction types, target confirmation time, minimum quantities, transaction rate and size limits</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Target users:</b> banks, financial institutions and service providers experimenting with blockchain — an off-the-shelf but highly configurable platform that accelerates research versus bespoke development. Runs on Windows and Linux servers.</p>
+  <p><b>Finance applications:</b> trading and settlement (peer-to-peer clearing, rapid settlement, no trading breaks), payments and messaging (encrypted messages, notary services), and regulatory transparency.</p>
+  <div class="edge"><b>Extra marks</b>MultiChain's distinctive consensus is <b>mining diversity</b>. It keeps proof of work in form but strips the arms race: only permitted miners may create blocks, and a parameter <code>mining-diversity</code> (0–1) forces the round-robin — a miner may not create a block until a given proportion of the other permitted miners have had their turn. This blocks a single permitted miner from monopolising the chain, with no energy burn.</div>
+  <div class="trap cram"><b>Exam trap</b>MultiChain has <b>no native cryptocurrency and no block reward</b>. "Mining" is only the act of confirming; assets are issued by permitted parties, not mined.</div>
+</div>
+
+      <h2 id="m1-hydrachain">9 · HydraChain</h2>
+
+<div class="card">
+  <h3><span class="n">9.1</span>HydraChain<span class="tag t-add">rarely taught</span></h3>
+  <div class="def"><b>HydraChain</b>An open-source extension of the <b>Ethereum</b> platform (by brainbot technologies, with the Ethereum Foundation) that supports the creation of <b>permissioned, private/consortium chains</b>. It is <b>fully compatible with the Ethereum protocol at the API and contract level</b> — same EVM, same tooling — but replaces PoW with a deterministic <b>Proof-of-Authority</b> Byzantine-fault-tolerant consensus among a registered set of validators.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Feature</th><th>Detail</th></tr></thead>
+  <tbody>
+  <tr><td>Consensus</td><td>PoA / BFT among registered validators; tolerates up to <b>f</b> of <b>3f + 1</b> faulty validators</td></tr>
+  <tr><td>Blocks</td><td><b>No mining, no block reward, no forks.</b> Blocks are created only when there are transactions — no empty blocks</td></tr>
+  <tr><td>Finality</td><td><b>Instant and absolute</b> — a block, once created, is final</td></tr>
+  <tr><td>Contracts</td><td>Solidity/Serpent as on Ethereum, <i>plus</i> native contracts written in <b>Python</b> for speed</td></tr>
+  <tr><td>Tooling</td><td>Existing Ethereum tools, wallets and JSON-RPC work unchanged</td></tr>
+  <tr><td>Status</td><td>Largely dormant since ~2017 — cite it as a historical example of the "permissioned Ethereum" idea</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>Place it in a lineage rather than treating it as an orphan: HydraChain, <b>Quorum</b> (JPMorgan, now ConsenSys), <b>Hyperledger Besu</b> and <b>Energy Web</b> are all the same idea — take the EVM, throw away proof of work, add identity and permissions. Naming that family shows you understand <i>why</i> HydraChain is on the syllabus.</div>
+</div>
+
+      <h2 id="m1-ripple">10 · Ripple</h2>
+
+<div class="card">
+  <h3><span class="n">10.1</span>Ripple and the XRP Ledger<span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Ripple</b>A real-time <b>gross settlement system, currency exchange and remittance network</b> built on the XRP Ledger — a public but <b>validator-permissioned</b> distributed ledger. Ripple Labs is the company; <b>XRP</b> is the native asset; the XRP Ledger is the protocol. Purpose-built for <b>cross-border interbank payments</b>, not general computation.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Property</th><th>Ripple / XRPL</th></tr></thead>
+  <tbody>
+  <tr><td>Consensus</td><td><b>RPCA</b> — Ripple Protocol Consensus Algorithm</td></tr>
+  <tr><td>Validator selection</td><td>Each node trusts a <b>UNL</b> (Unique Node List) of validators it believes will not collude</td></tr>
+  <tr><td>Agreement threshold</td><td>Rounds of voting until <b>≥ 80%</b> of a node's UNL agrees; the ledger then closes</td></tr>
+  <tr><td>Fault tolerance</td><td>Correct while faulty validators &lt; 20% of the UNL</td></tr>
+  <tr><td>Ledger close time</td><td><b>3–5 seconds</b>, with immediate finality</td></tr>
+  <tr><td>Throughput</td><td>~1,500 transactions per second</td></tr>
+  <tr><td>Mining</td><td><b>None.</b> All 100 billion XRP were created at genesis; no block reward</td></tr>
+  <tr><td>Fees</td><td>A tiny fee (~0.00001 XRP) is <b>burned</b>, not paid to anyone — an anti-spam measure, deflationary by design</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Products:</b> <b>RippleNet</b> (the network); <b>xCurrent</b> (messaging and settlement between banks, no XRP needed); <b>xRapid</b> / On-Demand Liquidity (uses XRP as a <b>bridge currency</b> so a bank need not pre-fund nostro accounts); <b>xVia</b> (a standard payment API).</p>
+  <div class="edge"><b>Extra marks</b>The economic point behind xRapid: banks traditionally pre-fund <b>nostro/vostro</b> accounts in every destination currency — trillions of dollars of idle capital. Using XRP as a bridge asset for a few seconds frees that capital. That is the business case, and it is the difference between a 3-mark answer and a 9-mark one.</div>
+  <div class="trap cram"><b>Exam trap</b>The XRP Ledger is <b>public but not permissionless</b> — anyone can read it and submit transactions, but only UNL validators participate in consensus. This is the standard example of why "public" and "permissionless" are separate axes.</div>
+</div>
+
+      <h2 id="m1-corda">11 · R3 Corda</h2>
+
+<div class="card">
+  <h3><span class="n">11.1</span>Corda — what it is and why<span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Corda</b>Distributed-ledger software from <b>R3</b> (a consortium of 200+ financial institutions) for recording and processing shared data such as contracts. Designed to record and automate <b>legal agreements between identifiable parties</b>, with privacy, identity and legal enforceability at its core. Open source since 2016; written in <b>Kotlin/Java on the JVM</b>.</div>
+  <p>The motivating problem, in R3's own words: managing agreements between firms "when those parties trust each other enough to trade but not enough to have their counterparty maintain all the records". Today every institution keeps its own ledger, so the industry pays for endless <b>reconciliation</b>. Corda's promise: "I know that what I see is what you see."</p>
+  <div class="tw"><table>
+  <thead><tr><th>Concept</th><th>Meaning</th></tr></thead>
+  <tbody>
+  <tr><td><b>State object</b></td><td>The foundational unit — a digital document recording the existence, content and current state of an agreement between two or more parties. The ledger is a set of <b>immutable</b> state objects</td></tr>
+  <tr><td><b>Transaction</b></td><td>Consumes input states and produces output states, forming <b>chains of provenance</b> (UTXO-like, but with arbitrary typed data)</td></tr>
+  <tr><td><b>Contract</b></td><td>A <b>pure, deterministic function</b> that accepts or rejects a proposed transaction. No storage, no messages, no side effects</td></tr>
+  <tr><td><b>Notary pool</b></td><td>A uniqueness and timestamping service that orders transactions and prevents double-spending</td></tr>
+  <tr><td><b>Flow framework</b></td><td>A library for writing multi-step protocols between mutually distrusting parties across the internet — Corda's distinctive developer feature</td></tr>
+  <tr><td><b>CorDapp</b></td><td>A Corda distributed application: states + contracts + flows, packaged as a JAR</td></tr>
+  <tr><td><b>Business network</b></td><td>A group of parties on the global Corda Network running a shared application, with its own governance</td></tr>
+  </tbody>
+</table></div>
+</div>
+
+<div class="card">
+  <h3><span class="n">11.2</span>Corda's two-part consensus<span class="tag t-hi">★ high yield</span></h3>
+  <p>Corda splits consensus into two independent questions — this is the single most examinable thing about it:</p>
+  <ol>
+    <li><b>Transaction validity</b> — parties independently run the same deterministic contract code, check all required signatures, and recursively check the transactions this one depends on. Performed <b>only by the parties to the transaction</b>.</li>
+    <li><b>Transaction uniqueness</b> — is this the unique consumer of all its input states? Answered by a <b>notary</b>, which may be a single machine or a pool of mutually distrusting nodes running a BFT algorithm.</li>
+  </ol>
+  <p>Crucially, the notary is <b>not required to see the transaction contents</b> — it only attests that the input states have not been consumed before. That is what makes validity checking private and the uniqueness service scalable.</p>
+  <div class="edge"><b>Extra marks</b><b>There is no global broadcast in Corda.</b> "A transaction between a group of parties is visible only to them, and to those whose own view of the ledger may depend on verifying its validity." Everywhere else — Bitcoin, Ethereum, even Fabric channels — consensus happens at the <i>ledger</i> level. Corda reaches consensus at the level of the <i>individual agreement</i>. Say this and the examiner knows you have read the whitepaper.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">11.3</span>Corda vs Bitcoin vs Ethereum<span class="tag t-past">past paper</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>Corda</th><th>Bitcoin</th><th>Ethereum</th></tr></thead>
+  <tbody>
+  <tr><td>Data model</td><td>State objects, arbitrary typed data</td><td>UTXO, one rigid format</td><td>Account + global state</td></tr>
+  <tr><td>Visibility</td><td>Need-to-know only</td><td>Global</td><td>Global</td></tr>
+  <tr><td>Contract</td><td>Pure <code>verify()</code> function, no storage</td><td>Script, not Turing complete</td><td>Stateful object with storage and messages</td></tr>
+  <tr><td>Contract language</td><td>Any JVM language — <b>Turing complete</b></td><td>Bitcoin Script</td><td>Solidity / Vyper</td></tr>
+  <tr><td>Consensus</td><td>Validity (parties) + uniqueness (notary)</td><td>PoW, global</td><td>PoS (Gasper), global</td></tr>
+  <tr><td>Mining</td><td><b>None</b></td><td>PoW</td><td>PoS since Sept 2022</td></tr>
+  <tr><td>Timestamps</td><td>Arbitrarily precise time-bounds attested by a timestamper</td><td>Whenever a block is mined</td><td>Block timestamp</td></tr>
+  <tr><td>Identity</td><td>Known legal identities, X.509</td><td>Pseudonymous</td><td>Pseudonymous</td></tr>
+  </tbody>
+</table></div>
+  <div class="trap cram"><b>Exam trap</b>Corda is repeatedly called "a blockchain that isn't a blockchain" because <b>it has no blocks and no chain</b> — transactions are linked into per-agreement chains of provenance, never batched into globally ordered blocks. If a question asks you to describe "the Corda block structure", the correct answer is to explain why there isn't one.</div>
+</div>
+
+      <h2 id="m1-bigchaindb">12 · BigchainDB</h2>
+
+<div class="card">
+  <h3><span class="n">12.1</span>BigchainDB<span class="tag t-past">past paper</span></h3>
+  <div class="def"><b>BigchainDB</b>A <b>blockchain database</b>: it starts from a big distributed database (MongoDB) and adds blockchain characteristics, rather than starting from a blockchain and trying to make it scale. The result has database qualities — high throughput, low latency, indexing and rich querying of structured data — <i>plus</i> decentralised control, immutability and native asset transfer.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Layer</th><th>Technology</th><th>Provides</th></tr></thead>
+  <tbody>
+  <tr><td>Storage</td><td><b>MongoDB</b> on each node</td><td>Indexing, rich queries, horizontal scale</td></tr>
+  <tr><td>Consensus</td><td><b>Tendermint</b> BFT</td><td>Byzantine fault tolerance, <b>immediate finality</b>, tolerates up to ⅓ faulty nodes</td></tr>
+  <tr><td>Model</td><td>CREATE and TRANSFER transactions over <b>assets</b></td><td>Native asset issuance and transfer, provenance</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Characteristics:</b> ~1,000+ tps and sub-second finality; no native cryptocurrency; deployable public or private; each node runs its own MongoDB so no single node owns the data; assets are arbitrary JSON, so it suits registries.</p>
+  <p><b>Applications:</b> intellectual-property and copyright registries (its original use case, via ascribe.io), supply-chain provenance, identity and certificate registries, IoT device data, and any application needing "a database, but no one party in charge".</p>
+  <div class="trap cram"><b>Exam trap</b>BigchainDB has <b>no smart contracts</b> (only a small "crypto-conditions" facility for multi-signature and threshold spending) and <b>no chain of blocks in the Bitcoin sense</b> — Tendermint orders transactions directly. Describing it as "like Ethereum but faster" is the wrong answer; describe it as <b>a database with blockchain properties bolted on</b>.</div>
+</div>
+
+      <h2 id="m1-ipfs">13 · IPFS</h2>
+
+<div class="card">
+  <h3><span class="n">13.1</span>IPFS — InterPlanetary File System<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>IPFS</b>A peer-to-peer <b>content-addressed</b> distributed file system (Juan Benet, Protocol Labs, 2014). Files are addressed by the <b>hash of their content</b> rather than by location, so the same content always has the same address, and any peer holding it can serve it. <b>IPFS is not a blockchain</b> — it stores no ledger and has no consensus.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Mechanism</th><th>What it does</th></tr></thead>
+  <tbody>
+  <tr><td><b>Content addressing / CID</b></td><td>Address = a multihash of the content. Identical files deduplicate automatically; a changed byte changes the address</td></tr>
+  <tr><td><b>Merkle DAG</b></td><td>Files are chunked (default 256 KB) and linked into a Merkle directed acyclic graph — this gives verification, deduplication and partial fetching</td></tr>
+  <tr><td><b>DHT (Kademlia)</b></td><td>A distributed hash table that answers "which peers have this CID?"</td></tr>
+  <tr><td><b>Bitswap</b></td><td>The block exchange protocol — the want-list / have-list trading between peers</td></tr>
+  <tr><td><b>libp2p</b></td><td>The networking stack: transport, discovery, NAT traversal, multiplexing</td></tr>
+  <tr><td><b>IPNS</b></td><td>Mutable naming — a key-signed pointer to a changing CID, since CIDs themselves are immutable</td></tr>
+  <tr><td><b>Pinning</b></td><td>Marking content so a node does not garbage-collect it. Nothing persists unless <i>someone</i> pins it (Pinata, Infura, or your own node)</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Why every blockchain course teaches it:</b> on-chain storage is brutally expensive — storing a kilobyte on Ethereum costs orders of magnitude more than a database. The standard pattern is therefore <b>store the file on IPFS, store only the CID on-chain</b>. The hash on-chain proves integrity; the bytes live off-chain. Every NFT you have heard of works this way.</p>
+  <figure><svg viewBox="0 0 600 130" role="img" aria-label="Store file on IPFS, hash on chain">
+  <rect x="12" y="40" width="120" height="50" rx="6" class="svg-b" stroke="var(--cyan)"/>
+  <text class="svg-l" x="72" y="60" text-anchor="middle" fill="var(--cyan)">DApp / user</text>
+  <text class="svg-l" x="72" y="78" text-anchor="middle" fill="var(--ink-3)">uploads file</text>
+  <rect x="190" y="10" width="140" height="46" rx="6" class="svg-b" stroke="var(--green)"/>
+  <text class="svg-l" x="260" y="30" text-anchor="middle" fill="var(--green)">IPFS network</text>
+  <text class="svg-l" x="260" y="47" text-anchor="middle" fill="var(--ink-3)">holds the bytes</text>
+  <rect x="190" y="74" width="140" height="46" rx="6" class="svg-b" stroke="var(--purple)"/>
+  <text class="svg-l" x="260" y="94" text-anchor="middle" fill="var(--purple)">Ethereum</text>
+  <text class="svg-l" x="260" y="111" text-anchor="middle" fill="var(--ink-3)">stores only the CID</text>
+  <line x1="132" y1="55" x2="190" y2="33" stroke="var(--green)" marker-end="url(#h3)"/>
+  <line x1="132" y1="75" x2="190" y2="97" stroke="var(--purple)" marker-end="url(#h3)"/>
+  <text class="svg-t" x="338" y="36" fill="var(--ink-3)">bytes — cheap, off-chain</text>
+  <text class="svg-t" x="338" y="100" fill="var(--ink-3)">32-byte hash — costly, on-chain</text>
+  <defs><marker id="h3" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor"/></marker></defs>
+</svg><figcaption>The division of labour that makes decentralised applications affordable.</figcaption></figure>
+  <div class="edge"><b>Extra marks</b>Two additions that pay: <b>(a) Filecoin</b> is the incentive layer built on IPFS — IPFS gives you addressing and transport but <i>no guarantee anyone stores your file</i>, and Filecoin adds a market with cryptographic proofs of storage (proof-of-replication, proof-of-spacetime). <b>(b)</b> IPFS achieves the "permanent web": HTTP breaks when a server moves a file, but a CID resolves to the content wherever it lives.</div>
+  <div class="trap cram"><b>Exam trap</b>IPFS does <b>not</b> guarantee permanence. Content that nobody pins is garbage-collected and disappears. "IPFS stores files forever" is false and is a favourite trap.</div>
+</div>
+
+      <h2 id="m1-dapps">14 · DApps</h2>
+
+<div class="card">
+  <h3><span class="n">14.1</span>Decentralised applications<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>DApp</b>An application whose <b>backend logic runs on a decentralised peer-to-peer network</b> rather than a central server. The four criteria usually quoted (Johnston et al., <i>The General Theory of Decentralized Applications</i>): it is <b>open source</b> and operates autonomously with no entity controlling a majority of its tokens; its <b>data and records are cryptographically stored</b> on a public, decentralised blockchain; it uses a <b>cryptographic token</b> for access and for rewarding contributors; and it <b>generates tokens</b> by a consensus algorithm.</div>
+  <p>Architecture — contrast it with a Web 2.0 app, which is exactly what the examiner wants:</p>
+  <div class="tw"><table>
+  <thead><tr><th>Layer</th><th>Traditional app</th><th>DApp</th></tr></thead>
+  <tbody>
+  <tr><td>Front end</td><td>HTML / JS in a browser</td><td>HTML / JS in a browser — <b>identical</b></td></tr>
+  <tr><td>Connection</td><td>REST/HTTP to a server</td><td>web3.js / ethers.js over <b>JSON-RPC</b> to a node</td></tr>
+  <tr><td>Business logic</td><td>Server code you control</td><td><b>Smart contract</b> on-chain, immutable once deployed</td></tr>
+  <tr><td>Data</td><td>Central database</td><td>Contract storage + <b>IPFS/Swarm</b> for large files</td></tr>
+  <tr><td>Auth</td><td>Username / password</td><td>Wallet signature — the key <i>is</i> the identity</td></tr>
+  <tr><td>Hosting</td><td>Cloud server</td><td>Static files, often on IPFS, named by <b>ENS</b></td></tr>
+  <tr><td>Failure mode</td><td>Server down → app down</td><td>No single point of failure; but a bug is <b>unpatchable</b> without an upgrade pattern</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Classification (the three types):</b> <b>Type I</b> has its own blockchain (Bitcoin, Ethereum); <b>Type II</b> is a protocol with tokens running on a Type I chain (e.g. the Omni layer); <b>Type III</b> is a protocol with tokens running on a Type II protocol. Examiners ask for this list by name.</p>
+  <p><b>Categories in practice:</b> DeFi (Uniswap, Aave, MakerDAO), NFTs and gaming (OpenSea, CryptoKitties), DAOs, identity, prediction markets (Augur), storage (Filecoin).</p>
+  <div class="edge"><b>Extra marks</b>Name the trade-off honestly: DApps gain censorship-resistance and verifiability, and pay with <b>latency</b> (block times), <b>cost</b> (gas per write), <b>immutability of bugs</b> (hence proxy-upgrade patterns) and <b>bad UX</b> (seed phrases, no password reset). A balanced answer beats an evangelical one.</div>
+</div>
+
+      <h2 id="m1-selection">15 · Selection criteria for blockchain applications</h2>
+
+<div class="card">
+  <h3><span class="n">15.1</span>Do you even need a blockchain?<span class="tag t-hi">★ high yield</span></h3>
+  <p>The syllabus's last Module 1 line. Answer it in two stages: first <b>should</b> this be a blockchain, then <b>which</b> platform.</p>
+  <p><b>Stage 1 — the decision test.</b> A blockchain is justified only when <i>all</i> of these hold:</p>
+  <ol>
+    <li>There is a <b>shared database</b> that several parties need to see.</li>
+    <li>There are <b>multiple writers</b>, not one.</li>
+    <li>The writers <b>do not fully trust</b> one another.</li>
+    <li>You want to avoid a <b>trusted intermediary</b> (or one does not exist / is too expensive).</li>
+    <li>Transactions <b>interact</b> — one depends on another (otherwise use separate databases).</li>
+    <li>You need a <b>tamper-evident audit trail</b>.</li>
+  </ol>
+  <p>Fail any one and a conventional replicated database is faster, cheaper and simpler. Say so — examiners reward the candidate who knows the limits of the technology.</p>
+</div>
+
+<div class="card">
+  <h3><span class="n">15.2</span>Choosing the platform — the criteria<span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>#</th><th>Criterion</th><th>What to ask</th><th>Points to…</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td><b>Permission model</b></td><td>Open participation, or known members?</td><td>Open → Ethereum; known → Fabric, Corda, MultiChain</td></tr>
+  <tr><td>2</td><td><b>Privacy / confidentiality</b></td><td>May all participants see all data?</td><td>No → Corda (need-to-know), Fabric channels/private data</td></tr>
+  <tr><td>3</td><td><b>Throughput &amp; latency</b></td><td>tps needed? Acceptable confirmation time?</td><td>High tps → Fabric, BigchainDB, Ripple. Low → public L1</td></tr>
+  <tr><td>4</td><td><b>Finality</b></td><td>Probabilistic acceptable, or must settlement be absolute?</td><td>Absolute → PBFT/Tendermint/Raft platforms</td></tr>
+  <tr><td>5</td><td><b>Smart contract need</b></td><td>Arbitrary logic, or just asset transfer?</td><td>Logic → Ethereum, Fabric, Corda. Transfer only → MultiChain, Ripple</td></tr>
+  <tr><td>6</td><td><b>Native token</b></td><td>Does the use case need a cryptocurrency?</td><td>No → permissioned platforms with no coin</td></tr>
+  <tr><td>7</td><td><b>Identity &amp; regulation</b></td><td>KYC/AML? Legally enforceable agreements?</td><td>Yes → Corda, Fabric (X.509 identity)</td></tr>
+  <tr><td>8</td><td><b>Cost</b></td><td>Gas fees vs infrastructure and operations cost</td><td>Public = variable fees; private = your servers</td></tr>
+  <tr><td>9</td><td><b>Scalability &amp; node count</b></td><td>How many validators?</td><td>PBFT breaks down past ~100 nodes (O(n²))</td></tr>
+  <tr><td>10</td><td><b>Developer skills &amp; language</b></td><td>What can your team write?</td><td>Solidity vs Go/Java (Fabric) vs Kotlin/Java (Corda)</td></tr>
+  <tr><td>11</td><td><b>Maturity &amp; ecosystem</b></td><td>Documentation, audits, hiring pool, support</td><td>Ethereum and Fabric lead</td></tr>
+  <tr><td>12</td><td><b>Governance &amp; upgrades</b></td><td>Who decides protocol changes? Can contracts be upgraded?</td><td>Consortium rules vs public hard forks</td></tr>
+  <tr><td>13</td><td><b>Interoperability</b></td><td>Must it talk to other chains or legacy systems?</td><td>APIs, oracles, bridges, Interledger</td></tr>
+  <tr><td>14</td><td><b>Storage model</b></td><td>Large files involved?</td><td>Pair with IPFS; keep hashes on-chain</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>Finish with a one-line worked application of the criteria — it converts a list into judgement. For example: <i>"A trade-finance consortium of 12 banks needs privacy between pairs, legal enforceability and absolute settlement finality, and has no use for a token — criteria 2, 4, 6 and 7 all point to Corda; Ethereum fails criterion 2 outright."</i></div>
+</div>
+
+      <h2 id="m1-compare">16 · The one-page comparison</h2>
+
+<div class="card">
+  <h3><span class="n">16.1</span>All platforms, side by side<span class="tag t-hi">★ high yield</span></h3>
+  <p>If you memorise one table for Module 1, memorise this one — almost any platform question can be answered from a column of it.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Platform</th><th>Type</th><th>Consensus</th><th>Contracts</th><th>Token</th><th>Best for</th></tr></thead>
+  <tbody>
+  <tr><td><b>Ethereum</b></td><td>Public, permissionless</td><td>PoS (Gasper)</td><td>Solidity / Vyper on EVM</td><td>ETH</td><td>Open DApps, DeFi, NFTs</td></tr>
+  <tr><td><b>Hyperledger Fabric</b></td><td>Private / consortium</td><td>Raft ordering + endorsement policy</td><td>Chaincode: Go, Java, Node</td><td>None</td><td>Enterprise consortia needing modularity</td></tr>
+  <tr><td><b>IBM Blockchain</b></td><td>Consortium (BaaS)</td><td>Fabric's</td><td>Chaincode</td><td>None</td><td>Supply chain, managed deployment</td></tr>
+  <tr><td><b>MultiChain</b></td><td>Private</td><td>PoW + mining diversity, round-robin</td><td>None (filters / streams)</td><td>None; user-issued assets</td><td>Multi-asset financial ledgers, fast pilots</td></tr>
+  <tr><td><b>HydraChain</b></td><td>Private / consortium</td><td>PoA / BFT validators</td><td>Solidity <i>and</i> native Python</td><td>None</td><td>Permissioned Ethereum-compatible chains</td></tr>
+  <tr><td><b>Ripple / XRPL</b></td><td>Public, permissioned validators</td><td>RPCA, 80% UNL</td><td>Limited (hooks / XLS-20)</td><td>XRP</td><td>Cross-border payments and settlement</td></tr>
+  <tr><td><b>R3 Corda</b></td><td>Private / consortium</td><td>Validity + notary uniqueness</td><td>CorDapps on JVM</td><td>None</td><td>Legal agreements between known firms</td></tr>
+  <tr><td><b>BigchainDB</b></td><td>Configurable</td><td>Tendermint BFT</td><td>Crypto-conditions only</td><td>None</td><td>High-throughput asset registries</td></tr>
+  <tr><td><b>IPFS</b></td><td>Public P2P storage</td><td><b>None</b> — not a blockchain</td><td>n/a</td><td>None (Filecoin adds one)</td><td>Off-chain file storage for DApps</td></tr>
+  </tbody>
+</table></div>
+</div>
+
+      <div class="mod">Module 2 · Ethereum Blockchain — concepts</div>
+      <h2 id="m2-basics">17 · Ethereum basics</h2>
+
+<div class="card">
+  <h3><span class="n">17.1</span>What Ethereum is<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Ethereum (computer-science definition)</b>A <b>deterministic but practically unbounded state machine</b>, consisting of a globally accessible <b>singleton state</b> and a <b>virtual machine</b> that applies changes to that state.</div>
+  <div class="def"><b>Ethereum (practical definition)</b>An open-source, globally decentralised computing infrastructure that executes programs called <b>smart contracts</b>. It uses a blockchain to synchronise and store the system's state changes, and a cryptocurrency called <b>ether</b> to meter and constrain execution resource costs.</div>
+  <p>Learn <b>both</b>. "Define in brief about Ethereum" is a 3-mark question and the pair of definitions plus one sentence on the world computer is a complete answer.</p>
+  <p>Ethereum is described as the <b>world computer</b>: programs run "everywhere" yet produce one common state secured by the rules of consensus.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Ether unit</th><th>Value in wei</th><th>Used for</th></tr></thead>
+  <tbody>
+  <tr><td><b>wei</b></td><td>1</td><td>The base unit — all protocol arithmetic</td></tr>
+  <tr><td>kwei / babbage</td><td>10³</td><td>—</td></tr>
+  <tr><td>mwei / lovelace</td><td>10⁶</td><td>—</td></tr>
+  <tr><td><b>gwei</b> / shannon</td><td>10⁹</td><td><b>Gas prices are always quoted in gwei</b></td></tr>
+  <tr><td>szabo</td><td>10¹²</td><td>—</td></tr>
+  <tr><td>finney</td><td>10¹⁵</td><td>—</td></tr>
+  <tr><td><b>ether</b></td><td>10¹⁸</td><td>Human-facing amounts</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>The unit names honour cryptography and computing pioneers — Wei Dai (b-money), Charles Babbage, Ada Lovelace, Claude Shannon, Nick Szabo (bit gold, smart contracts), Hal Finney (reusable PoW). A single clause on this shows reading beyond the deck.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">17.2</span>Ethereum vs Bitcoin<span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>Bitcoin</th><th>Ethereum</th></tr></thead>
+  <tbody>
+  <tr><td>Purpose</td><td>Peer-to-peer digital cash</td><td>General-purpose programmable platform</td></tr>
+  <tr><td>Launched</td><td>January 2009</td><td>30 July 2015</td></tr>
+  <tr><td>State model</td><td><b>UTXO</b> — unspent transaction outputs</td><td><b>Account/balance</b> — a global state trie</td></tr>
+  <tr><td>Scripting</td><td>Script — stack-based, <b>not</b> Turing complete, no loops</td><td>EVM bytecode — <b>Turing complete</b></td></tr>
+  <tr><td>Block time</td><td>~10 minutes</td><td>12 seconds (fixed slots since the Merge)</td></tr>
+  <tr><td>Consensus</td><td>PoW (SHA-256)</td><td>PoS (Gasper) since 15 Sept 2022; Ethash PoW before</td></tr>
+  <tr><td>Supply</td><td>Capped at 21 million</td><td>No hard cap; EIP-1559 burns base fees</td></tr>
+  <tr><td>Fee model</td><td>Fee per byte</td><td><b>Gas</b> per operation — base fee (burned) + priority fee</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>Explain <i>why</i> Bitcoin's Script is deliberately not Turing complete: with no loops, every script's execution time is bounded by its length, so a node can validate it safely without a metering mechanism. Ethereum chose the opposite trade-off and therefore had to invent gas. Framing it as a design choice rather than a limitation is the mark-winning move.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">17.3</span>Ethereum's history and forks<span class="tag t-add">context</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>Date</th><th>Milestone</th><th>Why it matters</th></tr></thead>
+  <tbody>
+  <tr><td>2013</td><td>Whitepaper — Vitalik Buterin</td><td>Generalising Bitcoin from currency to computation</td></tr>
+  <tr><td>2014</td><td>Yellow Paper — Gavin Wood</td><td>The <b>formal specification</b> of the EVM</td></tr>
+  <tr><td>Jul 2015</td><td><b>Frontier</b></td><td>Mainnet launch</td></tr>
+  <tr><td>Mar 2016</td><td>Homestead</td><td>First production-grade release</td></tr>
+  <tr><td>Jul 2016</td><td><b>The DAO hard fork</b></td><td>~3.6M ETH drained by a reentrancy bug; the chain forked to reverse it, splitting off <b>Ethereum Classic</b></td></tr>
+  <tr><td>2017–19</td><td>Byzantium, Constantinople, Istanbul</td><td>Gas repricing, precompiles, reward reductions</td></tr>
+  <tr><td>Aug 2021</td><td><b>London — EIP-1559</b></td><td>Base fee + <b>burn</b>; the fee market was rebuilt</td></tr>
+  <tr><td><b>15 Sept 2022</b></td><td><b>The Merge</b></td><td><b>PoW → PoS.</b> Energy use fell ~99.95%; mining ended</td></tr>
+  <tr><td>Apr 2023</td><td>Shapella</td><td>Staked ETH withdrawals enabled</td></tr>
+  <tr><td>Mar 2024</td><td>Dencun — EIP-4844</td><td>Blob transactions; rollup fees collapsed</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>The DAO fork is the best one-paragraph case study in the syllabus: it shows immutability is a <b>social</b> property as much as a technical one. "Code is law" held until $60M was at stake, and the community chose to fork — Ethereum Classic is the chain of those who refused.</div>
+</div>
+
+      <h2 id="m2-contracts">18 · Ethereum and smart contracts</h2>
+
+<div class="card">
+  <h3><span class="n">18.1</span>Smart contracts — definition and history<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Smart contract</b>A computer program that <b>directly controls the transfer of digital assets between parties under agreed conditions</b>, stored and executed on a blockchain, and running exactly as written without downtime, censorship or third-party interference. On Ethereum a smart contract is <b>immutable code plus persistent storage living at an address</b>.</div>
+  <p><b>History</b> — an explicitly examined sub-topic ("basic description of smart contracts and history of smart contracts"):</p>
+  <div class="tw"><table>
+  <thead><tr><th>Year</th><th>Event</th></tr></thead>
+  <tbody>
+  <tr><td><b>1994</b></td><td><b>Nick Szabo</b> coins the term "smart contract" — long before any blockchain existed</td></tr>
+  <tr><td>1996–97</td><td>Szabo's essays develop the idea; his analogy is the <b>vending machine</b>: insert coin → receive product, contract self-enforced by the machine, no lawyer</td></tr>
+  <tr><td>1998</td><td>Szabo proposes <b>bit gold</b>, a precursor of Bitcoin</td></tr>
+  <tr><td>2009</td><td>Bitcoin ships with <b>Script</b> — very limited "contracts": multisig, timelocks, hash locks</td></tr>
+  <tr><td><b>2015</b></td><td><b>Ethereum</b> makes fully programmable smart contracts real, with a Turing-complete VM</td></tr>
+  <tr><td>2016</td><td>The DAO — the first great demonstration of the risks</td></tr>
+  <tr><td>2017→</td><td>ERC-20 / ERC-721 standards; DeFi and NFTs built entirely from contracts</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Properties:</b> autonomous (no intermediary once deployed), deterministic (same input → same output on every node), transparent (bytecode is public), <b>immutable</b> (cannot be changed after deployment), and self-enforcing.</p>
+  <p><b>Lifecycle:</b> write Solidity → compile to <b>EVM bytecode + ABI</b> → deploy by sending a transaction with the bytecode as <code>data</code> and <b>no recipient</b> → the contract gets an address → users call functions by sending transactions to that address → optionally destroy with <code>selfdestruct</code>.</p>
+  <div class="trap cram"><b>Exam trap</b>A contract <b>cannot run by itself</b>. It has no scheduler and no clock: nothing in it executes until an externally owned account sends a transaction that triggers it (possibly through a chain of contract calls). "The contract executes automatically every month" is wrong — that needs an off-chain keeper or an oracle to poke it.</div>
+</div>
+
+      <h2 id="m2-turing">19 · Turing completeness &amp; verification challenges</h2>
+
+<div class="card">
+  <h3><span class="n">19.1</span>Turing completeness<span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Turing complete</b>A system is Turing complete if it can be used to <b>simulate any Turing machine</b> — such a system is a <b>universal Turing machine (UTM)</b>. Ethereum's ability to execute a stored program in a state machine (the EVM) while reading and writing memory makes it Turing complete: it can compute any algorithm computable by a Turing machine, given finite memory.</div>
+  <p><b>Alan Turing, 1936:</b> a mathematical model of a computer — a state machine manipulating symbols on an infinite tape. With it he proved that some problems are <b>uncomputable</b>. Specifically, the <b>halting problem</b> — given an arbitrary program and input, decide whether it will eventually stop — is <b>unsolvable</b>.</p>
+  <p><b>Ethereum's innovation</b> is combining the general-purpose architecture of a stored-program computer with a decentralised blockchain, creating a distributed <b>single-state (singleton) world computer</b>.</p>
+</div>
+
+<div class="card">
+  <h3><span class="n">19.2</span>Turing completeness is a <i>danger</i>, not a feature<span class="tag t-hi">★ high yield</span></h3>
+  <p>The counter-intuitive point the textbook makes, and the one that separates a strong answer:</p>
+  <ul>
+    <li>Turing completeness is <b>trivially easy</b> to achieve — the simplest known Turing-complete state machine has 4 states, 6 symbols and a 22-instruction definition. Systems are sometimes found to be "accidentally Turing complete".</li>
+    <li>It is <b>dangerous in open-access systems</b> precisely because of the halting problem. Modern printers are Turing complete and can be sent a file that freezes them — and an unresponsive printer can be switched off. <b>A public blockchain cannot.</b></li>
+    <li>Every node must validate every transaction, running any contract it calls. Ethereum <b>cannot predict</b> whether a contract will terminate, or how long it will run, without running it.</li>
+    <li>So a contract can be written — by accident or on purpose — that runs forever when a node validates it. That is a <b>denial-of-service attack on the whole network</b>. Between "one millisecond" and "forever" lies an infinite range of resource-hogging, memory-bloating programs.</li>
+    <li>"In a world computer, a program that abuses resources gets to abuse the <b>world's</b> resources."</li>
+  </ul>
+  <div class="def"><b>Gas — the answer</b>A metering mechanism. As the EVM executes, it accounts for <b>every instruction</b>; each has a predetermined cost in gas. A transaction must include a <b>gas limit</b> setting the upper bound of what may be consumed. If execution exceeds the gas available, the EVM <b>terminates</b> it. Gas is how Ethereum permits Turing-complete computation while bounding the resources any program can consume.</div>
+  <div class="edge"><b>Extra marks</b>Gas <b>does not solve the halting problem</b> — that is mathematically unsolvable. It <b>sidesteps</b> it: rather than deciding in advance whether a program halts, Ethereum makes non-halting <b>expensive and self-limiting</b>. Every node knows execution stops when the gas runs out, without ever deciding whether it would have stopped on its own. State that distinction and the answer is complete.</div>
+  <div class="trap cram"><b>Exam trap</b>When a transaction runs out of gas, the state changes are <b>reverted</b> but the <b>gas is still consumed and paid</b>. The user pays for a failed transaction. That asymmetry is what makes the DoS attack uneconomic — and it is a favourite one-mark question.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">19.3</span>Verification challenges<span class="tag t-hi">★ high yield</span></h3>
+  <p>The syllabus pairs Turing completeness with "<b>verification challenges</b>" — why smart contracts are so hard to get right:</p>
+  <div class="tw"><table>
+  <thead><tr><th>Challenge</th><th>Why it is hard here specifically</th></tr></thead>
+  <tbody>
+  <tr><td><b>Undecidability</b></td><td>Turing completeness makes termination, and most interesting properties, formally undecidable (Rice's theorem)</td></tr>
+  <tr><td><b>Immutability</b></td><td>You cannot patch a deployed contract. Ordinary software ships a fix; a contract needs a proxy pattern designed <i>in advance</i></td></tr>
+  <tr><td><b>Adversarial and public</b></td><td>The bytecode is visible to everyone, and money sits behind it. Attackers are motivated and unbounded</td></tr>
+  <tr><td><b>Composability</b></td><td>Your contract calls contracts written by strangers, which may be malicious or may change</td></tr>
+  <tr><td><b>Reentrancy</b></td><td>An external call can re-enter your function before its state updates complete — the DAO bug</td></tr>
+  <tr><td><b>Gas as semantics</b></td><td>Correct code can still fail by exhausting gas; loops over unbounded arrays are a liveness bug</td></tr>
+  <tr><td><b>Integer overflow / underflow</b></td><td>Fixed-width arithmetic; unchecked before Solidity 0.8</td></tr>
+  <tr><td><b>Bad randomness</b></td><td>Determinism means no true randomness on-chain — <code>block.timestamp</code> and blockhash are miner/validator-influenceable</td></tr>
+  <tr><td><b>Oracle / front-running</b></td><td>External data must be trusted; the public mempool lets others reorder around you (MEV)</td></tr>
+  </tbody>
+</table></div>
+  <p><b>How the field responds:</b> defensive patterns (checks-effects-interactions, pull-over-push payments, reentrancy guards); audited libraries (<b>OpenZeppelin</b>); static analysers (<b>Slither</b>, <b>Mythril</b>); fuzzing (Echidna, Foundry); formal verification (the <b>K framework</b>, Certora, Solidity's SMTChecker); and deliberately simpler languages — <b>Vyper</b> drops modifiers, inheritance and recursion to make contracts auditable.</p>
+  <div class="edge"><b>Extra marks</b>Two cases, one line each. <b>The DAO (2016)</b>: a reentrant <code>withdraw</code> drained ~3.6M ETH and forced the hard fork that created Ethereum Classic. <b>Parity multisig (2017)</b>: an uninitialised library contract was made an owner and then <code>selfdestruct</code>ed, permanently freezing ~513,000 ETH. The first shows immutability is negotiable under enough pressure; the second shows it is not.</div>
+</div>
+
+      <h2 id="m2-terms">20 · Ethereum concepts and terminologies</h2>
+
+<div class="card">
+  <h3><span class="n">20.1</span>The glossary<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <p>"Define in detail about Ethereum Blockchain terminologies" is a 5-mark question that is pure recall. Learn this table.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+  <tbody>
+  <tr><td><b>EOA</b></td><td>Externally Owned Account — an account controlled by a <b>private key</b>. No code. Only an EOA can originate a transaction</td></tr>
+  <tr><td><b>Contract account</b></td><td>An account that holds <b>code</b> and storage; has no private key; acts only when called</td></tr>
+  <tr><td><b>Address</b></td><td>20 bytes (40 hex characters), the last 20 bytes of the Keccak-256 hash of the public key</td></tr>
+  <tr><td><b>Nonce</b></td><td>For an EOA: the count of transactions sent, preventing replay. For a contract: the number of contracts it has created</td></tr>
+  <tr><td><b>Ether / wei / gwei</b></td><td>Native currency; 1 ETH = 10¹⁸ wei; gas prices quoted in gwei = 10⁹ wei</td></tr>
+  <tr><td><b>Gas</b></td><td>The unit metering computation and storage</td></tr>
+  <tr><td><b>Gas limit</b></td><td>The maximum gas the sender will buy for this transaction (you pay only for gas actually used)</td></tr>
+  <tr><td><b>Base fee</b></td><td>EIP-1559: the mandatory minimum fee per gas, algorithmically set by block fullness and <b>burned</b></td></tr>
+  <tr><td><b>Priority fee</b></td><td>The tip paid to the validator to be included</td></tr>
+  <tr><td><b>EVM</b></td><td>Ethereum Virtual Machine — the stack-based, 256-bit-word runtime that executes contract bytecode</td></tr>
+  <tr><td><b>Opcode</b></td><td>A single EVM instruction (ADD, SSTORE, CALL…), each with a fixed gas cost</td></tr>
+  <tr><td><b>ABI</b></td><td>Application Binary Interface — the JSON description of a contract's functions and events; how a client encodes a call</td></tr>
+  <tr><td><b>Keccak-256</b></td><td>Ethereum's hash function. <b>Not</b> identical to the NIST SHA-3 standard (different padding)</td></tr>
+  <tr><td><b>RLP</b></td><td>Recursive Length Prefix — Ethereum's serialisation scheme for transactions and state</td></tr>
+  <tr><td><b>Merkle Patricia Trie</b></td><td>The data structure holding state, transactions and receipts; its root goes in the block header</td></tr>
+  <tr><td><b>State root</b></td><td>The single hash committing to the entire world state after a block</td></tr>
+  <tr><td><b>Receipt</b></td><td>The outcome record of a transaction: status, gas used, logs, bloom filter</td></tr>
+  <tr><td><b>Event / log</b></td><td>A cheap, indexed record a contract writes for off-chain consumers; not readable by contracts</td></tr>
+  <tr><td><b>Ommer (uncle)</b></td><td>A valid block that lost the race to be canonical; rewarded under PoW. Obsolete since the Merge</td></tr>
+  <tr><td><b>Slot / epoch</b></td><td>PoS timing: a 12-second slot proposes one block; 32 slots = one epoch (6.4 min)</td></tr>
+  <tr><td><b>Validator</b></td><td>A PoS participant with 32 ETH staked, who proposes and attests to blocks</td></tr>
+  <tr><td><b>Fork</b></td><td>A protocol change. <b>Soft</b> = backward-compatible; <b>hard</b> = not, all nodes must upgrade</td></tr>
+  <tr><td><b>EIP / ERC</b></td><td>Ethereum Improvement Proposal; ERC is the application-standards track (ERC-20, ERC-721)</td></tr>
+  <tr><td><b>DAO</b></td><td>Decentralised Autonomous Organisation — governance encoded in contracts</td></tr>
+  <tr><td><b>Oracle</b></td><td>A service bringing off-chain data on-chain (Chainlink) — the EVM cannot make network calls</td></tr>
+  <tr><td><b>Testnet / faucet</b></td><td>A test network (Sepolia, Holešky) with valueless ETH dispensed by a faucet</td></tr>
+  <tr><td><b>Chain ID</b></td><td>Identifies the network (mainnet = 1, Sepolia = 11155111); prevents cross-chain replay</td></tr>
+  <tr><td><b>Gwei burn / EIP-1559</b></td><td>Base fees are destroyed, making ETH supply deflationary under load</td></tr>
+  </tbody>
+</table></div>
+</div>
+
+<div class="card">
+  <h3><span class="n">20.2</span>The Ethereum Virtual Machine<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>EVM</b>A <b>quasi-Turing-complete</b>, <b>stack-based</b> virtual machine with a <b>256-bit word</b> size, which executes contract bytecode deterministically on every node. "Quasi" because computation is bounded by gas. It is <b>sandboxed</b> — contract code cannot access the network, the filesystem, or other processes.</div>
+  <figure><svg viewBox="0 0 520 200" role="img" aria-label="EVM architecture: stack, memory, storage, calldata, code">
+  <rect x="14" y="24" width="110" height="150" rx="6" class="svg-b" stroke="var(--cyan)"/>
+  <text class="svg-t" x="69" y="18" text-anchor="middle" fill="var(--cyan)">Stack</text>
+  <text class="svg-l" x="24" y="48">LIFO, max 1024</text>
+  <text class="svg-l" x="24" y="66">256-bit words</text>
+  <text class="svg-l" x="24" y="84">volatile</text>
+  <text class="svg-l" x="24" y="110">3 gas / op</text>
+  <rect x="140" y="24" width="110" height="70" rx="6" class="svg-b" stroke="var(--green)"/>
+  <text class="svg-t" x="195" y="18" text-anchor="middle" fill="var(--green)">Memory</text>
+  <text class="svg-l" x="150" y="48">byte array</text>
+  <text class="svg-l" x="150" y="66">volatile, per call</text>
+  <text class="svg-l" x="150" y="84">expands, costs gas</text>
+  <rect x="140" y="104" width="110" height="70" rx="6" class="svg-b" stroke="var(--pink)"/>
+  <text class="svg-t" x="195" y="100" text-anchor="middle" fill="var(--pink)">Storage</text>
+  <text class="svg-l" x="150" y="128">key→value, 256-bit</text>
+  <text class="svg-l" x="150" y="146"><tspan fill="var(--red)">PERSISTENT</tspan></text>
+  <text class="svg-l" x="150" y="164">SSTORE = 20,000 gas</text>
+  <rect x="266" y="24" width="110" height="70" rx="6" class="svg-b" stroke="var(--yellow)"/>
+  <text class="svg-t" x="321" y="18" text-anchor="middle" fill="var(--yellow)">Calldata</text>
+  <text class="svg-l" x="276" y="48">read-only</text>
+  <text class="svg-l" x="276" y="66">the call's input</text>
+  <rect x="266" y="104" width="110" height="70" rx="6" class="svg-b" stroke="var(--purple)"/>
+  <text class="svg-t" x="321" y="100" text-anchor="middle" fill="var(--purple)">Code</text>
+  <text class="svg-l" x="276" y="128">immutable</text>
+  <text class="svg-l" x="276" y="146">bytecode</text>
+  <rect x="392" y="24" width="114" height="150" rx="6" class="svg-b" stroke="var(--ink-3)"/>
+  <text class="svg-t" x="449" y="18" text-anchor="middle" fill="var(--ink-3)">Environment</text>
+  <text class="svg-l" x="402" y="48">msg.sender</text>
+  <text class="svg-l" x="402" y="66">msg.value</text>
+  <text class="svg-l" x="402" y="84">block.number</text>
+  <text class="svg-l" x="402" y="102">block.timestamp</text>
+  <text class="svg-l" x="402" y="120">gasleft()</text>
+  <text class="svg-l" x="402" y="146">world state</text>
+</svg><figcaption>Draw these five regions and label which are volatile and which persist — that is the "labelled diagram" the past paper asks for.</figcaption></figure>
+  <div class="tw"><table>
+  <thead><tr><th>Region</th><th>Lifetime</th><th>Cost</th></tr></thead>
+  <tbody>
+  <tr><td><b>Stack</b></td><td>One call; max 1024 items of 32 bytes</td><td>Cheapest (~3 gas)</td></tr>
+  <tr><td><b>Memory</b></td><td>One call; wiped after</td><td>Cheap, grows quadratically when expanded</td></tr>
+  <tr><td><b>Storage</b></td><td><b>Permanent</b>, part of world state</td><td><b>Very expensive</b> — 20,000 gas for a zero→non-zero SSTORE</td></tr>
+  <tr><td><b>Calldata</b></td><td>One call, read-only</td><td>Cheapest input source</td></tr>
+  <tr><td><b>Code</b></td><td>Permanent, immutable</td><td>Paid once at deployment (200 gas/byte)</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>Explain <b>bytecode interpretation</b> — a named past-paper topic. Solidity compiles to a byte string; the EVM reads one byte at a time, each byte being an <b>opcode</b>. <code>0x60</code> is PUSH1 (take the next byte as data), <code>0x01</code> is ADD (pop two, push the sum), <code>0x55</code> is SSTORE. So <code>0x6002600301</code> = PUSH1 2, PUSH1 3, ADD, leaving 5 on the stack. Work that example and the 4-mark question is finished.</div>
+</div>
+
+      <h2 id="m2-client">21 · Ethereum client</h2>
+
+<div class="card">
+  <h3><span class="n">21.1</span>Node vs client, and the post-Merge split<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Ethereum client</b>A software implementation of the Ethereum specification that verifies transactions and blocks against the consensus rules and communicates with other nodes over the P2P network. A <b>node</b> is a running instance of client software.</div>
+  <p><b>The change every answer must reflect:</b> before The Merge, one client did everything. Since <b>15 September 2022</b>, a full Ethereum node runs <b>two</b> pieces of software simultaneously:</p>
+  <div class="tw"><table>
+  <thead><tr><th>Client</th><th>Responsibility</th><th>Implementations</th></tr></thead>
+  <tbody>
+  <tr><td><b>Execution client</b> (EL)</td><td>Receives transactions, executes them in the <b>EVM</b>, maintains state, verifies correctness, serves the <b>JSON-RPC API</b></td><td><b>Geth</b> (Go), <b>Nethermind</b> (C#), <b>Besu</b> (Java), <b>Erigon</b> (Go), <b>Reth</b> (Rust)</td></tr>
+  <tr><td><b>Consensus client</b> (CL)</td><td>Runs the <b>PoS</b> protocol (Gasper) so all nodes agree on one history; handles slots, epochs, attestations, forks</td><td><b>Lighthouse</b> (Rust), <b>Prysm</b> (Go), <b>Teku</b> (Java), <b>Nimbus</b> (Nim), <b>Lodestar</b> (TypeScript)</td></tr>
+  </tbody>
+</table></div>
+  <p>The two talk over the <b>Engine API</b>, authenticated with a shared <b>JWT secret</b>. Different teams write them in different languages, but they interoperate because they follow the same specification — <b>client diversity</b> is treated as a security property: a bug in one implementation inconveniences its developers while the rest of the network keeps running.</p>
+  <p>Ethereum was originally defined by the <b>Yellow Paper</b> (Gavin Wood) — a combined English and mathematical specification. The community is moving to executable Python reference specifications for both execution and consensus.</p>
+</div>
+
+<div class="card">
+  <h3><span class="n">21.2</span>Types of node<span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>Type</th><th>Stores</th><th>Trust</th><th>Use</th></tr></thead>
+  <tbody>
+  <tr><td><b>Full node</b></td><td>All blocks and current state; re-executes everything</td><td>Trustless — verifies for itself</td><td>Authoritative validation; ~2 TB of disk (2025)</td></tr>
+  <tr><td><b>Archive node</b></td><td>Full node <i>plus every historical state</i></td><td>Trustless</td><td>Explorers, analytics; many terabytes</td></tr>
+  <tr><td><b>Light client</b></td><td>Block <b>headers</b> only</td><td>Near-full — validates headers and uses <b>Merkle proofs</b> to check inclusion</td><td>Constrained devices</td></tr>
+  <tr><td><b>Remote client</b> / wallet</td><td><b>Nothing</b></td><td><b>Fully trusts</b> a remote full node</td><td>MetaMask, Rabby, Coinbase Wallet</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Full node advantages:</b> supports the network's resilience and censorship resistance; authoritatively validates every transaction; interacts with and deploys contracts without an intermediary; queries state offline; best privacy. <b>Disadvantages:</b> large and growing disk, bandwidth and sync time.</p>
+  <p><b>You do not need mainnet to develop.</b> Use a testnet node, a local chain (<b>Anvil</b>, Hardhat Network, Ganache), or a hosted node API (<b>Infura</b>, <b>Alchemy</b>).</p>
+  <div class="trap cram"><b>Exam trap</b>A <b>remote client is not a light client</b>. A light client validates block headers and verifies inclusion with Merkle proofs, giving security close to a full node. A remote client validates <b>nothing</b> — it trusts whichever node it is pointed at, and so loses both security and privacy guarantees. Mixing these up is the classic mistake in this topic.</div>
+</div>
+
+      <h2 id="m2-mist">22 · Mist Wallet &amp; the wallet landscape</h2>
+
+<div class="card">
+  <h3><span class="n">22.1</span>Mist<span class="tag t-past">named in syllabus</span></h3>
+  <div class="def"><b>Mist</b>The <b>official Ethereum browser and wallet</b> from the Ethereum Foundation (2015–2019). Built on Electron, it bundled a Geth node, an account manager, a contract deployment and interaction UI, and — its ambition — a <b>Web3-enabled browser</b> for browsing DApps directly, with <code>web3.js</code> injected into every page.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Aspect</th><th>Mist</th></tr></thead>
+  <tbody>
+  <tr><td>What it was</td><td>DApp browser + wallet + node, in one desktop application</td></tr>
+  <tr><td>Key features</td><td>Create/import accounts, send ether, <b>multi-signature wallet contracts</b>, deploy and call contracts, watch tokens</td></tr>
+  <tr><td>Ethereum Wallet</td><td>A cut-down build of Mist with the browser disabled — wallet functions only</td></tr>
+  <tr><td>Keys</td><td>Stored locally as <b>encrypted keystore JSON (UTC/ v3)</b> files, unlocked by a password</td></tr>
+  <tr><td><b>Status</b></td><td><b>Discontinued 31 March 2019.</b> Reasons: the security surface of a full browser, the burden of syncing a full node just to open a wallet, and the rise of MetaMask</td></tr>
+  </tbody>
+</table></div>
+  <div class="trap cram"><b>Exam trap</b>Mist is <b>deprecated</b>. Write about it in the past tense, then say what replaced it and why — an answer that presents Mist as the current recommended wallet reads as unread notes. The examiner's own syllabus is dated; showing you know that is a positive, not a risk.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">22.2</span>Wallets — the concepts that are actually examinable<span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Wallet</b>Software that manages <b>private keys</b> and constructs and signs transactions. A wallet does <b>not</b> store ether — ether exists only as balances in the world state. What the wallet holds is the key that authorises moving it.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Distinction</th><th>Meaning</th></tr></thead>
+  <tbody>
+  <tr><td><b>Custodial vs non-custodial</b></td><td>Who holds the private key — an exchange, or you. "Not your keys, not your coins"</td></tr>
+  <tr><td><b>Hot vs cold</b></td><td>Connected to the internet (convenient, exposed) vs offline (hardware/paper, safe)</td></tr>
+  <tr><td><b>Nondeterministic ("JBOK")</b></td><td>Just-a-Bunch-Of-Keys — each key generated randomly and backed up separately. Obsolete</td></tr>
+  <tr><td><b>Deterministic / HD</b></td><td>All keys derived from one <b>seed</b> via a tree — <b>BIP-32</b> (HD), <b>BIP-39</b> (12/24-word mnemonic), <b>BIP-44</b> (derivation path <code>m/44'/60'/0'/0/n</code>, where <b>60</b> is Ethereum's coin type)</td></tr>
+  <tr><td><b>Keystore file</b></td><td>The private key encrypted under a password with scrypt/PBKDF2 — the format Mist and Geth use</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Today's landscape:</b> <b>MetaMask</b> (browser extension, injects a provider at <code>window.ethereum</code>, connects to any Geth-compatible RPC), Rabby, Coinbase Wallet; hardware wallets <b>Ledger</b> and <b>Trezor</b> keep the key in a secure element and sign inside the device; smart-contract wallets (Safe, ERC-4337) add multisig, social recovery and gas sponsorship.</p>
+  <div class="edge"><b>Extra marks</b>The seed phrase <b>is</b> the wallet. Twelve BIP-39 words regenerate every key on every device — which is why they are never typed into a website, and why "wallet recovery" means restoring a seed, not resetting a password. There is no password reset on a blockchain; that is the UX cost of self-custody.</div>
+</div>
+
+      <h2 id="m2-accounts">23 · Accounts</h2>
+
+<div class="card">
+  <h3><span class="n">23.1</span>The two account types<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
   <div class="tw"><table>
   <thead><tr><th></th><th>Externally Owned Account (EOA)</th><th>Contract Account</th></tr></thead>
-  <tbody><tr><td>Controlled by</td><td>A private key</td><td>Its own code</td></tr><tr><td>Can initiate a tx?</td><td>Yes (signs transactions)</td><td>No — only reacts to being called</td></tr><tr><td>Has code?</td><td>No</td><td>Yes</td></tr></tbody>
-</table></div><figure><svg viewBox="0 0 500 150" role="img" aria-label="EOA and contract account transactions">
-  <rect x="20" y="20" width="120" height="44" rx="6" fill="rgba(0,229,255,.12)" stroke="var(--cyan)"/><text class="svg-t" x="80" y="40" text-anchor="middle" fill="var(--cyan)">EOA</text><text class="svg-l" x="80" y="56" text-anchor="middle">has private key</text>
-  <rect x="20" y="90" width="120" height="44" rx="6" fill="rgba(157,123,255,.12)" stroke="var(--purple)"/><text class="svg-t" x="80" y="110" text-anchor="middle" fill="var(--purple)">Contract acct</text><text class="svg-l" x="80" y="126" text-anchor="middle">controlled by code</text>
-  <rect x="360" y="20" width="120" height="44" rx="6" fill="rgba(0,229,255,.12)" stroke="var(--cyan)"/><text class="svg-t" x="420" y="46" text-anchor="middle" fill="var(--cyan)">EOA</text>
-  <rect x="360" y="90" width="120" height="44" rx="6" fill="rgba(157,123,255,.12)" stroke="var(--purple)"/><text class="svg-t" x="420" y="116" text-anchor="middle" fill="var(--purple)">Contract</text>
-  <line x1="140" y1="42" x2="360" y2="42" stroke="var(--green)" marker-end="url(#t)"/><text class="svg-l" x="250" y="35" text-anchor="middle" fill="var(--green)">signed tx: value transfer</text>
-  <line x1="140" y1="55" x2="360" y2="105" stroke="var(--green)" marker-end="url(#t)"/><text class="svg-l" x="250" y="90" text-anchor="middle" fill="var(--green)">signed tx: code execution</text>
-  <line x1="140" y1="112" x2="360" y2="120" stroke="var(--ink-3)" stroke-dasharray="3 3" marker-end="url(#t)"/><text class="svg-l" x="250" y="132" text-anchor="middle">internal (unsigned) message</text>
-  <defs><marker id="t" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="var(--ink-2)"/></marker></defs>
-</svg><figcaption>Only an EOA can start a transaction. Contract-to-contract or contract-to-EOA calls are internal “messages”, not independently signed.</figcaption></figure><p>An address is <b>20 bytes</b>, derived from the public key, which is derived from the private key. Ethereum uses the <b>account/balance model with a per-account nonce</b> — contrast Bitcoin’s <b>UTXO</b> model. The nonce (count of txs sent) prevents replay.</p>
-</div><div class="card">
-  <h3><span class="n">2.4</span>Wallets & keys</h3>
-  <p>A wallet is a <b>keychain</b>, not a store of ether — the ether lives on-chain; the wallet holds the keys that control it.</p><ul><li><b>Non-deterministic (JBOK)</b> — “just a bunch of keys”, each random and unrelated. Hard to back up; discouraged.</li><li><b>Deterministic (HD) wallet</b> — all keys derived from one seed in a tree (<b>BIP-32</b>). One backup recovers everything.</li><li><b>Mnemonic seed (BIP-39)</b> — the seed encoded as 12/24 words (MetaMask). The only way to restore the wallet; keep it offline.</li></ul><p><b>Mist</b> = the historical official full-node GUI wallet. <b>MetaMask</b> = the lightweight browser-extension wallet talking to a node over JSON-RPC.</p>
-</div>
-<h2 id="m2-tx">Transactions, gas &amp; the EVM</h2>
-<div class="card">
-  <h3><span class="n">2.5</span>Transaction structure<span class="tag t-hi">★ high yield</span><span class="tag t-past">past paper</span></h3>
-  <div class="def"><b>Transaction</b>A <b>signed message from an EOA</b>, transmitted by the network and recorded on-chain. It is the <b>only</b> thing that changes state or triggers contract code — contracts never run on their own.</div><div class="tw"><table>
+  <tbody>
+  <tr><td>Controlled by</td><td>A <b>private key</b></td><td>Its own <b>code</b></td></tr>
+  <tr><td>Has code?</td><td>No</td><td>Yes</td></tr>
+  <tr><td>Can start a transaction?</td><td><b>Yes — only EOAs can</b></td><td>No; it can only send internal messages when called</td></tr>
+  <tr><td>Created by</td><td>Generating a keypair — free, offline</td><td>Deploying, via a transaction that costs gas</td></tr>
+  <tr><td>Address from</td><td>Keccak-256 of the public key, last 20 bytes</td><td>Keccak-256(RLP(creator address, nonce)), last 20 bytes — or <code>CREATE2</code> for a deterministic address</td></tr>
+  <tr><td>Holds ether?</td><td>Yes</td><td>Yes</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Account state — the four fields</b> stored for every account in the state trie:</p>
+  <div class="tw"><table>
   <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
-  <tbody><tr><td>Nonce</td><td>Count of txs from this account (prevents replay)</td></tr><tr><td>Gas price</td><td>Wei the sender pays per unit of gas</td></tr><tr><td>Gas limit</td><td>Max gas the sender will buy for this tx</td></tr><tr><td>Recipient (to)</td><td>20-byte destination address (EOA or contract)</td></tr><tr><td>Value</td><td>Ether to send</td></tr><tr><td>Data</td><td>Payload — contract call / creation bytecode</td></tr><tr><td>v, r, s</td><td>The ECDSA signature components (no explicit “from” — it’s recovered from these)</td></tr></tbody>
-</table></div><p>Serialised with <b>RLP (Recursive Length Prefix)</b> encoding. The four value/data combinations: value only = <b>payment</b>; data only = <b>invocation</b>; both = payment + invocation; neither = empty tx.</p>
-</div><div class="card">
-  <h3><span class="n">2.6</span>Gas<span class="tag t-hi">★ high yield</span></h3>
-  <div class="def"><b>Gas</b>The fuel of Ethereum — a <b>separate unit from ether</b> that meters computation. Every EVM opcode costs gas; you pay <code>gas used × gas price</code> in ether.</div><p><b>Gas limit</b> caps the work a tx can do, so an infinite loop drains only the limit, not your whole balance. Unused gas is refunded. Higher gas price → faster confirmation. Post-<b>EIP-1559</b> the fee splits into <code>maxFeePerGas</code> and <code>maxPriorityFeePerGas</code> (a base fee is burned + a tip to the validator).</p><div class="edge"><b>Extra marks</b>Tie gas back to Turing-completeness (card 2.1): gas is the <b>economic substitute for formal verification</b> — you can’t prove a contract halts, so you meter and bound it at runtime instead. Making that link is a distinction-level point.</div>
-</div><div class="card">
-  <h3><span class="n">2.7</span>The EVM & Solidity<span class="tag t-past">past paper</span></h3>
-  <p>The <b>EVM</b> is a stack-based, Turing-complete virtual machine that every node runs identically; Solidity compiles to <b>EVM bytecode</b>. It’s Q10a on the past paper (“EVM with labelled diagram”) — sketch: transaction → EVM (stack + memory + storage, reads world state) → updated state.</p><pre><code><span class="kw">pragma</span> solidity ^0.8.0;
+  <tbody>
+  <tr><td><b>nonce</b></td><td>EOA: transactions sent. Contract: contracts created</td></tr>
+  <tr><td><b>balance</b></td><td>Wei owned by this address</td></tr>
+  <tr><td><b>storageRoot</b></td><td>Root hash of this account's storage trie (empty for an EOA)</td></tr>
+  <tr><td><b>codeHash</b></td><td>Keccak-256 of the account's code. For an EOA this is the hash of the empty string — <b>that is how you tell them apart on-chain</b></td></tr>
+  </tbody>
+</table></div>
+</div>
+
+<div class="card">
+  <h3><span class="n">23.2</span>Private key → public key → address<span class="tag t-hi">★ high yield</span></h3>
+  <ol>
+    <li><b>Private key</b> — a random 256-bit number <i>k</i>, valid if 0 &lt; k &lt; n (n = the order of the secp256k1 curve). 32 bytes, 64 hex characters.</li>
+    <li><b>Public key</b> — <i>K = k · G</i>, elliptic-curve point multiplication on <b>secp256k1</b>. G is the generator point. This is <b>one-way</b>: deriving k from K is the discrete-logarithm problem.</li>
+    <li><b>Address</b> — take the 64-byte uncompressed public key (drop the <code>04</code> prefix), hash with <b>Keccak-256</b>, keep the <b>last 20 bytes</b>, prefix with <code>0x</code>.</li>
+  </ol>
+  <figure><svg viewBox="0 0 520 90" role="img" aria-label="Key derivation chain">
+  <rect x="8" y="26" width="112" height="40" rx="6" class="svg-b" stroke="var(--red)"/>
+  <text class="svg-l" x="64" y="43" text-anchor="middle" fill="var(--red)">private key</text>
+  <text class="svg-l" x="64" y="58" text-anchor="middle" fill="var(--ink-3)">256-bit random</text>
+  <rect x="184" y="26" width="112" height="40" rx="6" class="svg-b" stroke="var(--yellow)"/>
+  <text class="svg-l" x="240" y="43" text-anchor="middle" fill="var(--yellow)">public key</text>
+  <text class="svg-l" x="240" y="58" text-anchor="middle" fill="var(--ink-3)">K = k·G</text>
+  <rect x="360" y="26" width="112" height="40" rx="6" class="svg-b" stroke="var(--green)"/>
+  <text class="svg-l" x="416" y="43" text-anchor="middle" fill="var(--green)">address</text>
+  <text class="svg-l" x="416" y="58" text-anchor="middle" fill="var(--ink-3)">last 20 B of hash</text>
+  <line x1="120" y1="46" x2="184" y2="46" stroke="var(--yellow)" marker-end="url(#h4)"/>
+  <line x1="296" y1="46" x2="360" y2="46" stroke="var(--green)" marker-end="url(#h4)"/>
+  <text class="svg-t" x="152" y="20" text-anchor="middle" fill="var(--ink-3)">secp256k1</text>
+  <text class="svg-t" x="328" y="20" text-anchor="middle" fill="var(--ink-3)">Keccak-256</text>
+  <text class="svg-t" x="152" y="82" text-anchor="middle" fill="var(--ink-3)">one-way</text>
+  <text class="svg-t" x="328" y="82" text-anchor="middle" fill="var(--ink-3)">one-way</text>
+  <defs><marker id="h4" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor"/></marker></defs>
+</svg><figcaption>Both arrows are one-way. This is why losing a private key is final, and why an address reveals nothing about its key.</figcaption></figure>
+  <p><b>EIP-55 checksum:</b> Ethereum addresses have no built-in checksum, so EIP-55 encodes one in the <b>capitalisation</b> of the hex letters — a wallet can detect a mistyped address without changing the address format.</p>
+  <div class="trap cram"><b>Exam trap</b>Ethereum uses <b>Keccak-256</b>, not the finalised NIST <b>SHA-3</b>. Ethereum adopted Keccak before standardisation and the padding differs, so the two produce different digests. Also: the transaction has <b>no "from" field</b> — the sender's public key, and hence the address, is <b>recovered from the ECDSA signature</b> (v, r, s). Explorers add the "from" column for display.</div>
+</div>
+
+      <h2 id="m2-solidity">24 · Ethereum smart contracts in practice</h2>
+
+<div class="card">
+  <h3><span class="n">24.1</span>Anatomy of a Solidity contract<span class="tag t-hi">★ high yield</span></h3>
+  <pre><code><span class="cm">// SPDX-License-Identifier: MIT</span>
+<span class="kw">pragma</span> solidity ^0.8.20;            <span class="cm">// compiler version</span>
 
 <span class="kw">contract</span> <span class="fn">SimpleStorage</span> {
-    <span class="kw">uint256</span> storedData;
+    <span class="kw">address</span> <span class="kw">public</span> owner;          <span class="cm">// state var → STORAGE (persistent)</span>
+    <span class="kw">uint256</span> <span class="kw">private</span> value;
 
-    <span class="kw">function</span> <span class="fn">set</span>(<span class="kw">uint256</span> x) <span class="kw">public</span> {
-        storedData = x;
+    <span class="kw">event</span> <span class="fn">ValueChanged</span>(<span class="kw">address</span> <span class="kw">indexed</span> by, <span class="kw">uint256</span> newValue);
+
+    <span class="kw">modifier</span> <span class="fn">onlyOwner</span>() {
+        <span class="fn">require</span>(msg.sender == owner, <span class="st">"not owner"</span>);
+        _;                          <span class="cm">// body of the modified function runs here</span>
     }
-    <span class="kw">function</span> <span class="fn">get</span>() <span class="kw">public</span> view <span class="kw">returns</span> (<span class="kw">uint256</span>) {
-        <span class="kw">return</span> storedData;
+
+    <span class="kw">constructor</span>() { owner = msg.sender; }   <span class="cm">// runs once, at deployment</span>
+
+    <span class="kw">function</span> <span class="fn">set</span>(<span class="kw">uint256</span> v) <span class="kw">external</span> <span class="fn">onlyOwner</span> {
+        value = v;                  <span class="cm">// SSTORE — expensive</span>
+        <span class="kw">emit</span> <span class="fn">ValueChanged</span>(msg.sender, v);
     }
-}</code></pre><p><b>Web3.js</b> is the JS library that talks to a node over <b>JSON-RPC</b> (<code>eth_sendTransaction</code>, <code>eth_getBalance</code>) — the front-end path. A Java app uses Web3j and explicit RPC calls instead (Q10b: Java-RPC vs JavaScript native).</p><div class="edge"><b>Extra marks</b><b>ERC-20</b> is the fungible-token standard (functions <code>transfer</code>, <code>approve</code>, <code>balanceOf</code>). Naming it, plus <b>ERC-721</b> for NFTs, adds easy marks to any “tokens / standards” question.</div>
-</div>
-<h2 id="m2-testnets">Clients, testnets &amp; worked examples</h2>
-<div class="card">
-  <h3><span class="n">2.8</span>Clients & testnets</h3>
-  <p><b>Geth</b> (“Go Ethereum”) is the reference client. Historic testnets and their consensus: <b>Ropsten</b> = PoW; <b>Kovan</b> and <b>Rinkeby</b> = Proof of Authority (ether requested, not mined). Test ether comes from faucets and has no value.</p><p><b>Testnet vs local chain:</b> a testnet is a live public chain with other users (realistic, slower to sync); a local chain (e.g. Ganache) is instant and private but behaves nothing like the real network.</p>
-</div><div class="card">
-  <h3><span class="n">2.9</span>Worked example — Faucet.sol<span class="tag t-hi">★ high yield</span></h3>
-  <p>The deck’s canonical state-transition example, worth reproducing to show you understand value vs invocation:</p><div class="tw"><table>
-  <thead><tr><th>Tx from EOA (bal 40) to Faucet (bal 20)</th><th>What runs</th><th>Result</th></tr></thead>
-  <tbody><tr><td>Send 20 ETH, no data</td><td>fallback function</td><td>EOA 20, Faucet 40</td></tr><tr><td>Data: withdraw(1)</td><td>withdraw() pays out 1</td><td>EOA 41, Faucet 19</td></tr><tr><td>Data: withdraw(2) — too much</td><td>withdraw() reverts</td><td>State unchanged (failed)</td></tr></tbody>
-</table></div><div class="ask"><b>Likely question</b>Past-paper essays to prep: <b>Hyperledger Fabric transaction flow</b> (Q12), <b>blockchain in Healthcare / Supply Chain / Digital Identity</b> (Q14, Q15). Structure each as: problem with the centralised system → what the blockchain adds (immutability, shared ledger, no middleman) → one concrete example.</div>
+
+    <span class="kw">function</span> <span class="fn">get</span>() <span class="kw">external</span> <span class="kw">view</span> <span class="kw">returns</span> (<span class="kw">uint256</span>) {
+        <span class="kw">return</span> value;               <span class="cm">// view → free when called off-chain</span>
+    }
+
+    <span class="kw">receive</span>() <span class="kw">external</span> <span class="kw">payable</span> {}      <span class="cm">// plain ether transfers land here</span>
+}</code></pre>
+  <div class="tw"><table>
+  <thead><tr><th>Element</th><th>Purpose</th></tr></thead>
+  <tbody>
+  <tr><td><code>pragma</code></td><td>Pins the compiler version — a real safety measure, not boilerplate</td></tr>
+  <tr><td>State variables</td><td>Live in <b>storage</b>, persist between calls, cost 20,000 gas to first write</td></tr>
+  <tr><td><code>constructor</code></td><td>Executes once during deployment, then is discarded</td></tr>
+  <tr><td>Visibility</td><td><code>public</code> · <code>external</code> · <code>internal</code> · <code>private</code></td></tr>
+  <tr><td>Mutability</td><td><code>view</code> (reads state) · <code>pure</code> (reads nothing) · <code>payable</code> (accepts ether)</td></tr>
+  <tr><td><code>modifier</code></td><td>Reusable pre/post-conditions; <code>_;</code> marks where the function body runs</td></tr>
+  <tr><td><code>event</code> / <code>emit</code></td><td>Writes a log for off-chain listeners — far cheaper than storage. <b>Contracts cannot read logs</b></td></tr>
+  <tr><td><code>require</code> / <code>revert</code></td><td>Validate input; reverts all state changes and refunds unused gas</td></tr>
+  <tr><td><code>fallback</code> / <code>receive</code></td><td>Called for unknown selectors / plain ether transfers</td></tr>
+  <tr><td>Data location</td><td><code>storage</code> (persistent) · <code>memory</code> (per-call) · <code>calldata</code> (read-only input)</td></tr>
+  </tbody>
+</table></div>
 </div>
 
-      <div class="mod">Beyond the decks · exam scope</div>
-      <h2 id="x-gaps">What’s missing &amp; how the paper is set</h2>
 <div class="card">
-  <h3>Gaps to be aware of<span class="tag t-add">+ added</span></h3>
-  <p>The 20CIC08 past paper (a real prior exam) shows the examiners lean on platforms and theory <b>not</b> in your slides — flagged so you fill them, not discover them cold:</p><ul><li><b>Hyperledger Fabric</b> transaction flow, membership/identity, Composer — covered only in the added table (1.6). Read a Fabric flow diagram before the exam.</li><li><b>IBM Blockchain, BigChainDB, IPFS, DApps</b> — one-liners in table 1.6; expand IPFS (content-addressed storage, CIDs) and DApps (contract back end) if you have time.</li><li><b>Byzantine Generals / PBFT</b> — card 1.3.</li><li><b>EVM internal diagram</b> — sketch from card 2.7; the decks name the EVM but never diagram it.</li></ul><div class="edge"><b>Extra marks</b>If asked “what consensus does Ethereum use”, the correct 2026 answer is <b>Proof of Stake</b> — do not default to the PoW narrative the big deck teaches. That single fact is the most likely trap in the paper.</div>
+  <h3><span class="n">24.2</span>Deployment, the ABI, and the token standards</h3>
+  <p><b>Deployment:</b> compile → bytecode + ABI. Send a transaction with <b>no recipient</b> (<code>to</code> empty) and the <b>init bytecode</b> as <code>data</code>. The EVM runs the init code, stores what it returns as the contract's runtime code, and assigns the address <code>keccak256(rlp(sender, nonce))[12:]</code>.</p>
+  <p><b>ABI:</b> the JSON contract interface. A function call is encoded as a <b>4-byte selector</b> — the first four bytes of <code>keccak256("set(uint256)")</code> — followed by 32-byte-padded arguments. This is exactly what <code>web3.js</code> builds for you, and why a client needs the ABI to talk to a contract.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Standard</th><th>What it defines</th><th>Core interface</th></tr></thead>
+  <tbody>
+  <tr><td><b>ERC-20</b></td><td>Fungible tokens</td><td><code>totalSupply</code>, <code>balanceOf</code>, <code>transfer</code>, <code>approve</code>, <code>transferFrom</code>, <code>allowance</code> + <code>Transfer</code>/<code>Approval</code> events</td></tr>
+  <tr><td><b>ERC-721</b></td><td>Non-fungible tokens</td><td><code>ownerOf</code>, <code>safeTransferFrom</code>, <code>tokenURI</code> (usually an IPFS CID)</td></tr>
+  <tr><td><b>ERC-1155</b></td><td>Multi-token, batch transfers</td><td>Fungible and non-fungible in one contract</td></tr>
+  <tr><td><b>ERC-4337</b></td><td>Account abstraction</td><td>Smart-contract wallets, UserOperations, bundlers, paymasters — no protocol change needed</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>Say why standards matter: a wallet or exchange can support <b>any</b> ERC-20 token without knowing it exists, because the interface is fixed. Interoperability by interface is the reason the token ecosystem grew as fast as it did.</div>
 </div>
+
+      <h2 id="m2-web3">25 · Web3.js and RPC protocols</h2>
+
+<div class="card">
+  <h3><span class="n">25.1</span>The JSON-RPC interface<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>JSON-RPC API</b>The interface an Ethereum <b>execution client</b> exposes so applications can query the blockchain and submit transactions. It follows the <b>JSON-RPC 2.0</b> specification and is served over HTTP, WebSocket or IPC.</div>
+  <p>Every request carries four fields:</p>
+  <div class="tw"><table>
+  <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+  <tbody>
+  <tr><td><code>jsonrpc</code></td><td>Protocol version — must be exactly <code>"2.0"</code></td></tr>
+  <tr><td><code>method</code></td><td>The procedure to call, e.g. <code>eth_getBalance</code></td></tr>
+  <tr><td><code>params</code></td><td>An array of arguments</td></tr>
+  <tr><td><code>id</code></td><td>A caller-chosen identifier echoed in the response, so replies can be matched to requests</td></tr>
+  </tbody>
+</table></div>
+  <pre><code><span class="cm"># the raw call — this is what web3.js sends underneath</span>
+curl -X POST -H <span class="st">"Content-Type: application/json"</span> \
+  --data <span class="st">'{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":1}'</span> \
+  http://localhost:8545
+
+<span class="cm"># → {"jsonrpc":"2.0","id":1,"result":"Geth/v1.14.3-stable/linux-amd64/go1.22"}</span></code></pre>
+  <div class="tw"><table>
+  <thead><tr><th>Method</th><th>Returns</th></tr></thead>
+  <tbody>
+  <tr><td><code>web3_clientVersion</code></td><td>Which client and version is serving you</td></tr>
+  <tr><td><code>net_version</code> / <code>eth_chainId</code></td><td>Which network you are on</td></tr>
+  <tr><td><code>eth_blockNumber</code></td><td>Latest block height (hex)</td></tr>
+  <tr><td><code>eth_getBalance</code></td><td>Balance of an address in wei, at a given block</td></tr>
+  <tr><td><code>eth_getTransactionCount</code></td><td>The account nonce — needed to build the next transaction</td></tr>
+  <tr><td><code>eth_call</code></td><td><b>Read-only</b> contract execution — no transaction, no gas, no state change</td></tr>
+  <tr><td><code>eth_estimateGas</code></td><td>Predicted gas for a call</td></tr>
+  <tr><td><code>eth_sendRawTransaction</code></td><td>Broadcast an <b>already signed</b> transaction</td></tr>
+  <tr><td><code>eth_getTransactionReceipt</code></td><td>Outcome: status, gas used, logs</td></tr>
+  <tr><td><code>eth_getLogs</code></td><td>Query past events by topic</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Batching:</b> several calls may be sent as a JSON array in one request to avoid per-call overhead — but responses may return <b>out of order</b>, so match them by <code>id</code>.</p>
+  <div class="trap cram"><b>Exam trap</b><code>eth_call</code> vs <code>eth_sendTransaction</code> is the distinction to get right: <code>eth_call</code> simulates locally on one node — instant, free, changes nothing. <code>eth_sendRawTransaction</code> broadcasts a signed transaction that costs gas and, once mined, changes state for everyone. In Solidity terms: <code>view</code>/<code>pure</code> functions go through <code>call</code>; everything else is a transaction.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">25.2</span>web3.js — and native (Java + RPC) vs JavaScript<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>web3.js</b>The JavaScript library that <b>bridges JavaScript applications and the Ethereum blockchain</b>. It wraps the JSON-RPC API in convenient objects — <code>web3.eth</code>, <code>web3.utils</code>, contract instances — handling ABI encoding, unit conversion and promise-based async for you.</div>
+  <pre><code><span class="kw">const</span> web3 = <span class="kw">new</span> <span class="fn">Web3</span>(window.ethereum);           <span class="cm">// MetaMask's injected provider</span>
+<span class="kw">const</span> accounts = <span class="kw">await</span> web3.eth.<span class="fn">requestAccounts</span>();
+<span class="kw">const</span> c = <span class="kw">new</span> web3.eth.<span class="fn">Contract</span>(abi, address);   <span class="cm">// ABI + address = a live handle</span>
+
+<span class="kw">const</span> v = <span class="kw">await</span> c.methods.<span class="fn">get</span>().<span class="fn">call</span>();            <span class="cm">// READ  → eth_call, free</span>
+<span class="kw">await</span> c.methods.<span class="fn">set</span>(<span class="st">42</span>).<span class="fn">send</span>({ from: accounts[<span class="st">0</span>] }); <span class="cm">// WRITE → transaction, costs gas</span></code></pre>
+  <p>A named past-paper question is "<b>distinguish between native application development using Java (with RPC) versus JavaScript applications</b>":</p>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>Native / Java (web3j) with RPC</th><th>JavaScript (web3.js / ethers.js)</th></tr></thead>
+  <tbody>
+  <tr><td>Runs on</td><td>Server / JVM — backend service, Android</td><td>Browser or Node.js</td></tr>
+  <tr><td>Typing</td><td><b>Statically typed</b>; generates typed wrappers from the ABI at build time, so a wrong argument is a compile error</td><td>Dynamically typed; a wrong argument fails at runtime</td></tr>
+  <tr><td>Key handling</td><td>Keys usually on the server, in an HSM or keystore — the app signs</td><td>Keys stay in the user's <b>wallet</b>; the app never sees them, MetaMask signs</td></tr>
+  <tr><td>Connection</td><td>HTTP/IPC RPC to a node you operate</td><td>Injected provider (<code>window.ethereum</code>) or a hosted RPC</td></tr>
+  <tr><td>Best for</td><td>Enterprise integration, batch jobs, backends, custody</td><td>User-facing DApps where the <b>user</b> signs</td></tr>
+  <tr><td>Concurrency</td><td>Threads, blocking or reactive calls</td><td>Single-threaded event loop, promises/async-await</td></tr>
+  <tr><td>Trust model</td><td>Custodial — you hold the keys, and the liability</td><td>Non-custodial — the user holds the keys</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>Note the modern shift: <b>ethers.js</b> has largely displaced web3.js for new work — smaller, cleaner separation of <code>Provider</code> (read) from <code>Signer</code> (write), better TypeScript. And note that the transports differ in capability: <b>HTTP</b> is request/response only, so <b>WebSocket</b> or IPC is required for event <b>subscriptions</b> (<code>eth_subscribe</code>). Both facts are one line each and both land.</div>
+</div>
+
+      <h2 id="m2-miners">26 · Miners</h2>
+
+<div class="card">
+  <h3><span class="n">26.1</span>Mining as the syllabus means it<span class="tag t-past">named in syllabus</span></h3>
+  <div class="def"><b>Miner</b>Under Proof of Work, a node that collects transactions from the mempool, assembles a candidate block, and repeatedly hashes the header with varying nonces until the digest falls below the difficulty target. The first to succeed broadcasts the block and receives the <b>block reward plus transaction fees</b>.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Aspect</th><th>Ethereum PoW (2015 – Sept 2022)</th></tr></thead>
+  <tbody>
+  <tr><td>Algorithm</td><td><b>Ethash</b> — memory-hard, built on a ~1 GB <b>DAG</b> regenerated each epoch (30,000 blocks), deliberately <b>ASIC-resistant</b> to keep mining on consumer GPUs</td></tr>
+  <tr><td>Block time</td><td>~13–15 seconds, held there by <b>difficulty adjustment</b> every block</td></tr>
+  <tr><td>Block reward</td><td>5 ETH → 3 (Byzantium) → <b>2 ETH</b> (Constantinople), plus fees</td></tr>
+  <tr><td><b>Ommer/uncle reward</b></td><td>A stale-but-valid block could be included by a later block; its miner received up to <b>7/8</b> of the reward and the includer a bonus. Short block times cause many orphans — this stops small miners being wiped out</td></tr>
+  <tr><td>Fork choice</td><td><b>GHOST</b> — Greedy Heaviest Observed Subtree: count the whole subtree's work, not just the longest chain, so orphaned work still contributes to security</td></tr>
+  <tr><td>Mining pool</td><td>Miners combine hash power and share rewards in proportion to submitted shares, smoothing income</td></tr>
+  <tr><td>Attack</td><td><b>51%</b> — a majority of hash power allows double-spends and censorship, but <b>not</b> stealing coins or forging signatures</td></tr>
+  </tbody>
+</table></div>
+</div>
+
+<div class="card">
+  <h3><span class="n">26.2</span>What actually happens now — Proof of Stake<span class="tag t-hi">★ high yield</span></h3>
+  <div class="trap cram"><b>Exam trap — the single most likely trap in this paper</b>Ethereum has had <b>no miners since 15 September 2022</b>. The Merge replaced PoW with Proof of Stake. If a question says "explain the role of miners in Ethereum", the full-marks answer describes PoW mining <i>as the syllabus expects</i> <b>and then adds one sentence</b> saying it was replaced by validators at The Merge. Writing only the old story is incomplete; writing only the new story does not answer the question asked.</div>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>Miner (PoW)</th><th>Validator (PoS)</th></tr></thead>
+  <tbody>
+  <tr><td>Entry cost</td><td>Hardware + electricity</td><td><b>32 ETH staked</b></td></tr>
+  <tr><td>Selection</td><td>Whoever solves the puzzle first</td><td>Pseudo-random by RANDAO, weighted by stake</td></tr>
+  <tr><td>Work</td><td>Hashing, continuously</td><td>Propose a block in your slot; <b>attest</b> in every epoch</td></tr>
+  <tr><td>Timing</td><td>Probabilistic, ~13 s average</td><td><b>Fixed 12-second slots</b>; 32 slots = 1 epoch (6.4 min)</td></tr>
+  <tr><td>Punishment</td><td>Wasted electricity</td><td><b>Slashing</b> — stake is destroyed for double-signing or surround votes</td></tr>
+  <tr><td>Consensus</td><td>Ethash + GHOST</td><td><b>Gasper</b> = Casper FFG (finality checkpoints) + LMD-GHOST (fork choice)</td></tr>
+  <tr><td>Finality</td><td>Probabilistic</td><td><b>Economic finality</b> after two justified epochs (~12.8 min)</td></tr>
+  <tr><td>Energy</td><td>~112 TWh/yr</td><td><b>~99.95% less</b></td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>PoS fixes the <b>nothing-at-stake</b> problem — under naive PoS a validator could costlessly vote on every fork — with <b>slashing</b>: signing two conflicting blocks destroys part of the stake, so equivocation has a price the way electricity did under PoW. Mentioning nothing-at-stake and slashing together is the mark of an answer that understands the mechanism rather than the marketing.</div>
+</div>
+
+      <h2 id="m2-tx">27 · Transaction and Block in Ethereum</h2>
+
+<div class="card">
+  <h3><span class="n">27.1</span>Transaction structure<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Transaction</b>A <b>signed message originated by an externally owned account</b>, serialised with <b>RLP</b> and recorded on the blockchain. Transactions are the <b>only</b> thing that can trigger a state change or cause a contract to execute.</div>
+  <p><b>Legacy transaction fields:</b></p>
+  <div class="tw"><table>
+  <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+  <tbody>
+  <tr><td><b>chain ID</b></td><td>Which network (EIP-155) — replay protection across chains</td></tr>
+  <tr><td><b>nonce</b></td><td>Sequence number from the originating EOA; prevents replay and fixes ordering</td></tr>
+  <tr><td><b>gas price</b></td><td>Wei the sender will pay per unit of gas</td></tr>
+  <tr><td><b>gas limit</b></td><td>Maximum gas to buy. <b>You pay only for gas actually used</b></td></tr>
+  <tr><td><b>recipient (to)</b></td><td>Destination address — <b>empty for a contract deployment</b></td></tr>
+  <tr><td><b>value</b></td><td>Wei to transfer</td></tr>
+  <tr><td><b>data</b></td><td>Variable-length payload — the ABI-encoded function call, or the init bytecode</td></tr>
+  <tr><td><b>v, r, s</b></td><td>The three components of the <b>ECDSA signature</b></td></tr>
+  </tbody>
+</table></div>
+  <p><b>Typed transactions (EIP-2718)</b> put a type byte in front:</p>
+  <div class="tw"><table>
+  <thead><tr><th>Type</th><th>Name</th><th>Adds</th></tr></thead>
+  <tbody>
+  <tr><td>—</td><td>Legacy</td><td>The original format</td></tr>
+  <tr><td><code>0x01</code></td><td>EIP-2930</td><td><b>Access list</b> — prepay for addresses/storage slots to get cheaper "warm" access (SLOAD is 100 gas warm, 2,100 cold)</td></tr>
+  <tr><td><code>0x02</code></td><td><b>EIP-1559</b> (London, Aug 2021)</td><td>Replaces gas price with <b>max priority fee per gas</b> (the tip) and <b>max fee per gas</b> (the total ceiling)</td></tr>
+  <tr><td><code>0x03</code></td><td>EIP-4844 (Cancun, Mar 2024)</td><td><b>Blob</b>-carrying transactions for rollup data</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>Explain EIP-1559 properly: the <b>base fee</b> is set by the protocol from block fullness — it rises when a block exceeds the 15M gas target and falls when it is under — and it is <b>burned</b>, not paid to anyone. Only the priority fee reaches the validator. So under heavy use Ethereum destroys more ETH than it issues, which is why the network is described as deflationary. Block gas limit went from 15M to <b>30M</b> with a 15M target in the same upgrade.</div>
+  <div class="trap cram"><b>Exam trap</b>A simple EOA→EOA transfer costs exactly <b>21,000 gas</b>. That number is worth memorising — it appears in numerical questions ("compute the fee at 3 gwei": 21,000 × 3 gwei = 63,000 gwei = 0.000063 ETH).</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">27.2</span>Block structure<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <p>An Ethereum block = <b>header</b> + transaction list + (historically) ommer list. The header commits to <b>three tries</b>:</p>
+  <div class="tw"><table>
+  <thead><tr><th>Header field</th><th>Meaning</th></tr></thead>
+  <tbody>
+  <tr><td><b>parentHash</b></td><td>Hash of the previous block header — the chain link</td></tr>
+  <tr><td><b>ommersHash</b></td><td>Hash of the uncle list (constant since the Merge)</td></tr>
+  <tr><td><b>beneficiary / feeRecipient</b></td><td>Address that receives fees — the miner, now the validator</td></tr>
+  <tr><td><b>stateRoot</b></td><td>Root of the <b>state</b> Merkle Patricia trie after this block</td></tr>
+  <tr><td><b>transactionsRoot</b></td><td>Root of the trie of transactions in this block</td></tr>
+  <tr><td><b>receiptsRoot</b></td><td>Root of the trie of transaction receipts</td></tr>
+  <tr><td><b>logsBloom</b></td><td>A 2048-bit Bloom filter over the logs — lets a client skip blocks that cannot contain an event</td></tr>
+  <tr><td><b>difficulty</b> / <b>prevRandao</b></td><td>PoW difficulty; repurposed after the Merge to carry the PoS randomness beacon</td></tr>
+  <tr><td><b>number</b></td><td>Block height</td></tr>
+  <tr><td><b>gasLimit</b> / <b>gasUsed</b></td><td>Ceiling for the block, and what was consumed</td></tr>
+  <tr><td><b>timestamp</b></td><td>Unix time of the block</td></tr>
+  <tr><td><b>extraData</b></td><td>Up to 32 arbitrary bytes</td></tr>
+  <tr><td><b>mixHash</b> / <b>nonce</b></td><td>PoW proof (zeroed post-Merge)</td></tr>
+  <tr><td><b>baseFeePerGas</b></td><td>Added by EIP-1559 — the burned portion of the fee</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>Three roots, three tries: <b>state</b>, <b>transactions</b>, <b>receipts</b>. The state trie is a <b>Merkle Patricia Trie</b>, which combines a Merkle tree (tamper evidence) with a radix trie (key lookup by path). Because state changes every block, sharing unchanged subtrees between blocks is what makes it feasible at all — and <code>stateRoot</code> is a single 32-byte commitment to the balance of every account in the world.</div>
+  <div class="trap cram"><b>Exam trap</b>Bitcoin's block header has <b>one</b> Merkle root; Ethereum's has <b>three</b>, and Bitcoin has no notion of a state root at all — because Bitcoin's state is the UTXO set, derived by replaying transactions, whereas Ethereum commits to its state explicitly. That contrast is a ready-made comparison answer.</div>
+</div>
+
+      <h2 id="m2-frontend">28 · Front end development</h2>
+
+<div class="card">
+  <h3><span class="n">28.1</span>The DApp front end<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <p>The last syllabus line for Module 2. A DApp front end is an <b>ordinary web page</b> — HTML, CSS, JavaScript — whose backend calls go to a blockchain instead of a server.</p>
+  <figure><svg viewBox="0 0 530 170" role="img" aria-label="DApp front-end architecture">
+  <rect x="10" y="55" width="108" height="58" rx="6" class="svg-b" stroke="var(--cyan)"/>
+  <text class="svg-l" x="64" y="76" text-anchor="middle" fill="var(--cyan)">Browser UI</text>
+  <text class="svg-l" x="64" y="93" text-anchor="middle" fill="var(--ink-3)">HTML/CSS/JS</text>
+  <rect x="146" y="55" width="108" height="58" rx="6" class="svg-b" stroke="var(--green)"/>
+  <text class="svg-l" x="200" y="76" text-anchor="middle" fill="var(--green)">web3.js /</text>
+  <text class="svg-l" x="200" y="93" text-anchor="middle" fill="var(--green)">ethers.js</text>
+  <rect x="282" y="10" width="108" height="52" rx="6" class="svg-b" stroke="var(--yellow)"/>
+  <text class="svg-l" x="336" y="31" text-anchor="middle" fill="var(--yellow)">MetaMask</text>
+  <text class="svg-l" x="336" y="48" text-anchor="middle" fill="var(--ink-3)">signs, holds keys</text>
+  <rect x="282" y="105" width="108" height="52" rx="6" class="svg-b" stroke="var(--purple)"/>
+  <text class="svg-l" x="336" y="126" text-anchor="middle" fill="var(--purple)">Node / Infura</text>
+  <text class="svg-l" x="336" y="143" text-anchor="middle" fill="var(--ink-3)">JSON-RPC</text>
+  <rect x="415" y="55" width="105" height="58" rx="6" class="svg-b" stroke="var(--pink)"/>
+  <text class="svg-l" x="467" y="76" text-anchor="middle" fill="var(--pink)">Smart</text>
+  <text class="svg-l" x="467" y="93" text-anchor="middle" fill="var(--pink)">contract</text>
+  <line x1="118" y1="84" x2="146" y2="84" stroke="var(--green)" marker-end="url(#h5)"/>
+  <line x1="254" y1="72" x2="282" y2="45" stroke="var(--yellow)" marker-end="url(#h5)"/>
+  <line x1="254" y1="96" x2="282" y2="122" stroke="var(--purple)" marker-end="url(#h5)"/>
+  <line x1="390" y1="45" x2="415" y2="72" stroke="var(--pink)" marker-end="url(#h5)"/>
+  <line x1="390" y1="122" x2="415" y2="96" stroke="var(--pink)" marker-end="url(#h5)"/>
+  <defs><marker id="h5" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor"/></marker></defs>
+</svg><figcaption>Writes go through the wallet (which signs); reads go straight to a node. The private key never touches the page.</figcaption></figure>
+  <p><b>The connection flow</b> — worth writing as numbered steps:</p>
+  <ol>
+    <li>MetaMask injects an <b>EIP-1193 provider</b> at <code>window.ethereum</code>.</li>
+    <li>The page calls <code>eth_requestAccounts</code>; the user approves the connection.</li>
+    <li>The page builds a contract handle from the <b>ABI + address</b>.</li>
+    <li><b>Reads</b> use <code>.call()</code> → <code>eth_call</code>: instant and free.</li>
+    <li><b>Writes</b> use <code>.send()</code> → MetaMask shows a confirmation with the estimated gas → the user signs → <code>eth_sendRawTransaction</code>.</li>
+    <li>The page shows "pending", waits for the <b>receipt</b>, then updates.</li>
+    <li>It subscribes to <b>events</b> over WebSocket to reflect changes made by other users.</li>
+  </ol>
+  <div class="tw"><table>
+  <thead><tr><th>Layer</th><th>Typical tools</th></tr></thead>
+  <tbody>
+  <tr><td>UI framework</td><td>React / Next.js, with wagmi + viem or web3-react for wallet state</td></tr>
+  <tr><td>Chain library</td><td>web3.js, ethers.js</td></tr>
+  <tr><td>Wallet</td><td>MetaMask, WalletConnect, Rabby</td></tr>
+  <tr><td>Node access</td><td>Own node, Infura, Alchemy</td></tr>
+  <tr><td>Contract dev</td><td>Remix (browser IDE), Hardhat, Foundry, Truffle</td></tr>
+  <tr><td>Local chain</td><td>Anvil, Hardhat Network, Ganache</td></tr>
+  <tr><td>Storage</td><td>IPFS for assets and metadata</td></tr>
+  <tr><td>Naming</td><td>ENS — a human name resolving to an address or an IPFS hash</td></tr>
+  <tr><td>Indexing</td><td>The Graph — event logs made queryable with GraphQL</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>Name the UX problems that are specific to this architecture, because that is what distinguishes a DApp front end from a web front end: <b>latency</b> (a write is not done when the click is — you must design a pending state), <b>cost shown before commitment</b> (gas estimation in the confirmation dialog), <b>failure after acceptance</b> (a transaction can revert on-chain after the user signed), <b>network mismatch</b> (the user is on the wrong chain and must be prompted to switch), and <b>no back end to read from</b> (historical data needs event indexing, hence The Graph).</div>
+</div>
+
+      <div class="mod">Exam craft</div>
+      <h2 id="x-map">29 · Syllabus → answer map</h2>
+
+<div class="card">
+  <h3><span class="n">29.1</span>Every syllabus phrase, and where it is answered<span class="tag t-hi">★ high yield</span></h3>
+  <p>Amizone's descriptors, word for word, against this guide. Nothing in the syllabus is unaddressed.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Module</th><th>Syllabus phrase</th><th>Card</th></tr></thead>
+  <tbody>
+  <tr><td rowspan="13"><b>1</b><br><span class="cm">20 marks</span></td><td>Introduction to blockchain platforms</td><td>1.1–1.3, 2.1–2.2</td></tr>
+  <tr><td>Classification of Blockchain Platforms</td><td>4.1, 4.2</td></tr>
+  <tr><td>Ethereum</td><td>5.1 (platform view) · 17–28 (internals)</td></tr>
+  <tr><td>Hyperledger</td><td>6.1, 6.2, 6.3, 6.4</td></tr>
+  <tr><td>IBM Blockchain</td><td>7.1</td></tr>
+  <tr><td>Multichain</td><td>8.1</td></tr>
+  <tr><td>Hydrachain</td><td>9.1</td></tr>
+  <tr><td>Ripple</td><td>10.1</td></tr>
+  <tr><td>R3 Corda</td><td>11.1, 11.2, 11.3</td></tr>
+  <tr><td>BigChainDB</td><td>12.1</td></tr>
+  <tr><td>IPFS</td><td>13.1</td></tr>
+  <tr><td>Dapps</td><td>14.1</td></tr>
+  <tr><td>Selection Criteria for Blockchain Applications</td><td>15.1, 15.2, 16.1</td></tr>
+  <tr><td rowspan="12"><b>2</b><br><span class="cm">20 marks</span></td><td>Ethereum basics</td><td>17.1, 17.2, 17.3</td></tr>
+  <tr><td>Ethereum and Smart Contracts</td><td>18.1</td></tr>
+  <tr><td>Turing Completeness of Smart Contract Languages and verification challenges</td><td>19.1, 19.2, 19.3</td></tr>
+  <tr><td>Ethereum Blockchain-concepts and terminologies</td><td>20.1, 20.2</td></tr>
+  <tr><td>Ethereum Client</td><td>21.1, 21.2</td></tr>
+  <tr><td>Mist Wallet</td><td>22.1, 22.2</td></tr>
+  <tr><td>Accounts</td><td>23.1, 23.2</td></tr>
+  <tr><td>Ethereum Smart Contracts</td><td>24.1, 24.2</td></tr>
+  <tr><td>Web3js and RPC protocols</td><td>25.1, 25.2</td></tr>
+  <tr><td>Miners</td><td>26.1, 26.2</td></tr>
+  <tr><td>Transaction and Block in Ethereum</td><td>27.1, 27.2</td></tr>
+  <tr><td>Front End Development</td><td>28.1</td></tr>
+  </tbody>
+</table></div>
+</div>
+
+<div class="card">
+  <h3><span class="n">29.2</span>How to shape an answer</h3>
+  <div class="tw"><table>
+  <thead><tr><th>Marks</th><th>Shape</th></tr></thead>
+  <tbody>
+  <tr><td><b>3</b> ("define in brief", "list")</td><td>One-sentence definition + 3–4 bullet points or a named list. No diagram. Do not write a page</td></tr>
+  <tr><td><b>4–5</b> ("explain", "distinguish")</td><td>Definition → labelled diagram <i>or</i> comparison table → 2–3 sentences of mechanism → one line of significance</td></tr>
+  <tr><td><b>9</b> (two-part question)</td><td>Answer (a) and (b) as separate headed sections. Diagram in at least one. Finish with a trade-off or a real example</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Diagrams worth practising until they are automatic:</b></p>
+  <ol>
+    <li>Blocks linked by hash pointers (card 1.1)</li>
+    <li>Five-layer blockchain architecture (2.2)</li>
+    <li>PBFT three-phase message flow (3.2)</li>
+    <li>Fabric execute-order-validate flow (6.3)</li>
+    <li>IBM Blockchain stack (7.1)</li>
+    <li>IPFS + on-chain hash split (13.1)</li>
+    <li>EVM regions — stack, memory, storage, calldata, code (20.2)</li>
+    <li>Key → public key → address (23.2)</li>
+    <li>DApp front-end architecture (28.1)</li>
+  </ol>
+  <div class="edge"><b>Extra marks</b>Label every arrow, not just every box. An unlabelled arrow between "client" and "peer" earns nothing; "1 propose (transaction proposal)" earns the mark the diagram was worth.</div>
+</div>
+
+      <h2 id="x-test">30 · Self test</h2>
+
+<div class="card no-cram">
+  <h3><span class="n">30.1</span>Module 1 — quick recall</h3>
+  <div class="ask"><b>Answer without looking</b>
+  <ol>
+    <li>List the eight components of a blockchain.</li>
+    <li>State the Byzantine Generals Problem and give the tolerance condition for Byzantine faults.</li>
+    <li>What are the three phases of PBFT, and what is its message complexity?</li>
+    <li>Give the four axes along which blockchain platforms are classified.</li>
+    <li>Name five Hyperledger frameworks and one distinguishing feature of each.</li>
+    <li>Describe Fabric's execute-order-validate flow in five steps.</li>
+    <li>What does an MSP do that a certificate authority does not?</li>
+    <li>Is IBM Blockchain a separate protocol? Justify.</li>
+    <li>List MultiChain's five enhancements over a standard blockchain.</li>
+    <li>What consensus does HydraChain use, and what does it <i>not</i> have?</li>
+    <li>Explain RPCA, the UNL, and Ripple's agreement threshold.</li>
+    <li>What are Corda's two aspects of consensus, and who performs each?</li>
+    <li>Why is Corda described as having no blocks and no chain?</li>
+    <li>What two technologies is BigchainDB built from, and what does each contribute?</li>
+    <li>Explain content addressing, and why a DApp stores a CID on-chain rather than the file.</li>
+    <li>Give the four criteria a DApp must satisfy, and the Type I/II/III classification.</li>
+    <li>List six conditions that must <i>all</i> hold before a blockchain is the right choice.</li>
+  </ol></div>
+</div>
+
+<div class="card no-cram">
+  <h3><span class="n">30.2</span>Module 2 — quick recall</h3>
+  <div class="ask"><b>Answer without looking</b>
+  <ol>
+    <li>Give both definitions of Ethereum — computer-science and practical.</li>
+    <li>How many wei in an ether, and in what unit are gas prices quoted?</li>
+    <li>Define Turing complete. State the halting problem and its relevance here.</li>
+    <li>Why is Turing completeness a danger rather than a feature on a public chain?</li>
+    <li>Explain how gas sidesteps — rather than solves — the halting problem.</li>
+    <li>What happens to state, and to gas, when a transaction runs out of gas?</li>
+    <li>Who coined "smart contract", in what year, and what was the analogy?</li>
+    <li>List six verification challenges specific to smart contracts.</li>
+    <li>Name the five EVM data regions and state which persist.</li>
+    <li>Interpret the bytecode <code>0x6002600301</code>.</li>
+    <li>What are the two clients an Ethereum node runs since The Merge, and what does each do?</li>
+    <li>Distinguish a light client from a remote client.</li>
+    <li>What was Mist, and why was it discontinued?</li>
+    <li>Derive an Ethereum address from a private key in three steps.</li>
+    <li>List the four fields of account state, and say how an EOA is distinguished from a contract on-chain.</li>
+    <li>Give the eight fields of a legacy transaction.</li>
+    <li>What changed with EIP-1559, and what happens to the base fee?</li>
+    <li>How much gas does a simple EOA→EOA transfer cost? What does it cost at 3 gwei?</li>
+    <li>Name the three Merkle roots in an Ethereum block header.</li>
+    <li>Write the four fields of a JSON-RPC 2.0 request.</li>
+    <li>Distinguish <code>eth_call</code> from <code>eth_sendRawTransaction</code>.</li>
+    <li>Compare Java-with-RPC development against JavaScript for DApps on five points.</li>
+    <li>What was Ethash designed to resist, and what was the ommer reward for?</li>
+    <li>What replaced miners, when, and what does slashing prevent?</li>
+    <li>Trace the seven steps of a write from a DApp front end.</li>
+  </ol></div>
+</div>
+
+<div class="card no-cram">
+  <h3><span class="n">30.3</span>Past-paper questions on these two modules<span class="tag t-past">past paper</span></h3>
+  <p>From the <i>Blockchain Platforms and Applications</i> paper in your Blockchain folder. Modules 1 and 2 of your syllabus cover Parts A/B questions 1–3 and 6–11 almost exactly.</p>
+  <div class="ask"><b>Part A — 3 marks each</b>
+  <ol>
+    <li>List the basics of blockchain. <span class="cm">→ 1.1, 2.1</span></li>
+    <li>Define in brief about Ethereum. <span class="cm">→ 17.1</span></li>
+    <li>Explain about the Ethereum client. <span class="cm">→ 21.1</span></li>
+  </ol></div>
+  <div class="ask"><b>Part B — 5 + 4 marks</b>
+  <ol>
+    <li>(a) Define in detail about the Byzantine Generals Problem. <span class="cm">→ 3.1</span><br>(b) Explain the components of blockchain. <span class="cm">→ 2.1</span></li>
+    <li>(a) Explain the architecture of blockchain with a labelled diagram. <span class="cm">→ 2.2</span><br>(b) Define in detail about Practical Byzantine Fault Tolerance. <span class="cm">→ 3.2</span></li>
+    <li>(a) Define in detail about IBM Blockchain with a labelled diagram. <span class="cm">→ 7.1</span><br>(b) Explain the basic description of smart contracts and the history of smart contracts. <span class="cm">→ 18.1</span></li>
+    <li>(a) Explain about BigChainDB and its applications. <span class="cm">→ 12.1</span><br>(b) Identify points of importance about IPFS and DApps. <span class="cm">→ 13.1, 14.1</span></li>
+    <li>(a) Explain in detail the Ethereum Virtual Machine with a labelled diagram. <span class="cm">→ 20.2</span><br>(b) Distinguish native application development using Java (with RPC) versus JavaScript applications. <span class="cm">→ 25.2</span></li>
+    <li>(a) Define in detail about Ethereum Blockchain terminologies. <span class="cm">→ 20.1</span><br>(b) Explain with an example about byte code interpretation. <span class="cm">→ 20.2 extra-marks box</span></li>
+  </ol></div>
+  <div class="edge"><b>Extra marks</b>Notice the pattern in the verbs. "List" and "define in brief" are 3-mark recall. "Explain … with a labelled diagram" always carries 5 marks and the diagram is a named requirement — a correct answer without the diagram cannot reach full marks. "Distinguish" wants a table, not two paragraphs.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">30.4</span>The five things most likely to be dropped<span class="tag t-hi">★ high yield</span></h3>
+  <div class="trap cram"><b>Exam trap — final checklist</b>
+  <ol>
+    <li><b>Miners.</b> Ethereum has used Proof of Stake since 15 Sept 2022. Answer the syllabus's question, then say so.</li>
+    <li><b>Permissioned ≠ private.</b> Two axes. Ripple is public <i>and</i> permissioned.</li>
+    <li><b>PBFT tolerates f &lt; n/3</b>, not n/2, and its O(n²) messaging is why it cannot run a public chain.</li>
+    <li><b>Out of gas</b> reverts the state but still consumes the gas — the user pays for failure.</li>
+    <li><b>IPFS is not a blockchain</b> and does not store files forever — unpinned content is garbage-collected.</li>
+  </ol></div>
+</div>
+
     <div class="empty"></div>
   </main>
 </div>
+
 
 <script>
 (function(){

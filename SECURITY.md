@@ -15,10 +15,20 @@ no defence — the stolen token *is* the credential RLS asks for.
 
 ## The CSP
 
-- **`script-src 'self'` is the directive that matters.** Measured on the live
-  site rather than assumed: the built app loads exactly one script, same-origin,
-  and has zero inline scripts. So an injected `<script src=…>` or inline handler
-  has nothing to fall back on.
+- **`script-src` is the directive that matters.** Measured on the live site
+  rather than assumed: the built app loads exactly one script of its own,
+  same-origin, and has zero inline scripts. So an injected `<script src=…>` or
+  inline handler has nothing to fall back on.
+- **`https://www.youtube.com` and `https://s.ytimg.com` are the two exceptions,
+  and they were added the hard way.** The lofi radio loads YouTube's IFrame
+  Player API at runtime — the one third-party script this app has — and
+  `script-src 'self'` blocked it. The walkthrough that found 0 violations never
+  caught it because nobody pressed play during the walk: the radio only fetches
+  the API on first play, so a passive tour of all 25 tabs cannot trigger it.
+  **Lesson recorded rather than repeated: a CSP walkthrough has to exercise the
+  features, not just render the pages.** `radio.js` now rejects on a CSP refusal
+  and says so on screen, so the next time a directive is wrong it names itself
+  in ten seconds instead of spinning forever.
 - **`style-src` keeps `'unsafe-inline'` on purpose.** React writes `style={{…}}`
   attributes throughout this app (the attendance bars, for one) and CSP counts
   those as inline styles. Styles cannot exfiltrate a token, so the cost is close
@@ -33,7 +43,8 @@ no defence — the stolen token *is* the credential RLS asks for.
 enforcing.** An enforcing policy with one directive wrong breaks a tab quietly,
 which is not a thing to find out from a user. So it went out in report-only mode,
 then all 25 tabs were walked with a `securitypolicyviolation` listener attached:
-**0 violations**. Only then was the header renamed.
+**0 violations**. Only then was the header renamed. That was not sufficient — see
+the YouTube note above. Rendering a tab is not exercising it.
 
 The walk exercises what each tab loads on mount, not every interaction inside it.
 If something ever stops working with a "Refused to…" line in the console, the

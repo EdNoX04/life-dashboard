@@ -19,3 +19,7 @@ scripts/.build.env
 # for a real build check. The repo is private, so cloning it there is no longer
 # possible and this is the credential-free alternative.
 _build-snapshot.tgz
+_snap2.tgz
+_snap5.tgz
+_snap4.tgz
+_snap3.tgz
