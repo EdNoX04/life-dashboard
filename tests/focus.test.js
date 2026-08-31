@@ -75,7 +75,10 @@ eq(sessionRow({ minutes: 24.6 }).minutes, 25, 'fractions are rounded');
     { mode: 'short', minutes: 5, label: 'Break', ended_at: dayAgo(0).toISOString() },
   ];
   eq(minutesOn(rows, '2026-08-31'), 50, "today's total counts only today");
-  ok(!String(minutesOn(rows, '2026-08-31')).includes('5'), 'and excludes the break') ;
+  // The break row above is 5 minutes on the same day. If breaks counted, this
+  // would be 55 — so removing it must change nothing.
+  eq(minutesOn(rows.filter(r => r.mode === 'focus'), '2026-08-31'), 50,
+     'dropping the break row does not change the total, because breaks never counted');
   eq(minutesSince(rows, 7, NOW), 125, 'a 7-day window includes today and excludes the 8-day-old row');
   eq(minutesSince(rows, 30, NOW), 150, 'a wider window includes it');
 

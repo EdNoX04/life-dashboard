@@ -24,8 +24,10 @@ _snap5.tgz
 _snap6.tgz
 _snap7.tgz
 _snap8.tgz
+_snap9.tgz
 _snap4.tgz
 _snap3.tgz
 
 # Scratch patch scripts written by the assistant over the device bridge.
 _*-patch.py
+_radio-spatial.py

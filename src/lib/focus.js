@@ -57,12 +57,14 @@ export function todayKey(now = new Date()) {
 }
 
 /** Total focus minutes on a given local day. */
-export function minutesOn(rows = [], day) {
+export function minutesOn(rows, day) {
+  if (!Array.isArray(rows)) return 0;
   return rows.filter(r => isFocus(r) && dayOf(r) === day).reduce((s, r) => s + mins(r), 0);
 }
 
 /** Focus minutes in the last n days, including today. */
-export function minutesSince(rows = [], days = 7, now = new Date()) {
+export function minutesSince(rows, days = 7, now = new Date()) {
+  if (!Array.isArray(rows)) return 0;
   const cutoff = now.getTime() - (days - 1) * 86400000;
   const start = new Date(cutoff); start.setHours(0, 0, 0, 0);
   return rows
@@ -78,7 +80,8 @@ export function minutesSince(rows = [], days = 7, now = new Date()) {
  * id at all. The todo id is carried through when every row in a group agrees on
  * it, so the UI can still link back.
  */
-export function totalsByLabel(rows = []) {
+export function totalsByLabel(rows) {
+  if (!Array.isArray(rows)) return [];
   const map = new Map();
   for (const r of rows) {
     if (!isFocus(r)) continue;
@@ -95,7 +98,7 @@ export function totalsByLabel(rows = []) {
 }
 
 /** Focus minutes per day for the last n days, oldest first — for a sparkline. */
-export function dailySeries(rows = [], days = 14, now = new Date()) {
+export function dailySeries(rows, days = 14, now = new Date()) {
   const out = [];
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(now.getTime() - i * 86400000);
@@ -112,7 +115,8 @@ export function dailySeries(rows = [], days = 14, now = new Date()) {
  * before the first session — a counter that punishes you for not having started
  * yet is a counter people stop looking at.
  */
-export function streak(rows = [], now = new Date()) {
+export function streak(rows, now = new Date()) {
+  if (!Array.isArray(rows)) return 0;
   const days = new Set(rows.filter(isFocus).map(dayOf));
   if (!days.size) return 0;
   let n = 0;
@@ -156,7 +160,11 @@ export function ago(iso, now = new Date()) {
  * uses, so the picker does not present a different idea of priority than the
  * list it came from.
  */
-export function pickableTodos(todos = [], limit = 12) {
+export function pickableTodos(todos, limit = 12) {
+  // A default parameter does not apply to an explicit `null`, and useCollection
+  // can hand one over before its first load resolves. Guard the value, not the
+  // signature.
+  if (!Array.isArray(todos)) return [];
   return todos
     .filter(t => t && !t.completed && t.title)
     .sort((a, b) => {
