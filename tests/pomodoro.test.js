@@ -12,6 +12,8 @@
 
 import {
   DUR, emptyState, remaining, settle, start, pause, reset, setMode, nextMode, ROUNDS_PER_LONG,
+  seconds, setConfig, normalizeConfig, defaultConfig, applyPreset, presetOf, PRESETS,
+  MIN_MINUTES, MAX_MINUTES, MIN_ROUNDS, MAX_ROUNDS,
 } from '../src/lib/pomodoro.js';
 
 let pass = 0, fail = 0;
@@ -120,6 +122,69 @@ eq(setMode(mid, 'long').running, false, 'switching mode never leaves it running'
 // instantly completing a zero-second one.
 const drained = { ...emptyState(), left: 0 };
 eq(remaining(start(drained, T0), T0), DUR.focus, 'starting an empty timer gives a full block');
+
+// ------------------------------------------------- custom durations
+// 25/5/15 is a default, not a rule. What must hold: the stored numbers are
+// always sane, a running block is never silently lengthened, and a timer that
+// predates this feature still opens.
+
+eq(seconds(emptyState()), 25 * 60, 'a fresh timer is still 25 minutes');
+eq(seconds(emptyState(), 'short'), 5 * 60, 'and 5 for the short break');
+
+{
+  const st = setConfig(emptyState(), { focus: 50, short: 10, long: 30, perLong: 3 });
+  eq(seconds(st), 50 * 60, 'a custom focus length is used');
+  eq(st.left, 50 * 60, 'and an idle timer picks it up immediately');
+  eq(presetOf(st), 'long', 'a configuration matching a preset is recognised');
+}
+
+// Clamping. A stray keystroke must not produce a zero-second or week-long block.
+eq(setConfig(emptyState(), { focus: 0 }).cfg.focus, MIN_MINUTES, 'zero clamps up to the minimum');
+eq(setConfig(emptyState(), { focus: 9999 }).cfg.focus, MAX_MINUTES, 'a huge value clamps down');
+eq(setConfig(emptyState(), { focus: '' }).cfg.focus, MIN_MINUTES, 'an empty field does not become NaN');
+eq(setConfig(emptyState(), { focus: 'abc' }).cfg.focus, MIN_MINUTES, 'nor does junk text');
+eq(setConfig(emptyState(), { perLong: 99 }).cfg.perLong, MAX_ROUNDS, 'rounds clamp too');
+eq(setConfig(emptyState(), { perLong: 1 }).cfg.perLong, MIN_ROUNDS, 'and up from below');
+eq(setConfig(emptyState(), { focus: 30.6 }).cfg.focus, 31, 'fractions are rounded, not stored');
+
+// THE ONE THAT MATTERS: editing while running must not move the finish line.
+{
+  const running = start(emptyState(), T0);
+  const edited = setConfig(running, { focus: 50 });
+  eq(edited.endsAt, running.endsAt, 'a running block keeps its original deadline');
+  eq(remaining(edited, T0 + 60_000), 24 * 60, 'so the remaining time is unchanged');
+  eq(edited.cfg.focus, 50, 'but the new length is stored');
+  // …and it takes effect on the NEXT session.
+  const done = settle({ ...edited, endsAt: T0 + 1000 }, T0 + 2000);
+  const nextRun = start(reset(done, 'focus'), T0 + 3000);
+  eq(remaining(nextRun, T0 + 3000), 50 * 60, 'the next focus block is 50 minutes');
+}
+
+// The cycle length is configurable, and settle() must honour it.
+eq(nextMode('focus', 2, 3), 'long', 'with perLong 3, the third focus leads to a long break');
+eq(nextMode('focus', 1, 3), 'short', 'the second does not');
+{
+  const st = setConfig(emptyState(), { perLong: 2 });
+  const after = settle({ ...st, running: true, endsAt: T0, mode: 'focus', rounds: 1 }, T0 + 1);
+  eq(after.mode, 'long', 'settle uses the configured cycle length');
+  eq(after.left, st.cfg.long * 60, 'and loads that break at its configured length');
+}
+
+// Presets round-trip, and a hand-edited value reads as custom.
+PRESETS.forEach(p => {
+  eq(presetOf(applyPreset(emptyState(), p.id)), p.id, `preset ${p.id} round-trips`);
+});
+eq(presetOf(setConfig(emptyState(), { focus: 37 })), null, 'an off-preset value reads as custom');
+eq(applyPreset(emptyState(), 'nope').cfg.focus, 25, 'an unknown preset id changes nothing');
+
+// Old stored state, from before durations were configurable.
+{
+  const legacy = { mode: 'focus', rounds: 2, running: false, left: 900, endsAt: null };
+  const cfg = normalizeConfig(legacy.cfg);
+  eq(cfg.focus, defaultConfig().focus, 'a state with no cfg gets the defaults');
+  eq(normalizeConfig(null).long, 15, 'and so does null');
+  eq(normalizeConfig({ focus: null, short: undefined }).short, 5, 'partial configs fill in');
+}
 
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);

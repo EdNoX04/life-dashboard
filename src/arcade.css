@@ -6936,3 +6936,160 @@ th:hover .hold-info { color: var(--cyan); }
 .mt-invite{margin:7px 0 0;padding:9px 11px;background:#0a0e1a;border:1px solid var(--border-bright);
   border-radius:6px;font-size:12px;color:var(--ink-2);white-space:pre-wrap;line-height:1.6;
   font-family:inherit}
+
+/* Pomodoro duration editor. Kept to the same pixel vocabulary as the rest of
+   the card so customising does not look like a settings screen bolted on. */
+.pomo-cfg {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.pomo-cfg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+.pomo-cfg-grid label { display: flex; flex-direction: column; gap: 4px; }
+.pomo-num { display: flex; align-items: center; gap: 6px; }
+.pomo-num input {
+  width: 100%;
+  min-width: 0;
+  font-family: var(--font-pixel, monospace);
+  text-align: center;
+}
+.pomo-num b {
+  font-size: 10px;
+  color: var(--ink-3);
+  letter-spacing: 1px;
+  flex: none;
+}
+
+/* Ambience panel. The grid and tiles already existed; what is new is the
+   grouping, and the per-sound mixer that only appears for sounds that are on. */
+.ambience { display: block; }
+.amb-group + .amb-group { margin-top: 12px; }
+.amb-group-h {
+  font-family: var(--font-pixel, monospace);
+  font-size: 7px;
+  letter-spacing: 2px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  margin: 0 0 6px;
+}
+.amb-mix {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.amb-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  flex-wrap: wrap;
+}
+.amb-row input[type="range"] { flex: 1; min-width: 90px; }
+.amb-row-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 104px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.amb-ico-sm { font-size: 13px; }
+.amb-row-val {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: var(--ink-3);
+  min-width: 22px;
+  text-align: right;
+}
+.amb-angle { max-width: 90px; }
+.amb-row-dir {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  color: var(--purple);
+  min-width: 68px;
+}
+@media (max-width: 760px) {
+  .amb-row-name { min-width: 88px; }
+  .amb-angle { max-width: 70px; }
+}
+
+/* Pomodoro task picker + focus history. */
+.pomo-task { margin-bottom: 12px; }
+.pomo-task-on {
+  font-size: 13px;
+  color: var(--cyan);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pomo-pick {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.pomo-pick-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 132px; overflow-y: auto; }
+
+.focus-spark {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 46px;
+  padding: 4px 0;
+}
+.focus-bar {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 2px;
+}
+.focus-bar > i {
+  display: block;
+  width: 100%;
+  min-height: 2px;
+  background: var(--green);
+  border-radius: 2px;
+  box-shadow: 0 0 6px rgba(49, 214, 122, 0.5);
+}
+.focus-list { display: flex; flex-direction: column; gap: 6px; }
+.focus-row { display: flex; align-items: center; gap: 8px; font-size: 12px; flex-wrap: wrap; }
+.focus-row-name {
+  min-width: 130px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-2);
+}
+.focus-row-bar {
+  flex: 1;
+  min-width: 60px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.focus-row-bar > i { display: block; height: 100%; background: var(--green); border-radius: 3px; }
+.focus-row-val {
+  font-family: var(--font-mono, monospace);
+  min-width: 52px;
+  text-align: right;
+  color: var(--ink);
+}
+.focus-row-meta { font-size: 10px; color: var(--ink-3); min-width: 96px; }
+@media (max-width: 760px) {
+  .focus-row-name { min-width: 100px; }
+  .focus-row-meta { display: none; }
+}

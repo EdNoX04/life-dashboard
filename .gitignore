@@ -21,5 +21,11 @@ scripts/.build.env
 _build-snapshot.tgz
 _snap2.tgz
 _snap5.tgz
+_snap6.tgz
+_snap7.tgz
+_snap8.tgz
 _snap4.tgz
 _snap3.tgz
+
+# Scratch patch scripts written by the assistant over the device bridge.
+_*-patch.py

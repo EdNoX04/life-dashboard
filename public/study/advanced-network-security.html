@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CSE337 — Advanced Network Security &amp; IAM</title>
-<meta name="description" content="Retro study guide for the CSE337 minor exam — Modules 1 (VPN &amp; Wireless) and 2 (Zero Trust).">
+<meta name="description" content="Complete study guide for the CSE337 minor exam — every syllabus topic in Module 1 (VPN &amp; Wireless IoT Security) and Module 2 (Zero Trust Architecture).">
 <style>
 :root{
   --bg:#06080f; --bg-2:#0a0e1a; --panel:#0d1220; --panel-2:#111830;
@@ -234,190 +234,1279 @@ hr{border:0;border-top:1px solid var(--line);margin:26px 0}
 
 <div class="wrap">
   <nav class="toc">
+      <h4>Foundations · Module 0</h4>
+      <a href="#m0-goals">1 · Goals of network security</a>
+      <a href="#m0-threats">2 · Threats, vulnerabilities, intruders</a>
+      <a href="#m0-malware">3 · Malware</a>
+      <a href="#m0-counter">4 · Countermeasures</a>
+
       <h4>Module 1 · VPN &amp; Wireless IoT Security</h4>
-      <a href="#m1-fw">Firewalls</a>
-      <a href="#m1-ids">IDS &amp; IPS</a>
-      <a href="#m1-vpn">VPNs &amp; IPSec</a>
-      <a href="#m1-wifi">Wireless security: WEP → WPA3</a>
-      <a href="#m1-stack">Stacks, OS, web, PKI</a>
+      <a href="#m1-fw">5 · Firewalls</a>
+      <a href="#m1-ids">6 · IDS &amp; IPS</a>
+      <a href="#m1-detect">7 · Signature vs anomaly detection</a>
+      <a href="#m1-vpn">8 · VPNs</a>
+      <a href="#m1-ipsec">9 · IPSec</a>
+      <a href="#m1-ssl">10 · SSL/TLS</a>
+      <a href="#m1-terms">11 · Wireless terminology</a>
+      <a href="#m1-std">12 · 802.11 standards</a>
+      <a href="#m1-enc">13 · WEP → WPA3</a>
+      <a href="#m1-eap">14 · EAP, RADIUS, Personal vs Enterprise</a>
+      <a href="#m1-attacks">15 · Wireless threats &amp; attacks</a>
+      <a href="#m1-tools">16 · Attack tools &amp; cracking</a>
+      <a href="#m1-wcounter">17 · Wireless countermeasures &amp; WIPS</a>
+      <a href="#m1-stack">18 · Stacks, OS, web, PKI</a>
+      <a href="#m1-trends">19 · Emerging trends</a>
 
-      <h4>Module 2 · Zero Trust Architecture</h4>
-      <a href="#m2-trad">Perimeter security → Zero Trust</a>
-      <a href="#m2-nist">NIST SP 800-207</a>
-      <a href="#m2-auth">MFA, SSO &amp; Conditional Access</a>
-      <a href="#m2-seg">Segmentation, SDP, SDN, NAC</a>
+      <h4>Module 2 · Zero Trust &amp; IAM</h4>
+      <a href="#m2-trad">20 · Traditional perimeter security</a>
+      <a href="#m2-zt">21 · Zero Trust</a>
+      <a href="#m2-nist">22 · NIST SP 800-207</a>
+      <a href="#m2-uses">23 · ZTA use cases &amp; adoption</a>
+      <a href="#m2-mfa">24 · Authentication &amp; MFA</a>
+      <a href="#m2-sso">25 · SSO, federation, conditional access</a>
+      <a href="#m2-iam">26 · IdM, AM &amp; PAM</a>
+      <a href="#m2-ad">27 · Active Directory &amp; RBAC/ABAC</a>
+      <a href="#m2-seg">28 · Network segmentation</a>
+      <a href="#m2-segtech">29 · Firewalls, SDP, SDN, NAC</a>
 
-      <h4>Beyond the decks · likely questions</h4>
-      <a href="#x-iam">IAM, PAM &amp; Active Directory</a>
-      <a href="#x-case">Case studies &amp; the compulsory Q6</a>
+      <h4>Exam craft</h4>
+      <a href="#x-cases">30 · Case studies</a>
+      <a href="#x-papers">31 · The real papers</a>
+      <a href="#x-test">32 · Self test</a>
   </nav>
   <main>
-    <p class="lede">Everything from Dr Sharma’s three decks, plus the IPSec internals, WPA3 weaknesses and IAM material the decks skip but past papers ask for. <span class="kbd">/</span> to search · <b>Cram</b> shows only definitions, tables and extra-marks boxes.</p>
+    <p class="lede">Every slide of Dr Sharma's decks — Module 0 basics (69), Module I VPN &amp; Wireless (68), Module II Zero Trust (55), Case Studies (20) — plus the IPSec, IAM and Active Directory material the decks skip and all three past papers ask for. <span class="kbd">/</span> to search · <b>Cram</b> shows only definitions, tables and extra-marks boxes.</p>
+
+      <div class="mod">Foundations · Module 0 basics</div>
+      <h2 id="m0-goals">1 · Goals of network security</h2>
+
+<div class="card">
+  <h3><span class="n">1.1</span>The five goals<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <p>Asked verbatim in Sept 2025 Section B: "What are the goals of Network Security … Explain each with an example."</p>
+  <div class="tw"><table>
+  <thead><tr><th>Goal</th><th>Meaning</th><th>Example</th><th>Broken by</th></tr></thead>
+  <tbody>
+  <tr><td><b>Confidentiality</b></td><td>Only authorised parties can read the data</td><td>TLS encrypting your banking session</td><td>Sniffing on open Wi-Fi</td></tr>
+  <tr><td><b>Integrity</b></td><td>Data cannot be altered undetected in transit or at rest</td><td>A MIC/MAC on each Wi-Fi frame</td><td>MitM modifying a transfer amount</td></tr>
+  <tr><td><b>Availability</b></td><td>Systems and data are reachable when needed</td><td>Anti-DDoS scrubbing at the edge</td><td>A 71M-RPS DDoS flood</td></tr>
+  <tr><td><b>Authentication</b></td><td>Parties are who they claim to be</td><td>WPA2-Enterprise with 802.1X certificates</td><td>MAC spoofing, a rogue AP</td></tr>
+  <tr><td><b>Non-repudiation</b></td><td>A party cannot later deny having acted</td><td>A digitally signed transaction, an audit log</td><td>Shared accounts with no per-user identity</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>The first three are the classic <b>CIA triad</b>; authentication and non-repudiation are the two usually added for network security. Say that explicitly — it shows you know the standard model and why the list is longer here. A useful closing line: <b>every attack in this module maps to one of these five.</b> KRACK breaks confidentiality; jamming breaks availability; a rogue AP breaks authentication.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">1.2</span>Passive vs active attacks, and MitM<span class="tag t-past">past paper</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>Passive attack</th><th>Active attack</th></tr></thead>
+  <tbody>
+  <tr><td>What it does</td><td>Observes without altering</td><td>Modifies, injects or destroys</td></tr>
+  <tr><td>Goal broken</td><td>Confidentiality</td><td>Integrity, availability, authentication</td></tr>
+  <tr><td>Examples</td><td>Traffic sniffing, traffic analysis, eavesdropping</td><td>Masquerade, replay, modification, DoS</td></tr>
+  <tr><td>Detection</td><td>Very hard — nothing changes</td><td>Easier — effects are visible</td></tr>
+  <tr><td>Defence</td><td><b>Prevention</b> (encryption)</td><td><b>Detection and recovery</b></td></tr>
+  </tbody>
+</table></div>
+  <div class="def"><b>Man-in-the-Middle (MitM)</b>An attacker secretly relays and possibly alters communication between two parties who believe they are talking directly to each other. It breaks <b>confidentiality</b> (the attacker reads everything) and <b>integrity</b> (the attacker can change it), and it defeats authentication because each side authenticates <i>the attacker</i>, not the peer.</div>
+  <p><b>How it happens on a wireless network:</b> a rogue or honeypot AP, ARP spoofing, DNS spoofing, or SSL stripping (downgrading HTTPS to HTTP). <b>Defences:</b> mutual authentication with certificates (WPA2/3-Enterprise, TLS), certificate pinning, HSTS, and WPA3's SAE, which never exposes a crackable handshake.</p>
+</div>
+
+      <h2 id="m0-threats">2 · Threats, vulnerabilities, intruders</h2>
+
+<div class="card">
+  <h3><span class="n">2.1</span>Threat, vulnerability, risk<span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Threat</b>The potential occurrence of an undesirable event that can eventually damage and disrupt the operational and functional activities of an organisation.</div>
+  <div class="def"><b>Vulnerability</b>A weakness in design, implementation, configuration or operation that a threat can exploit.</div>
+  <p><b>Risk = threat × vulnerability × impact.</b> A threat with no matching vulnerability is not a risk; a vulnerability nobody can reach is not a risk either.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Threat source</th><th>Examples</th></tr></thead>
+  <tbody>
+  <tr><td><b>Natural</b></td><td>Fire, flood, power failure, earthquake</td></tr>
+  <tr><td><b>Physical</b></td><td>Theft of equipment, tailgating into a server room, damage to cabling</td></tr>
+  <tr><td><b>Human — internal</b></td><td>Disgruntled or careless employees, contractors, insider fraud</td></tr>
+  <tr><td><b>Human — external</b></td><td>Hackers, hacktivists, criminal groups, terrorists, nation states, competitors</td></tr>
+  </tbody>
+</table></div>
+  <div class="tw"><table>
+  <thead><tr><th>Vulnerability class</th><th>What it covers</th></tr></thead>
+  <tbody>
+  <tr><td><b>Misconfiguration</b></td><td>The most common cause. Default credentials, SSID used as a password, unnecessary open ports</td></tr>
+  <tr><td><b>Default installation</b></td><td>Shipped settings left untouched</td></tr>
+  <tr><td><b>Buffer overflow</b></td><td>Poor input validation in code</td></tr>
+  <tr><td><b>Unpatched servers</b></td><td>Known CVEs left open</td></tr>
+  <tr><td><b>Design flaw</b></td><td>The protocol itself is broken — WEP's 24-bit IV, the WPA2 handshake replay behind KRACK</td></tr>
+  <tr><td><b>Operating-system flaw</b></td><td>Kernel and driver bugs</td></tr>
+  <tr><td><b>Application flaw</b></td><td>SQLi, XSS, insecure deserialisation</td></tr>
+  <tr><td><b>Open services / default passwords</b></td><td>Reachable, guessable, unlogged</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Technological</b> vulnerabilities (TCP/IP, OS, network-equipment weaknesses), <b>configuration</b> vulnerabilities (accounts, services, defaults) and <b>security-policy</b> vulnerabilities (no policy, no monitoring, no incident plan) is the three-way split the deck uses.</p>
+</div>
+
+<div class="card">
+  <h3><span class="n">2.2</span>Types of intruders<span class="tag t-past">past paper</span></h3>
+  <p>Sept 2025 Section A asked exactly this. Two classifications — give both.</p>
+  <p><b>Anderson's classic three:</b></p>
+  <div class="tw"><table>
+  <thead><tr><th>Type</th><th>Who</th></tr></thead>
+  <tbody>
+  <tr><td><b>Masquerader</b></td><td>An <b>outsider</b> who uses a legitimate user's account. Not authorised, penetrates access controls</td></tr>
+  <tr><td><b>Misfeasor</b></td><td>An <b>insider</b> who is authorised but exceeds or misuses their privileges</td></tr>
+  <tr><td><b>Clandestine user</b></td><td>Insider or outsider who seizes <b>supervisory control</b> and suppresses the audit trail — the hardest to detect</td></tr>
+  </tbody>
+</table></div>
+  <p><b>By intent (the "hat" taxonomy):</b> black hat (malicious), white hat (authorised, ethical), grey hat (unauthorised but non-malicious), script kiddie (uses others' tools), hacktivist (political), state-sponsored, cyber-terrorist, suicide hacker (indifferent to being caught), insider threat.</p>
+  <div class="edge"><b>Extra marks</b>Close the answer by linking intruders to IDS: <b>a masquerader is best caught by anomaly-based detection</b> (the account behaves unlike its owner's baseline), while a misfeasor is nearly invisible to a NIDS and needs a <b>host-based</b> IDS plus privilege auditing. That is the sentence that ties this card to the next.</div>
+</div>
+
+      <h2 id="m0-malware">3 · Malware</h2>
+
+<div class="card">
+  <h3><span class="n">3.1</span>What malware is, and how it is delivered</h3>
+  <div class="def"><b>Malware</b>Malicious software that damages or disables computer systems and gives limited or full control of the system to its creator, for the purpose of theft or fraud.</div>
+  <p><b>Components of malware</b> the deck names: <b>crypter</b> (hides the code from AV), <b>downloader</b>, <b>dropper</b> (installs the payload), <b>exploit</b> (the delivery vulnerability), <b>injector</b>, <b>obfuscator</b>, <b>packer</b> (compresses/encrypts), <b>payload</b> (the actual malicious action), <b>malicious code</b>.</p>
+  <p><b>Common distribution techniques:</b> black-hat SEO (poisoning search results), <b>malvertising</b>, drive-by downloads, compromised legitimate websites, clickjacking, spear-phishing attachments, social-engineered links, instant-messenger applications, removable media, and browser/plug-in exploits.</p>
+</div>
+
+<div class="card">
+  <h3><span class="n">3.2</span>The malware taxonomy<span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>Type</th><th>Definition</th><th>Distinctive property</th></tr></thead>
+  <tbody>
+  <tr><td><b>Virus</b></td><td>A self-replicating program that produces its own copy by <b>attaching itself</b> to another program, boot sector or document</td><td>Needs a <b>host file</b> and <b>user action</b> to spread</td></tr>
+  <tr><td><b>Worm</b></td><td>Self-replicating malware that spreads <b>on its own</b> across a network</td><td>Needs <b>no host and no user</b>; consumes bandwidth</td></tr>
+  <tr><td><b>Trojan</b></td><td>Malicious code disguised as a legitimate program</td><td><b>Does not replicate</b>; creates a backdoor</td></tr>
+  <tr><td><b>Ransomware</b></td><td>Restricts access to files/system and demands payment to restore it</td><td>Encryption used <i>against</i> the owner</td></tr>
+  <tr><td><b>Rootkit</b></td><td>Programs that hide their own presence and the attacker's activity, granting full access now and in future</td><td>Replaces OS calls and utilities with modified versions</td></tr>
+  <tr><td><b>Spyware</b></td><td>Secretly monitors and records user activity</td><td>Covert surveillance, exfiltration</td></tr>
+  <tr><td><b>Adware / PUA</b></td><td>Generates unsolicited ads; installed via third-party installers or misleading EULAs</td><td>Annoyance and tracking rather than damage</td></tr>
+  <tr><td><b>Keylogger</b></td><td>Software or <b>hardware</b> that records every keystroke and logs or transmits it</td><td>Hardware variants defeat all software AV</td></tr>
+  <tr><td><b>Botnet</b></td><td>A collection of compromised machines ("bots" / zombies) connected to the internet to perform a distributed task, run from a C&amp;C server</td><td>The engine behind DDoS, spam and click fraud</td></tr>
+  <tr><td><b>Fileless malware</b></td><td>Infects legitimate software, applications and protocols already on the system rather than writing a file</td><td><b>Lives in memory</b>, abuses PowerShell/WMI, evades file-scanning AV</td></tr>
+  </tbody>
+</table></div>
+  <div class="trap cram"><b>Exam trap</b>The virus/worm distinction is the one most often lost. <b>A virus attaches to a host and needs a user to run it; a worm is standalone and self-propagating.</b> "A worm replicates on its own" is the deck's exact phrasing. And a <b>Trojan does not replicate at all</b> — calling it a virus loses the mark.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">3.3</span>Indications, phases and ports</h3>
+  <p><b>Indications of a Trojan attack:</b> antivirus programs are automatically disabled; the CD tray or mouse behaves on its own; unexpected pop-ups; the machine shuts down or restarts by itself; unusual network activity to unknown hosts; new unexplained programs or services.</p>
+  <p><b>What a Trojan does:</b> creates backdoors for remote access; steals credentials and financial data; records screenshots, audio and video; uses the host as a proxy or a bot; disables security software.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Port</th><th>Trojan</th></tr></thead>
+  <tbody>
+  <tr><td>21 / 23</td><td>Blade Runner, Doly Trojan / Tiny Telnet Server</td></tr>
+  <tr><td>80</td><td>Executor</td></tr>
+  <tr><td>1243</td><td>SubSeven</td></tr>
+  <tr><td>12345 / 12346</td><td>NetBus</td></tr>
+  <tr><td>31337</td><td>Back Orifice</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Virus lifecycle — six phases:</b> design → replication → launch → detection → incorporation (into AV signature databases) → elimination. <b>Indications of a virus attack:</b> slow performance, files missing or corrupted, unusual disk activity, frequent crashes, AV disabled, unfamiliar processes.</p>
+  <p><b>Virus categories:</b> boot sector, file/program, macro, cluster, stealth, polymorphic (mutates its code), metamorphic (rewrites itself entirely), encryption, multipartite, cavity, sparse-infector, companion, shell, add-on, tunnelling, camouflage, logic bomb.</p>
+  <div class="edge"><b>Extra marks</b><b>Polymorphic and metamorphic viruses are the reason signature-based detection cannot be the whole answer</b> — the signature changes with every infection. That single sentence links this card to the IDS comparison in card 7.1, which is where the marks are.</div>
+</div>
+
+      <h2 id="m0-counter">4 · Countermeasures</h2>
+
+<div class="card">
+  <h3><span class="n">4.1</span>Countermeasures by malware type</h3>
+  <div class="tw"><table>
+  <thead><tr><th>Against</th><th>Countermeasures</th></tr></thead>
+  <tbody>
+  <tr><td><b>Trojans</b></td><td>Do not open attachments from unknown senders; block unused ports; monitor outbound traffic; verify file integrity and hashes; use reputable AV with real-time scanning; disable unnecessary services</td></tr>
+  <tr><td><b>Viruses &amp; worms</b></td><td>Keep AV signatures current; patch promptly; scan removable media; disable macros by default; segment the network to contain spread; back up regularly and test restores</td></tr>
+  <tr><td><b>Rootkits</b></td><td>Detection is unreliable from inside a compromised host — <b>reinstall the OS and applications from a trusted source</b> after backing up data; use integrity checkers (Tripwire); boot from trusted media to scan; enable secure boot</td></tr>
+  <tr><td><b>Spyware</b></td><td>Avoid computers not entirely under your control; use anti-spyware; do not install freeware from third-party installers; read EULAs; enable a firewall and pop-up blocking</td></tr>
+  <tr><td><b>Keyloggers</b></td><td>Use an on-screen keyboard or a password manager for sensitive input; inspect hardware for inline devices; use anti-keylogging software; deploy MFA so a stolen password alone is useless</td></tr>
+  <tr><td><b>Botnets</b></td><td>Egress filtering, DNS sinkholing, blocking C&amp;C domains, NIDS on outbound traffic, rate limiting</td></tr>
+  <tr><td><b>Fileless malware</b></td><td>Restrict and log PowerShell/WMI, application allow-listing, behavioural EDR rather than file scanning, least privilege</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>The pattern across the whole table is worth stating once: <b>the more a technique avoids writing a file, the less signature scanning helps</b> — rootkits, fileless malware and polymorphic viruses all push defence toward behaviour, integrity checking and least privilege. That is also the argument for Zero Trust in Module 2, so it links your paper together.</div>
+</div>
 
       <div class="mod">Module 1 · VPN &amp; Wireless IoT Security</div>
-      <h2 id="m1-fw">Firewalls</h2>
+      <h2 id="m1-fw">5 · Firewalls</h2>
+
 <div class="card">
-  <h3><span class="n">1.1</span>What a firewall is<span class="tag t-hi">★ high yield</span></h3>
-  <div class="def"><b>Firewall</b><p>A network security device that <b>monitors and filters</b> incoming and outgoing traffic against a set of pre-established security rules. It sits as a <b>barrier between a trusted network and an untrusted one</b> (e.g. your LAN and the internet).</p></div><div class="tw"><table>
-  <thead><tr><th>Type</th><th>Layer / how it works</th><th>Trade-off</th></tr></thead>
-  <tbody><tr><td><b>Packet-filtering</b> (stateless)</td><td>Inspects each packet alone by IP, port, protocol (ACLs). Layer 3–4.</td><td>Cheap, fast; no context, easily fooled</td></tr><tr><td><b>Stateful inspection</b></td><td>Tracks connection state, allows replies to known sessions. Layer 3–4.</td><td>Better security, moderate cost</td></tr><tr><td><b>Proxy / application</b></td><td>Intermediary; inspects content at Layer 7 before forwarding.</td><td>High security; slow, expensive</td></tr><tr><td><b>Next-Gen (NGFW)</b></td><td>Adds deep packet inspection, app-awareness, IPS, threat intel, AI/ML.</td><td>Comprehensive; high cost/complexity</td></tr><tr><td><b>Circuit-level gateway</b> <span class="tag t-add">+ added</span></td><td>Verifies TCP handshake at Layer 5 (session); does not inspect payload.</td><td>Low overhead; no content check</td></tr><tr><td><b>WAF (Web App Firewall)</b> <span class="tag t-add">+ added</span></td><td>Layer-7 filter specifically for HTTP/S — blocks SQLi, XSS, CSRF.</td><td>Protects web apps; web-only</td></tr></tbody>
-</table></div><p><b>Advantages:</b> prevents unauthorised access, monitors traffic, customisable rules. <b>Limits:</b> cannot detect internal/insider threats, may slow the network, needs regular rule updates.</p><div class="edge"><b>Extra marks</b>The decks only list the first four types. Naming the <b>circuit-level gateway</b> and the <b>WAF</b>, and giving the OSI layer each one operates at, is the difference between a full-marks taxonomy answer and a half one.</div>
+  <h3><span class="n">5.1</span>What a firewall is<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Firewall</b>A network security device or system that <b>monitors and filters</b> incoming and outgoing traffic against a set of <b>pre-established security rules</b>, acting as a barrier between a trusted and an untrusted network.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Type</th><th>Works at</th><th>How it decides</th><th>Trade-off</th></tr></thead>
+  <tbody>
+  <tr><td><b>Packet-filtering</b> (stateless)</td><td>Network / transport (L3–L4)</td><td>Inspects each packet <b>individually</b> on IP, port and protocol</td><td>Fast and cheap; blind to context, cannot see a session</td></tr>
+  <tr><td><b>Stateful inspection</b></td><td>L3–L4 + state table</td><td><b>Tracks connection state</b>, so replies to an allowed outbound flow are permitted dynamically</td><td>Much safer; more memory, still no content awareness</td></tr>
+  <tr><td><b>Proxy / application gateway</b></td><td>Application (L7)</td><td>Acts as an <b>intermediary</b> — terminates the connection and inspects content before forwarding</td><td>Deepest inspection and identity hiding; slowest, per-protocol</td></tr>
+  <tr><td><b>Next-generation (NGFW)</b></td><td>L3–L7</td><td>Adds <b>deep packet inspection</b>, application awareness, user identity, integrated IPS and threat intelligence — increasingly AI/ML-assisted</td><td>Everything in one box; expensive, a single point of failure</td></tr>
+  </tbody>
+</table></div>
+  <div class="tw"><table>
+  <thead><tr><th>Advantages</th><th>Disadvantages</th></tr></thead>
+  <tbody>
+  <tr><td>Prevents unauthorised access</td><td><b>Cannot detect internal threats</b> — traffic that never crosses it is invisible</td></tr>
+  <tr><td>Monitors and logs traffic</td><td>Can slow the network, especially with DPI enabled</td></tr>
+  <tr><td>Rules are customisable to the organisation</td><td>Needs regular rule review and signature updates</td></tr>
+  <tr><td>Enforces a single policy point</td><td>Useless against encrypted payloads it cannot terminate, and against social engineering</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>"Cannot detect internal threats" is the sentence that earns the link to Module 2: the firewall's blindness to traffic inside the perimeter is precisely the weakness the <b>castle-and-moat critique</b> and Zero Trust are built on. Examiners reward answers that connect the two modules.</div>
 </div>
-<h2 id="m1-ids">IDS &amp; IPS</h2>
+
 <div class="card">
-  <h3><span class="n">1.2</span>Detection vs prevention<span class="tag t-hi">★ high yield</span><span class="tag t-past">past paper</span></h3>
-  <div class="def"><b>IDS</b>Intrusion <b>Detection</b> System — monitors traffic and <b>alerts</b> an administrator. Passive; it watches, it does not block.</div><div class="def"><b>IPS</b>Intrusion <b>Prevention</b> System — detects <b>and blocks</b> threats in real time. Inline; often built into an NGFW.</div><div class="tw"><table>
+  <h3><span class="n">5.2</span>Writing firewall rules<span class="tag t-past">past paper</span></h3>
+  <p>Feb 2026 Section A: "Design a simple firewall rule to block all incoming traffic." Write it as a rule table <b>and</b> as commands — the table shows you understand the model, the commands show you can apply it.</p>
+  <div class="tw"><table>
+  <thead><tr><th>#</th><th>Action</th><th>Source</th><th>Destination</th><th>Protocol</th><th>Port</th><th>Direction</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td><b>ALLOW</b></td><td>Any</td><td>Any</td><td>Any</td><td>Any</td><td>Established / related</td></tr>
+  <tr><td>2</td><td><b>DENY</b></td><td>Any</td><td>Any</td><td>Any</td><td>Any</td><td><b>Inbound</b></td></tr>
+  <tr><td>3</td><td>ALLOW</td><td>Any</td><td>Any</td><td>Any</td><td>Any</td><td>Outbound</td></tr>
+  </tbody>
+</table></div>
+  <pre><code><span class="cm"># Linux iptables — block all incoming, keep replies to your own traffic working</span>
+iptables -P INPUT DROP              <span class="cm"># default policy: deny inbound</span>
+iptables -P FORWARD DROP
+iptables -P OUTPUT ACCEPT           <span class="cm"># outbound still allowed</span>
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A INPUT -i lo -j ACCEPT   <span class="cm"># never block loopback</span>
+
+<span class="cm"># Cisco ACL equivalent, applied inbound on the outside interface</span>
+access-list 101 permit tcp any any established
+access-list 101 deny   ip  any any
+interface GigabitEthernet0/0
+ ip access-group 101 in</code></pre>
+  <div class="trap cram"><b>Exam trap</b>Three marks are lost in this question every year for the same three reasons. <b>(1) Rules are evaluated top-down and the first match wins</b> — put the stateful ALLOW <i>above</i> the DENY or you cut off your own replies. <b>(2)</b> "Block all incoming" must not block <b>established</b> return traffic, or the machine loses all internet access. <b>(3)</b> Always end an ACL with an explicit deny and remember Cisco's implicit <code>deny ip any any</code> at the end of every ACL.</div>
+</div>
+
+      <h2 id="m1-ids">6 · IDS &amp; IPS</h2>
+
+<div class="card">
+  <h3><span class="n">6.1</span>IDS vs IPS<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>IDS</b>Intrusion Detection System — monitors network or host activity for malicious behaviour and <b>alerts</b> administrators. It is <b>passive</b>: it observes a copy of the traffic.</div>
+  <div class="def"><b>IPS</b>Intrusion Prevention System — detects <b>and prevents</b> threats in real time by blocking or modifying malicious traffic. It is <b>inline</b>: traffic passes through it. Often integrated into an NGFW.</div>
+  <div class="tw"><table>
   <thead><tr><th>Feature</th><th>IDS</th><th>IPS</th></tr></thead>
-  <tbody><tr><td>Action</td><td>Detects only</td><td>Detects & prevents</td></tr><tr><td>Placement</td><td>Passive (out-of-band)</td><td>Inline (in the traffic path)</td></tr><tr><td>Response</td><td>Raises alerts</td><td>Blocks / modifies traffic</td></tr><tr><td>Impact</td><td>No added latency</td><td>May add latency</td></tr></tbody>
-</table></div><p><b>Network-based (NIDS/NIPS)</b> watches a whole subnet at a gateway — broad view, low host impact, but <b>can miss encrypted traffic</b>. Tools: Snort, Suricata, Cisco IPS. <b>Host-based (HIDS/HIPS)</b> runs on one machine watching file changes and system calls — <b>catches insider threats and sees inside encryption</b>, but is resource-heavy per host. Tools: OSSEC, Tripwire.</p><div class="ask"><b>Likely question</b>“Differentiate between network-based and host-based IDS/IPS with examples.” (both CSE337 papers) — answer with the placement/visibility/encrypted-traffic trade-off above, one tool each.</div>
-</div><div class="card">
-  <h3><span class="n">1.3</span>Signature vs anomaly detection<span class="tag t-hi">★ high yield</span><span class="tag t-past">past paper</span></h3>
-  <div class="tw"><table>
-  <thead><tr><th>Criteria</th><th>Signature-based</th><th>Anomaly-based</th></tr></thead>
-  <tbody><tr><td>Detects</td><td>Known threats only</td><td>Known + unknown (zero-day)</td></tr><tr><td>Accuracy</td><td>Low false positives</td><td>Higher false positives</td></tr><tr><td>Resources</td><td>Lightweight</td><td>Computationally heavy (ML)</td></tr><tr><td>Updates</td><td>Frequent signature DB updates</td><td>Initial baseline training only</td></tr><tr><td>Best for</td><td>Antivirus, Snort rules</td><td>Fraud detection, IoT anomalies</td></tr></tbody>
-</table></div><p>Signature matching works like antivirus — fast pattern lookup against a threat database, but blind to zero-days and polymorphic malware. Anomaly detection builds an ML baseline of “normal” and flags deviations — catches the unknown at the cost of false alarms.</p><div class="ask"><b>Likely question</b>“Compare signature- and anomaly-based detection… which would you recommend for a modern enterprise?” (Sept-2025 mid-sem). Recommend a <b>hybrid</b>: signature for cheap known-threat coverage, anomaly layered on for zero-days.</div>
-</div>
-<h2 id="m1-vpn">VPNs &amp; IPSec</h2>
-<div class="card">
-  <h3><span class="n">1.4</span>VPN types & protocols<span class="tag t-hi">★ high yield</span><span class="tag t-past">past paper</span></h3>
-  <div class="def"><b>VPN</b>A Virtual Private Network creates a <b>secure, encrypted tunnel</b> over the public internet between a device and a remote server — protecting data from eavesdropping, hiding the IP, and securing public Wi-Fi.</div><div class="tw"><table>
-  <thead><tr><th>Type</th><th>Connects</th><th>Use case</th></tr></thead>
-  <tbody><tr><td>Remote-access</td><td>One user → a private network</td><td>Work from home</td></tr><tr><td>Site-to-site</td><td>Whole network → whole network</td><td>Branch offices</td></tr><tr><td>Mobile</td><td>Keeps session alive during handoffs</td><td>Field staff</td></tr><tr><td>Cloud</td><td>Users → cloud resources</td><td>Hybrid environments</td></tr></tbody>
-</table></div><div class="tw"><table>
-  <thead><tr><th>Protocol</th><th>Security</th><th>Notes</th></tr></thead>
-  <tbody><tr><td>PPTP</td><td>Low</td><td>Obsolete, insecure</td></tr><tr><td>L2TP/IPSec</td><td>High</td><td>L2TP tunnels, IPSec encrypts</td></tr><tr><td>OpenVPN</td><td>Very high</td><td>Open-source, SSL/TLS based</td></tr><tr><td>IKEv2/IPSec</td><td>High</td><td>Fast reconnect — mobile-friendly</td></tr><tr><td>WireGuard</td><td>Very high</td><td>Modern, lightweight, very fast</td></tr></tbody>
+  <tbody>
+  <tr><td><b>Action</b></td><td>Detects</td><td>Detects &amp; prevents</td></tr>
+  <tr><td><b>Placement</b></td><td>Passive (out of band, on a SPAN/TAP)</td><td>Inline (active, in the traffic path)</td></tr>
+  <tr><td><b>Response</b></td><td>Alerts only</td><td>Blocks or modifies traffic</td></tr>
+  <tr><td><b>Impact</b></td><td>No latency</td><td>May introduce latency</td></tr>
+  <tr><td><b>Failure mode</b></td><td>An outage costs you visibility</td><td>An outage or false positive costs you <b>availability</b></td></tr>
+  </tbody>
 </table></div>
-</div><div class="card">
-  <h3><span class="n">1.5</span>Inside IPSec — the deck skips this, examiners don’t<span class="tag t-add">+ added</span><span class="tag t-hi">★ high yield</span></h3>
-  <figure><svg viewBox="0 0 520 210" role="img" aria-label="IPSec transport mode vs tunnel mode packet layout">
-  <text class="svg-t" x="10" y="18">Transport mode — host-to-host</text>
-  <rect class="svg-b" x="10" y="28" width="70" height="30"/><text class="svg-l" x="45" y="47" text-anchor="middle">IP hdr</text>
-  <rect x="80" y="28" width="60" height="30" fill="rgba(49,214,122,.15)" stroke="var(--green)"/><text class="svg-l" x="110" y="47" text-anchor="middle" fill="var(--green)">ESP</text>
-  <rect class="svg-b" x="140" y="28" width="110" height="30"/><text class="svg-l" x="195" y="47" text-anchor="middle">TCP + data</text>
-  <text class="svg-l" x="255" y="47">← payload encrypted, original IP header kept</text>
-
-  <text class="svg-t" x="10" y="98">Tunnel mode — gateway-to-gateway (VPN)</text>
-  <rect x="10" y="108" width="80" height="30" fill="rgba(0,229,255,.15)" stroke="var(--cyan)"/><text class="svg-l" x="50" y="127" text-anchor="middle" fill="var(--cyan)">new IP hdr</text>
-  <rect x="90" y="108" width="55" height="30" fill="rgba(49,214,122,.15)" stroke="var(--green)"/><text class="svg-l" x="117" y="127" text-anchor="middle" fill="var(--green)">ESP</text>
-  <rect class="svg-b" x="145" y="108" width="70" height="30"/><text class="svg-l" x="180" y="127" text-anchor="middle">orig IP</text>
-  <rect class="svg-b" x="215" y="108" width="110" height="30"/><text class="svg-l" x="270" y="127" text-anchor="middle">TCP + data</text>
-  <text class="svg-l" x="10" y="165">whole original packet (incl. its IP header) is encrypted and wrapped</text>
-  <text class="svg-l" x="10" y="182">in a new one — this is why the internal topology stays hidden.</text>
-</svg><figcaption>ESP wraps and encrypts the payload; in tunnel mode the entire original packet is encapsulated, hiding internal addressing.</figcaption></figure><p><b>Two protocols inside IPSec:</b></p><ul><li><b>AH (Authentication Header)</b> — integrity + authentication only, <b>no encryption</b>. Protocol number <b>51</b>.</li><li><b>ESP (Encapsulating Security Payload)</b> — integrity + authentication <b>and confidentiality (encryption)</b>. Protocol number <b>50</b>. This is the one actually used in VPNs.</li></ul><p><b>Two modes:</b> <b>Transport</b> mode encrypts only the payload and keeps the original IP header (host-to-host). <b>Tunnel</b> mode encrypts the entire original packet and adds a new header (gateway-to-gateway — this is what a site-to-site VPN uses).</p><p><b>IKE (Internet Key Exchange)</b> negotiates the keys over <b>UDP 500</b> (and UDP 4500 for NAT traversal): <b>Phase 1</b> sets up a secure channel between peers (Main or Aggressive mode); <b>Phase 2</b> negotiates the actual IPSec SAs (Security Associations) for the traffic.</p><div class="edge"><b>Extra marks</b>“Describe the VPN architecture and the working of IPSec and SSL/TLS” is Q4 on the Feb-2026 paper (10 marks). The deck gives you SSL/TLS and the VPN types but <b>nothing</b> on AH/ESP, tunnel/transport or IKE — this card is where those 4–5 marks live.</div>
-</div>
-<h2 id="m1-wifi">Wireless security: WEP → WPA3</h2>
-<div class="card">
-  <h3><span class="n">1.6</span>The four generations<span class="tag t-hi">★ high yield</span><span class="tag t-past">past paper</span></h3>
-  <div class="tw"><table>
-  <thead><tr><th>Standard</th><th>Cipher</th><th>Key mgmt</th><th>Integrity</th></tr></thead>
-  <tbody><tr><td><b>WEP</b></td><td>RC4, 24-bit IV</td><td>None</td><td>CRC-32 (broken)</td></tr><tr><td><b>WPA</b></td><td>RC4 + TKIP, 48-bit IV</td><td>4-way handshake</td><td>Michael (MIC)</td></tr><tr><td><b>WPA2</b></td><td>AES-CCMP</td><td>4-way handshake</td><td>CBC-MAC</td></tr><tr><td><b>WPA3</b></td><td>AES-GCMP-256</td><td>SAE + ECDH/ECDSA</td><td>BIP-GMAC-256</td></tr></tbody>
-</table></div><p><b>WEP</b> — RC4 stream cipher with a tiny 24-bit IV; cracked in minutes. <b>WPA</b> — a stopgap that bolted TKIP onto RC4. <b>WPA2</b> (802.11i) — mandates <b>CCMP</b>, an AES mode; still the common baseline. <b>WPA3</b> — replaces the pre-shared-key handshake with <b>SAE (Simultaneous Authentication of Equals, “Dragonfly”)</b>, which resists offline dictionary attacks.</p><p><b>Personal vs Enterprise:</b> Personal uses a shared password (PSK/SAE); Enterprise uses <b>802.1X + EAP + a RADIUS server</b> for per-user authentication.</p>
-</div><div class="card">
-  <h3><span class="n">1.7</span>KRACK, and the attack WPA3 still has<span class="tag t-hi">★ high yield</span></h3>
-  <div class="def"><b>KRACK (2017)</b>Key Reinstallation Attack. By replaying <b>message 3 of the WPA2 4-way handshake</b>, an attacker forces the client to reinstall an already-used key, resetting the nonce/packet counter and letting them decrypt traffic — <b>without knowing the password</b>. Found by Mathy Vanhoef; motivated WPA3’s SAE handshake.</div><div class="trap"><b>Exam trap</b>WPA3 is <b>not</b> flawless. <b>Dragonblood (2019)</b> is a class of side-channel and downgrade attacks against SAE/Dragonfly. <span class="tag t-add">+ added</span> The decks cover KRACK in full but never mention Dragonblood — naming it shows you know WPA3 is an improvement, not a cure.</div><p><b>Other wireless attacks (deck catalogue):</b> Rogue AP, client mis-association, honeypot AP, MAC spoofing, ad-hoc/soft-AP association, and jamming (exploits 802.11’s CSMA/CA silence requirement). <b>Countermeasures:</b> WPA2/WPA3-Enterprise with 802.1X, SSID cloaking, disabling remote admin, and a <b>WIPS</b> (Wireless IPS) to detect rogue APs.</p>
-</div>
-<h2 id="m1-stack">Stacks, OS, web, PKI</h2>
-<div class="card">
-  <h3><span class="n">1.8</span>OSI & TCP/IP — and where security lives<span class="tag t-past">past paper</span></h3>
-  <figure><svg viewBox="0 0 520 300" role="img" aria-label="OSI to TCP/IP layer mapping">
-  <text class="svg-t" x="90" y="20" text-anchor="middle">OSI (7 layers)</text>
-  <text class="svg-t" x="380" y="20" text-anchor="middle">TCP/IP (4 layers)</text>
-  <rect class="svg-b" x="20" y="30" width="140" height="30" rx="4"/><text class="svg-l" x="90" y="50" text-anchor="middle">7. Application</text><rect class="svg-b" x="20" y="66" width="140" height="30" rx="4"/><text class="svg-l" x="90" y="86" text-anchor="middle">6. Presentation</text><rect class="svg-b" x="20" y="102" width="140" height="30" rx="4"/><text class="svg-l" x="90" y="122" text-anchor="middle">5. Session</text><rect class="svg-b" x="20" y="138" width="140" height="30" rx="4"/><text class="svg-l" x="90" y="158" text-anchor="middle">4. Transport</text><rect class="svg-b" x="20" y="174" width="140" height="30" rx="4"/><text class="svg-l" x="90" y="194" text-anchor="middle">3. Network</text><rect class="svg-b" x="20" y="210" width="140" height="30" rx="4"/><text class="svg-l" x="90" y="230" text-anchor="middle">2. Data Link</text><rect class="svg-b" x="20" y="246" width="140" height="30" rx="4"/><text class="svg-l" x="90" y="266" text-anchor="middle">1. Physical</text>
-  <rect x="300" y="30" width="160" height="102" rx="4" fill="none" stroke="var(--cyan)" stroke-width="1.5"/><text class="svg-l" x="380" y="85" text-anchor="middle" fill="var(--cyan)">Application</text><rect x="300" y="138" width="160" height="30" rx="4" fill="none" stroke="var(--green)" stroke-width="1.5"/><text class="svg-l" x="380" y="157" text-anchor="middle" fill="var(--green)">Transport</text><rect x="300" y="174" width="160" height="30" rx="4" fill="none" stroke="var(--yellow)" stroke-width="1.5"/><text class="svg-l" x="380" y="193" text-anchor="middle" fill="var(--yellow)">Internet</text><rect x="300" y="210" width="160" height="66" rx="4" fill="none" stroke="var(--pink)" stroke-width="1.5"/><text class="svg-l" x="380" y="247" text-anchor="middle" fill="var(--pink)">Link</text>
-  <line x1="160" y1="45" x2="300" y2="45" stroke="var(--line-2)" stroke-dasharray="3 3"/><line x1="160" y1="153" x2="300" y2="153" stroke="var(--line-2)" stroke-dasharray="3 3"/><line x1="160" y1="189" x2="300" y2="189" stroke="var(--line-2)" stroke-dasharray="3 3"/><line x1="160" y1="225" x2="300" y2="225" stroke="var(--line-2)" stroke-dasharray="3 3"/>
-</svg><figcaption>The deck lists both stacks as bullets but never maps them. This mapping is the standard exam figure.</figcaption></figure><p><b>OSI</b> — 7 layers: Physical, Data Link, Network, Transport, Session, Presentation, Application. Wireless security operates mainly at <b>Layer 2 (Data Link)</b> and <b>Layer 3 (Network)</b>. <b>TCP/IP</b> — 4 layers: Link, Internet, Transport, Application; encryption/authentication happen at Transport and Application.</p><div class="edge"><b>Extra marks</b>Draw the side-by-side mapping (added here) even if only asked to “explain the layers” — a labelled diagram earns the diagram marks the bullet list can’t.</div>
-</div><div class="card">
-  <h3><span class="n">1.9</span>PKI, SSL/TLS, HTTPS</h3>
-  <p><b>PKI</b> uses <b>asymmetric cryptography</b> (public/private key pairs) and <b>digital certificates</b> issued by Certificate Authorities to prove identity — the foundation for SSL/TLS. <b>SSL/TLS</b> secures data in transit using those certificates; <b>TLS 1.3</b> is current. <b>HTTPS = HTTP over TLS.</b> WPA2/WPA3-Enterprise use <b>EAP with certificates</b>, tying wireless auth back to PKI.</p><p><b>OS basics:</b> the OS manages hardware/software/network resources; security features = user authentication, access control, host firewall; regular patching closes exploited vulnerabilities. <b>Web basics:</b> client–server model, browser/server/cookies, HTTP vs HTTPS.</p>
+  <figure><svg viewBox="0 0 520 150" role="img" aria-label="IDS passive on a tap versus IPS inline">
+  <text class="svg-t" x="12" y="26" fill="var(--ink-3)">IDS — passive</text>
+  <rect x="12" y="34" width="70" height="30" rx="5" class="svg-b" stroke="var(--ink-3)"/>
+  <text class="svg-l" x="47" y="53" text-anchor="middle" fill="var(--ink-3)">Internet</text>
+  <rect x="200" y="34" width="70" height="30" rx="5" class="svg-b" stroke="var(--ink-3)"/>
+  <text class="svg-l" x="235" y="53" text-anchor="middle" fill="var(--ink-3)">LAN</text>
+  <line x1="82" y1="49" x2="200" y2="49" stroke="var(--green)" marker-end="url(#a1)"/>
+  <rect x="115" y="90" width="70" height="28" rx="5" class="svg-b" stroke="var(--cyan)"/>
+  <text class="svg-l" x="150" y="108" text-anchor="middle" fill="var(--cyan)">IDS</text>
+  <line x1="150" y1="49" x2="150" y2="90" stroke="var(--cyan)" stroke-dasharray="3 3" marker-end="url(#a1)"/>
+  <text class="svg-t" x="192" y="112" fill="var(--ink-3)">copy of traffic → alert</text>
+  <text class="svg-t" x="300" y="26" fill="var(--ink-3)">IPS — inline</text>
+  <rect x="300" y="34" width="60" height="30" rx="5" class="svg-b" stroke="var(--ink-3)"/>
+  <text class="svg-l" x="330" y="53" text-anchor="middle" fill="var(--ink-3)">Internet</text>
+  <rect x="378" y="34" width="52" height="30" rx="5" class="svg-b" stroke="var(--pink)"/>
+  <text class="svg-l" x="404" y="53" text-anchor="middle" fill="var(--pink)">IPS</text>
+  <rect x="448" y="34" width="60" height="30" rx="5" class="svg-b" stroke="var(--ink-3)"/>
+  <text class="svg-l" x="478" y="53" text-anchor="middle" fill="var(--ink-3)">LAN</text>
+  <line x1="360" y1="49" x2="378" y2="49" stroke="var(--green)" marker-end="url(#a1)"/>
+  <line x1="430" y1="49" x2="448" y2="49" stroke="var(--green)" marker-end="url(#a1)"/>
+  <text class="svg-t" x="404" y="90" text-anchor="middle" fill="var(--ink-3)">inline — it can drop</text>
+  <defs><marker id="a1" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor"/></marker></defs>
+</svg><figcaption>Placement <i>is</i> the difference. Draw the tap and the inline box and the comparison answers itself.</figcaption></figure>
 </div>
 
-      <div class="mod">Module 2 · Zero Trust Architecture</div>
-      <h2 id="m2-trad">Perimeter security → Zero Trust</h2>
 <div class="card">
-  <h3><span class="n">2.1</span>Why the castle-and-moat model fails<span class="tag t-hi">★ high yield</span></h3>
-  <div class="def"><b>Perimeter (castle-and-moat) model</b>Traditional security treats the network as a trusted zone behind firewalls/IPS/VPN. Guards check identity <b>once</b> at the gateway; once inside, users are <b>implicitly trusted</b> and move freely.</div><p><b>Why it breaks:</b> it ignores insider threats, collapses once the perimeter is breached (free <b>lateral movement</b>), and doesn’t fit cloud, BYOD or remote work where there <b>is no perimeter</b>.</p><div class="ask"><b>Likely question</b>“Identify the security weaknesses in the traditional perimeter-based model” — Q6a on the Feb-2026 re-paper (3 marks). Answer: implicit internal trust, single point of failure at the perimeter, no defence against lateral movement, and no fit for cloud/BYOD.</div>
-</div><div class="card">
-  <h3><span class="n">2.2</span>“Never trust, always verify”<span class="tag t-hi">★ high yield</span></h3>
-  <div class="def"><b>Zero Trust</b>Never automatically trust anyone or anything, inside or outside the network. <b>Every</b> user, device and application is <b>continuously authenticated and authorised</b> before accessing <b>any</b> resource, with <b>least-privilege</b> access enforced throughout.</div><p>The cycle: <b>Authenticate → Authorise → Enforce least privilege → Monitor continuously →</b> (repeat every session). Six components: strong identity (MFA/SSO), device compliance, least-privilege access, continuous monitoring/logging, encryption in transit & at rest, and <b>micro-segmentation</b>.</p><div class="tw"><table>
-  <thead><tr><th></th><th>Traditional</th><th>Zero Trust</th></tr></thead>
-  <tbody><tr><td>Trust model</td><td>Implicit trust inside</td><td>Never trust, always verify</td></tr><tr><td>Boundary</td><td>Network perimeter</td><td>Identity & context</td></tr><tr><td>Access</td><td>Broad, static</td><td>Least-privilege, per-session</td></tr><tr><td>Verification</td><td>Once, at the gateway</td><td>Continuous</td></tr><tr><td>Response</td><td>Reactive</td><td>Proactive, automated</td></tr></tbody>
+  <h3><span class="n">6.2</span>Network-based vs host-based<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <p>Feb 2026 Section A asked for exactly this "with suitable examples".</p>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>Network-based (NIDS/NIPS)</th><th>Host-based (HIDS/HIPS)</th></tr></thead>
+  <tbody>
+  <tr><td>Monitors</td><td>Network traffic for the <b>entire subnet</b></td><td>System-level events on <b>one host</b> — file changes, system calls, logs, registry</td></tr>
+  <tr><td>Placement</td><td>Strategic points: gateways, routers, core switches</td><td>Installed <b>on</b> each protected machine</td></tr>
+  <tr><td>Visibility</td><td><b>Broader</b> — sees attacks aimed at many systems</td><td><b>Deeper</b> — sees what actually happened on that machine</td></tr>
+  <tr><td>Encrypted traffic</td><td><b>May miss it</b> — cannot read the payload</td><td><b>Better</b> — sees the data after decryption</td></tr>
+  <tr><td>Impact</td><td>Low impact on individual hosts</td><td><b>Resource intensive</b> on the host</td></tr>
+  <tr><td>Insider threats</td><td>Weak</td><td><b>Can detect them</b></td></tr>
+  <tr><td><b>Examples</b></td><td><b>Snort</b>, <b>Suricata</b>, Cisco IPS, Zeek</td><td><b>OSSEC</b>, <b>Tripwire</b>, Symantec Endpoint Protection, Wazuh</td></tr>
+  </tbody>
 </table></div>
+  <div class="tw"><table>
+  <thead><tr><th>Tool</th><th>Type</th><th>Open source?</th><th>Prevention?</th><th>Best for</th></tr></thead>
+  <tbody>
+  <tr><td><b>Snort</b></td><td>NIDS</td><td>Yes</td><td>No</td><td>Labs / SMBs</td></tr>
+  <tr><td><b>Suricata</b></td><td>NIDS/NIPS</td><td>Yes</td><td>Yes</td><td>High-speed networks</td></tr>
+  <tr><td><b>Cisco IPS</b></td><td>NIPS</td><td>No</td><td>Yes</td><td>Enterprises</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>The right conclusion is not "pick one" — it is <b>defence in depth: NIDS for breadth, HIDS for depth</b>. Add the modern note: with most traffic now TLS-encrypted, network sensors increasingly rely on metadata and JA3-style fingerprints, which is why endpoint EDR has taken over much of what a NIDS used to do.</div>
 </div>
-<h2 id="m2-nist">NIST SP 800-207</h2>
+
+      <h2 id="m1-detect">7 · Signature vs anomaly detection</h2>
+
 <div class="card">
-  <h3><span class="n">2.3</span>The framework & its tenets<span class="tag t-hi">★ high yield</span><span class="tag t-past">past paper</span></h3>
-  <div class="def"><b>NIST SP 800-207 (Aug 2020)</b>The US NIST standard framework for implementing Zero Trust in enterprises and federal agencies.</div><p><b>The 7 tenets (know at least five):</b></p><ol><li>All data sources and computing services are <b>resources</b>.</li><li>All communication is secured <b>regardless of network location</b>.</li><li>Access is granted <b>per session</b>.</li><li>Access is determined by <b>dynamic policy</b> (identity, device, location, behaviour).</li><li>The enterprise <b>monitors the integrity and security posture</b> of all assets.</li><li>Authentication and authorisation are <b>dynamic and strictly enforced</b> before access.</li><li>The enterprise <b>collects as much data as possible</b> to improve its security posture.</li></ol><div class="ask"><b>Likely question</b>“Discuss the NIST SP 800-207 model — its key principles and components” is Q5 on the Feb-2026 paper (10 marks). Give the 7 tenets + the PE/PA/PEP diagram below.</div>
-</div><div class="card">
-  <h3><span class="n">2.4</span>Logical components — PE, PA, PEP<span class="tag t-hi">★ high yield</span></h3>
-  <figure><svg viewBox="0 0 520 260" role="img" aria-label="NIST SP 800-207 Zero Trust logical components">
-  <rect x="200" y="15" width="120" height="40" rx="6" fill="rgba(157,123,255,.15)" stroke="var(--purple)"/>
-  <text class="svg-t" x="260" y="33" text-anchor="middle" fill="var(--purple)">Policy Engine</text>
-  <text class="svg-l" x="260" y="48" text-anchor="middle">(PE) — decides</text>
-  <rect x="200" y="80" width="120" height="40" rx="6" fill="rgba(157,123,255,.1)" stroke="var(--purple)"/>
-  <text class="svg-t" x="260" y="98" text-anchor="middle" fill="var(--purple)">Policy Admin</text>
-  <text class="svg-l" x="260" y="113" text-anchor="middle">(PA) — executes</text>
-  <line x1="260" y1="55" x2="260" y2="80" stroke="var(--line-2)"/>
-  <text class="svg-l" x="330" y="72">Control Plane</text>
-  <line x1="20" y1="140" x2="500" y2="140" stroke="var(--line)" stroke-dasharray="4 4"/>
-  <text class="svg-l" x="330" y="155">Data Plane</text>
-  <rect x="40" y="175" width="90" height="36" rx="5" fill="rgba(0,229,255,.1)" stroke="var(--cyan)"/><text class="svg-l" x="85" y="197" text-anchor="middle" fill="var(--cyan)">Subject +<tspan x="85" dy="0"> device</tspan></text>
-  <rect x="215" y="175" width="90" height="36" rx="5" fill="rgba(49,214,122,.15)" stroke="var(--green)"/><text class="svg-t" x="260" y="197" text-anchor="middle" fill="var(--green)">PEP</text>
-  <rect x="390" y="175" width="90" height="36" rx="5" fill="rgba(255,210,63,.1)" stroke="var(--yellow)"/><text class="svg-l" x="435" y="197" text-anchor="middle" fill="var(--yellow)">Resource</text>
-  <line x1="130" y1="193" x2="215" y2="193" stroke="var(--cyan)" marker-end="url(#a)"/>
-  <line x1="305" y1="193" x2="390" y2="193" stroke="var(--green)" marker-end="url(#a)"/>
-  <line x1="260" y1="120" x2="260" y2="175" stroke="var(--purple)" stroke-dasharray="3 3"/>
-  <defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="var(--ink-2)"/></marker></defs>
-</svg><figcaption>Control plane: the Policy Engine decides, the Policy Administrator executes. Data plane: the PEP is the gatekeeper in front of every resource.</figcaption></figure><div class="tw"><table>
+  <h3><span class="n">7.1</span>The comparison<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <p>Sept 2025 Section A: "Compare signature-based and anomaly-based detection in terms of detection capability, accuracy and suitability. Which would you recommend for a modern enterprise and why?" — the recommendation carries marks, so commit to one.</p>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>Signature-based</th><th>Anomaly-based</th></tr></thead>
+  <tbody>
+  <tr><td><b>How it works</b></td><td>Compares traffic or behaviour against a database of <b>known threat signatures</b> — pattern matching, like antivirus</td><td>Builds a <b>baseline of normal</b> behaviour and flags statistically significant deviation</td></tr>
+  <tr><td><b>Detection capability</b></td><td>Known threats only</td><td><b>Unknown and zero-day</b> threats, insider misuse</td></tr>
+  <tr><td><b>Accuracy</b></td><td><b>Low false positives</b>, high confidence</td><td><b>High false positives</b>, especially before the baseline settles</td></tr>
+  <tr><td><b>Speed</b></td><td>Fast, low overhead</td><td>Heavier — needs learning and continuous modelling</td></tr>
+  <tr><td><b>Maintenance</b></td><td>Constant signature updates</td><td>Retraining as the environment changes</td></tr>
+  <tr><td><b>Weakness</b></td><td>Blind to zero-days; defeated by <b>polymorphic</b> malware</td><td>Alert fatigue; an attacker who moves slowly stays inside the baseline</td></tr>
+  <tr><td><b>Real use</b></td><td>Virus scanners (ClamAV), network IPS (Snort rules)</td><td>Credit-card fraud detection, industrial IoT sensor monitoring</td></tr>
+  </tbody>
+</table></div>
+  <div class="ask"><b>The recommendation, written out</b>For a modern enterprise, recommend <b>a hybrid, weighted toward anomaly/behavioural detection</b>. Justify it in three moves: (1) the threats that actually cause loss now — zero-days, ransomware variants, insider misuse and living-off-the-land techniques — have <b>no prior signature</b>, so a signature-only deployment is blind to them by construction; (2) signature detection is still worth keeping because it is cheap, fast and near-certain on the large volume of commodity attacks, and it keeps the anomaly engine from being buried in noise; (3) the practical answer is layered — signatures at the perimeter for volume, behavioural/AI analytics on endpoint and identity for the unknown. Then cite <b>Darktrace 2024</b>, which contained a zero-day ransomware variant in under three minutes precisely because it was behavioural.</div>
+</div>
+
+      <h2 id="m1-vpn">8 · VPNs</h2>
+
+<div class="card">
+  <h3><span class="n">8.1</span>What a VPN is and how it works<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>VPN</b>A Virtual Private Network creates a <b>secure, encrypted tunnel</b> over a public network between a device and a remote VPN server, so that traffic crossing an untrusted network behaves as if it were on a private one.</div>
+  <p><b>Purpose:</b> protects data from eavesdropping, hides the real IP address and location, and secures use of public Wi-Fi.</p>
+  <p><b>How a VPN works — four steps:</b></p>
+  <ol>
+    <li>The device initiates a connection to the VPN server and both ends <b>authenticate</b>.</li>
+    <li>A <b>tunnel</b> is created using encryption protocols and session keys are negotiated.</li>
+    <li>All data is <b>encapsulated and routed</b> through the encrypted tunnel.</li>
+    <li>The VPN server <b>decrypts and forwards</b> traffic to its destination, and returns replies the same way.</li>
+  </ol>
+  <div class="tw"><table>
+  <thead><tr><th>Type</th><th>Description</th><th>Use case</th></tr></thead>
+  <tbody>
+  <tr><td><b>Remote-access VPN</b></td><td>Connects an individual user to a private network</td><td>Work from home</td></tr>
+  <tr><td><b>Site-to-site VPN</b></td><td>Connects entire networks to each other</td><td>Branch offices</td></tr>
+  <tr><td><b>Mobile VPN</b></td><td>Maintains the session across mobility and handoffs</td><td>Field and mobile employees</td></tr>
+  <tr><td><b>Cloud VPN</b></td><td>Secure access to cloud resources</td><td>Hybrid environments</td></tr>
+  </tbody>
+</table></div>
+  <div class="tw"><table>
+  <thead><tr><th>Protocol</th><th>Security</th><th>Speed</th><th>Stability</th><th>Notes</th></tr></thead>
+  <tbody>
+  <tr><td><b>PPTP</b></td><td>Low</td><td>Fast</td><td>High</td><td><b>Obsolete and insecure</b> — MS-CHAPv2 is broken</td></tr>
+  <tr><td><b>L2TP/IPSec</b></td><td>High</td><td>Medium</td><td>Medium</td><td>L2TP has no crypto of its own; secure only because of IPSec</td></tr>
+  <tr><td><b>OpenVPN</b></td><td>Very high</td><td>Medium</td><td>High</td><td>Open source, SSL/TLS-based, runs over UDP or TCP/443</td></tr>
+  <tr><td><b>IKEv2/IPSec</b></td><td>High</td><td>Fast</td><td>Excellent</td><td><b>Mobile-friendly</b> — survives network changes (MOBIKE)</td></tr>
+  <tr><td><b>WireGuard</b></td><td>Very high</td><td>Very fast</td><td>High</td><td>~4,000 lines of code, modern ChaCha20-Poly1305 crypto</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Use cases:</b> secure employee access in remote work, bypassing geo-restrictions, protecting health and financial data, private browsing on public networks, academic access to restricted resources.</p>
+  <div class="trap cram"><b>Exam trap</b>"Name two VPN protocols commonly used for secure remote access" (Feb 2026) — answer <b>IPSec (IKEv2) and SSL/TLS (OpenVPN)</b>. Do <b>not</b> name PPTP: it is in the deck's table only to be marked obsolete, and naming it as a secure choice is a lost mark.</div>
+</div>
+
+      <h2 id="m1-ipsec">9 · IPSec</h2>
+
+<div class="card">
+  <h3><span class="n">9.1</span>IPSec architecture and working<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <p>Feb 2026 Section B, 10 marks: "Describe the VPN architecture and protocols … Explain the working of IPSec and SSL/TLS in VPN." This card and the next are that answer.</p>
+  <div class="def"><b>IPSec</b>A suite of protocols that secures IP communication by <b>authenticating and encrypting each IP packet</b> of a session. It operates at the <b>network layer</b>, so it protects every application above it transparently.</div>
+  <div class="tw"><table>
   <thead><tr><th>Component</th><th>Role</th></tr></thead>
-  <tbody><tr><td><b>Policy Engine (PE)</b></td><td>Makes the allow/deny <b>decision</b> using the trust algorithm</td></tr><tr><td><b>Policy Administrator (PA)</b></td><td>Executes the decision — establishes/tears down the session</td></tr><tr><td><b>Policy Enforcement Point (PEP)</b></td><td>The gatekeeper in the data path that actually allows or denies access</td></tr><tr><td>Trust-algorithm inputs</td><td>Identity, device posture, threat intel, network context, behaviour</td></tr></tbody>
-</table></div><div class="edge"><b>Extra marks</b>The <b>PE + PA</b> together form the “policy decision point” on the control plane; the <b>PEP</b> is on the data plane. Drawing the control-plane / data-plane split (as above) is a distinguishing detail most students miss.</div>
-</div>
-<h2 id="m2-auth">MFA, SSO &amp; Conditional Access</h2>
-<div class="card">
-  <h3><span class="n">2.5</span>Multi-Factor Authentication<span class="tag t-hi">★ high yield</span><span class="tag t-past">past paper</span></h3>
-  <div class="def"><b>MFA</b>Requires two or more <b>independent</b> credentials from different categories, so compromising one factor is not enough.</div><div class="tw"><table>
-  <thead><tr><th>Factor</th><th>Meaning</th><th>Example</th></tr></thead>
-  <tbody><tr><td><b>Knowledge</b></td><td>Something you know</td><td>Password, PIN</td></tr><tr><td><b>Possession</b></td><td>Something you have</td><td>OTP, smart card, phone</td></tr><tr><td><b>Inherence</b></td><td>Something you are</td><td>Fingerprint, Face ID</td></tr></tbody>
-</table></div><p>Security rises Knowledge → Possession → Inherence. <b>81% of breaches involve weak or stolen credentials</b> (Verizon DBIR 2024) — the one-line justification for MFA in any answer.</p><div class="ask"><b>Likely question</b>“Explain the something-you-know / have / are principle with examples” is Q1 on the CSE337 minor paper (5 marks). This card is the whole answer.</div>
-</div><div class="card">
-  <h3><span class="n">2.6</span>SSO, Identity Federation & Conditional Access<span class="tag t-hi">★ high yield</span><span class="tag t-past">past paper</span></h3>
-  <div class="def"><b>SSO</b>Single Sign-On — authenticate <b>once</b>, then reach many services without re-logging in. Scope: within one organisation. Uses session tokens.</div><div class="def"><b>Identity Federation</b>Extends SSO <b>across organisations</b> using <b>SAML, OAuth 2.0, OpenID Connect</b> — e.g. logging into Zoom with your Google account, or a student reaching Coursera with university credentials.</div><div class="def"><b>Conditional Access Policy (CAP)</b>Dynamic access control based on <b>who / what / where / how</b> — user, app sensitivity, location/IP, device compliance. Outcome per request: Allow, Deny, or step-up to MFA. E.g. login from an unknown device abroad → force MFA or block.</div><div class="edge"><b>Extra marks</b>Real anchors to quote: Microsoft says CAP + MFA gives <b>99.9% attack prevention</b>; the 2022 <b>Okta</b> breach exploited SSO; the 2020 <b>Twitter</b> hack came from missing MFA.</div><div class="ask"><b>Likely question</b>“Define and differentiate IdM, Access Management and PAM with an office-building analogy” is Q5 on the CSE337 minor paper — see the IAM card below; it is <b>not</b> in the Zero Trust decks.</div>
-</div>
-<h2 id="m2-seg">Segmentation, SDP, SDN, NAC</h2>
-<div class="card">
-  <h3><span class="n">2.7</span>Network segmentation & its enablers<span class="tag t-hi">★ high yield</span></h3>
-  <div class="def"><b>Network segmentation</b>Dividing a network into isolated segments to limit access and <b>contain breaches / stop lateral movement</b>.</div><div class="tw"><table>
-  <thead><tr><th>Type</th><th>How</th><th>Trade-off</th></tr></thead>
-  <tbody><tr><td>Physical</td><td>Separate hardware per segment</td><td>Strong isolation; costly, rigid</td></tr><tr><td>Logical (VLANs)</td><td>Logical broadcast domains on shared kit</td><td>Cheap, flexible; VLAN-hopping risk</td></tr><tr><td><b>Micro-segmentation</b></td><td>Per-workload / per-app isolation</td><td>Highest control; complex to manage</td></tr></tbody>
-</table></div><div class="tw"><table>
-  <thead><tr><th>Technology</th><th>What it does</th></tr></thead>
-  <tbody><tr><td><b>SDP</b> (Software-Defined Perimeter)</td><td>Identity-centric perimeter around each app; hides resources until user + device verified ("black cloud")</td></tr><tr><td><b>SDN</b> (Software-Defined Networking)</td><td>Separates control plane from data plane; enables dynamic, centrally-managed segmentation</td></tr><tr><td><b>NAC</b> (Network Access Control)</td><td>Authenticates + posture-checks a device, then assigns it to the right segment</td></tr></tbody>
-</table></div><div class="ask"><b>Likely question</b>“Would you recommend VPN or SDP for BYOD?” (Sept-2025 mid-sem) — recommend <b>SDP</b>: it grants per-app access after verifying device posture, versus a VPN’s broad network-level access. Pair with NAC for posture checks.</div>
+  <tbody>
+  <tr><td><b>AH</b> — Authentication Header</td><td>Integrity + authentication + replay protection. <b>No confidentiality</b> — it does not encrypt. Protocol 51</td></tr>
+  <tr><td><b>ESP</b> — Encapsulating Security Payload</td><td><b>Encryption</b> + integrity + authentication of the payload. Protocol 50. The one actually used</td></tr>
+  <tr><td><b>IKE</b> — Internet Key Exchange</td><td>Negotiates the algorithms and establishes shared keys (Diffie–Hellman) over UDP 500 / 4500. IKEv2 is current</td></tr>
+  <tr><td><b>SA</b> — Security Association</td><td>The one-way agreed parameter set (algorithms, keys, lifetime) identified by an <b>SPI</b>. Two SAs are needed for two-way traffic</td></tr>
+  </tbody>
+</table></div>
+  <div class="tw"><table>
+  <thead><tr><th>Mode</th><th>What is protected</th><th>Used for</th></tr></thead>
+  <tbody>
+  <tr><td><b>Transport mode</b></td><td>Only the <b>payload</b>; the original IP header is kept</td><td>End-to-end, host-to-host</td></tr>
+  <tr><td><b>Tunnel mode</b></td><td>The <b>entire original packet</b> is encrypted and wrapped in a new IP header</td><td><b>VPNs</b> — site-to-site and remote access; hides the internal topology</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Working, step by step:</b></p>
+  <ol>
+    <li><b>Interesting traffic</b> matches a policy and triggers IPSec.</li>
+    <li><b>IKE Phase 1</b> — the peers authenticate (pre-shared key or certificate) and build a secure, bidirectional <b>ISAKMP SA</b> using Diffie–Hellman. Main mode (6 messages) or aggressive mode (3).</li>
+    <li><b>IKE Phase 2</b> — inside that protected channel the peers negotiate the <b>IPSec SAs</b> (quick mode) and derive the traffic keys.</li>
+    <li><b>Data transfer</b> — packets are encapsulated with ESP in tunnel mode, encrypted, authenticated and sent.</li>
+    <li><b>Termination</b> — SAs expire on a time or byte lifetime and are re-keyed.</li>
+  </ol>
+  <div class="edge"><b>Extra marks</b>Two facts that mark out a full answer: <b>(a)</b> AH breaks NAT because it authenticates the IP header that NAT rewrites, which is why real deployments use ESP with <b>NAT-Traversal</b> encapsulating in UDP 4500; <b>(b)</b> IPSec's strength — network-layer, application-transparent — is also its cost: it needs a client, gives broad network access once connected, and is exactly the "connect and you're inside" model Zero Trust and SDP replace. That sentence sets up the compulsory Section C question.</div>
 </div>
 
-      <div class="mod">Beyond the decks · likely questions</div>
-      <h2 id="x-iam">IAM, PAM &amp; Active Directory</h2>
+      <h2 id="m1-ssl">10 · SSL/TLS</h2>
+
 <div class="card">
-  <h3>Why this section exists<span class="tag t-add">+ added</span></h3>
-  <div class="trap"><b>Exam trap</b>The three decks you were given contain <b>almost no Module-3 IAM material</b> — but the CSE337 minor paper’s Q5 (IdM/AM/PAM) and the re-paper’s Q1 (Active Directory OUs, password management) draw straight from it. This section fills that gap from standard sources so those marks aren’t blank.</div>
-</div><div class="card">
-  <h3><span class="n">X.1</span>IdM vs Access Management vs PAM<span class="tag t-add">+ added</span><span class="tag t-past">past paper</span></h3>
+  <h3><span class="n">10.1</span>SSL/TLS and its role in VPNs<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>SSL/TLS</b>Protocols that secure data <b>in transit</b> at the transport layer, using <b>PKI certificates</b> to authenticate the server (optionally the client) and to establish an encrypted session. TLS 1.3 is the current standard, with improved security and performance.</div>
+  <p><b>The handshake (TLS 1.2, the version usually examined):</b></p>
+  <ol>
+    <li><b>ClientHello</b> — supported versions, cipher suites, client random.</li>
+    <li><b>ServerHello</b> — chosen cipher suite, server random.</li>
+    <li><b>Certificate</b> — the server's X.509 certificate, which the client validates against a trusted <b>CA</b>.</li>
+    <li><b>Key exchange</b> — (EC)DHE gives a shared <b>pre-master secret</b> with <b>forward secrecy</b>.</li>
+    <li>Both derive the <b>master secret</b> and session keys.</li>
+    <li><b>ChangeCipherSpec</b> + <b>Finished</b> — everything after this is encrypted with symmetric keys.</li>
+  </ol>
+  <p><b>TLS 1.3</b> cuts this to <b>one round trip</b>, removes RSA key transport, static DH, RC4, CBC and compression, and makes forward secrecy mandatory.</p>
   <div class="tw"><table>
-  <thead><tr><th>Discipline</th><th>Question it answers</th><th>Office-building analogy</th></tr></thead>
-  <tbody><tr><td><b>Identity Management (IdM)</b></td><td>Who are you? (lifecycle: create, update, disable accounts)</td><td>The HR office that issues and revokes staff ID cards</td></tr><tr><td><b>Access Management (AM)</b></td><td>What are you allowed into? (authentication + authorisation)</td><td>The door readers that check your card at each room</td></tr><tr><td><b>Privileged Access Management (PAM)</b></td><td>Controls the powerful admin/root accounts specifically</td><td>The master-key cabinet — signed out, time-limited, logged</td></tr></tbody>
-</table></div><p><b>Identity lifecycle:</b> registration & identity proofing → provisioning → periodic access certification → de-provisioning when someone leaves. PAM adds vaulting, session recording and just-in-time elevation for admin accounts.</p><div class="ask"><b>Likely question</b>Q5 (10 marks) literally asks for these three with an office-building analogy — the table above is a full-marks answer.</div>
-</div><div class="card">
-  <h3><span class="n">X.2</span>Active Directory & OUs<span class="tag t-add">+ added</span><span class="tag t-past">past paper</span></h3>
-  <div class="def"><b>Active Directory (AD)</b>Microsoft’s directory service for Windows domains — a central store of users, computers and resources, providing authentication and authorisation via <b>Domain Controllers (DCs)</b>.</div><ul><li><b>Organizational Unit (OU)</b> — a container to group users/computers for delegated administration and to apply <b>Group Policy Objects (GPOs)</b>.</li><li><b>Domain → Tree → Forest</b> — the structural hierarchy; the forest is the top-level security boundary.</li><li><b>AD vs Azure AD (Entra ID)</b> — on-premises directory vs cloud identity service for modern/hybrid apps.</li><li><b>Password management</b> — GPO-enforced complexity, expiry, lockout and history policies.</li></ul><div class="ask"><b>Likely question</b>Q1 of the re-paper: short notes on <b>OUs</b> and <b>password management in IdM</b>. Both are covered here.</div>
+  <thead><tr><th></th><th>IPSec VPN</th><th>SSL/TLS VPN</th></tr></thead>
+  <tbody>
+  <tr><td>Layer</td><td>Network (L3)</td><td>Transport/session (L4–5)</td></tr>
+  <tr><td>Client</td><td>Dedicated client needed</td><td><b>Clientless</b> — a browser is often enough</td></tr>
+  <tr><td>Access granted</td><td>Whole network</td><td>Per-application, easier to restrict</td></tr>
+  <tr><td>Firewall friendliness</td><td>Blocked by some networks (ESP, UDP 500)</td><td>Runs on <b>TCP 443</b> — passes almost anywhere</td></tr>
+  <tr><td>Best for</td><td>Site-to-site, full corporate access</td><td>Remote users, contractors, BYOD</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Why it matters for wireless:</b> HTTPS is HTTP over TLS. On an untrusted or attacker-controlled AP, TLS is what keeps the session confidential even when the link layer is compromised — the reason "use HTTPS on public Wi-Fi" is real advice and not folklore.</p>
 </div>
-<h2 id="x-case">Case studies &amp; the compulsory Q6</h2>
+
+      <h2 id="m1-terms">11 · Wireless terminology</h2>
+
 <div class="card">
-  <h3><span class="n">X.3</span>BYOD / remote-work scenario (the 10-mark Q6)<span class="tag t-hi">★ high yield</span><span class="tag t-past">past paper</span></h3>
-  <p>Both CSE337 papers make Section C a compulsory 10-mark <b>case study</b> — a university BYOD or a remote-work breach. The marking wants you to <b>name mechanisms and say why</b>, not describe them abstractly. A reusable answer skeleton:</p><ol><li><b>Risks in the current setup:</b> shared WPA2-PSK passwords, one credential per service, no central auth, personal devices → unauthorised access, credential theft, lateral movement.</li><li><b>Fix the Wi-Fi:</b> WPA2-Personal → <b>WPA3</b> / WPA2-Enterprise with 802.1X so each user authenticates individually.</li><li><b>Fix identity:</b> <b>SSO</b> for one secure login across ERP/LMS/email, backed by <b>MFA</b>.</li><li><b>Apply Zero Trust:</b> “never trust, always verify”, <b>Conditional Access</b> (block/step-up by device & location), <b>network segmentation</b> to contain any breach, and <b>SDP</b> instead of a flat VPN.</li></ol><div class="edge"><b>Extra marks</b>Deck case studies worth one line each: <b>Colonial Pipeline (2021)</b> — one leaked VPN password, no MFA, dormant account → ransomware (MFA is not optional). <b>Google BeyondCorp</b> — no VPN, trust scored per device/user, ~40% fewer breaches (Zero Trust in production). <b>Maersk / NotPetya (2017)</b> — $300M loss → micro-segmentation limits the blast radius.</div>
+  <h3><span class="n">11.1</span>The glossary the deck defines<span class="tag t-hi">★ high yield</span></h3>
+  <p>Pure recall, and it is the vocabulary every other wireless answer needs.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+  <tbody>
+  <tr><td><b>GSM</b></td><td>Global System for Mobile Communication — a universal system used for mobile transportation for wireless networks worldwide</td></tr>
+  <tr><td><b>Bandwidth</b></td><td>The amount of information that may be broadcast over a connection</td></tr>
+  <tr><td><b>Access point (AP)</b></td><td>Used to connect wireless devices to a wireless or wired network</td></tr>
+  <tr><td><b>ISM band</b></td><td>A set of frequencies for the international <b>I</b>ndustrial, <b>S</b>cientific and <b>M</b>edical communities</td></tr>
+  <tr><td><b>Hotspot</b></td><td>A place where a wireless network is available for public use</td></tr>
+  <tr><td><b>BSSID</b></td><td>The <b>MAC address</b> of an AP that has set up a Basic Service Set (BSS)</td></tr>
+  <tr><td><b>SSID</b></td><td>A unique identifier of <b>32 alphanumeric characters</b> given to a WLAN</td></tr>
+  <tr><td><b>DSSS</b></td><td>Direct-Sequence Spread Spectrum — an original data signal multiplied with a pseudo-random noise spreading code</td></tr>
+  <tr><td><b>OFDM</b></td><td>Orthogonal Frequency-Division Multiplexing — encoding digital data on multiple carrier frequencies</td></tr>
+  <tr><td><b>FHSS</b></td><td>Frequency-Hopping Spread Spectrum — transmitting by rapidly switching a carrier among many frequency channels</td></tr>
+  <tr><td><b>Association</b></td><td>The process of connecting a wireless device to an AP</td></tr>
+  <tr><td><b>MIMO-OFDM</b></td><td>Multiple-Input Multiple-Output OFDM — the air interface for 4G and 5G broadband wireless</td></tr>
+  </tbody>
+</table></div>
+  <div class="def"><b>Wireless network (Wi-Fi)</b>A WLAN based on the <b>IEEE 802.11</b> standard, which allows a device to access the network from anywhere within an AP's range. PCs, consoles and smartphones use Wi-Fi to reach a network resource, such as the internet, via a wireless AP.</div>
+  <p><b>Types of wireless network</b> the deck lists: <b>extension to a wired network</b> (an AP bridging to the LAN), <b>multiple access points</b> (with extension points for coverage), <b>LAN-to-LAN wireless network</b> (two LANs bridged wirelessly), and <b>3G/4G hotspot</b> (a cellular connection shared over Wi-Fi).</p>
+  <div class="trap cram"><b>Exam trap</b><b>SSID is a name; BSSID is a MAC address.</b> The SSID is the human-readable network identifier that can be duplicated by anyone — which is exactly why rogue AP and honeypot attacks work. The BSSID identifies the specific radio. Confusing them undermines every attack answer that follows.</div>
 </div>
+
+      <h2 id="m1-std">12 · 802.11 standards</h2>
+
+<div class="card">
+  <h3><span class="n">12.1</span>The amendments table</h3>
+  <div class="tw"><table>
+  <thead><tr><th>Amendment</th><th>Freq (GHz)</th><th>Modulation</th><th>Speed (Mbps)</th><th>Range (m)</th></tr></thead>
+  <tbody>
+  <tr><td>802.11 (Wi-Fi)</td><td>2.4</td><td>DSSS, FHSS</td><td>1, 2</td><td>20–100</td></tr>
+  <tr><td>802.11a</td><td>5</td><td>OFDM</td><td>6–54</td><td>35–100</td></tr>
+  <tr><td>802.11b</td><td>2.4</td><td>DSSS</td><td>1, 2, 5.5, 11</td><td>35–140</td></tr>
+  <tr><td>802.11g</td><td>2.4</td><td>OFDM</td><td>6–54</td><td>38–140</td></tr>
+  <tr><td>802.11n</td><td>2.4, 5</td><td>MIMO-OFDM</td><td>54–600</td><td>70–250</td></tr>
+  <tr><td>802.15.1 (Bluetooth)</td><td>2.4</td><td>GFSK, DPSK</td><td>25–50</td><td>10–240</td></tr>
+  <tr><td>802.15.4 (ZigBee)</td><td>0.868, 0.915, 2.4</td><td>O-QPSK, GFSK, BPSK</td><td>0.02–0.25</td><td>1–100</td></tr>
+  <tr><td>802.16 (WiMAX)</td><td>2–11</td><td>SOFDMA</td><td>34–1000</td><td>1–6 miles</td></tr>
+  </tbody>
+</table></div>
+  <div class="tw"><table>
+  <thead><tr><th>Non-speed amendment</th><th>What it adds</th></tr></thead>
+  <tbody>
+  <tr><td><b>802.11d</b></td><td>Global portability — allows variation in frequencies, power levels and bandwidth by country</td></tr>
+  <tr><td><b>802.11e</b></td><td><b>QoS</b> — prioritisation of data, voice and video</td></tr>
+  <tr><td><b>802.11i</b></td><td><b>The security amendment.</b> Improved encryption for 802.11a/b/g; defines WPA2-Personal and WPA2-Enterprise</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b><b>802.11i is the one to remember</b> — it is the amendment that "specifies security mechanisms for 802.11 wireless networks", and both WPA (partial, TKIP) and WPA2 (full, CCMP/AES) come from it. Add the IoT link the module title asks for: <b>802.15.4/ZigBee</b> is the low-power, low-rate standard most IoT sensors actually use, and its short range and constrained crypto are why IoT devices are the weakest node on a campus network.</div>
+</div>
+
+      <h2 id="m1-enc">13 · WEP → WPA3</h2>
+
+<div class="card">
+  <h3><span class="n">13.1</span>WEP<span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>WEP</b>Wired Equivalent Privacy — a security protocol defined by <b>802.11b</b>, designed to give a wireless LAN a level of security and privacy comparable to a wired LAN. It uses a <b>24-bit initialisation vector (IV)</b> with the <b>RC4</b> stream cipher for confidentiality and a <b>CRC-32</b> checksum for integrity.</div>
+  <p><b>How WEP works:</b> the WEP key is concatenated with the IV to form the <b>WEP seed</b>; RC4 expands the seed into a keystream; the plaintext plus its CRC-32 <b>ICV</b> is XORed with the keystream; the IV is sent in <b>clear text</b> alongside the ciphertext so the receiver can regenerate the keystream.</p>
+  <p><b>Why it is broken — say all four:</b></p>
+  <ol>
+    <li>The <b>IV is only 24 bits</b>, so on a busy network it repeats within hours — and a repeated IV with a static key means a <b>reused keystream</b>.</li>
+    <li>The IV is transmitted <b>in plaintext</b>.</li>
+    <li>RC4's key-scheduling weakness (FMS attack) leaks key bytes from enough IVs.</li>
+    <li><b>CRC-32 is a checksum, not a MAC</b> — it is linear, so an attacker can flip bits in the ciphertext and fix the ICV without knowing the key. No integrity at all.</li>
+  </ol>
+  <p><b>Plus:</b> no key management — the key is static and shared by everyone, forever.</p>
+</div>
+
+<div class="card">
+  <h3><span class="n">13.2</span>WPA and WPA2</h3>
+  <div class="def"><b>WPA</b>Wi-Fi Protected Access — a security protocol defined by 802.11i that uses <b>TKIP</b> (Temporal Key Integrity Protocol) with the RC4 stream cipher, <b>128-bit keys</b> and a <b>64-bit MIC</b> integrity check. TKIP eliminates WEP's weaknesses through <b>per-packet key mixing</b>, message integrity checks (the <b>Michael</b> algorithm), <b>extended 48-bit IVs</b> and <b>re-keying</b>.</div>
+  <div class="def"><b>WPA2</b>An upgrade to WPA with mandatory support for <b>CCMP</b> — Counter Mode with Cipher Block Chaining Message Authentication Code Protocol — an <b>AES</b>-based mode providing strong encryption and authentication. Defined by 802.11i.</div>
+  <p><b>How WPA2 works:</b> the temporal key and a nonce built from the packet number and addresses feed <b>AES-CCMP</b>, which encrypts the data and produces an authenticated <b>MIC</b>, with additional authenticated data (AAD) covering the header.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Mode</th><th>Authentication</th><th>Where it fits</th></tr></thead>
+  <tbody>
+  <tr><td><b>WPA2-Personal</b> (PSK)</td><td>A set-up password — a <b>pre-shared key</b> — protects against unauthorised access</td><td>Homes, small offices</td></tr>
+  <tr><td><b>WPA2-Enterprise</b></td><td>Integrates <b>EAP</b> standards with WPA2 encryption; uses <b>RADIUS</b> for centralised client authentication with methods such as token cards and Kerberos</td><td>Campuses, corporates</td></tr>
+  </tbody>
+</table></div>
+  <div class="trap cram"><b>Exam trap</b>"Why is WPA2-Personal not suitable for a university environment?" (Feb 2026, 3 marks). Four reasons, and the paper wants more than one: <b>(1) one shared password for everyone</b> — students share it, so there is no per-user identity and no accountability; <b>(2) no revocation</b> — removing one person's access means changing the key for the whole campus; <b>(3) anyone who knows the PSK and captures the 4-way handshake can decrypt other users' traffic</b> on the same network; <b>(4)</b> the handshake can be captured and brute-forced offline. The fix is <b>WPA2/WPA3-Enterprise with 802.1X</b>, giving each user their own credential via RADIUS.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">13.3</span>WPA3<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>WPA3</b>A third-generation Wi-Fi security protocol and an advanced implementation of WPA2, using the <b>AES-GCMP-256</b> encryption algorithm, <b>HMAC-SHA-384</b> for key derivation and authentication, and <b>ECDSA-384</b> for key exchange.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Mode</th><th>What it does</th></tr></thead>
+  <tbody>
+  <tr><td><b>WPA3-Personal</b></td><td>Password-based authentication using the <b>SAE</b> protocol (Simultaneous Authentication of Equals), also known as the <b>Dragonfly key exchange</b>. Resistant to <b>offline dictionary attacks</b> and key-recovery attacks</td></tr>
+  <tr><td><b>WPA3-Enterprise</b></td><td>192-bit security suite: authenticated encryption with <b>GCMP-256</b>, keys via <b>HMAC-SHA-384</b>, key exchange with <b>ECDH and ECDSA-384</b></td></tr>
+  </tbody>
+</table></div>
+  <p><b>The four improvements to name:</b></p>
+  <ol>
+    <li><b>SAE replaces the PSK 4-way handshake</b>, so there is no capturable handshake to brute-force offline — each guess costs an online interaction.</li>
+    <li><b>Forward secrecy</b> — traffic captured today cannot be decrypted later even if the password is discovered.</li>
+    <li><b>OWE</b> (Opportunistic Wireless Encryption / Enhanced Open) encrypts <b>open</b> hotspots, so a café network is no longer plaintext.</li>
+    <li><b>Protected Management Frames</b> are mandatory, which blocks deauthentication and disassociation attacks — the very step aircrack-ng relies on.</li>
+  </ol>
+  <p><b>Plus DPP</b> (Wi-Fi Easy Connect) for provisioning IoT devices with no screen or keyboard.</p>
+  <div class="edge"><b>Extra marks</b>Be honest about the limits — it is what separates a 10-mark answer from a 6. WPA3 is <b>not</b> flawless: the <b>Dragonblood</b> vulnerabilities (2019) found side-channel and downgrade attacks against SAE, and <b>transition mode</b> — where an AP offers WPA2 and WPA3 together for compatibility — lets an attacker force a client back to WPA2 and attack that instead. Mention the deck's forward look too: <b>WPA4 is in development with quantum-resistant encryption.</b></div>
+</div>
+
+<div class="card">
+  <h3><span class="n">13.4</span>The comparison table<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <p>Reproduce this and the "compare WEP, WPA, WPA2, WPA3" question is finished.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Attribute</th><th>WEP</th><th>WPA</th><th>WPA2</th><th>WPA3</th></tr></thead>
+  <tbody>
+  <tr><td><b>Encryption algorithm</b></td><td>RC4</td><td>RC4 + TKIP</td><td><b>AES-CCMP</b></td><td><b>AES-GCMP-256</b></td></tr>
+  <tr><td><b>IV size</b></td><td>24 bits</td><td>48 bits</td><td>48 bits</td><td>Arbitrary length</td></tr>
+  <tr><td><b>Key length</b></td><td>40 / 104 bits</td><td>128 bits</td><td>128 bits</td><td><b>192 bits</b> (Enterprise)</td></tr>
+  <tr><td><b>Key management</b></td><td><b>None</b></td><td>4-way handshake</td><td>4-way handshake</td><td><b>ECDH and ECDSA</b> (SAE)</td></tr>
+  <tr><td><b>Integrity check</b></td><td>CRC-32</td><td>Michael algorithm + CRC-32</td><td>CBC-MAC</td><td><b>BIP-GMAC-256</b></td></tr>
+  <tr><td><b>Status</b></td><td colspan="2">Should be replaced with WPA2/WPA3</td><td>Protects against forgery and replay</td><td>Enhanced password protection; secured IoT connections</td></tr>
+  </tbody>
+</table></div>
+</div>
+
+      <h2 id="m1-eap">14 · EAP, RADIUS, Personal vs Enterprise</h2>
+
+<div class="card">
+  <h3><span class="n">14.1</span>The authentication acronyms</h3>
+  <div class="tw"><table>
+  <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+  <tbody>
+  <tr><td><b>EAP</b></td><td>Extensible Authentication Protocol — a <b>framework</b>, not one method; supports token cards, Kerberos, certificates and more</td></tr>
+  <tr><td><b>PEAP</b></td><td>Protected EAP — encapsulates EAP inside an encrypted, authenticated <b>TLS tunnel</b>, so the inner credential is never exposed</td></tr>
+  <tr><td><b>LEAP</b></td><td>A proprietary version of EAP developed by <b>Cisco</b>; now considered weak (dictionary attacks)</td></tr>
+  <tr><td><b>EAP-TLS</b></td><td>Mutual certificate authentication — the strongest common method, and the reason PKI matters to Wi-Fi</td></tr>
+  <tr><td><b>RADIUS</b></td><td>Remote Authentication Dial-In User Service — a <b>centralised authentication and authorisation management system</b>; the AAA server behind 802.1X</td></tr>
+  <tr><td><b>TKIP</b></td><td>Temporal Key Integrity Protocol — the security protocol used in WPA as a replacement for WEP</td></tr>
+  <tr><td><b>AES</b></td><td>A symmetric-key cipher, used in WPA2 as a replacement for TKIP</td></tr>
+  <tr><td><b>CCMP</b></td><td>Counter Mode with CBC-MAC Protocol — the AES mode used in WPA2 for encryption and authentication</td></tr>
+  <tr><td><b>802.1X</b></td><td>The port-based network access control standard that carries EAP between supplicant, authenticator (the AP) and authentication server (RADIUS)</td></tr>
+  </tbody>
+</table></div>
+  <figure><svg viewBox="0 0 520 110" role="img" aria-label="802.1X supplicant, authenticator, RADIUS server">
+  <rect x="12" y="34" width="112" height="44" rx="6" class="svg-b" stroke="var(--cyan)"/>
+  <text class="svg-l" x="68" y="53" text-anchor="middle" fill="var(--cyan)">Supplicant</text>
+  <text class="svg-l" x="68" y="70" text-anchor="middle" fill="var(--ink-3)">laptop / phone</text>
+  <rect x="196" y="34" width="118" height="44" rx="6" class="svg-b" stroke="var(--yellow)"/>
+  <text class="svg-l" x="255" y="53" text-anchor="middle" fill="var(--yellow)">Authenticator</text>
+  <text class="svg-l" x="255" y="70" text-anchor="middle" fill="var(--ink-3)">access point</text>
+  <rect x="386" y="34" width="122" height="44" rx="6" class="svg-b" stroke="var(--green)"/>
+  <text class="svg-l" x="447" y="53" text-anchor="middle" fill="var(--green)">RADIUS server</text>
+  <text class="svg-l" x="447" y="70" text-anchor="middle" fill="var(--ink-3)">AAA + identity store</text>
+  <line x1="124" y1="56" x2="196" y2="56" stroke="var(--yellow)" marker-end="url(#a2)"/>
+  <line x1="314" y1="56" x2="386" y2="56" stroke="var(--green)" marker-end="url(#a2)"/>
+  <text class="svg-t" x="160" y="26" text-anchor="middle" fill="var(--ink-3)">EAPOL</text>
+  <text class="svg-t" x="350" y="26" text-anchor="middle" fill="var(--ink-3)">RADIUS</text>
+  <text class="svg-t" x="255" y="100" text-anchor="middle" fill="var(--ink-3)">the AP forwards credentials — it never validates them itself</text>
+  <defs><marker id="a2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor"/></marker></defs>
+</svg><figcaption>Enterprise mode in one picture. Each user gets an individual credential, so access can be revoked for one person without touching anyone else.</figcaption></figure>
+</div>
+
+      <h2 id="m1-attacks">15 · Wireless threats &amp; attacks</h2>
+
+<div class="card">
+  <h3><span class="n">15.1</span>Access-point attacks<span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>Attack</th><th>How it works</th><th>Consequence</th></tr></thead>
+  <tbody>
+  <tr><td><b>Rogue AP</b></td><td>An unauthorised AP placed <b>into</b> an 802.11 network. When a user's NIC turns on, the rogue offers to connect, hijacking the connection</td><td>All the user's traffic passes through the attacker — wireless packet sniffing, MitM</td></tr>
+  <tr><td><b>Client mis-association</b></td><td>The attacker sets up a rogue AP <b>outside the corporate perimeter</b> and lures employees to connect to it</td><td>Once associated, the attacker <b>bypasses enterprise security policies</b> entirely</td></tr>
+  <tr><td><b>Misconfigured AP</b></td><td>Administrators wrongly use the <b>SSID as a password</b>; SSID broadcasting lets an intruder steal it; APs left with no password at all</td><td>Free access with no attack required — pure configuration error</td></tr>
+  <tr><td><b>Unauthorized association</b> (soft AP)</td><td><b>Soft APs</b> — client cards or embedded WLAN radios in laptops/PDAs — are launched inadvertently or by a Wi-Fi-enabling Trojan</td><td>The attacker connects to the enterprise network <b>through the victim's machine</b> instead of the real AP</td></tr>
+  <tr><td><b>Ad-hoc connection</b></td><td>Clients communicate directly in <b>ad hoc mode</b>, with no AP relaying packets. Ad hoc mode has no strong authentication or encryption</td><td>The attacker connects to and compromises the client directly</td></tr>
+  <tr><td><b>Honeypot AP</b></td><td>The attacker traps victims with <b>fake hotspots</b> using familiar SSIDs — Starbucks, McDonald's, Verizon, AT&amp;T</td><td>Victims connect willingly; complete MitM position</td></tr>
+  <tr><td><b>AP MAC spoofing</b></td><td>The attacker spoofs the MAC address of an authorised WLAN client to masquerade as it</td><td>Defeats MAC filtering; connects as an authorised client and eavesdrops</td></tr>
+  </tbody>
+</table></div>
+  <div class="trap cram"><b>Exam trap</b>Rogue AP and client mis-association look alike and are marked separately. <b>The rogue AP is placed inside the network</b> and hijacks connections there; <b>client mis-association is a rogue AP outside the perimeter</b> that lures employees out to it. And <b>MAC filtering is not a security control</b> — MAC addresses are broadcast in the clear and trivially spoofed, which is the whole point of the MAC-spoofing slide.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">15.2</span>KRACK — Key Reinstallation Attack<span class="tag t-past">case study</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>KRACK</b>An attack that exploits the <b>WPA2 4-way handshake</b> by <b>forcing nonce reuse</b>. Discovered by Mathy Vanhoef in 2017. It works against all modern protected Wi-Fi networks and allows an attacker to steal credit-card numbers, passwords, chat messages, emails and photos.</div>
+  <p><b>The 4-way handshake, normally:</b></p>
+  <ol>
+    <li>AP → client: <b>Message 1</b> — ANonce.</li>
+    <li>Client → AP: <b>Message 2</b> — signed SNonce.</li>
+    <li>AP → client: <b>Message 3</b> — signed ANonce; the client <b>installs the encryption key</b>.</li>
+    <li>Client → AP: <b>Message 4</b> — acknowledgement.</li>
+  </ol>
+  <p><b>The attack:</b> the attacker sits between the client and the AP with a <b>cloned access point</b> and <b>blocks message 4</b>. The AP, having had no acknowledgement, <b>retransmits message 3</b>. The client reinstalls the <b>same key</b> — and in doing so <b>resets the nonce and replay counters to their initial values</b>. Reusing a nonce with a stream cipher means the keystream repeats, so previously captured packets can be decrypted, replayed and, in some configurations, injected.</p>
+  <p><b>Critically:</b> the attacker never learns the Wi-Fi password. The flaw is in the <b>protocol's state machine</b>, not the key strength.</p>
+  <div class="edge"><b>Extra marks</b>The lessons the case-study slide draws, which is what the compulsory question rewards: <b>(1)</b> protocol-level flaws undermine even correctly configured encryption — implementation review matters as much as key length; <b>(2)</b> vendors patched by enforcing that handshake messages are processed <b>only once</b>; <b>(3)</b> KRACK <b>directly motivated WPA3's SAE handshake</b>, which resists this whole class of replay attack. That third point is the bridge from this card to card 13.3.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">15.3</span>Jamming and denial of service</h3>
+  <div class="def"><b>Jamming signal attack</b>All wireless networks are prone to jamming. The jamming signal causes a <b>DoS</b> because 802.11 is a <b>CSMA/CA</b> protocol whose collision-avoidance algorithm requires a period of silence before a radio may transmit. An attacker with a high-gain amplifier nearby drowns out the legitimate AP.</div>
+  <p><b>Jamming devices</b> (the deck lists six by model): ranges of roughly <b>10–150 metres</b>, 4–8 antennas, jamming 4–8 bands simultaneously across CDMA, GSM, DCS, 3G, 4G, GPS, Wi-Fi and Bluetooth; some wall-mountable, some battery-powered for 40 minutes to 3 hours.</p>
+  <p><b>Related DoS on Wi-Fi:</b> <b>deauthentication flooding</b> — forging deauth management frames to knock clients off, which is both a DoS and the first step of a WPA handshake capture. <b>Protected Management Frames (802.11w)</b>, mandatory in WPA3, are the defence.</p>
+  <div class="edge"><b>Extra marks</b>Jamming attacks <b>availability</b>, and it is the one goal from card 1.1 that encryption cannot protect. No cipher stops a radio being drowned out — the countermeasures are physical and operational: spectrum monitoring by a <b>WIPS</b>, directional antennas, frequency agility, and locating the source. Saying which security goal an attack targets is a cheap, reliable mark.</div>
+</div>
+
+      <h2 id="m1-tools">16 · Attack tools &amp; cracking</h2>
+
+<div class="card">
+  <h3><span class="n">16.1</span>Cracking WPA-PSK with aircrack-ng<span class="tag t-hi">★ high yield</span></h3>
+  <p>Four steps. Knowing them is also knowing why WPA3 killed the attack.</p>
+  <pre><code><span class="cm"># Step 1 — put the card into monitor mode</span>
+airmon-ng start eth1
+
+<span class="cm"># Step 2 — capture traffic; note BSSID, channel, ENC, CIPHER, AUTH, ESSID</span>
+airodump-ng --write capture eth1
+<span class="cm">#  BSSID              CH  ENC   CIPHER  AUTH  ESSID</span>
+<span class="cm">#  02:24:2B:CD:68:EE   5  WPA   TKIP    PSK   COMPANYZONE</span>
+
+<span class="cm"># Step 3 — deauthenticate a client so it re-authenticates,</span>
+<span class="cm">#          letting airodump capture the 4-way handshake</span>
+aireplay-ng --deauth 11 -a 02:24:2B:CD:68:EE
+
+<span class="cm"># Step 4 — run the capture through a dictionary offline</span>
+aircrack-ng -a 2 -w wordlist.txt capture.cap
+<span class="cm">#  KEY FOUND! [ passkey ]</span></code></pre>
+  <div class="tw"><table>
+  <thead><tr><th>Tool</th><th>What it does</th></tr></thead>
+  <tbody>
+  <tr><td><b>Aircrack-ng</b></td><td>The de-facto WEP and WPA/WPA2-PSK cracking tool</td></tr>
+  <tr><td><b>Airmon-ng</b></td><td>Enables monitor mode on wireless interfaces, and back to managed</td></tr>
+  <tr><td><b>Airodump-ng</b></td><td>Captures raw 802.11 frames and collects WEP IVs</td></tr>
+  <tr><td><b>Aireplay-ng</b></td><td>Traffic generation, fake authentication, packet replay, ARP request injection</td></tr>
+  <tr><td><b>Airbase-ng</b></td><td>Captures WPA/WPA2 handshakes and can act as an ad-hoc AP</td></tr>
+  <tr><td><b>Airdecap-ng</b></td><td>Decrypts WEP/WPA/WPA2 captures and strips wireless headers</td></tr>
+  <tr><td><b>Airgraph-ng</b></td><td>Creates client-to-AP relationship and probe graphs from an airodump file</td></tr>
+  <tr><td><b>Airtun-ng</b></td><td>Creates a virtual tunnel interface to monitor encrypted traffic and inject</td></tr>
+  <tr><td><b>Easside-ng</b></td><td>Communicates via a WEP-encrypted AP <b>without knowing the WEP key</b></td></tr>
+  <tr><td><b>Packetforge-ng</b></td><td>Creates encrypted packets for injection</td></tr>
+  <tr><td><b>Airdecloak-ng</b></td><td>Removes WEP cloaking from a pcap file</td></tr>
+  <tr><td><b>Airdrop-ng</b></td><td>Targeted, rule-based deauthentication of users</td></tr>
+  <tr><td><b>Airolib-ng</b></td><td>Stores and manages ESSID and password lists for WPA/WPA2 cracking</td></tr>
+  <tr><td><b>Airserv-ng</b></td><td>Lets multiple programs use one Wi-Fi card over a client-server TCP connection</td></tr>
+  <tr><td><b>Tkiptun-ng</b></td><td>Injects frames into a WPA TKIP network with QoS; recovers a MIC key and keystream</td></tr>
+  <tr><td><b>Wesside-ng</b></td><td>Obtains a WEP key within minutes by combining techniques</td></tr>
+  <tr><td><b>WZCook</b></td><td>Recovers WEP keys from Windows XP's wireless zero configuration utility</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Other tools named:</b> AirMagnet WiFi Analyzer PRO (802.11a/b/g/n/ax analysis without missing traffic), Ettercap, Wifiphisher, Reaver (WPS PIN attack), Fern Wi-Fi Cracker, Elcomsoft Wireless Security Auditor.</p>
+  <div class="edge"><b>Extra marks</b>Step 3 is where the whole attack lives. <b>The cracking is offline</b> — the attacker needs only one captured handshake and can then try billions of passwords on their own hardware, with the network none the wiser. This is precisely what <b>WPA3's SAE</b> prevents: there is no offline-crackable handshake, so every guess costs an online interaction. And <b>802.11w Protected Management Frames</b> block the deauth in step 3 outright. Two sentences that turn a tool list into an argument.</div>
+</div>
+
+      <h2 id="m1-wcounter">17 · Wireless countermeasures &amp; WIPS</h2>
+
+<div class="card">
+  <h3><span class="n">17.1</span>Countermeasures, by category<span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>Category</th><th>Practices</th></tr></thead>
+  <tbody>
+  <tr><td><b>SSID settings</b></td><td>Change the default SSID after WLAN configuration; do not use your name, company name or network name; use SSID cloaking and disable SSID broadcast; do not use easy-to-guess strings in passphrases</td></tr>
+  <tr><td><b>Authentication</b></td><td>Choose <b>WPA2/WPA3 Enterprise with 802.1X</b> instead of WPA or WEP; implement Enterprise wherever possible; use certificate-based EAP-TLS where you can</td></tr>
+  <tr><td><b>Configuration</b></td><td>Set the router access password and enable firewall protection; place APs in a <b>secure physical location</b>; disable remote router login and wireless administration; place a firewall or packet filter between the AP and the corporate intranet; disable the network when not required</td></tr>
+  </tbody>
+</table></div>
+  <div class="trap cram"><b>Exam trap</b><b>SSID cloaking and MAC filtering are obscurity, not security.</b> A hidden SSID is still broadcast by every client probing for it, and MAC addresses are sent in the clear. The deck lists both as best practice; the full-marks answer lists them <i>and</i> notes they raise the effort slightly but stop no competent attacker — the real control is Enterprise authentication.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">17.2</span>WIPS — Wireless Intrusion Prevention Systems<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>WIPS</b>A Wireless Intrusion Prevention System monitors the <b>radio spectrum</b> for unauthorised access points and wireless attacks, and actively mitigates them. It is the wireless-layer counterpart of a network IPS: a NIDS watches packets on the wire, a WIPS watches <b>802.11 management and control frames in the air</b>.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Function</th><th>What it does</th></tr></thead>
+  <tbody>
+  <tr><td><b>Detection</b></td><td>Continuous RF scanning by dedicated sensors or by APs time-slicing off their serving channel</td></tr>
+  <tr><td><b>Classification</b></td><td>Sorts every radio it hears into <b>authorised / rogue / external-neighbour / honeypot</b> — the hard part, since a neighbour's AP is not an attack</td></tr>
+  <tr><td><b>Prevention</b></td><td>Contains a rogue by sending deauthentication frames to clients associating with it, and by tracing the switch port it is plugged into and shutting it down</td></tr>
+  <tr><td><b>Location</b></td><td>Triangulates the offending radio from signal strength across sensors, so it can be physically removed</td></tr>
+  <tr><td><b>Forensics</b></td><td>Records the frames for later analysis and compliance reporting (PCI-DSS requires wireless scanning)</td></tr>
+  </tbody>
+</table></div>
+  <p><b>What a WIPS detects:</b> rogue and honeypot APs, client mis-association, ad-hoc connections, MAC spoofing, deauthentication and disassociation floods, jamming, evil-twin attacks, and misconfigured APs broadcasting when they should not.</p>
+  <p><b>Products the deck names:</b> <b>Cisco Adaptive Wireless IPS</b> (provides wireless-network threat detection and mitigation against malicious attacks and security vulnerabilities), <b>AirMagnet WiFi Analyzer PRO</b> and <b>AirMagnet Planner</b> (NetAlly), <b>RFProtect</b> (Aruba), <b>WatchGuard WIPS</b>, <b>Extreme AirDefense</b>.</p>
+  <div class="edge"><b>Extra marks</b>State the architectural choice, because it is what a 5-mark answer needs beyond the definition: <b>overlay</b> WIPS uses dedicated sensors — full-time scanning, higher cost; <b>integrated</b> WIPS borrows the serving APs — cheaper, but scanning competes with serving clients and can miss short-lived attacks. Then close with the honest limit: <b>a WIPS mitigates by deauthenticating</b>, and against WPA3 clients with Protected Management Frames that containment technique no longer works — so newer systems rely on switch-port tracing instead.</div>
+</div>
+
+      <h2 id="m1-stack">18 · Stacks, OS, web, PKI</h2>
+
+<div class="card">
+  <h3><span class="n">18.1</span>OSI and TCP/IP<span class="tag t-past">named in syllabus</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>OSI (7 layers)</th><th>TCP/IP (4 layers)</th><th>Security at this layer</th></tr></thead>
+  <tbody>
+  <tr><td>7 Application<br>6 Presentation<br>5 Session</td><td><b>Application</b></td><td>HTTPS, EAP methods, application firewalls, WPA supplicant logic</td></tr>
+  <tr><td>4 Transport</td><td><b>Transport</b></td><td><b>SSL/TLS</b>, port filtering, stateful inspection</td></tr>
+  <tr><td>3 Network</td><td><b>Internet</b></td><td><b>IPSec</b>, packet-filtering firewalls, ACLs, VPN tunnels</td></tr>
+  <tr><td>2 Data Link<br>1 Physical</td><td><b>Link</b></td><td><b>WEP/WPA/WPA2/WPA3</b>, 802.1X, MAC filtering, jamming happens here</td></tr>
+  </tbody>
+</table></div>
+  <p><b>The deck's key sentence:</b> wireless security operates mainly at <b>Data Link (Layer 2)</b> and <b>Network (Layer 3)</b>, while encryption and authentication for applications occur at the <b>Application and Transport</b> layers. Understanding the layers is what lets you troubleshoot and secure a network — and it tells you which control fixes which attack.</p>
+  <div class="edge"><b>Extra marks</b>Use the layer model as the organising idea of the whole module: <b>WPA3 protects the link, IPSec protects the network, TLS protects the session.</b> They are complementary, not alternatives — which is why HTTPS still matters on a WPA3 network, and why a VPN still matters on HTTPS. One sentence, and it demonstrates you can reason across the module instead of reciting it.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">18.2</span>Operating system and web basics<span class="tag t-past">named in syllabus</span></h3>
+  <p><b>Operating system basics:</b> the OS manages hardware, software and network resources; handles file systems, memory, I/O and processes. Its security features are <b>user authentication, access control and a host firewall</b>. Regular OS updates patch the vulnerabilities attackers exploit.</p>
+  <p><b>Web basics relevant to wireless security:</b> the web is <b>client–server</b>; its components are the browser, the server and cookies. <b>HTTP vs HTTPS</b> — HTTPS uses SSL/TLS for encrypted communication. Using unsecured HTTP over public Wi-Fi exposes credentials, session cookies and content to anyone on the same radio.</p>
+  <div class="edge"><b>Extra marks</b>Tie the two together with <b>session hijacking</b>: a session cookie sent over plain HTTP on an open network can simply be read and replayed — no password needed. That is why cookies carry the <code>Secure</code> and <code>HttpOnly</code> flags and why sites use <b>HSTS</b>. It is a concrete example of the OS/web material actually mattering to wireless security, which is what the descriptor is asking for.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">18.3</span>PKI and SSL basics<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>PKI</b>Public Key Infrastructure — the framework of hardware, software, policies and procedures that creates, manages, distributes and revokes <b>digital certificates</b>. It uses <b>asymmetric cryptography</b> (public/private key pairs) to bind an identity to a public key, and is the foundation for SSL/TLS and secure communications.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Component</th><th>Role</th></tr></thead>
+  <tbody>
+  <tr><td><b>CA</b> — Certificate Authority</td><td>Issues and signs certificates; the root of trust</td></tr>
+  <tr><td><b>RA</b> — Registration Authority</td><td>Verifies the requester's identity before the CA issues</td></tr>
+  <tr><td><b>Digital certificate (X.509)</b></td><td>Binds a public key to an identity, signed by the CA</td></tr>
+  <tr><td><b>CRL / OCSP</b></td><td>Revocation — how a compromised certificate is withdrawn before it expires</td></tr>
+  <tr><td><b>Key pair</b></td><td>Private key kept secret; public key distributed in the certificate</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Integrating wireless security with PKI and SSL — the deck's own three points:</b></p>
+  <ol>
+    <li><b>WPA2-Enterprise and WPA3-Enterprise use EAP with certificates.</b></li>
+    <li><b>Certificates prevent unauthorised device access</b> — a device without a valid certificate cannot join, no matter what password its user knows.</li>
+    <li><b>SSL/TLS protects web traffic over wireless networks</b>, independently of the link-layer encryption.</li>
+  </ol>
+  <div class="edge"><b>Extra marks</b>The strongest point to make: with <b>EAP-TLS</b>, authentication is <b>mutual</b> — the client validates the RADIUS server's certificate too. That is what actually defeats the evil-twin and honeypot AP attacks from card 15.1, because a fake AP cannot present a certificate signed by the university's CA. Password-based Wi-Fi cannot make that guarantee at all.</div>
+</div>
+
+      <h2 id="m1-trends">19 · Emerging trends</h2>
+
+<div class="card">
+  <h3><span class="n">19.1</span>Wireless security in 2025–26<span class="tag t-add">deck slide 65</span></h3>
+  <ul>
+    <li><b>WPA4 development is underway with quantum-resistant encryption</b> — anticipating "harvest now, decrypt later" attacks on captured traffic.</li>
+    <li><b>AI-driven intrusion detection and prevention</b> — behavioural models rather than signatures, as in the Darktrace case study.</li>
+    <li><b>Wi-Fi 7 (802.11be)</b> security enhancements, with faster and safer connections; multi-link operation and mandatory PMF.</li>
+    <li><b>Zero Trust extending to the wireless edge</b> — network access no longer implies application access, which is Module 2's whole argument.</li>
+    <li><b>Passwordless and passkeys</b> (FIDO2/WebAuthn) removing the credential that most attacks target.</li>
+  </ul>
+</div>
+
+      <div class="mod">Module 2 · Zero Trust Architecture &amp; Implementation</div>
+      <h2 id="m2-trad">20 · Traditional perimeter security</h2>
+
+<div class="card">
+  <h3><span class="n">20.1</span>The perimeter model and the castle-and-moat<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Perimeter-based security</b>Traditional cybersecurity treats the organisation's network as a <b>secure zone surrounded by protective barriers</b> — firewalls, IPS and VPNs — and focuses on securing the outer boundary, assuming threats originate outside.</div>
+  <p><b>Key features:</b></p>
+  <ul>
+    <li><b>Access control at the perimeter</b> — users and devices outside are untrusted; once authenticated at the gateway, users often gain <b>broad access</b> within.</li>
+    <li><b>Implicit trust inside the network</b> — devices and users inside are automatically trusted, which is a vulnerability the moment the perimeter is breached.</li>
+    <li><b>Static defence</b> — static configurations, firewall rules and IP-based access control, with limited attention to user identity or device posture inside.</li>
+  </ul>
+  <div class="def"><b>The "castle and moat" analogy</b>The organisation is a <b>castle</b> surrounded by a <b>moat</b> (the firewall). <b>Guards at the gate</b> (VPN, firewall) check identity <b>once</b>. Once inside, users move freely with little or no restriction.</div>
+  <p><b>Challenges:</b> poor handling of insider threats; vulnerable once the perimeter is breached; ineffective for cloud services, BYOD and a remote workforce; not designed for dynamic modern environments.</p>
+</div>
+
+<div class="card">
+  <h3><span class="n">20.2</span>The five hidden vulnerabilities<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <p>Feb 2026 Section C(a): "Identify the security weaknesses in the traditional perimeter-based model. (3 Marks)". These five, in the deck's own words:</p>
+  <div class="tw"><table>
+  <thead><tr><th>Weakness</th><th>Why it matters</th></tr></thead>
+  <tbody>
+  <tr><td><b>Insider threats ignored</b></td><td>Users with legitimate access can exploit their privileges; the model has no answer to it</td></tr>
+  <tr><td><b>BYOD and remote access</b></td><td>Have <b>blurred the perimeter</b>, making consistent policy enforcement impossible</td></tr>
+  <tr><td><b>Cloud adoption weakens perimeter defence</b></td><td>Data and applications now sit <b>outside the organisation's physical control</b></td></tr>
+  <tr><td><b>Lateral movement after breach</b></td><td>Once inside, an attacker moves sideways with relative ease to reach sensitive systems</td></tr>
+  <tr><td><b>Trust by location or device</b></td><td>Trust granted by network location or device ownership is easily exploited by anyone who compromises a trusted device</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>Anchor it in a real incident: <b>Colonial Pipeline (2021)</b> — a <b>single compromised VPN password</b>, on an account with no MFA, led to a nationwide fuel-supply shutdown. One credential turned into full internal access because the model grants trust at the gate and asks nothing afterwards. That is weakness #5 and #4 in one sentence, and it is the case study your own deck ends on.</div>
+</div>
+
+      <h2 id="m2-zt">21 · Zero Trust</h2>
+
+<div class="card">
+  <h3><span class="n">21.1</span>Never trust, always verify<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Zero Trust</b>A security model whose fundamental principle is <b>"Never Trust, Always Verify."</b> Never automatically trust anyone or anything, inside or outside the network; every user, device and application must be <b>continuously verified</b> before being granted access to resources.</div>
+  <p><b>What the principle dictates:</b></p>
+  <ul>
+    <li>Every user and device is <b>continuously authenticated and authorised</b> before access to any resource.</li>
+    <li>Trust is <b>not assumed</b> from network location or device ownership.</li>
+    <li><b>Least-privilege access</b> is enforced — only the minimum needed for the job.</li>
+    <li><b>Constant authentication and monitoring</b> detect and respond to threats.</li>
+  </ul>
+  <p><b>Key components of a Zero Trust architecture:</b></p>
+  <div class="tw"><table>
+  <thead><tr><th>Component</th><th>What it provides</th></tr></thead>
+  <tbody>
+  <tr><td><b>Strong identity verification (MFA, SSO)</b></td><td>Verifies who the user is before granting access</td></tr>
+  <tr><td><b>Device security compliance</b></td><td>Devices must meet requirements — patched OS, up-to-date antivirus — before connecting</td></tr>
+  <tr><td><b>Least-privilege access control</b></td><td>Limits the damage a compromised account can do</td></tr>
+  <tr><td><b>Continuous monitoring and logging</b></td><td>Detects suspicious behaviour; provides audit trails for investigation</td></tr>
+  <tr><td><b>Encryption of data at rest and in transit</b></td><td>Protects data even when other controls fail</td></tr>
+  <tr><td><b>Micro-segmentation</b></td><td>Divides the network into isolated segments to <b>limit lateral movement</b> after a breach</td></tr>
+  </tbody>
+</table></div>
+</div>
+
+<div class="card">
+  <h3><span class="n">21.2</span>Traditional vs Zero Trust<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>Feature</th><th>Traditional</th><th>Zero Trust</th></tr></thead>
+  <tbody>
+  <tr><td><b>Trust model</b></td><td>Implicit trust</td><td><b>Never trust, always verify</b></td></tr>
+  <tr><td><b>Security boundary</b></td><td>The perimeter</td><td><b>Identity and context</b></td></tr>
+  <tr><td><b>Access control</b></td><td>Static</td><td><b>Dynamic, session-based</b></td></tr>
+  <tr><td><b>Visibility</b></td><td>Limited</td><td>Extensive, real-time</td></tr>
+  <tr><td><b>Response</b></td><td>Reactive</td><td>Proactive, automated</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Why organisations are shifting</b> — five drivers, all named in the deck:</p>
+  <ol>
+    <li><b>Remote work and hybrid environments</b> have blurred the perimeter.</li>
+    <li><b>Cloud adoption</b> puts data and applications outside physical control.</li>
+    <li><b>Ransomware and insider threats</b> have exposed the limits of the old model.</li>
+    <li><b>Regulatory compliance</b> — GDPR, HIPAA — demands stronger protection.</li>
+    <li><b>Endpoint security</b> must work regardless of device location or ownership.</li>
+  </ol>
+  <div class="trap cram"><b>Exam trap</b>Zero Trust is an <b>architecture and a strategy, not a product</b>. You cannot buy it; you implement it with IAM, MFA, device posture, segmentation and continuous monitoring. Answers that describe it as a tool to install lose the concept mark — and the deck's own implementation slide starts with "modernise IAM", not "purchase X".</div>
+</div>
+
+      <h2 id="m2-nist">22 · NIST SP 800-207</h2>
+
+<div class="card">
+  <h3><span class="n">22.1</span>The seven core tenets<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <p><b>NIST SP 800-207</b>, published by the <b>National Institute of Standards and Technology</b> in <b>August 2020</b>, provides the framework and guidance for implementing a Zero Trust Architecture in modern enterprises. It applies to <b>federal agencies and private enterprises alike</b>.</p>
+  <div class="tw"><table>
+  <thead><tr><th>#</th><th>Tenet</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td>All <b>data sources and computing services</b> are considered resources</td></tr>
+  <tr><td>2</td><td>All <b>communication is secured regardless of network location</b></td></tr>
+  <tr><td>3</td><td>Access to individual enterprise resources is granted <b>per session</b></td></tr>
+  <tr><td>4</td><td>Access is determined by <b>dynamic policy</b> — user identity, device, location and other attributes</td></tr>
+  <tr><td>5</td><td>The enterprise <b>monitors and measures the integrity and security posture</b> of all owned and associated assets</td></tr>
+  <tr><td>6</td><td>All resource <b>authentication and authorisation are dynamic and strictly enforced</b> before access is allowed</td></tr>
+  <tr><td>7</td><td>The enterprise <b>collects as much information as possible</b> about assets, infrastructure and communications to improve its security posture</td></tr>
+  </tbody>
+</table></div>
+</div>
+
+<div class="card">
+  <h3><span class="n">22.2</span>ZTA logical components<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <figure><svg viewBox="0 0 520 190" role="img" aria-label="NIST ZTA: PE, PA, PEP and the control and data planes">
+  <rect x="150" y="8" width="230" height="62" rx="7" class="svg-b" stroke="var(--purple)"/>
+  <text class="svg-t" x="265" y="24" text-anchor="middle" fill="var(--purple)">Control plane</text>
+  <rect x="162" y="30" width="98" height="32" rx="5" class="svg-b" stroke="var(--cyan)"/>
+  <text class="svg-l" x="211" y="50" text-anchor="middle" fill="var(--cyan)">Policy Engine</text>
+  <rect x="272" y="30" width="98" height="32" rx="5" class="svg-b" stroke="var(--green)"/>
+  <text class="svg-l" x="321" y="50" text-anchor="middle" fill="var(--green)">Policy Admin</text>
+  <rect x="14" y="118" width="104" height="46" rx="6" class="svg-b" stroke="var(--ink-3)"/>
+  <text class="svg-l" x="66" y="139" text-anchor="middle" fill="var(--ink-3)">Subject</text>
+  <text class="svg-l" x="66" y="155" text-anchor="middle" fill="var(--ink-3)">user + device</text>
+  <rect x="212" y="118" width="106" height="46" rx="6" class="svg-b" stroke="var(--yellow)"/>
+  <text class="svg-l" x="265" y="139" text-anchor="middle" fill="var(--yellow)">PEP</text>
+  <text class="svg-l" x="265" y="155" text-anchor="middle" fill="var(--ink-3)">gatekeeper</text>
+  <rect x="404" y="118" width="104" height="46" rx="6" class="svg-b" stroke="var(--pink)"/>
+  <text class="svg-l" x="456" y="139" text-anchor="middle" fill="var(--pink)">Resource</text>
+  <text class="svg-l" x="456" y="155" text-anchor="middle" fill="var(--ink-3)">app / data</text>
+  <line x1="118" y1="141" x2="212" y2="141" stroke="var(--ink-3)" marker-end="url(#a3)"/>
+  <line x1="318" y1="141" x2="404" y2="141" stroke="var(--pink)" marker-end="url(#a3)"/>
+  <line x1="265" y1="118" x2="265" y2="70" stroke="var(--purple)" stroke-dasharray="3 3" marker-end="url(#a3)"/>
+  <text class="svg-t" x="278" y="98" fill="var(--ink-3)">allow / deny per session</text>
+  <text class="svg-t" x="265" y="182" text-anchor="middle" fill="var(--ink-3)">Data plane — no traffic reaches the resource until the PEP is told to let it</text>
+  <defs><marker id="a3" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor"/></marker></defs>
+</svg><figcaption>Three components, two planes. Draw this for any NIST 800-207 question.</figcaption></figure>
+  <div class="tw"><table>
+  <thead><tr><th>Component</th><th>Role</th></tr></thead>
+  <tbody>
+  <tr><td><b>Policy Engine (PE)</b></td><td><b>Makes</b> the access decision, using the trust algorithm</td></tr>
+  <tr><td><b>Policy Administrator (PA)</b></td><td><b>Enforces</b> the decision from the PE — establishes or tears down the session, issues credentials/tokens</td></tr>
+  <tr><td><b>Policy Enforcement Point (PEP)</b></td><td>The <b>gatekeeper</b> that allows or denies access at the resource</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Trust algorithm inputs:</b> identity · device posture · threat intelligence · network context · behavioural analysis.</p>
+  <div class="edge"><b>Extra marks</b>PE and PA together form the <b>control plane</b>; the PEP sits in the <b>data plane</b>. Separating them is what makes the decision auditable and centrally managed while enforcement happens next to the resource. Note also that <b>the PEP is the natural place a Software-Defined Perimeter is implemented</b> — which links this card straight to card 29.2 and the Section C question about VPN vs SDP.</div>
+</div>
+
+      <h2 id="m2-uses">23 · ZTA use cases &amp; adoption</h2>
+
+<div class="card">
+  <h3><span class="n">23.1</span>The three use cases<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <p>Cloud, Remote Work and BYOD are named in the syllabus by name. Learn each as <b>problem → solution → tools</b>.</p>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>Problem</th><th>ZTA solution</th><th>Tools / approaches</th></tr></thead>
+  <tbody>
+  <tr><td><b>1 · Cloud</b></td><td>Traditional perimeter security doesn't apply in cloud-native models</td><td>Treat every access to cloud resources as untrusted; integrate identity providers, device posture checks and cloud-native firewalls; use CWPP and CSPM</td><td>Identity federation (SAML, OAuth2, OpenID Connect), micro-segmentation, least-privilege IAM, continuous authorisation</td></tr>
+  <tr><td><b>2 · Remote work</b></td><td>Employees connect from home networks and devices, increasing risk</td><td>Enforce MFA; use EDR and security-posture validation; route traffic through ZTA-protected gateways</td><td><b>ZTNA</b>, conditional access policies, <b>VPN-less secure access</b>, VDI</td></tr>
+  <tr><td><b>3 · BYOD</b></td><td>Personal devices lack enterprise-grade controls</td><td>Allow access <b>only if the device is compliant</b>; apply app-level control instead of full device trust</td><td><b>MDM</b> and <b>MAM</b>, device registration, containerisation, <b>DLP</b></td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>The BYOD row contains the sentence worth quoting in the compulsory question: <b>app-level control instead of full device trust.</b> You cannot make a student's personal laptop trustworthy, so you stop trying — you contain the university's data inside a managed container on it and check compliance at every access. That reframes BYOD from "how do we secure their device" to "how do we secure our data on their device", which is exactly what the examiner is looking for.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">23.2</span>Implementation, challenges and benefits</h3>
+  <div class="tw"><table>
+  <thead><tr><th>Implementation strategy</th></tr></thead>
+  <tbody>
+  <tr><td>Start with <b>identity and access management (IAM) modernisation</b></td></tr>
+  <tr><td><b>Segment workloads</b> and define trust boundaries</td></tr>
+  <tr><td>Integrate <b>logging and telemetry</b> for adaptive responses</td></tr>
+  <tr><td>Adopt <b>ZTNA models progressively</b> — not a big-bang migration</td></tr>
+  </tbody>
+</table></div>
+  <div class="tw"><table>
+  <thead><tr><th>Challenges</th><th>Benefits</th></tr></thead>
+  <tbody>
+  <tr><td><b>Complexity</b> — significant changes to existing infrastructure</td><td><b>Improved security posture</b> — reduced attack surface, limited breach impact</td></tr>
+  <tr><td><b>Cost</b> — new technologies and training</td><td><b>Enhanced compliance</b> with data-protection regulation</td></tr>
+  <tr><td><b>Performance impact</b> — latency from constant verification</td><td><b>Increased visibility</b> into user activity and resource access</td></tr>
+  <tr><td><b>User experience</b> — degrades if implemented carelessly</td><td><b>Reduced complexity</b> through centralised policy enforcement</td></tr>
+  <tr><td><b>Organisational culture</b> — a mindset shift from trusting to verifying</td><td><b>Greater flexibility</b> — secure access from anywhere, on any device</td></tr>
+  </tbody>
+</table></div>
+  <div class="trap cram"><b>Exam trap</b>"Reduced complexity" appears in the benefits list and "complexity" in the challenges list. That is not a contradiction and you should say why: ZTA is <b>complex to implement</b> and <b>simpler to operate</b> afterwards, because policy lives in one place instead of being scattered across firewall rules, VLANs and VPN configurations. Explaining the apparent contradiction is worth more than reciting both lists.</div>
+</div>
+
+      <h2 id="m2-mfa">24 · Authentication &amp; MFA</h2>
+
+<div class="card">
+  <h3><span class="n">24.1</span>Multi-Factor Authentication<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <p><b>Why authentication is critical:</b> <b>81% of breaches involve weak or stolen credentials</b> (Verizon DBIR). Passwords are vulnerable to phishing, brute force and credential stuffing.</p>
+  <div class="def"><b>MFA</b>An authentication method requiring users to provide <b>two or more independent credentials</b> from <b>different categories</b>, so that compromising one factor does not give an attacker access.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Category</th><th>Principle</th><th>Examples</th><th>Attacked by</th></tr></thead>
+  <tbody>
+  <tr><td><b>Knowledge</b></td><td>Something you <b>know</b></td><td>Password, PIN, security question</td><td>Phishing, brute force, credential stuffing</td></tr>
+  <tr><td><b>Possession</b></td><td>Something you <b>have</b></td><td>OTP, smart card, mobile device, hardware token</td><td>SIM swap, theft, OTP relay</td></tr>
+  <tr><td><b>Inherence</b></td><td>Something you <b>are</b></td><td>Fingerprint, face recognition, iris</td><td>Spoofing; and it <b>cannot be reset</b> if stolen</td></tr>
+  </tbody>
+</table></div>
+  <p><b>How MFA works:</b> the user submits the first factor → the system validates it and <b>challenges for a second factor from a different category</b> → the user supplies it (approves a push, enters an OTP, presents a biometric) → the system validates and issues a session.</p>
+  <div class="ask"><b>The Feb 2026 question, answered</b>"What is the purpose of the 'something you know, something you have, and something you are' principle in MFA? Explain with suitable examples." The <b>purpose</b> is <b>independence of compromise</b>: the three categories fail to <b>different</b> attacks, so an attacker must succeed at two unrelated things at once. A phisher who steals your password (knowledge) still cannot produce your phone (possession); a thief with your phone still cannot produce your fingerprint (inherence). Two factors from the <b>same</b> category — a password and a security question — are <b>not MFA</b>, because one phishing page captures both. Then close with the number: Microsoft reports MFA blocks over <b>99.9%</b> of automated account-compromise attacks.</div>
+  <div class="trap cram"><b>Exam trap</b>Say which MFA factors are <b>weak</b> — it is the difference between a 4-mark and a 5-mark answer. <b>SMS OTP</b> is vulnerable to SIM swapping and interception, and push notifications are vulnerable to <b>MFA fatigue</b> (spamming approvals until the user taps yes). <b>Phishing-resistant MFA</b> — FIDO2 security keys and passkeys — is the current recommendation because the credential is cryptographically bound to the origin.</div>
+</div>
+
+      <h2 id="m2-sso">25 · SSO, federation, conditional access</h2>
+
+<div class="card">
+  <h3><span class="n">25.1</span>SSO and identity federation<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>SSO</b>Single Sign-On allows a user to <b>authenticate once</b> and access multiple services without re-logging in for each. It simplifies the user experience while maintaining security.</div>
+  <div class="def"><b>Identity federation</b>Extends SSO <b>across different organisations</b> using standards such as <b>SAML</b> (Security Assertion Markup Language), <b>OAuth</b> and <b>OpenID Connect</b>, letting users reach resources at other organisations with one set of credentials.</div>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>SSO</th><th>Identity federation</th></tr></thead>
+  <tbody>
+  <tr><td>Scope</td><td><b>Within</b> one organisation / trust domain</td><td><b>Across</b> organisations</td></tr>
+  <tr><td>Identity store</td><td>One directory</td><td>Each org keeps its own; trust is established between them</td></tr>
+  <tr><td>Protocols</td><td>Kerberos, session cookies, SAML</td><td><b>SAML, OAuth 2.0, OpenID Connect</b></td></tr>
+  <tr><td>Example</td><td>One login for the university's ERP, LMS, email and library</td><td>Using university credentials on <b>LinkedIn, Coursera and GitHub</b>; logging into Zoom with a Google or Microsoft account</td></tr>
+  </tbody>
+</table></div>
+  <p><b>The SAML flow, in four steps:</b> the user requests a resource from the <b>service provider (SP)</b> → the SP redirects to the <b>identity provider (IdP)</b> → the IdP authenticates the user (with MFA) and issues a <b>signed assertion</b> → the SP validates the signature and grants a session. The SP never sees the password.</p>
+  <div class="ask"><b>"How can SSO improve both security and user experience?" (Feb 2026, 3 marks)</b><b>Security:</b> one strong credential instead of many weak reused ones; <b>MFA is enforced once at the IdP</b> and inherited by every application; <b>central revocation</b> — disabling a graduate's account cuts off every service at once; complete <b>audit trail</b> of access in one place; applications never handle passwords, so a breach of one app does not leak credentials. <b>User experience:</b> one login for ERP, LMS, email and library; no password fatigue and no reuse; fewer helpdesk resets; seamless movement between services. <b>Balance it:</b> SSO concentrates risk — the IdP becomes a single point of failure and a single high-value target — which is exactly why the IdP is where the strongest MFA and conditional access must sit.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">25.2</span>Conditional Access Policies<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Conditional Access Policy (CAP)</b>A <b>dynamic access control</b> evaluated at each sign-in against factors such as <b>user, device, location and risk</b>, which enforces conditions before access is granted. The canonical example: if a user logs in from an unknown device in a foreign country → <b>trigger MFA or block access</b>.</div>
+  <p><b>The shape of a policy — signals → decision → enforcement:</b></p>
+  <div class="tw"><table>
+  <thead><tr><th>Signals evaluated</th><th>Possible decisions</th></tr></thead>
+  <tbody>
+  <tr><td>User / group membership · role</td><td><b>Allow</b></td></tr>
+  <tr><td>Device compliance and management state</td><td><b>Allow with conditions</b> — require MFA, require a compliant device, limit to a browser session with no download</td></tr>
+  <tr><td>Location / IP / named country</td><td><b>Block</b></td></tr>
+  <tr><td>Application being accessed and its sensitivity</td><td>Force re-authentication or shorten session lifetime</td></tr>
+  <tr><td>Real-time risk — impossible travel, leaked credentials, anomalous behaviour</td><td>Require a password reset</td></tr>
+  </tbody>
+</table></div>
+  <div class="ask"><b>The BYOD application (Sept 2025 Section C)</b>"How can Conditional Access Policies protect sensitive university systems — exam databases, research data — in a BYOD environment?" Answer with concrete policies: <b>exam databases reachable only from managed, compliant devices on campus IP ranges, with MFA every session and no offline download</b>; <b>research data accessible from personal devices only in a browser-only session with download and copy-paste blocked</b>; <b>any sign-in from a new country or an unmanaged device triggers step-up MFA</b>; <b>a device failing posture checks — unpatched OS, no disk encryption — is denied outright</b>; and <b>session lifetimes shortened for high-sensitivity applications</b>. The principle to state: CAP lets the university grant <b>the same identity different access depending on the circumstances</b>, which is what makes BYOD survivable at all.</div>
+</div>
+
+      <h2 id="m2-iam">26 · IdM, AM &amp; PAM</h2>
+
+<div class="card">
+  <h3><span class="n">26.1</span>The three, distinguished<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <p>Feb 2026 Section B, 10 marks — including "construct a real-world analogy (e.g. an office building)". The analogy carries marks; do not skip it.</p>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>Identity Management (IdM)</th><th>Access Management (AM)</th><th>Privileged Access Management (PAM)</th></tr></thead>
+  <tbody>
+  <tr><td><b>Question it answers</b></td><td><b>Who are you?</b></td><td><b>What may you do?</b></td><td><b>How are the keys to everything controlled?</b></td></tr>
+  <tr><td><b>Concerned with</b></td><td>Creating, maintaining and deleting digital identities; the <b>joiner–mover–leaver</b> lifecycle</td><td>Authentication and authorisation at the point of use; policy enforcement</td><td>Accounts with elevated rights — admin, root, service and emergency accounts</td></tr>
+  <tr><td><b>Typical functions</b></td><td>Provisioning, directory services, self-service, password management, identity governance and attestation</td><td>SSO, MFA, conditional access, RBAC/ABAC, session management</td><td>Credential vaulting, password rotation, <b>just-in-time</b> elevation, session recording, break-glass accounts</td></tr>
+  <tr><td><b>Scope</b></td><td>Every user</td><td>Every access request</td><td>A <b>small, high-risk</b> subset of users</td></tr>
+  <tr><td><b>If it fails</b></td><td>Orphaned accounts persist after people leave</td><td>Users reach data they should not</td><td><b>One breach becomes total compromise</b></td></tr>
+  </tbody>
+</table></div>
+  <div class="ask"><b>The office-building analogy, written out</b><b>IdM is the HR and pass office.</b> It establishes who you are, photographs you, issues your building pass on your first day, updates it when you change department, and cancels it the day you leave. It does not decide which doors open. <b>AM is the card reader on each door.</b> Every time you present the pass it decides, then and there, whether <i>this</i> person may enter <i>this</i> room <i>right now</i> — and it may ask for a second check at the server room. <b>PAM is the locked cabinet holding the master keys.</b> The master key is not carried around; it is signed out for a stated reason, for a fixed time, under CCTV, and returned — and every use is recorded. <b>How they interconnect:</b> AM cannot decide anything without an identity IdM created, and PAM is meaningless unless the master keys are separated from the ordinary passes AM issues. Together they answer <i>who</i>, <i>what</i> and <i>with how much power</i>.</div>
+  <div class="edge"><b>Extra marks</b>Add the governance layer: <b>IGA</b> (Identity Governance and Administration) is the periodic review that asks whether the access people accumulated is still justified — the answer to <b>privilege creep</b>, where an employee who has moved departments three times holds the permissions of all four roles. And note that <b>PAM is where Zero Trust and IAM meet</b>: just-in-time elevation with no standing privilege is "never trust, always verify" applied to administrators.</div>
+</div>
+
+      <h2 id="m2-ad">27 · Active Directory &amp; RBAC/ABAC</h2>
+
+<div class="card">
+  <h3><span class="n">27.1</span>Active Directory and Organisational Units<span class="tag t-past">past paper</span></h3>
+  <div class="def"><b>Active Directory</b>Microsoft's <b>directory service</b> for Windows domain networks. It stores information about users, groups, computers and resources, authenticates and authorises them (using <b>Kerberos</b> and LDAP), and enforces policy centrally through <b>Group Policy</b>.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Object</th><th>What it is</th></tr></thead>
+  <tbody>
+  <tr><td><b>Forest</b></td><td>The top-level security boundary; one or more domain trees sharing a schema</td></tr>
+  <tr><td><b>Domain</b></td><td>An administrative and replication boundary — <code>amity.edu</code></td></tr>
+  <tr><td><b>OU</b> — Organisational Unit</td><td>A <b>container</b> inside a domain used to organise users, groups and computers so that <b>Group Policy</b> can be applied and administration <b>delegated</b> to them</td></tr>
+  <tr><td><b>Group</b></td><td>A collection of principals used to assign permissions; security or distribution</td></tr>
+  <tr><td><b>GPO</b> — Group Policy Object</td><td>The configuration and security settings linked to a site, domain or OU</td></tr>
+  <tr><td><b>Domain controller</b></td><td>The server hosting AD and answering authentication requests</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Why OUs exist — the three reasons to write:</b></p>
+  <ol>
+    <li><b>Delegation of administration</b> — the CSE department's IT staff can reset passwords for CSE users without being domain admins. This is least privilege applied to administration.</li>
+    <li><b>Group Policy targeting</b> — a GPO linked to the "Lab Computers" OU applies only there. Policy inheritance flows Site → Domain → OU → nested OU.</li>
+    <li><b>Logical organisation</b> — structure that mirrors the institution and makes bulk operations safe.</li>
+  </ol>
+  <div class="trap cram"><b>Exam trap</b><b>An OU is not a security group.</b> You cannot assign permissions to an OU. OUs are for <b>Group Policy and delegated administration</b>; <b>groups</b> are for <b>permissions</b>. This is the exact distinction "Write short notes on Organisational Units in Active Directory" is testing.</div>
+  <p><b>Password management in identity management</b> (the paper's other short note): policy enforcement (length, complexity, history, age, lockout), <b>self-service password reset</b> to cut helpdesk load, <b>password vaulting</b> and rotation for privileged accounts, banned-password lists checked against breach corpora, and — the modern direction — <b>reducing reliance on passwords entirely</b> through SSO, MFA and passkeys.</p>
+</div>
+
+<div class="card">
+  <h3><span class="n">27.2</span>RBAC vs ABAC in Zero Trust<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <p>Feb 2026 Section A: "Differentiate between role-based access and attribute-based access in Zero Trust."</p>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>RBAC — role-based</th><th>ABAC — attribute-based</th></tr></thead>
+  <tbody>
+  <tr><td><b>Decision based on</b></td><td>The user's <b>role</b></td><td><b>Attributes</b> of user, resource, action and environment</td></tr>
+  <tr><td><b>Policy example</b></td><td>"Faculty may read the grade database"</td><td>"Faculty may read the grade database <b>if</b> on a managed device, <b>from</b> a campus IP, <b>during</b> term time, <b>and</b> risk score is low"</td></tr>
+  <tr><td><b>Granularity</b></td><td>Coarse</td><td><b>Fine, contextual</b></td></tr>
+  <tr><td><b>Nature</b></td><td><b>Static</b> — changes when the role changes</td><td><b>Dynamic</b> — re-evaluated at every request</td></tr>
+  <tr><td><b>Management</b></td><td>Simple to reason about; suffers <b>role explosion</b> as exceptions accumulate</td><td>Scales to nuance; policies are harder to write, test and audit</td></tr>
+  <tr><td><b>Fit with Zero Trust</b></td><td>Partial — a role is still an implicit standing trust</td><td><b>Native</b> — matches NIST tenet 4, "access determined by dynamic policy"</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>The judgement worth stating: <b>RBAC answers "who are you"; ABAC answers "who are you, right now, from where, on what".</b> Zero Trust needs the second, because trust must be re-established per session (tenet 3) — but real deployments use <b>RBAC as the base and ABAC for the conditions on top</b>, which is exactly what a Conditional Access Policy is. Naming CAP as ABAC in practice ties three cards together and is the sentence that gets full marks.</div>
+</div>
+
+      <h2 id="m2-seg">28 · Network segmentation</h2>
+
+<div class="card">
+  <h3><span class="n">28.1</span>Strategies<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Network segmentation</b>Dividing a network into smaller segments or subnetworks to <b>limit access and contain breaches</b>. Its central purpose is to stop <b>lateral movement</b>.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Type</th><th>How</th><th>Advantages</th><th>Disadvantages</th></tr></thead>
+  <tbody>
+  <tr><td><b>Physical</b></td><td>Separate hardware — routers, switches, firewalls per segment</td><td>Strong isolation; relatively simple to implement</td><td>Expensive; hard to scale or reconfigure; dedicated hardware per segment</td></tr>
+  <tr><td><b>Logical (VLANs)</b></td><td>VLANs and subnets divide one physical infrastructure into separate broadcast domains</td><td>Cost-effective, easy, flexible without extra hardware</td><td>Can be bypassed if misconfigured; vulnerable to <b>VLAN hopping</b></td></tr>
+  <tr><td><b>Micro-segmentation</b></td><td>Very granular segments, often per workload or application</td><td><b>Highest isolation and control</b>; limits a breach to a very small area</td><td>Complex to implement and manage; needs sophisticated tooling and expertise</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Benefits:</b> limits lateral movement · improves performance (smaller broadcast domains) · enhances policy enforcement · reduces compliance scope. <b>Example:</b> separating finance and HR into different VLANs.</p>
+  <div class="edge"><b>Extra marks</b>Use <b>Maersk / NotPetya (2017)</b> as the evidence: a flat network turned one infection into a <b>$300M</b> global shutdown. Afterwards Maersk implemented strict micro-segmentation and isolated critical OT networks, and later attacks were contained to isolated segments. The takeaway to write is the phrase the case-study deck uses: <b>segmentation limits the blast radius.</b></div>
+</div>
+
+      <h2 id="m2-segtech">29 · Firewalls, SDP, SDN, NAC</h2>
+
+<div class="card">
+  <h3><span class="n">29.1</span>Firewalls in segmentation<span class="tag t-past">named in syllabus</span></h3>
+  <p><b>Role:</b> firewalls enforce security policy <b>between</b> segments, controlling traffic on source, destination, port and protocol. <b>Traditional</b> firewalls inspect at network and transport layers; <b>NGFWs</b> add application awareness, intrusion prevention and threat intelligence.</p>
+  <p><b>Implementation considerations:</b> configure rules to allow <b>only necessary</b> traffic between segments; review and update rules as topology and requirements change; use NGFWs for visibility into application traffic and detection of advanced threats.</p>
+  <p><b>East-west vs north-south</b> is the framing worth adding: perimeter firewalls filter <b>north-south</b> traffic (in and out of the organisation); segmentation firewalls filter <b>east-west</b> traffic (between internal segments) — and east-west is exactly where lateral movement happens and where traditional designs had no controls at all.</p>
+</div>
+
+<div class="card">
+  <h3><span class="n">29.2</span>Software-Defined Perimeter<span class="tag t-past">past paper</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>SDP</b>A Software-Defined Perimeter creates a <b>secure, identity-centric perimeter around applications and data</b>, regardless of their location. Users are granted access to <b>specific resources only</b> after their identity and device posture have been verified. Often called a "black cloud", because unauthorised users cannot even see that the resource exists.</div>
+  <p><b>How it works:</b></p>
+  <ol>
+    <li><b>Authentication</b> — the user authenticates with strong methods such as MFA.</li>
+    <li><b>Authorisation</b> — access is granted based on user role <b>and device posture</b>.</li>
+    <li><b>Micro-segmentation</b> — SDP creates a secure tunnel between the device and the <b>authorised application only</b>, effectively micro-segmenting the network.</li>
+  </ol>
+  <p><b>Benefits:</b> reduces the attack surface by <b>hiding applications and data from unauthorised users</b>; granular access control based on identity and device posture; simplifies network security management.</p>
+  <div class="ask"><b>"VPN or SDP for BYOD?" (Sept 2025 Section C) — answered as a consultant</b><b>Recommend SDP.</b> Give the reasoning as a contrast, not a list. <b>A VPN authenticates once and then places the device on the network</b> — a personal, unmanaged laptop is granted a network address inside the perimeter, and from there it can reach anything the network routes to. That is precisely the weakness Colonial Pipeline demonstrated: one stolen VPN credential, full internal access. <b>SDP inverts it</b>: nothing is reachable until identity <i>and</i> device posture are verified, and then only the one authorised application is exposed — everything else remains invisible, so it cannot be scanned or attacked. For BYOD specifically: SDP checks device compliance at every connection, gives per-application rather than per-network access, contains a compromised student laptop to the single service it was authorised for, and needs no client VPN configuration on personal devices. <b>Then concede the trade-offs honestly</b> — SDP costs more, requires an identity infrastructure the university must already have, and adds a dependency on the broker's availability; a VPN is cheaper and already deployed. Conclude: keep the VPN for managed staff devices needing full network access, and put BYOD behind SDP.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">29.3</span>SDN and NAC<span class="tag t-past">named in syllabus</span></h3>
+  <div class="def"><b>SDN</b>Software-Defined Networking separates the <b>control plane</b> from the <b>data plane</b>, allowing centralised management and automation of network resources.</div>
+  <p><b>Role in segmentation:</b> SDN can <b>dynamically create and manage segments</b> as security requirements change. <b>Benefits:</b> centralised control and visibility; automated provisioning and configuration; dynamic segmentation driven by real-time security events. <b>Considerations:</b> choose a controller supporting the segmentation features you need; integrate with security tools to automate response; and <b>protect the controller itself</b> — it is a single point of total compromise.</p>
+  <div class="def"><b>NAC</b>Network Access Control governs access to the network based on <b>user identity, device posture and security policies</b>, and can automatically assign users and devices to appropriate segments.</div>
+  <p><b>How NAC works:</b> <b>authentication</b> of users and devices before network access → <b>posture assessment</b> (up-to-date antivirus, OS patches, disk encryption) → <b>policy enforcement</b>, placing the device in the right segment or a remediation VLAN. <b>Benefits:</b> only authorised, compliant devices connect; non-compliant devices are kept away from sensitive resources; segmentation is automated by role and posture.</p>
+  <div class="edge"><b>Extra marks</b>Show how the four technologies compose rather than compete: <b>NAC decides whether a device may join and which segment it lands in; SDN builds and rewires those segments programmatically; firewalls enforce policy between them; SDP removes the network step entirely by connecting an identity straight to an application.</b> That sentence answers "using firewalls, SDN and NAC" as one coherent architecture, which is what the descriptor is asking for.</div>
+</div>
+
+      <div class="mod">Exam craft</div>
+      <h2 id="x-cases">30 · Case studies</h2>
+
+<div class="card">
+  <h3><span class="n">30.1</span>The seven you can cite<span class="tag t-past">case studies deck</span><span class="tag t-hi">★ high yield</span></h3>
+  <p>Section C is a compulsory 10-mark scenario. A named real incident is what turns a generic answer into a marked one.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Case</th><th>What happened</th><th>Takeaway to quote</th></tr></thead>
+  <tbody>
+  <tr><td><b>KRACK</b> (2017)</td><td>Vanhoef showed WPA2's 4-way handshake could be replayed, forcing key reinstallation and nonce reuse</td><td>Protocol flaws defeat correct configuration; motivated WPA3's SAE</td></tr>
+  <tr><td><b>Colonial Pipeline</b> (2021)</td><td>A <b>single compromised VPN password</b>, on an account without MFA, shut down a national fuel supply</td><td>Perimeter trust plus no MFA equals total compromise from one credential</td></tr>
+  <tr><td><b>Cloudflare AI firewall</b> (2023)</td><td>A <b>71M requests-per-second</b> DDoS against a financial client; AI-driven rules, behavioural analysis and automated scrubbing</td><td><b>Mitigated in under 10 seconds, zero downtime</b> — AI improves real-time response</td></tr>
+  <tr><td><b>Darktrace</b> (2024)</td><td>Zero-day ransomware (Evil Corp variant) against a healthcare provider's patient database; self-learning AI spotted unusual file encryption and autonomously isolated the devices</td><td><b>Contained in under 3 minutes, no exfiltration</b> — anomaly detection stops unknown threats</td></tr>
+  <tr><td><b>Google BeyondCorp</b></td><td>Replaced VPN-dependent security with access based on device and user trust score, continuous MFA</td><td><b>40% reduction in breach risk</b>; Zero Trust eliminates the "trusted internal network" fallacy</td></tr>
+  <tr><td><b>Microsoft MFA</b> (2023)</td><td>Phishing campaign against Office 365 users; conditional access blocked suspicious logins and MFA was enforced</td><td><b>Over 300,000 accounts protected</b>; MFA is the number-one defence against credential theft</td></tr>
+  <tr><td><b>Maersk / NotPetya</b> (2017)</td><td>Ransomware spread across a flat network; <b>$300M</b> loss and global shipping disruption. Rebuilt with strict micro-segmentation and isolated OT</td><td><b>Segmentation limits the blast radius</b></td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>Map each case to the control it argues for, and you can drop one into any scenario question: DDoS → Cloudflare; unknown malware → Darktrace; VPN and remote access → Colonial and BeyondCorp; credential phishing → Microsoft MFA; ransomware spread → Maersk; Wi-Fi encryption → KRACK. One sentence with a number in it beats a paragraph of generalities.</div>
+</div>
+
+      <h2 id="x-papers">31 · The real papers</h2>
+
+<div class="card">
+  <h3><span class="n">31.1</span>Format and syllabus map<span class="tag t-hi">★ high yield</span></h3>
+  <p><b>Format, consistent across three papers:</b> 1 hour, 30 marks. <b>Section A</b> — attempt any <b>two of three</b>, 5 marks each. <b>Section B</b> — attempt any <b>one of two</b>, 10 marks. <b>Section C</b> — <b>compulsory</b> scenario, 10 marks, split into parts of 3+3+4 or 4+3+3.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Module</th><th>Syllabus descriptor</th><th>Card</th></tr></thead>
+  <tbody>
+  <tr><td rowspan="9"><b>1</b></td><td>Firewalls, Types of firewalls</td><td>5.1, 5.2</td></tr>
+  <tr><td>IDS and IPS</td><td>6.1</td></tr>
+  <tr><td>Network-based vs host-based IDS/IPS</td><td>6.2</td></tr>
+  <tr><td>Signature-based vs anomaly-based detection</td><td>7.1</td></tr>
+  <tr><td>VPN, Types of VPNs (site-to-site, remote access)</td><td>8.1</td></tr>
+  <tr><td>VPN protocols (IPSec, SSL/TLS)</td><td>9.1, 10.1</td></tr>
+  <tr><td>Wireless Security, WPA/WPA2/WPA3</td><td>11.1 – 14.1</td></tr>
+  <tr><td>Wireless Intrusion Prevention Systems (WIPS)</td><td>17.2 (with 15.x, 16.1 for what it detects)</td></tr>
+  <tr><td>OSI &amp; TCP/IP stack, OS basics, Web basics, PKI &amp; SSL basics</td><td>18.1, 18.2, 18.3</td></tr>
+  <tr><td rowspan="8"><b>2</b></td><td>Traditional security vs Zero Trust</td><td>20.1, 20.2, 21.2</td></tr>
+  <tr><td>Key principles: "Never trust, always verify"</td><td>21.1</td></tr>
+  <tr><td>NIST SP 800-207 Zero Trust Architecture model</td><td>22.1, 22.2</td></tr>
+  <tr><td>Use cases: Cloud, Remote Work, BYOD</td><td>23.1</td></tr>
+  <tr><td>Multi-Factor Authentication (MFA)</td><td>24.1</td></tr>
+  <tr><td>SSO and Identity Federation</td><td>25.1</td></tr>
+  <tr><td>Conditional Access Policies</td><td>25.2</td></tr>
+  <tr><td>Network segmentation, SDP, firewalls, SDN, NAC</td><td>28.1, 29.1, 29.2, 29.3</td></tr>
+  </tbody>
+</table></div>
+  <div class="trap cram"><b>Note on scope</b>Sections 1–4 (Module 0 foundations) and cards 26–27 (IdM/AM/PAM, Active Directory) are <b>not</b> in the two syllabus descriptors above — but the Sept 2025 paper asked for the goals of network security, types of intruders and MitM, and the Feb 2026 paper asked for IdM/AM/PAM and Active Directory OUs. They are examined even though the descriptor list does not name them. Read them; do not skip them because they are outside the table.</div>
+</div>
+
+<div class="card no-cram">
+  <h3><span class="n">31.2</span>The three papers, question by question<span class="tag t-past">past paper</span></h3>
+  <div class="ask"><b>Feb 2026 — Set 1</b>
+  <ol>
+    <li>Purpose of "something you know / have / are" in MFA, with examples. <span class="cm">→ 24.1</span></li>
+    <li>Design a firewall rule to block all incoming traffic. Name two VPN protocols for secure remote access. <span class="cm">→ 5.2, 8.1</span></li>
+    <li>Differentiate role-based and attribute-based access in Zero Trust. <span class="cm">→ 27.2</span></li>
+    <li>Purpose of CAPTCHA in mitigating DDoS, and how it complements IDS/IPS. <span class="cm">→ 6.1 + note below</span></li>
+    <li>Define and differentiate IdM, AM and PAM; construct a real-world analogy. <span class="cm">→ 26.1</span></li>
+    <li>BYOD scenario: two risks in the current setup; why WPA2-Personal is unsuitable; how SSO improves security and UX. <span class="cm">→ 13.2, 25.1</span></li>
+  </ol></div>
+  <div class="ask"><b>Feb 2026 — Set 2</b>
+  <ol>
+    <li>Short notes: (a) Organisational Units in Active Directory (b) Password management in identity management. <span class="cm">→ 27.1</span></li>
+    <li>Differentiate network-based and host-based IDS with examples. <span class="cm">→ 6.2</span></li>
+    <li>What is wireless security? Briefly explain WPA2 and WPA3. <span class="cm">→ 13.2, 13.3</span></li>
+    <li>Describe VPN architecture and protocols; explain the working of IPSec and SSL/TLS in VPN. <span class="cm">→ 8.1, 9.1, 10.1</span></li>
+    <li>Discuss the NIST SP 800-207 model; explain its key principles and components. <span class="cm">→ 22.1, 22.2</span></li>
+    <li>Remote-work scenario: weaknesses of perimeter security; how "never trust, always verify" helps; role of MFA and conditional access. <span class="cm">→ 20.2, 21.1, 24.1, 25.2</span></li>
+  </ol></div>
+  <div class="ask"><b>Sept 2025</b>
+  <ol>
+    <li>(a) Role of SSL/TLS in securing network communications (b) Types of firewalls. <span class="cm">→ 10.1, 5.1</span></li>
+    <li>(a) Types of intruders (b) How an IDS helps analyse their activities. <span class="cm">→ 2.2, 6.1</span></li>
+    <li>Compare signature-based and anomaly-based detection; which do you recommend and why. <span class="cm">→ 7.1</span></li>
+    <li>Compare WPA2 and WPA3 on encryption, authentication and vulnerabilities. <span class="cm">→ 13.4</span></li>
+    <li>(a) Goals of network security with examples (b) MitM attacks and how they compromise confidentiality and integrity. <span class="cm">→ 1.1, 1.2</span></li>
+    <li>Amity BYOD scenario: VPN or SDP, and why; how conditional access protects exam databases and research data. <span class="cm">→ 29.2, 25.2</span></li>
+  </ol></div>
+  <div class="edge"><b>On the CAPTCHA question</b>It is the one question with no deck slide behind it, so build the answer from first principles. <b>CAPTCHA separates humans from automated clients</b>, so it filters the bot-generated request floods that make up an application-layer (Layer 7) DDoS while letting real users through — unlike rate limiting, which penalises everyone. <b>It complements IDS/IPS</b> because an IDS/IPS decides from traffic patterns and signatures and struggles when each individual request looks legitimate; CAPTCHA adds a <b>challenge–response</b> test the traffic itself cannot answer. The practical arrangement: the IDS/IPS <b>detects</b> the anomaly and <b>triggers</b> CAPTCHA only for suspicious sources, so protection escalates rather than blocking indiscriminately. <b>Limits, for the last mark:</b> CAPTCHA does nothing against volumetric Layer 3/4 floods that saturate the link before any application logic runs, it can be solved by farms and by ML, and it harms accessibility — which is why invisible reputation-based challenges have largely replaced it.</div>
+</div>
+
+      <h2 id="x-test">32 · Self test</h2>
+
+<div class="card no-cram">
+  <h3><span class="n">32.1</span>Module 1 — quick recall</h3>
+  <div class="ask"><b>Answer without looking</b>
+  <ol>
+    <li>Name the five goals of network security and one attack that breaks each.</li>
+    <li>Give the four types of firewall, the layer each works at, and one advantage and disadvantage of firewalls overall.</li>
+    <li>Write a rule set that blocks all incoming traffic without cutting off your own replies. Why does rule order matter?</li>
+    <li>Give five rows of the IDS vs IPS table.</li>
+    <li>Compare network-based and host-based IDS on five points, with two example tools each.</li>
+    <li>Compare signature and anomaly detection on capability, accuracy and suitability — and commit to a recommendation.</li>
+    <li>Describe how a VPN works in four steps; name the four types and five protocols.</li>
+    <li>Name IPSec's four components, its two modes, and the five steps of its operation.</li>
+    <li>List the six steps of a TLS 1.2 handshake. What does TLS 1.3 remove?</li>
+    <li>Define SSID, BSSID, ISM band, DSSS, OFDM, FHSS and association.</li>
+    <li>What does 802.11i specify? What do 802.11d and 802.11e add?</li>
+    <li>Give four reasons WEP is broken.</li>
+    <li>What does TKIP add over WEP? What does CCMP add over TKIP?</li>
+    <li>Reproduce the WEP/WPA/WPA2/WPA3 comparison table from memory.</li>
+    <li>Name WPA3's four improvements, and two of its known weaknesses.</li>
+    <li>Distinguish EAP, PEAP, LEAP, EAP-TLS and RADIUS. Draw the 802.1X triangle.</li>
+    <li>Distinguish a rogue AP, client mis-association, a honeypot AP and a soft AP.</li>
+    <li>Explain KRACK in terms of the four handshake messages. What does the attacker <i>not</i> learn?</li>
+    <li>Why does jamming work against 802.11 specifically?</li>
+    <li>Give the four steps of cracking WPA-PSK with aircrack-ng, and name the tool used at each.</li>
+    <li>What is a WIPS? Name its five functions and two products.</li>
+    <li>Which OSI layers does wireless security operate at, and which protocol protects each?</li>
+    <li>Name the five PKI components and explain how EAP-TLS defeats an evil twin.</li>
+  </ol></div>
+</div>
+
+<div class="card no-cram">
+  <h3><span class="n">32.2</span>Module 2 — quick recall</h3>
+  <div class="ask"><b>Answer without looking</b>
+  <ol>
+    <li>Describe the perimeter model and the castle-and-moat analogy. Give its three key features.</li>
+    <li>List the five hidden vulnerabilities of perimeter security.</li>
+    <li>State the Zero Trust principle and what it dictates in four points.</li>
+    <li>Name the six key components of a Zero Trust architecture.</li>
+    <li>Give the five rows of the Traditional vs Zero Trust table.</li>
+    <li>List the five drivers pushing organisations to Zero Trust.</li>
+    <li>Who published NIST SP 800-207, when, and for whom?</li>
+    <li>State all seven NIST core tenets.</li>
+    <li>Name the three ZTA logical components, what each does, and the five trust-algorithm inputs.</li>
+    <li>For cloud, remote work and BYOD: problem, ZTA solution, tools.</li>
+    <li>Give four implementation strategies, five challenges and five benefits.</li>
+    <li>What percentage of breaches involve weak or stolen credentials, and per which source?</li>
+    <li>Name the three MFA factor categories with two examples each, and say why two of the same category is not MFA.</li>
+    <li>Distinguish SSO from identity federation on four points. Name three federation standards.</li>
+    <li>What signals does a Conditional Access Policy evaluate, and what decisions can it make?</li>
+    <li>Distinguish IdM, AM and PAM, and give the office-building analogy.</li>
+    <li>What is an OU for? Why is it not a security group?</li>
+    <li>Compare RBAC and ABAC on six points, and say which fits Zero Trust.</li>
+    <li>Give the three segmentation types with advantages and disadvantages.</li>
+    <li>How does SDP work in three steps, and what are its three benefits?</li>
+    <li>What does SDN separate, and what must be protected above all in an SDN deployment?</li>
+    <li>Give the three stages of NAC operation.</li>
+    <li>Recall the seven case studies with one number each.</li>
+  </ol></div>
+</div>
+
+<div class="card">
+  <h3><span class="n">32.3</span>The five things most likely to be dropped<span class="tag t-hi">★ high yield</span></h3>
+  <div class="trap cram"><b>Exam trap — final checklist</b>
+  <ol>
+    <li><b>Rule order in a firewall.</b> First match wins — put the stateful ALLOW above the DENY.</li>
+    <li><b>IDS is passive, IPS is inline.</b> Placement is the difference, and the failure mode follows from it.</li>
+    <li><b>WPA2-Personal's flaw is the shared key</b>, not the cipher. AES-CCMP is fine; one password for a whole campus is not.</li>
+    <li><b>KRACK does not reveal the password.</b> It forces nonce reuse by replaying handshake message 3.</li>
+    <li><b>Zero Trust is an architecture, not a product</b>, and micro-segmentation is what stops lateral movement after a breach — not what prevents the breach.</li>
+  </ol></div>
+</div>
+
     <div class="empty"></div>
   </main>
 </div>
+
 
 <script>
 (function(){

@@ -1,32 +1,30 @@
 import React from 'react';
 import { Card } from '../components/ui.jsx';
 import LofiRadio from '../components/LofiRadio.jsx';
-import * as amb from '../lib/ambient.js';
+import Ambience from '../components/Ambience.jsx';
 import * as radio from '../lib/radio.js';
 
-// Wind-down room — sleep lofi (Lofi Girl "beats to sleep/chill to"), calming ambience,
+// Wind-down room — ambient/downtempo radio, calming ambience,
 // and a sleep timer that fades everything out so you can drift off.
-// Lofi Girl live streams (audio only, played via YouTube IFrame API)
+// Direct audio streams (see lib/radio.js — YouTube embedding was disabled by the
+// channel owner). Ordered slowest-first, because this is the wind-down room.
 const SLEEP_STATIONS = [
-  { id: 'JD-kMIpDfnY', label: 'Sleep' },
-  { id: 'E2vONfzoyRI', label: 'Jazz' },
-  { id: 'jfKfPfyJRdk', label: 'Lofi' },
+  { url: 'https://ice1.somafm.com/dronezone-128-mp3',   label: 'Sleep' },
+  { url: 'https://ice1.somafm.com/deepspaceone-128-mp3', label: 'Deep' },
+  { url: 'https://ice1.somafm.com/lush-128-mp3',        label: 'Lush' },
+  { url: 'https://ice1.somafm.com/fluid-128-mp3',       label: 'Lofi' },
 ];
-const CALM = ['rain', 'thunder', 'waves', 'river', 'wind', 'fire', 'night']
-  .map(k => ({ key: k, ...amb.SOUNDS[k] }));
+// The wind-down subset: nothing percussive, nothing with speech in it.
+const CALM_KEYS = ['rain', 'storm', 'thunder', 'wind', 'waves', 'river', 'night', 'fire', 'noise', 'pink'];
 const TIMERS = [15, 30, 45, 60];
 const fmt = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 export default function Sleep() {
   // ambience state is global (src/lib/ambient.js) so it keeps playing across tabs
-  const { keys: ambKeys, vol: ambVol } = amb.useAmbient();
-  const vol = Math.round(ambVol * 100);
   // the sleep timer lives in the radio module so it survives leaving this tab
   radio.useRadio();
   const left = radio.sleepLeft();
 
-  const toggleAmb = k => amb.toggle(k);
-  const setVolume = v => amb.setMasterVolume(v / 100);
   const setTimer = m => radio.setSleep(m);
   const cancelTimer = () => radio.cancelSleep();
 
@@ -41,19 +39,7 @@ export default function Sleep() {
 
       <div className="grid2">
         <Card title="Calm ambience" color="var(--cyan)">
-          <div className="amb-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
-            {CALM.map(a => (
-              <button key={a.key} className={`amb-tile${ambKeys.includes(a.key) ? ' on' : ''}`} onClick={() => toggleAmb(a.key)}>
-                <span className="amb-ico">{a.icon}</span>
-                <span className="amb-lbl">{a.label}</span>
-              </button>
-            ))}
-          </div>
-          <div className="flex mt" style={{ gap: 8, alignItems: 'center' }}>
-            <span className="small muted">VOL</span>
-            <input type="range" min="0" max="100" value={vol} onChange={e => setVolume(+e.target.value)} style={{ flex: 1 }} />
-            <span className="small">{vol}</span>
-          </div>
+          <Ambience keys={CALM_KEYS} />
         </Card>
 
         <Card title="Sleep timer" color="var(--pink)">

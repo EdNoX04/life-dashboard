@@ -1,21 +1,122 @@
 // Global radio singleton.
 //
-// The YouTube IFrame player used to live inside whichever tab rendered <LofiRadio/>,
-// which meant switching tabs unmounted it and the music stopped. Now the player lives
-// in a host element owned by this module and attached straight to <body>, so it is
-// completely independent of React's tree. Tabs are just control surfaces over it.
+// WHY THIS NO LONGER USES YOUTUBE
+// It used to play Lofi Girl's live streams through the YouTube IFrame API. That
+// stopped working, and not for a reason any amount of code could fix: YouTube
+// returned error 150 — "embedding disabled by the owner". The channel turned off
+// third-party embedding, so the player loaded correctly, was handed a valid live
+// video id, and was refused. Measured in Neel's own browser rather than guessed.
 //
-// The host is kept on-screen (browsers throttle or refuse playback for elements parked
-// far off-viewport) but at 1/1000 opacity behind everything, so it is never visible.
+// Two earlier failures on the way to that measurement, both worth remembering:
+//   * The Content-Security-Policy added in the security pass set script-src to
+//     'self', which blocked https://www.youtube.com/iframe_api outright. The
+//     promise that loaded the API had no rejection path, so the symptom was a
+//     play button that span forever and said nothing.
+//   * The tab was stale. A CSP is applied at document load, so a fixed header on
+//     the server changes nothing until the page is reloaded.
+//
+// The replacement is an ordinary <audio> element pointed at direct Icecast/MP3
+// streams. This is better than what it replaces in every way that matters here:
+// no third-party script, no iframe, no embedding permission that someone else
+// can revoke, no 160x90 hidden video player, a fraction of the memory, and it
+// keeps playing with the tab backgrounded. It also let script-src go back to
+// 'self' — the radio is now the reason the CSP is TIGHTER, not looser.
+//
+// The element lives at module scope, attached to nothing in React's tree, so
+// switching tabs cannot stop the music. Tabs are control surfaces over it.
 
 import { useEffect, useState } from 'react';
 import { stopAll as stopAmbience } from './ambient.js';
+import * as bus from './audiobus.js';
 
-let player = null;
-let hostEl = null;
+let audio = null;
+
+// ---------------------------------------------------------------- spatial
+//
+// Routing the radio through Web Audio puts it in the same room as the ambience:
+// one listener, one master, and the station placed somewhere around your head
+// instead of flat between your ears.
+//
+// The catch is CORS. `createMediaElementSource` on a cross-origin stream that
+// does not send `Access-Control-Allow-Origin` produces a **silent** node — no
+// error, no warning, just nothing, which is the worst failure a music player can
+// have. Whether a given Icecast mount sends that header cannot be discovered
+// without a user gesture, so it is not something to assume at build time.
+//
+// So the graph verifies itself. An analyser watches the signal, and if the
+// stream reports it is playing while the analyser reads pure silence for a few
+// seconds, the graph is abandoned and the audio is played straight to the
+// speakers. It costs one element rebuild, once, on a station that turns out not
+// to allow it — and the person just hears music.
+//
+// `createMediaElementSource` may only be called once per element, so falling
+// back means discarding the element entirely rather than rewiring it.
+let node = null, panner = null, analyser = null, stopOrbit = () => {};
+let spatialFailed = false;
+let watchdog = null;
+
+const SILENCE_GRACE_MS = 4000;
+
+function teardownGraph() {
+  clearTimeout(watchdog); watchdog = null;
+  stopOrbit(); stopOrbit = () => {};
+  try { node?.disconnect(); } catch { /* already gone */ }
+  try { panner?.disconnect(); } catch { /* already gone */ }
+  try { analyser?.disconnect(); } catch { /* already gone */ }
+  node = null; panner = null; analyser = null;
+}
+
+/** Should this play attempt route through Web Audio? */
+function wantSpatial() { return bus.spatialOn() && !spatialFailed; }
+
+function buildGraph(a) {
+  if (node || !wantSpatial()) return;
+  const c = bus.context();
+  if (!c || !c.createMediaElementSource) return;
+  try {
+    node = c.createMediaElementSource(a);
+    panner = bus.makePanner(340, 1.2, 5);   // just left of centre, close in
+    analyser = c.createAnalyser();
+    analyser.fftSize = 256;
+    if (panner) {
+      node.connect(panner); panner.connect(analyser);
+      // A very slow drift, the same idea as the ambience: a fixed point source
+      // is what makes a long stream start to feel like a wall.
+      stopOrbit = bus.orbit(panner, { from: 340, degreesPerSecond: 0.5, distance: 1.2, elevation: 5 });
+    } else {
+      node.connect(analyser);
+    }
+    analyser.connect(bus.masterOut());
+  } catch {
+    // Already routed, or the browser refused. Either way, play it flat.
+    teardownGraph();
+    spatialFailed = true;
+  }
+}
+
+/** If the graph is silent while the stream says it is playing, abandon it. */
+function armWatchdog() {
+  if (!analyser || watchdog) return;
+  watchdog = setTimeout(() => {
+    watchdog = null;
+    if (!analyser || !S.playing) return;
+    const buf = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(buf);
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) sum += buf[i];
+    if (sum === 0) {
+      // Silence with the element claiming playback: CORS blocked the tap.
+      spatialFailed = true;
+      teardownGraph();
+      try { audio?.pause(); } catch { /* nothing playing */ }
+      audio = null;              // the element is permanently routed; discard it
+      play(S.idx);               // and start again, straight to the speakers
+    }
+  }, SILENCE_GRACE_MS);
+}
 
 const S = {
-  stations: [],   // [{ id, label }]
+  stations: [],   // [{ url, label }]
   source: '',     // which tab last claimed the dial ('study' | 'sleep' | …)
   idx: 0,
   playing: false,
@@ -37,101 +138,60 @@ export function useRadio() {
   return snap();
 }
 
-// Loading the YouTube IFrame API.
-//
-// This used to be a promise with no rejection path, which turned every possible
-// failure into the same symptom: the play button spins forever and says nothing.
-// That is exactly what happened when the Content-Security-Policy added in the
-// security pass tightened script-src to 'self' — the API script was blocked, the
-// promise never settled, and the radio looked broken with no explanation
-// anywhere. The CSP now allows www.youtube.com and s.ytimg.com; this rejects, so
-// that if it is ever blocked again the reason reaches the screen in ten seconds
-// instead of never.
-const YT_SRC = 'https://www.youtube.com/iframe_api';
-const YT_TIMEOUT_MS = 10000;
+/**
+ * A live stream is not a file: the server can drop the connection, a laptop can
+ * sleep mid-song, a phone can change network. So a stall is treated as normal
+ * and retried, rather than reported as an error the person has to act on.
+ */
+const RETRY_MS = 4000;
+let retryTimer = null;
+const clearRetry = () => { clearTimeout(retryTimer); retryTimer = null; };
 
-function loadYT() {
-  return new Promise((res, rej) => {
-    if (window.YT?.Player) return res(window.YT);
+function ensure() {
+  if (audio) return audio;
+  const a = new Audio();
+  a.preload = 'none';
+  // Must be set BEFORE any src assignment, or the fetch is made without the
+  // CORS request and the media element source is tainted regardless.
+  if (wantSpatial()) a.crossOrigin = 'anonymous';
+  // Live radio has no meaningful position, so nothing here seeks or scrubs.
+  a.volume = S.vol / 100;
 
-    let settled = false;
-    const ok = () => { if (!settled) { settled = true; res(window.YT); } };
-    const no = msg => { if (!settled) { settled = true; rej(new Error(msg)); } };
-
-    const prev = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => { prev && prev(); ok(); };
-
-    // A CSP refusal fires securitypolicyviolation, not onerror, so watch for both.
-    const onViolation = e => {
-      if (String(e.blockedURI || '').includes('youtube.com')) no('blocked-by-csp');
-    };
-    document.addEventListener('securitypolicyviolation', onViolation);
-
-    let s = document.getElementById('yt-iframe-api');
-    if (!s) {
-      s = document.createElement('script');
-      s.id = 'yt-iframe-api';
-      s.src = YT_SRC;
-      s.onerror = () => no('script-failed');
-      document.head.appendChild(s);
-    }
-
-    setTimeout(() => no('timeout'), YT_TIMEOUT_MS);
-
-    // Tidy up whichever way it went.
-    const done = () => document.removeEventListener('securitypolicyviolation', onViolation);
-    setTimeout(done, YT_TIMEOUT_MS + 100);
+  a.addEventListener('playing', () => {
+    clearRetry();
+    S.playing = true; S.loading = false; S.err = ''; emit();
+    armWatchdog();
   });
+  a.addEventListener('waiting', () => { S.loading = true; emit(); });
+  a.addEventListener('pause', () => { S.playing = false; emit(); });
+  a.addEventListener('error', () => fail());
+  a.addEventListener('stalled', () => scheduleRetry());
+  a.addEventListener('ended', () => scheduleRetry()); // a live stream should never end
+
+  audio = a;
+  return a;
 }
 
-function host() {
-  if (hostEl) return hostEl;
-  hostEl = document.createElement('div');
-  hostEl.id = 'ldx-radio-host';
-  Object.assign(hostEl.style, {
-    position: 'fixed', left: '0', bottom: '0', width: '160px', height: '90px',
-    opacity: '0.001', pointerEvents: 'none', zIndex: '-1', overflow: 'hidden',
-  });
-  const inner = document.createElement('div');
-  inner.id = 'ldx-radio-yt';
-  hostEl.appendChild(inner);
-  document.body.appendChild(hostEl);
-  return hostEl;
+function scheduleRetry() {
+  if (retryTimer || !(S.playing || S.loading)) return;
+  S.loading = true; emit();
+  retryTimer = setTimeout(() => { retryTimer = null; if (S.loading || S.playing) play(S.idx); }, RETRY_MS);
 }
 
-async function ensure() {
-  if (player) return player;
-  host();
-  const YT = await loadYT();
-  if (!YT?.Player) throw new Error('yt-api-missing');
-  return await new Promise(res => {
-    const p = new YT.Player('ldx-radio-yt', {
-      width: '100%', height: '100%', videoId: (S.stations[S.idx] || {}).id,
-      playerVars: { autoplay: 0, controls: 0, disablekb: 1, fs: 0, modestbranding: 1, playsinline: 1, rel: 0 },
-      events: {
-        onReady: () => { try { p.setVolume(S.vol); } catch {} res(p); },
-        onStateChange: e => {
-          S.playing = e.data === 1;
-          S.loading = e.data === 3;
-          if (e.data === 1) S.err = '';
-          emit();
-        },
-        onError: () => {
-          S.err = 'This stream is unavailable right now — try another.';
-          S.loading = false; S.playing = false; emit();
-        },
-      },
-    });
-    player = p;
-    // onReady is occasionally slow; resolving anyway is fine because loadVideoById
-    // queues. What must NOT happen is resolving when there is no player at all,
-    // which is why the YT.Player check above throws before we get here.
-    setTimeout(() => res(p), 4000);
-  });
+function fail() {
+  // MEDIA_ERR_NETWORK / DECODE are worth retrying; SRC_NOT_SUPPORTED is not,
+  // because the URL itself is wrong and retrying just repeats the failure.
+  const code = audio?.error?.code;
+  if (code === 4) {
+    S.err = 'That station is not reachable — try another.';
+    S.playing = false; S.loading = false; clearRetry(); emit();
+    return;
+  }
+  scheduleRetry();
 }
 
-// A tab offers its station list. Whatever is currently on air wins — if the radio is
-// already playing we keep those stations so the controls keep matching the sound.
+// A tab offers its station list. Whatever is currently on air wins — if the radio
+// is already playing we keep those stations so the controls keep matching the sound.
 export function setStations(list, source) {
   if (!list?.length) return;
   if (S.source === source) { S.stations = list; return; }
@@ -140,28 +200,36 @@ export function setStations(list, source) {
 }
 
 export async function play(idx = S.idx) {
-  if (!S.stations[idx]) return;
+  const station = S.stations[idx];
+  if (!station) return;
   S.idx = idx; S.err = ''; S.loading = true; emit();
+  const a = ensure();
   try {
-    const p = await ensure();
-    p.loadVideoById(S.stations[idx].id);
-    p.setVolume(S.vol);
-    p.playVideo();
+    // Reassigning src and calling load() forces a fresh connection even when the
+    // same station is selected again — a live stream that has died must not be
+    // resumed from the browser's buffer, which sounds like silence. The URL is
+    // left untouched: some Icecast mount points reject unknown query strings, so
+    // a cache-buster would break more than it fixes.
+    a.src = station.url;
+    a.volume = S.vol / 100;
+    a.load();
+    buildGraph(a);
+    await a.play();
   } catch (e) {
-    // Name the failure. "Tap play again" is useless advice when the script is
-    // blocked, and it is what hid this bug for as long as it did.
-    const why = String(e?.message || '');
-    S.err = why === 'blocked-by-csp'
-      ? 'The browser blocked YouTube\u2019s player (content security policy). This needs a deploy to fix, not a retry.'
-      : why === 'timeout' || why === 'script-failed' || why === 'yt-api-missing'
-        ? 'Could not reach YouTube \u2014 check the connection, or an extension may be blocking it.'
-        : 'Could not start the stream \u2014 tap play again.';
+    // NotAllowedError means the browser wanted a user gesture. Every route into
+    // here is a click, so this should not fire — but if it does, say the true
+    // reason rather than blaming the station.
+    S.err = e?.name === 'NotAllowedError'
+      ? 'The browser blocked playback — press play again.'
+      : 'Could not start that station — try another.';
     S.loading = false; S.playing = false; emit();
   }
 }
 
 export function pause() {
-  try { player?.pauseVideo(); } catch {}
+  clearRetry();
+  clearTimeout(watchdog); watchdog = null;
+  try { audio?.pause(); } catch { /* nothing playing */ }
   S.playing = false; S.loading = false; emit();
 }
 
@@ -169,17 +237,23 @@ export function toggle() { (S.playing || S.loading) ? pause() : play(); }
 
 export function pick(idx) {
   const wasOn = S.playing || S.loading;
-  S.idx = idx; emit();
+  S.idx = idx; S.err = ''; emit();
   if (wasOn) play(idx);
 }
 
 export function setVolume(v) {
-  S.vol = v;
-  try { player?.setVolume(v); } catch {}
+  S.vol = Math.min(100, Math.max(0, Math.round(v)));
+  if (audio) audio.volume = S.vol / 100;
   emit();
 }
 
 export function isOn() { return S.playing || S.loading; }
+
+/** True when the stream is being rendered through the spatial graph. */
+export function isSpatial() { return Boolean(node) && !spatialFailed; }
+
+/** True when spatial was wanted but the stream would not allow it. */
+export function spatialRefused() { return spatialFailed; }
 
 // ---- sleep timer ----
 // Lives here rather than in the Sleep tab: the audio outlives the tab now, so the

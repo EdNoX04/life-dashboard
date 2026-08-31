@@ -2,13 +2,15 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Empty } from '../components/ui.jsx';
 import { useCollection, todayStr } from '../lib/hooks.js';
 import LofiRadio from '../components/LofiRadio.jsx';
-import * as amb from '../lib/ambient.js';
+import Ambience from '../components/Ambience.jsx';
 import * as pomo from '../lib/pomodoro.js';
 import {
   SUBJECTS, EXAM_WINDOW, FBL_MODULES, FBL_RULE,
   examCountdown, fblStatus, revisionPlan, todayPlan, schedule, guideUrl, fmtDay, fmtTime,
 } from '../lib/exams.js';
 import { useReminderDone } from '../lib/useReminderDone.js';
+import * as focus from '../lib/focus.js';
+import * as db from '../lib/db.js';
 
 // The study room, now with an exam in it.
 //
@@ -17,12 +19,15 @@ import { useReminderDone } from '../lib/useReminderDone.js';
 // a paper the first two are the only things worth looking at, and they should
 // not be below a fold.
 
-const AMBIENT = ['rain', 'thunder', 'fire', 'wind', 'forest', 'waves', 'river', 'cafe', 'night', 'birds', 'noise']
-  .map(k => ({ key: k, ...amb.SOUNDS[k] }));
+// Direct audio streams, not YouTube. Lofi Girl disabled third-party embedding
+// (YouTube error 150), so the old station ids could never have played again —
+// see the note at the top of lib/radio.js. SomaFM publishes these mounts for
+// direct listening and they need no API, no key and no permission.
 const STUDY_STATIONS = [
-  { id: 'jfKfPfyJRdk', label: 'Lofi' },
-  { id: '4xDzrJKXOOY', label: 'Synth' },
-  { id: 'E2vONfzoyRI', label: 'Jazz' },
+  { url: 'https://ice1.somafm.com/fluid-128-mp3',        label: 'Lofi' },
+  { url: 'https://ice1.somafm.com/groovesalad-128-mp3',  label: 'Chill' },
+  { url: 'https://ice1.somafm.com/sonicuniverse-128-mp3', label: 'Jazz' },
+  { url: 'https://ice1.somafm.com/spacestation-128-mp3', label: 'Synth' },
 ];
 const DUR = pomo.DUR;
 const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
@@ -53,18 +58,84 @@ export default function Study({ go }) {
 
   // ---- pomodoro / ambience (unchanged) ----------------------------------
   const [pomoState, setPomoState] = useState(pomo.get);
+  // The duration editor is closed by default. A timer you have to configure
+  // before you can press start is a worse timer; 25/5/15 stays one click away.
+  const [pomoEdit, setPomoEdit] = useState(false);
   const [, repaint] = useState(0);
   const { mode, rounds, running } = pomoState;
   const secs = pomo.remaining(pomoState);
-  const { keys: ambKeys, vol: ambVol } = amb.useAmbient();
-  const vol = Math.round(ambVol * 100);
   const tick = useRef(null);
 
   const { items: subjects } = useCollection('subjects', { order: 'name', asc: true });
   const withNotes = subjects.filter(s => s.notes_url);
   const [openNotes, setOpenNotes] = useState(null);
 
+  // ---- what the timer is FOR ---------------------------------------------
+  // A pomodoro with no name produces a number that means nothing a week later.
+  // The picker offers open todos first, because most focused work is already on
+  // the list, and free text second, because some of it never will be.
+  const { items: todos, patch: patchTodo } = useCollection('todos', { order: 'due_date', asc: true });
+  const { items: sessions, add: addSession, refresh: refreshSessions } =
+    useCollection('focus_sessions', { order: 'ended_at', asc: false });
+  const [pickTask, setPickTask] = useState(false);
+  const [taskDraft, setTaskDraft] = useState('');
+  const [histOpen, setHistOpen] = useState(false);
+  const [logErr, setLogErr] = useState('');
+
+  const openTodos = useMemo(() => focus.pickableTodos(todos), [todos]);
+  const totals = useMemo(() => focus.totalsByLabel(sessions), [sessions]);
+  const todayMins = useMemo(() => focus.minutesOn(sessions, focus.todayKey()), [sessions]);
+  const weekMins = useMemo(() => focus.minutesSince(sessions, 7), [sessions]);
+  const dayStreak = useMemo(() => focus.streak(sessions), [sessions]);
+
+  function chooseTodo(t) {
+    pomo.set(st => pomo.setTask(st, { label: t.title, todoId: t.id }));
+    setPickTask(false); setTaskDraft('');
+  }
+  function chooseFree() {
+    const label = focus.cleanLabel(taskDraft, '');
+    if (!label) return;
+    pomo.set(st => pomo.setTask(st, { label, todoId: null }));
+    setPickTask(false); setTaskDraft('');
+  }
+
   useEffect(() => pomo.subscribe(setPomoState), []);
+
+  // Write a completed block to history, exactly once.
+  //
+  // `markLogged` is what makes it exactly once: this effect runs on every change
+  // to pomoState, and React's StrictMode double-invokes effects in development,
+  // so without the flag every session would be recorded two or three times and
+  // the totals would quietly be wrong rather than visibly broken.
+  //
+  // Only FOCUS blocks are recorded. A break is not time you spent on the task,
+  // and counting it would make the history flattering and useless.
+  useEffect(() => {
+    const f = pomoState.finished;
+    if (!f || f.logged || f.mode !== 'focus') return;
+    pomo.set(pomo.markLogged);
+    let alive = true;
+    (async () => {
+      try {
+        const todo = f.todoId ? todos.find(t => t.id === f.todoId) : null;
+        await addSession(focus.sessionRow({
+          mode: f.mode, label: f.label, todo, minutes: f.minutes, endedAt: f.at,
+        }));
+        // Keep the task's own record of effort honest too — `actual_min` already
+        // existed on todos as an estimate nobody filled in.
+        if (todo) {
+          const before = Number(todo.actual_min) || 0;
+          await patchTodo(todo.id, { actual_min: before + f.minutes });
+        }
+        if (alive) setLogErr('');
+      } catch (e) {
+        // A failed write must not be silent: the whole value of this feature is
+        // that the number is trustworthy.
+        if (alive) setLogErr(String(e.message || e));
+      }
+    })();
+    return () => { alive = false; };
+  }, [pomoState.finished, todos, addSession, patchTodo]);
 
   useEffect(() => {
     if (!running) { clearInterval(tick.current); return; }
@@ -87,10 +158,10 @@ export default function Study({ go }) {
   }, []);
 
   const setM = m => pomo.set(st => pomo.setMode(st, m));
+  const cfg = pomo.normalizeConfig(pomoState.cfg);
+  const preset = pomo.presetOf(pomoState);
   const pct = 100 - Math.round((secs / DUR[mode]) * 100);
   const ringColor = mode === 'focus' ? 'var(--pink)' : 'var(--green)';
-  const toggleAmb = k => amb.toggle(k);
-  const setVolume = v => amb.setMasterVolume(v / 100);
 
   const shownDays = showAll ? plan.days : plan.days.slice(0, 6);
 
@@ -264,12 +335,112 @@ export default function Study({ go }) {
 
       {/* ---------------- timer & ambience ---------------- */}
       <div className="grid2">
-        <Card title="Pomodoro" color={ringColor}>
+        <Card title="Pomodoro" color={ringColor}
+          right={
+            <button className={`btn btn-sm ${pomoEdit ? 'btn-pink' : ''}`}
+              onClick={() => setPomoEdit(v => !v)}
+              aria-expanded={pomoEdit}
+              title="Customise the lengths">
+              {pomoEdit ? 'done' : '⚙ lengths'}
+            </button>
+          }>
           <div className="flex" style={{ gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
             {[['focus', 'Focus'], ['short', 'Short break'], ['long', 'Long break']].map(([m, l]) => (
-              <button key={m} className={`btn btn-sm ${mode === m ? 'btn-pink' : ''}`} onClick={() => setM(m)}>{l}</button>
+              <button key={m} className={`btn btn-sm ${mode === m ? 'btn-pink' : ''}`} onClick={() => setM(m)}>
+                {l} <span className="muted">{cfg[m]}m</span>
+              </button>
             ))}
           </div>
+
+          {pomoEdit && (
+            <div className="pomo-cfg">
+              <div className="flex" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                {pomo.PRESETS.map(p => (
+                  <button key={p.id}
+                    className={`btn btn-sm ${preset === p.id ? 'btn-green' : ''}`}
+                    onClick={() => pomo.set(st => pomo.applyPreset(st, p.id))}>
+                    {p.label} <span className="muted">{p.focus}/{p.short}</span>
+                  </button>
+                ))}
+                {preset === null && <span className="chip c-yellow">custom</span>}
+              </div>
+              <div className="pomo-cfg-grid">
+                {[['focus', 'Focus'], ['short', 'Short break'], ['long', 'Long break']].map(([k, label]) => (
+                  <label key={k}>
+                    <span className="small muted">{label}</span>
+                    <span className="pomo-num">
+                      <input type="number" inputMode="numeric"
+                        min={pomo.MIN_MINUTES} max={pomo.MAX_MINUTES}
+                        value={cfg[k]}
+                        onChange={e => pomo.set(st => pomo.setConfig(st, { [k]: e.target.value }))} />
+                      <b>min</b>
+                    </span>
+                  </label>
+                ))}
+                <label>
+                  <span className="small muted">Long break after</span>
+                  <span className="pomo-num">
+                    <input type="number" inputMode="numeric"
+                      min={pomo.MIN_ROUNDS} max={pomo.MAX_ROUNDS}
+                      value={cfg.perLong}
+                      onChange={e => pomo.set(st => pomo.setConfig(st, { perLong: e.target.value }))} />
+                    <b>focus</b>
+                  </span>
+                </label>
+              </div>
+              <div className="small muted mt" style={{ lineHeight: 1.5 }}>
+                {running
+                  ? 'A running block keeps the length it started with — the new one applies from the next session.'
+                  : `${pomo.MIN_MINUTES}–${pomo.MAX_MINUTES} minutes. Saved on this device and used by the timer everywhere.`}
+              </div>
+            </div>
+          )}
+          {/* ---- what this block is for ---- */}
+          <div className="pomo-task">
+            {pomoState.label ? (
+              <div className="flex" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span className="pomo-task-on">
+                  {pomoState.todoId ? '☑' : '◆'} {pomoState.label}
+                </span>
+                <button className="btn btn-sm" onClick={() => { setPickTask(v => !v); setTaskDraft(pomoState.label); }}>change</button>
+                <button className="btn btn-sm" onClick={() => pomo.set(pomo.clearTask)}>clear</button>
+              </div>
+            ) : (
+              <button className="btn btn-sm btn-cyan" onClick={() => setPickTask(v => !v)}>
+                ＋ what are you working on?
+              </button>
+            )}
+
+            {pickTask && (
+              <div className="pomo-pick">
+                {openTodos.length > 0 && (
+                  <>
+                    <div className="small muted" style={{ marginBottom: 6 }}>From your todo list</div>
+                    <div className="pomo-pick-list">
+                      {openTodos.map(t => (
+                        <button key={t.id} className="btn btn-sm" onClick={() => chooseTodo(t)} title={t.title}>
+                          {t.title.length > 34 ? t.title.slice(0, 33) + '…' : t.title}
+                          {Number(t.actual_min) > 0 && <span className="muted"> · {focus.fmtMinutes(t.actual_min)}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <div className="flex mt" style={{ gap: 8, flexWrap: 'wrap' }}>
+                  <input
+                    style={{ flex: 1, minWidth: 160 }}
+                    placeholder="…or type a goal — e.g. revise Module 2"
+                    value={taskDraft}
+                    onChange={e => setTaskDraft(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') chooseFree(); if (e.key === 'Escape') setPickTask(false); }}
+                    autoFocus
+                  />
+                  <button className="btn btn-green" onClick={chooseFree} disabled={!taskDraft.trim()}>set</button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="flex" style={{ justifyContent: 'center' }}>
             <div className="pomo-ring" style={{ '--c': ringColor, '--p': pct }}>
               <div className="pomo-inner">
@@ -285,7 +456,15 @@ export default function Study({ go }) {
             </button>
             <button className="btn" onClick={() => pomo.set(st => pomo.reset(st))}>↺ Reset</button>
           </div>
-          <div className="small muted mt" style={{ textAlign: 'center' }}>🍅 {rounds} focus rounds</div>
+          <div className="small muted mt" style={{ textAlign: 'center' }}>
+            🍅 {rounds} rounds this session · long break every {cfg.perLong}
+            {todayMins > 0 && <> · <b style={{ color: 'var(--green)' }}>{focus.fmtMinutes(todayMins)} focused today</b></>}
+          </div>
+          {logErr && (
+            <div className="small mt" style={{ textAlign: 'center', color: 'var(--red)' }}>
+              Session finished but could not be saved to history — {logErr}
+            </div>
+          )}
           {pomoState.finished && !running && (
             <div className="small mt" style={{ textAlign: 'center', color: 'var(--green)' }}>
               {pomo.MODE_LABEL[pomoState.finished.mode]} finished
@@ -296,22 +475,60 @@ export default function Study({ go }) {
         </Card>
 
         <Card title="Ambience" color="var(--cyan)">
-          <div className="amb-grid">
-            {AMBIENT.map(a => (
-              <button key={a.key} className={`amb-tile${ambKeys.includes(a.key) ? ' on' : ''}`} onClick={() => toggleAmb(a.key)}>
-                <span className="amb-ico">{a.icon}</span>
-                <span className="amb-lbl">{a.label}</span>
-              </button>
-            ))}
-          </div>
-          <div className="flex mt" style={{ gap: 8, alignItems: 'center' }}>
-            <span className="small muted">VOL</span>
-            <input type="range" min="0" max="100" value={vol} onChange={e => setVolume(+e.target.value)} style={{ flex: 1 }} />
-            <span className="small">{vol}</span>
-          </div>
-          <div className="small muted mt">Mix as many as you like — they keep playing when you switch tabs, with controls next to your XP bar.</div>
+          <Ambience />
         </Card>
       </div>
+
+      <Card title="Focus history" color="var(--green)"
+        right={
+          <div className="flex" style={{ gap: 6 }}>
+            <span className="chip c-green">{focus.fmtMinutes(weekMins)} · 7d</span>
+            {dayStreak > 1 && <span className="chip c-yellow">{dayStreak}-day streak</span>}
+          </div>
+        }>
+        {totals.length === 0 ? (
+          <div className="small muted">
+            Nothing recorded yet. Name what you are working on above, finish a focus block, and it lands here —
+            only completed blocks count, so an abandoned timer never flatters the number.
+          </div>
+        ) : (
+          <>
+            {/* ---- last 14 days, as bars ---- */}
+            <div className="focus-spark" role="img" aria-label="Focus minutes per day, last 14 days">
+              {focus.dailySeries(sessions, 14).map(d => {
+                const peak = Math.max(30, ...focus.dailySeries(sessions, 14).map(x => x.minutes));
+                return (
+                  <span key={d.day} className="focus-bar" title={`${d.day} · ${focus.fmtMinutes(d.minutes)}`}>
+                    <i style={{ height: `${Math.round((d.minutes / peak) * 100)}%` }} />
+                  </span>
+                );
+              })}
+            </div>
+
+            {/* ---- time per task ---- */}
+            <div className="focus-list mt">
+              {(histOpen ? totals : totals.slice(0, 6)).map(t => (
+                <div key={t.label} className="focus-row">
+                  <span className="focus-row-name" title={t.label}>
+                    {t.todo_id ? '☑' : '◆'} {t.label}
+                  </span>
+                  <span className="focus-row-bar">
+                    <i style={{ width: `${Math.round((t.minutes / totals[0].minutes) * 100)}%` }} />
+                  </span>
+                  <span className="focus-row-val">{focus.fmtMinutes(t.minutes)}</span>
+                  <span className="focus-row-meta">{t.sessions}× · {focus.ago(new Date(t.last).toISOString())}</span>
+                </div>
+              ))}
+            </div>
+            {totals.length > 6 && (
+              <button className="btn btn-sm mt" onClick={() => setHistOpen(v => !v)}>
+                {histOpen ? 'show less' : `show all ${totals.length}`}
+              </button>
+            )}
+            <button className="btn btn-sm mt" style={{ marginLeft: 8 }} onClick={() => refreshSessions()}>refresh</button>
+          </>
+        )}
+      </Card>
 
       <Card title="Lofi radio" color="var(--purple)">
         <LofiRadio stations={STUDY_STATIONS} source="study" />

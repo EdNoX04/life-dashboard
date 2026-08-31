@@ -19,16 +19,20 @@ no defence — the stolen token *is* the credential RLS asks for.
   rather than assumed: the built app loads exactly one script of its own,
   same-origin, and has zero inline scripts. So an injected `<script src=…>` or
   inline handler has nothing to fall back on.
-- **`https://www.youtube.com` and `https://s.ytimg.com` are the two exceptions,
-  and they were added the hard way.** The lofi radio loads YouTube's IFrame
-  Player API at runtime — the one third-party script this app has — and
-  `script-src 'self'` blocked it. The walkthrough that found 0 violations never
-  caught it because nobody pressed play during the walk: the radio only fetches
-  the API on first play, so a passive tour of all 25 tabs cannot trigger it.
-  **Lesson recorded rather than repeated: a CSP walkthrough has to exercise the
-  features, not just render the pages.** `radio.js` now rejects on a CSP refusal
-  and says so on screen, so the next time a directive is wrong it names itself
-  in ten seconds instead of spinning forever.
+- **There are no exceptions, and the one that existed has been removed.** The
+  lofi radio used to load YouTube's IFrame Player API at runtime — the only
+  third-party script in this app — and `script-src 'self'` blocked it. The
+  walkthrough that found 0 violations never caught it, because nobody pressed
+  play during the walk: the radio fetched the API only on first play, so a
+  passive tour of all 25 tabs could not trigger it. **Lesson recorded rather
+  than repeated: a CSP walkthrough has to exercise the features, not just
+  render the pages.** `script-src` was widened to admit YouTube, and then
+  narrowed again when it turned out YouTube was refusing to play anyway
+  (error 150, embedding disabled by the channel owner). The radio now uses a
+  plain `<audio>` element against direct Icecast streams, which needs no
+  third-party script at all — so the app is back to **exactly one script, its
+  own**. `radio.js` also rejects loudly on any future CSP refusal rather than
+  spinning forever.
 - **`style-src` keeps `'unsafe-inline'` on purpose.** React writes `style={{…}}`
   attributes throughout this app (the attendance bars, for one) and CSP counts
   those as inline styles. Styles cannot exfiltrate a token, so the cost is close

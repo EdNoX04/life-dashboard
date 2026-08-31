@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ECE441 — IoT System Design</title>
-<meta name="description" content="Retro study guide for the ECE441 minor exam — Modules 1 (Embedded IoT) and 2 (Automation).">
+<meta name="description" content="Complete study guide for the ECE441 minor exam — every syllabus topic in Module 1 (Embedded IoT) and Module 2 (Automation).">
 <style>
 :root{
   --bg:#06080f; --bg-2:#0a0e1a; --panel:#0d1220; --panel-2:#111830;
@@ -235,177 +235,1379 @@ hr{border:0;border-top:1px solid var(--line);margin:26px 0}
 <div class="wrap">
   <nav class="toc">
       <h4>Module 1 · Embedded IoT</h4>
-      <a href="#m1-embedded">Embedded systems</a>
-      <a href="#m1-levels">IoT levels &amp; views</a>
-      <a href="#m1-pillars">Pillars, sensors &amp; actuators</a>
-      <a href="#m1-comm">Communication models</a>
+      <a href="#m1-iot">1 · What IoT is</a>
+      <a href="#m1-hist">2 · History, M2M, IoE</a>
+      <a href="#m1-es">3 · Embedded systems</a>
+      <a href="#m1-proc">4 · Processors &amp; platforms</a>
+      <a href="#m1-purpose">5 · Purpose &amp; requirement specification</a>
+      <a href="#m1-levels">6 · IoT level specification</a>
+      <a href="#m1-func">7 · Functional view specification</a>
+      <a href="#m1-oper">8 · Operational view specification</a>
+      <a href="#m1-integ">9 · Device &amp; component integration</a>
+      <a href="#m1-physical">10 · Physical design &amp; protocols</a>
+      <a href="#m1-logical">11 · Logical design &amp; communication models</a>
+      <a href="#m1-pillars">12 · The four pillars</a>
+      <a href="#m1-devices">13 · The internet of devices</a>
+      <a href="#m1-sensors">14 · Common sensors</a>
+      <a href="#m1-act">15 · Actuators</a>
+      <a href="#m1-cpu">16 · Embedded processors</a>
+      <a href="#m1-mem">17 · Memory architectures</a>
+      <a href="#m1-bus">18 · Communication interfaces</a>
+      <a href="#m1-sw">19 · Software architecture</a>
+      <a href="#m1-cloud">20 · Cloud, fog &amp; economics</a>
 
       <h4>Module 2 · Automation</h4>
-      <a href="#m2-warn">Read this first</a>
-      <a href="#m2-uno">Arduino Uno</a>
-      <a href="#m2-esp">ESP8266 NodeMCU &amp; ESP32</a>
-      <a href="#m2-micropython">MicroPython, Wi-Fi &amp; cloud</a>
-      <a href="#m2-interrupts">Interrupts</a>
+      <a href="#m2-uno">21 · Arduino Uno</a>
+      <a href="#m2-prog">22 · Programming basics</a>
+      <a href="#m2-dio">23 · Digital I/O</a>
+      <a href="#m2-adc">24 · Analog input &amp; the ADC</a>
+      <a href="#m2-pwm">25 · Analog output &amp; PWM</a>
+      <a href="#m2-serial">26 · Serial communication</a>
+      <a href="#m2-esp">27 · ESP8266-12E NodeMCU</a>
+      <a href="#m2-upy">28 · MicroPython &amp; flashing</a>
+      <a href="#m2-sense">29 · Connecting sensors to the ESP</a>
+      <a href="#m2-wifi">30 · Connecting the ESP to Wi-Fi</a>
+      <a href="#m2-rest">31 · REST API — GET and POST</a>
+      <a href="#m2-mqtt">32 · MQTT</a>
+      <a href="#m2-irq">33 · Interrupts</a>
+      <a href="#m2-esp32">34 · ESP32 vs ESP8266</a>
+
+      <h4>Exam craft</h4>
+      <a href="#x-map">35 · Syllabus → answer map</a>
+      <a href="#x-test">36 · Self test</a>
   </nav>
   <main>
-    <p class="lede">Module 1 from your ten decks; Module 2 (ESP8266, MicroPython, Wi-Fi, MQTT, interrupts) is mostly added from standard sources because the decks skip it. <span class="kbd">/</span> to search · <b>Cram</b> shows only definitions, tables and extra-marks boxes.</p>
+    <p class="lede">Every topic named in the ECE441 syllabus for Modules 1 and 2 — the full design methodology, all six levels, both views, every sensor, actuator, processor and bus, then the whole Arduino → ESP8266 → MicroPython → cloud chain. Built from Dr Krati Rastogi Gupta's Module I deck (51 slides), the Arduino and sensor decks, and Bahga &amp; Madisetti. <span class="kbd">/</span> to search · <b>Cram</b> shows only definitions, tables and extra-marks boxes.</p>
 
       <div class="mod">Module 1 · Embedded IoT</div>
-      <h2 id="m1-embedded">Embedded systems</h2>
+      <h2 id="m1-iot">1 · What IoT is</h2>
+
 <div class="card">
-  <h3><span class="n">1.1</span>What an embedded system is<span class="tag t-hi">★ high yield</span></h3>
-  <div class="def"><b>Embedded system</b>A combination of hardware and software (often with mechanical parts) designed to perform a <b>specific, dedicated function</b>, usually as part of a larger system.</div><p><b>Six characteristics:</b> single-purpose · autonomous · real-time constraints (hard e.g. airbag vs soft e.g. video buffer) · reactive & always-on · resource-constrained · tightly coupled to hardware.</p><figure><svg viewBox="0 0 520 90" role="img" aria-label="Sense process act pipeline">
-  
-  <rect x="10" y="28" width="95" height="34" rx="5" fill="none" stroke="var(--cyan)"/>
-  <text class="svg-t" x="57" y="50" text-anchor="middle" fill="var(--cyan)">Sensor</text>
-  <rect x="115" y="28" width="80" height="34" rx="5" fill="none" stroke="var(--ink-3)"/>
-  <text class="svg-t" x="155" y="50" text-anchor="middle" fill="var(--ink-3)">A/D</text>
-  <rect x="210" y="28" width="95" height="34" rx="5" fill="none" stroke="var(--green)"/>
-  <text class="svg-t" x="257" y="50" text-anchor="middle" fill="var(--green)">MCU</text>
-  <rect x="315" y="28" width="80" height="34" rx="5" fill="none" stroke="var(--ink-3)"/>
-  <text class="svg-t" x="355" y="50" text-anchor="middle" fill="var(--ink-3)">D/A</text>
-  <rect x="415" y="28" width="95" height="34" rx="5" fill="none" stroke="var(--pink)"/>
-  <text class="svg-t" x="462" y="50" text-anchor="middle" fill="var(--pink)">Actuator</text>
-  <line x1="105" y1="45" x2="115" y2="45" stroke="var(--ink-2)" marker-end="url(#p)"/><line x1="200" y1="45" x2="210" y2="45" stroke="var(--ink-2)" marker-end="url(#p)"/><line x1="305" y1="45" x2="315" y2="45" stroke="var(--ink-2)" marker-end="url(#p)"/><line x1="410" y1="45" x2="420" y2="45" stroke="var(--ink-2)" marker-end="url(#p)"/>
-  <text class="svg-l" x="260" y="80" text-anchor="middle">physical quantity in → decision → physical action out</text>
-  <defs><marker id="p" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="var(--ink-2)"/></marker></defs>
-</svg><figcaption>The universal embedded pipeline. Many actuators are driven straight from a GPIO pin, so the D/A stage is often skipped.</figcaption></figure><p><b>Six purposes:</b> data collection · communication · signal processing · monitoring · control · application-specific UI.</p>
-</div><div class="card">
-  <h3><span class="n">1.2</span>Microprocessor vs microcontroller<span class="tag t-hi">★ high yield</span></h3>
+  <h3><span class="n">1.1</span>Definitions<span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>IoT — the formal definition (Bahga &amp; Madisetti)</b>A <b>dynamic global network infrastructure with self-configuring capabilities</b> based on standard and interoperable communication protocols, where physical and virtual "things" have <b>identities, physical attributes and virtual personalities</b>, use intelligent interfaces, are seamlessly integrated into the information network, and often communicate data associated with users and their environments.</div>
+  <div class="def"><b>IoT — the working definition</b>A network of physical objects — devices, vehicles, buildings and other items — <b>embedded with electronics, software, sensors and network connectivity</b>, which enables these objects to <b>collect and exchange data</b>.</div>
+  <p>Learn both. The formal one wins marks in a "define IoT" question; the working one is what you use in every other answer.</p>
+  <p><b>The five characteristics of IoT:</b></p>
   <div class="tw"><table>
-  <thead><tr><th></th><th>Microprocessor</th><th>Microcontroller</th></tr></thead>
-  <tbody><tr><td>Contains</td><td>CPU only</td><td>CPU + RAM + ROM + I/O on one chip</td></tr><tr><td>Needs</td><td>External RAM/ROM/peripherals</td><td>Largely self-contained</td></tr><tr><td>Use</td><td>General computing (PCs)</td><td>Dedicated embedded control</td></tr><tr><td>Example</td><td>Intel Core, AMD Ryzen</td><td>ATmega328P, ESP32, STM32</td></tr></tbody>
-</table></div><div class="edge"><b>Extra marks</b><b>Harvard vs von Neumann</b> <span class="tag t-add">+ added</span> — the decks cover the memory hierarchy but never name these. Harvard = <b>separate</b> instruction and data buses (AVR/ATmega328P — lets it fetch and execute at once); von Neumann = <b>one shared</b> bus (simpler, can bottleneck). Worth a mark under “Memory Architectures”.</div>
+  <thead><tr><th>Characteristic</th><th>Meaning</th></tr></thead>
+  <tbody>
+  <tr><td><b>Dynamic and self-adapting</b></td><td>Devices adapt their behaviour to changing context — a camera switching to night mode</td></tr>
+  <tr><td><b>Self-configuring</b></td><td>Devices set themselves up, join networks and update firmware with little user action</td></tr>
+  <tr><td><b>Interoperable communication protocols</b></td><td>They speak standard protocols so different vendors' devices work together</td></tr>
+  <tr><td><b>Unique identity</b></td><td>Every device has an identifier (IP, MAC, URI) and a management interface</td></tr>
+  <tr><td><b>Integrated into the information network</b></td><td>Devices are not isolated — they describe themselves and communicate their state</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>Note the phrase most students skip: <b>"physical and virtual things"</b>. IoT is not only hardware — a virtual thing (a software resource, a digital twin, an avatar of a physical device) counts too. Quoting that clause shows you read the definition rather than paraphrased it.</div>
 </div>
-<h2 id="m1-levels">IoT levels &amp; views</h2>
+
 <div class="card">
-  <h3><span class="n">1.3</span>IoT Levels 1–6 (Bahga & Madisetti)<span class="tag t-hi">★ high yield</span></h3>
-  <p>This is what the syllabus means by “IoT level specification”. Each level is defined by <b>how many nodes</b>, and <b>where storage and analysis happen</b>.</p><div class="tw"><table>
-  <thead><tr><th>Level</th><th>Nodes</th><th>Storage / analysis</th><th>Example</th></tr></thead>
-  <tbody><tr><td><b>1</b></td><td>Single node</td><td>All local (storage, analysis, app on device)</td><td>Home temperature monitor</td></tr><tr><td><b>2</b></td><td>Single node</td><td>Analysis local, storage + app in cloud</td><td>Weather monitoring</td></tr><tr><td><b>3</b></td><td>Single node</td><td>Storage + analysis both in cloud</td><td>Wearable health monitor</td></tr><tr><td><b>4</b></td><td>Multiple nodes</td><td>Local analysis, cloud storage; observer nodes</td><td>City traffic sensors</td></tr><tr><td><b>5</b></td><td>Many end nodes + 1 coordinator</td><td>Coordinator → cloud; cloud analyses</td><td>Smart agriculture (WSN)</td></tr><tr><td><b>6</b></td><td>Multiple independent nodes</td><td>All cloud; a central controller commands all nodes</td><td>Smart city</td></tr></tbody>
-</table></div><p>The jumps: L1→L2 pushes storage to cloud; L2→L3 pushes analysis to cloud; L3→L4 adds multiple nodes; L4→L5 adds a <b>coordinator/gateway</b>; L5→L6 nodes are independent but a central controller oversees them.</p><div class="ask"><b>Likely question</b>“Explain IoT Levels with examples” is a standard 5–10 mark question. Reproduce this table and name one example per level.</div>
-</div><div class="card">
-  <h3><span class="n">1.4</span>Functional vs operational view</h3>
+  <h3><span class="n">1.2</span>Why IoT, and what "things" means</h3>
+  <p><b>Why IoT:</b> dynamic control of industry and daily life · improves the resource-utilisation ratio · integrates human society and physical systems · flexible configuration · acts as a technology integrator · universal inter-networking.</p>
   <div class="tw"><table>
-  <thead><tr><th></th><th>Functional view</th><th>Operational view</th></tr></thead>
-  <tbody><tr><td>Answers</td><td>WHAT the system does</td><td>HOW & WHERE it’s deployed</td></tr><tr><td>Shows</td><td>Sensing, processing, storing functions</td><td>Protocols per link, hardware, topology</td></tr><tr><td>Nature</td><td>Technology-independent</td><td>Includes infrastructure constraints</td></tr></tbody>
-</table></div><p>Design order: purpose & requirements → IoT level → functional view → operational view → device & component integration.</p>
+  <thead><tr><th>"Things" in IoT</th><th>What it means</th></tr></thead>
+  <tbody>
+  <tr><td><b>Tagging things</b></td><td>Real-time item traceability and addressability by <b>RFID</b></td></tr>
+  <tr><td><b>Feeling things</b></td><td><b>Sensors</b> as the primary devices collecting data from the environment</td></tr>
+  <tr><td><b>Shrinking things</b></td><td><b>Miniaturisation and nanotechnology</b> making devices small enough to embed anywhere</td></tr>
+  <tr><td><b>Thinking things</b></td><td><b>Embedded intelligence</b> — devices connected to the internet that realise intelligent control</td></tr>
+  </tbody>
+</table></div>
+  <p><b>The three scopes of "things":</b> <b>people</b>, <b>machines</b> and <b>information</b>. IoT is <b>not the result of a single novel technology</b> — several complementary developments together bridge the gap between the virtual and physical world.</p>
+  <p><b>The eight capabilities</b> that bridge those worlds: communication and cooperation · addressability · identification · sensing · actuation · embedded information processing · localisation · user interfaces.</p>
+  <div class="edge"><b>Extra marks</b>Distinguish the three that sound alike, because a question will: <b>identification</b> is knowing <i>which</i> thing this is (an RFID tag, a UUID); <b>addressability</b> is being able to <i>reach</i> it and configure it (an IP address); <b>localisation</b> is knowing <i>where</i> it is (GPS, RSSI trilateration). Getting those three apart is a whole mark on its own.</div>
 </div>
-<h2 id="m1-pillars">Pillars, sensors &amp; actuators</h2>
+
+      <h2 id="m1-hist">2 · History, M2M, IoE</h2>
+
 <div class="card">
-  <h3><span class="n">1.5</span>The four pillars of embedded IoT<span class="tag t-hi">★ high yield</span></h3>
+  <h3><span class="n">2.1</span>Milestones<span class="tag t-hi">★ high yield</span></h3>
   <div class="tw"><table>
-  <thead><tr><th>Pillar</th><th>Job</th><th>Examples</th></tr></thead>
-  <tbody><tr><td><b>Sensing</b></td><td>Read the physical world</td><td>DHT11, PIR, LDR, ultrasonic</td></tr><tr><td><b>Computation</b></td><td>Process data on-device</td><td>MCU (AVR, ARM, Xtensa)</td></tr><tr><td><b>Communication</b></td><td>Move data device↔cloud</td><td>UART, SPI, I2C, Wi-Fi, MQTT</td></tr><tr><td><b>Actuation</b></td><td>Drive physical change</td><td>Relay, servo, motor, LED</td></tr></tbody>
-</table></div><p>Remove any pillar and it stops being IoT: no actuation → just monitoring; no communication → a Level-1 standalone device; no sensing → nothing to act on.</p>
-</div><div class="card">
-  <h3><span class="n">1.6</span>Sensors — specs & formulas<span class="tag t-hi">★ high yield</span></h3>
+  <thead><tr><th>Year</th><th>Milestone</th></tr></thead>
+  <tbody>
+  <tr><td><b>1968</b></td><td><b>Programmable Logic Controller (PLC)</b> invented by Dick Morley; used by GM</td></tr>
+  <tr><td><b>1982</b></td><td>A modified <b>Coke machine at Carnegie Mellon</b> becomes the first internet-connected appliance</td></tr>
+  <tr><td><b>1990</b></td><td>John Romkey creates a <b>toaster</b> that can be switched on and off over the internet</td></tr>
+  <tr><td><b>1995</b></td><td>Siemens introduces the first <b>cellular module built for M2M</b></td></tr>
+  <tr><td><b>1999</b></td><td><b>Kevin Ashton coins the term "Internet of Things"</b> at the Auto-ID Center, MIT</td></tr>
+  <tr><td><b>2002</b></td><td>Cloud technology emerges, enabling storage of data for historical trend analysis</td></tr>
+  <tr><td><b>2005</b></td><td>The UN's <b>ITU</b> publishes its first report on IoT</td></tr>
+  <tr><td><b>2008/09</b></td><td>Connected devices exceed the world population — widely cited as <b>"IoT's birth"</b></td></tr>
+  <tr><td><b>2011</b></td><td>Gartner includes "The Internet of Things" in its technology research</td></tr>
+  <tr><td><b>2020+</b></td><td>Tens of billions of connected devices generating zettabytes of data</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Ashton's own words, worth one clause in an answer:</b> if computers knew everything there was to know about things, "we would be able to track and count everything, and greatly reduce waste, loss and cost."</p>
+  <p><b>Internet evolution in three phases:</b> <b>P2P</b> people-to-people (email, web, social media) → <b>M2P</b> machine-to-people (devices communicating with people) → <b>M2M</b> machine-to-machine (devices talking directly to each other).</p>
+</div>
+
+<div class="card">
+  <h3><span class="n">2.2</span>M2M vs IoT<span class="tag t-hi">★ high yield</span></h3>
   <div class="tw"><table>
-  <thead><tr><th>Sensor</th><th>Measures</th><th>Output</th><th>Key spec</th></tr></thead>
-  <tbody><tr><td><b>DHT11 / DHT22</b></td><td>Temp + humidity</td><td>1-wire digital</td><td>DHT11 ±2°C, ≤1 sample / 2 s</td></tr><tr><td><b>PIR (HC-SR501)</b></td><td>Motion / presence</td><td>Digital HIGH/LOW</td><td>~7 m, 120°, 4.5–12 V</td></tr><tr><td><b>Ultrasonic (HC-SR04)</b></td><td>Distance</td><td>Echo pulse width</td><td>2–400 cm, ±3 mm, 40 kHz</td></tr><tr><td><b>LDR</b></td><td>Light</td><td>Analog (needs ADC)</td><td>MΩ dark → few Ω bright</td></tr></tbody>
-</table></div><div class="def"><b>HC-SR04 distance formula</b>Trigger HIGH for <b>10 µs</b> → the Echo pin stays HIGH for the round-trip time. <b>Distance = (speed of sound × echo time) / 2</b>, using ≈ 330–343 m/s. The ÷2 is because the pulse travels there <em>and</em> back — forgetting it doubles every reading.</div><p><b>LDR voltage divider:</b> LDR + fixed resistor across 5 V; read the junction with the ADC. As light rises, LDR resistance falls, so the tap voltage swings — that’s how you turn “light” into a number.</p>
-</div><div class="card">
-  <h3><span class="n">1.7</span>Actuators & interfaces</h3>
+  <thead><tr><th></th><th>M2M</th><th>IoT</th></tr></thead>
+  <tbody>
+  <tr><td><b>Communication</b></td><td>Direct communication between machines</td><td>Sensor automation over an <b>internet platform</b></td></tr>
+  <tr><td><b>Network model</b></td><td><b>Point-to-point</b></td><td><b>Cloud-based</b></td></tr>
+  <tr><td><b>Internet dependency</b></td><td>Devices need <b>not</b> rely on an internet connection</td><td>Devices <b>rely</b> on an internet connection</td></tr>
+  <tr><td><b>Technology base</b></td><td>Mostly <b>hardware</b>-based</td><td>Both <b>hardware and software</b></td></tr>
+  <tr><td><b>Concurrency</b></td><td>Usually one machine talks to one machine at a time</td><td><b>Many users</b> can access the data at once</td></tr>
+  <tr><td><b>Connectivity</b></td><td>Mobile or another dedicated network</td><td>Delivery depends on the <b>IP</b> network</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Other names for the same idea:</b> M2M · <b>"Internet of Everything"</b> (Cisco — people, process, data and things) · "World Size Web" (Bruce Schneier) · IIoT (Industrial IoT).</p>
+  <p><b>The four development phases of IoT:</b> <b>1 Passive</b> (RFID sensors — where we largely are) → <b>2 Active</b> (responds to sensor data) → <b>3 Aware</b> (makes choices based on data) → <b>4 Autonomous</b> (e.g. self-driving cars).</p>
+  <div class="trap cram"><b>Exam trap</b>The single sharpest difference is <b>internet dependency</b>: M2M can work over a private cellular or serial link with no internet at all; IoT is defined by IP connectivity and a cloud back-end. If you can only remember one row, remember that one.</div>
+</div>
+
+      <h2 id="m1-es">3 · Embedded systems</h2>
+
+<div class="card">
+  <h3><span class="n">3.1</span>Definition and characteristics<span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Embedded system</b>A combination of computer hardware and software — often with mechanical parts — designed to perform a <b>specific, dedicated function</b> or a small set of functions, usually as part of a larger machine or system.</div>
+  <p><b>How it differs from a general-purpose computer:</b> runs <b>one dedicated program</b>, not arbitrary user applications · <b>tightly coupled to the physical world</b> through sensors and actuators · <b>resource-constrained</b> in memory, processing and energy · usually <b>invisible</b> to the end user, being embedded inside a product.</p>
   <div class="tw"><table>
-  <thead><tr><th>Actuator</th><th>Control</th><th>Note</th></tr></thead>
-  <tbody><tr><td>Relay</td><td>GPIO HIGH/LOW</td><td>Isolates MCU from mains loads</td></tr><tr><td>Servo (SG90)</td><td>PWM 50 Hz</td><td>1 ms pulse = 0°, 2 ms = 180°</td></tr><tr><td>DC motor + L298N</td><td>IN1/IN2 dir, ENA PWM speed</td><td>H-bridge, 2 motors</td></tr><tr><td>LED / buzzer</td><td>GPIO (buzzer active vs passive)</td><td>LED needs series resistor</td></tr></tbody>
-</table></div><div class="tw"><table>
-  <thead><tr><th>Bus</th><th>Wires</th><th>Note</th></tr></thead>
-  <tbody><tr><td>UART</td><td>2 (TX, RX)</td><td>Async; baud must match (9600…)</td></tr><tr><td>SPI</td><td>4 (MOSI/MISO/SCK/CS)</td><td>Fastest; 1 CS per slave</td></tr><tr><td>I2C</td><td>2 (SDA, SCL)</td><td>Up to 127 devices; 4.7 kΩ pull-ups</td></tr><tr><td>GPIO</td><td>1 per pin</td><td>Digital HIGH/LOW; PWM-capable pins</td></tr></tbody>
+  <thead><tr><th>#</th><th>Characteristic</th><th>Meaning</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td><b>Single-purpose</b></td><td>Optimised for one task or a narrow family of related tasks</td></tr>
+  <tr><td>2</td><td><b>Autonomous operation</b></td><td>Runs on its own, continuously, without ongoing human intervention</td></tr>
+  <tr><td>3</td><td><b>Real-time constraints</b></td><td>Responses must occur within strict, predictable time bounds</td></tr>
+  <tr><td>4</td><td><b>Reactive &amp; always-on</b></td><td>Continuously senses and reacts to the physical world, often 24×7</td></tr>
+  <tr><td>5</td><td><b>Resource-constrained</b></td><td>Tight limits on memory, processing, energy and cost</td></tr>
+  <tr><td>6</td><td><b>Tightly coupled to hardware</b></td><td>Firmware written close to, and tuned for, a specific microcontroller</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Purposes an embedded system serves</b> (any one or a combination): data collection / storage / representation · data communication · data (signal) processing · monitoring · control · application-specific user interface.</p>
+  <p><b>Everyday examples:</b> microwave oven, digital camera, automotive ECU, Wi-Fi router, washing machine, smartwatch, traffic-light controller, printer, industrial robot, GPS receiver, set-top box, ATM, medical device.</p>
+</div>
+
+<div class="card">
+  <h3><span class="n">3.2</span>Generic block diagram — sense → process → act<span class="tag t-hi">★ high yield</span></h3>
+  <figure><svg viewBox="0 0 540 120" role="img" aria-label="Sensor, ADC, microcontroller, DAC, actuator pipeline">
+  <rect x="6" y="34" width="86" height="48" rx="6" class="svg-b" stroke="var(--cyan)"/>
+  <text class="svg-l" x="49" y="55" text-anchor="middle" fill="var(--cyan)">SENSOR</text>
+  <text class="svg-t" x="49" y="72" text-anchor="middle" fill="var(--ink-3)">physical qty</text>
+  <rect x="112" y="34" width="86" height="48" rx="6" class="svg-b" stroke="var(--green)"/>
+  <text class="svg-l" x="155" y="55" text-anchor="middle" fill="var(--green)">A/D</text>
+  <text class="svg-t" x="155" y="72" text-anchor="middle" fill="var(--ink-3)">analog→digital</text>
+  <rect x="218" y="26" width="104" height="64" rx="6" class="svg-b" stroke="var(--pink)"/>
+  <text class="svg-l" x="270" y="50" text-anchor="middle" fill="var(--pink)">MICRO-</text>
+  <text class="svg-l" x="270" y="66" text-anchor="middle" fill="var(--pink)">CONTROLLER</text>
+  <text class="svg-t" x="270" y="82" text-anchor="middle" fill="var(--ink-3)">decision core</text>
+  <rect x="342" y="34" width="86" height="48" rx="6" class="svg-b" stroke="var(--green)"/>
+  <text class="svg-l" x="385" y="55" text-anchor="middle" fill="var(--green)">D/A</text>
+  <text class="svg-t" x="385" y="72" text-anchor="middle" fill="var(--ink-3)">digital→analog</text>
+  <rect x="448" y="34" width="86" height="48" rx="6" class="svg-b" stroke="var(--yellow)"/>
+  <text class="svg-l" x="491" y="55" text-anchor="middle" fill="var(--yellow)">ACTUATOR</text>
+  <text class="svg-t" x="491" y="72" text-anchor="middle" fill="var(--ink-3)">physical action</text>
+  <line x1="92" y1="58" x2="112" y2="58" stroke="var(--ink-3)" marker-end="url(#i1)"/>
+  <line x1="198" y1="58" x2="218" y2="58" stroke="var(--ink-3)" marker-end="url(#i1)"/>
+  <line x1="322" y1="58" x2="342" y2="58" stroke="var(--ink-3)" marker-end="url(#i1)"/>
+  <line x1="428" y1="58" x2="448" y2="58" stroke="var(--ink-3)" marker-end="url(#i1)"/>
+  <text class="svg-t" x="270" y="16" text-anchor="middle" fill="var(--ink-3)">SENSE → PROCESS → ACT</text>
+  <defs><marker id="i1" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor"/></marker></defs>
+</svg><figcaption>This pipeline underlies nearly every embedded and IoT application — a photodetector switching on a streetlight, an ultrasonic sensor triggering a parking alert. Draw it for any "block diagram of an embedded system" question.</figcaption></figure>
+  <div class="tw"><table>
+  <thead><tr><th>Building block</th><th>Contents</th></tr></thead>
+  <tbody>
+  <tr><td><b>Hardware</b></td><td>Processor core (microprocessor / microcontroller / <b>ASIC</b> / <b>FPGA</b>) · memory: ROM/Flash for program, RAM for runtime data · sensors and actuators · power supply and clock/oscillator · PCB, connectors and passives (R, L, C)</td></tr>
+  <tr><td><b>Software / firmware</b></td><td>Embedded firmware driving the hardware · device drivers (ADC, timers, UART) · application logic · optional <b>RTOS</b> kernel · <b>bootloader</b> for startup and firmware update</td></tr>
+  <tr><td><b>Communication</b></td><td>On-board buses (I2C, SPI, UART) · external interfaces (Wi-Fi, BLE, Ethernet, RS-485) · protocol stack · gateway/edge connectivity</td></tr>
+  </tbody>
 </table></div>
 </div>
-<h2 id="m1-comm">Communication models</h2>
+
 <div class="card">
-  <h3><span class="n">1.8</span>The four models + REST<span class="tag t-hi">★ high yield</span></h3>
+  <h3><span class="n">3.3</span>Worked examples, and the automotive case<span class="tag t-hi">★ high yield</span></h3>
+  <p>The examiner's favourite question shape: "identify the sensor, processor, converter and actuator for …". Learn the pattern, then it works for any scenario.</p>
   <div class="tw"><table>
-  <thead><tr><th>Model</th><th>How it works</th></tr></thead>
-  <tbody><tr><td><b>Request–Response</b></td><td>Client asks, server replies (stateless). REST uses this.</td></tr><tr><td><b>Publish–Subscribe</b></td><td>Publishers → topics on a broker → subscribers. MQTT uses this.</td></tr><tr><td><b>Push–Pull</b></td><td>Producers push to a queue, consumers pull; queue buffers rate mismatch.</td></tr><tr><td><b>Exclusive Pair</b></td><td>Persistent, full-duplex connection. WebSocket uses this.</td></tr></tbody>
-</table></div><p><b>REST</b> = stateless HTTP APIs on resources (URIs) using <b>GET / POST / PUT / DELETE</b>, payload in JSON. <b>WebSocket</b> = full-duplex persistent link (HTTP Upgrade → 101 Switching Protocols) so the cloud can push to the device instantly.</p>
+  <thead><tr><th>System</th><th>Sensor</th><th>Processor</th><th>Converter</th><th>Actuator</th></tr></thead>
+  <tbody>
+  <tr><td><b>Automatic lighting</b></td><td>Photodetector (<b>LDR</b>)</td><td>Microcontroller</td><td>A/D and D/A</td><td><b>Relay</b></td></tr>
+  <tr><td><b>Automatic irrigation</b></td><td><b>Hygrometer</b> (soil moisture)</td><td>Microcontroller</td><td>A/D and D/A</td><td>Motor, valves &amp; pumps</td></tr>
+  <tr><td><b>Automatic air-conditioning</b></td><td><b>RTD / thermistor</b></td><td>Microcontroller</td><td>A/D and D/A</td><td>Electric relays</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Automotive embedded systems</b> — the standard list: temperature control and climate management · airbag deployment · EGR (exhaust gas recirculation) control · electronic fuel injection and ignition · electric power steering · electronic transmission control · anti-lock braking (ABS) · cruise control.</p>
+  <div class="edge"><b>Extra marks</b>Finish the automotive answer with the architectural fact: a modern vehicle contains <b>dozens of independent ECUs</b>, each handling one subsystem and communicating over an internal network — the <b>CAN bus</b>. That is a distributed embedded system, and naming CAN is what distinguishes an answer that has seen a car from one that has seen a slide.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">3.4</span>Classification, co-design and ICE<span class="tag t-add">from deck 4</span></h3>
+  <div class="def"><b>System</b>A way of working, organising or doing one or many tasks according to a fixed plan, program or set of rules.</div>
+  <p><b>Embedded systems are classified</b> by complexity — <b>small-scale</b> (8-bit MCU, battery powered, e.g. a toy), <b>medium-scale</b> (16/32-bit, RTOS, e.g. a router) and <b>sophisticated/large-scale</b> (ASIC/FPGA, multiple processors, e.g. an avionics controller) — and by timing as <b>real-time</b> (hard vs soft), <b>networked</b>, <b>mobile</b> and <b>stand-alone</b>.</p>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>Classic design flow</th><th><b>Hardware/software co-design</b></th></tr></thead>
+  <tbody>
+  <tr><td>Partitioning</td><td>System partitioned into hardware and software <b>immediately</b></td><td>Partitioning decided <b>during</b> design, from performance criteria</td></tr>
+  <tr><td>Development</td><td>Hardware and software developed <b>separately</b></td><td><b>Concurrent</b> — both developed at the same time on parallel paths</td></tr>
+  <tr><td>Interaction</td><td>HW/SW trade-offs restricted; impact of each on the other cannot be assessed easily</td><td><b>Integrated</b> — interaction between the two produces designs meeting performance and functional specifications</td></tr>
+  <tr><td>Integration</td><td><b>Late</b> system integration</td><td><b>Faster</b> integration — reduced design time and cost</td></tr>
+  <tr><td>Consequences</td><td>Poor-quality designs, costly modifications, schedule slippage</td><td>Better performance, lower cost, <b>verified</b> integration, fewer errors and re-spins</td></tr>
+  </tbody>
+</table></div>
+  <div class="def"><b>In-Circuit Emulator (ICE)</b>A debugging tool that gives access to a target microcontroller for in-depth debugging. Once code is created, edited and compiled on a host computer, the executable object code must be uploaded to the microcontroller — an ICE lets you run and inspect it <b>on the real target hardware</b>, with breakpoints, single-stepping and register inspection, rather than only in a simulator.</div>
+  <p><b>Role of embedded systems in IoT:</b> real-time computing · low power consumption · low maintenance · high availability. These four properties are why IoT nodes are embedded systems rather than small PCs.</p>
+</div>
+
+      <h2 id="m1-proc">4 · Processors &amp; platforms</h2>
+
+<div class="card">
+  <h3><span class="n">4.1</span>Microprocessor vs microcontroller<span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>Microprocessor</th><th>Microcontroller</th></tr></thead>
+  <tbody>
+  <tr><td><b>Composition</b></td><td>CPU only, on one or a few ICs</td><td><b>CPU + RAM + ROM + I/O on a single chip</b></td></tr>
+  <tr><td><b>External support</b></td><td>Needs external RAM, ROM and peripheral ICs</td><td>Largely self-contained; minimal external parts</td></tr>
+  <tr><td><b>Typical use</b></td><td>General-purpose computing (PCs, servers)</td><td>Dedicated, single-task embedded control</td></tr>
+  <tr><td><b>Software model</b></td><td>Runs multiple programs under an OS</td><td>Usually one fixed application / firmware</td></tr>
+  <tr><td><b>Cost &amp; power</b></td><td>Higher cost, higher power draw</td><td>Lower cost, optimised for low power</td></tr>
+  <tr><td><b>Examples</b></td><td>Intel Core, AMD Ryzen</td><td><b>ATmega328P</b>, PIC, STM32, ESP32</td></tr>
+  </tbody>
+</table></div>
+  <p><b>The full processor taxonomy</b> a question may ask for: <b>General-Purpose Processor (GPP)</b> — microprocessor, microcontroller, embedded processor, <b>DSP</b> (digital signal processor), media processor; <b>ASSP</b> (application-specific system processor); <b>ASIP</b> (application-specific instruction-set processor); <b>ASIC</b> (fully custom silicon); and <b>FPGA</b> (reconfigurable logic).</p>
+  <div class="edge"><b>Extra marks</b>Give the trade-off axis rather than only the list: moving <b>GPP → DSP → ASIP → ASIC</b> buys performance-per-watt and unit cost at high volume, and pays in <b>flexibility and NRE cost</b> — an ASIC cannot be changed after fabrication, an FPGA sits in between because it is reconfigurable. That sentence is the reason the taxonomy exists.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">4.2</span>The Arduino platform<span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Arduino</b>An <b>open-source electronics platform</b> combining a microcontroller board with a simple software IDE. Code written on a computer is compiled and uploaded to the physical board, where it <b>runs standalone</b>.</div>
+  <div class="def"><b>Development board</b>A printed circuit board designed to make working with a particular microcontroller easy. Typical components: power circuit, programming interface, basic input (buttons and LEDs) and <b>I/O pins</b>.</div>
+  <p><b>What it does:</b> designed for artists, designers, hobbyists and engineers building interactive objects. It can read buttons and sensors and drive LEDs, motors, speakers, GPS units and cameras — even talk to the internet or a smartphone.</p>
+  <p><b>Why it matters for IoT:</b> low cost, a huge community and a simplified programming model make Arduino — and its IoT-ready cousins like the ESP8266 and ESP32 — the most common entry point for prototyping before production hardware.</p>
+  <p><b>The typical workflow, in six steps:</b> write the sketch in C/C++ in the IDE → compile for the target board → upload firmware over USB/serial → the board runs the program standalone → connect sensors and actuators to the GPIO pins → iterate by re-uploading.</p>
+</div>
+
+      <h2 id="m1-purpose">5 · Purpose &amp; requirement specification</h2>
+
+<div class="card">
+  <h3><span class="n">5.1</span>The IoT design methodology<span class="tag t-past">first syllabus descriptor</span><span class="tag t-hi">★ high yield</span></h3>
+  <p>The syllabus lists <b>purpose and requirement specification, IoT level specification, functional view specification, operational view specification</b> and <b>device and component integration</b> in order — because they are <b>steps 1, 5, 6, 7 and 9</b> of one method. Learn the whole ladder; the individual steps then make sense.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Step</th><th>What it produces</th></tr></thead>
+  <tbody>
+  <tr><td><b>1 · Purpose &amp; requirements</b></td><td>Why the system exists, and what it must do — behaviour, data, and non-functional constraints</td></tr>
+  <tr><td><b>2 · Process specification</b></td><td>Use cases drawn as process diagrams — the flow of each function</td></tr>
+  <tr><td><b>3 · Domain model</b></td><td>The physical entities, virtual entities, devices, resources and services, and how they relate</td></tr>
+  <tr><td><b>4 · Information model</b></td><td>What information the system holds, and its structure — without saying how it is stored</td></tr>
+  <tr><td><b>5 · Service specification</b></td><td>The services: their types, inputs, outputs, endpoints and schedules</td></tr>
+  <tr><td><b>6 · IoT level specification</b></td><td>Which of the six deployment levels this system is</td></tr>
+  <tr><td><b>7 · Functional view specification</b></td><td>The functional groups and the functions inside them</td></tr>
+  <tr><td><b>8 · Operational view specification</b></td><td>The actual technologies chosen for each function</td></tr>
+  <tr><td><b>9 · Device &amp; component integration</b></td><td>Wiring the real devices and components together</td></tr>
+  <tr><td><b>10 · Application development</b></td><td>Building the user-facing application on top</td></tr>
+  </tbody>
+</table></div>
+  <div class="trap cram"><b>Exam trap</b>Steps <b>7 and 8 in the methodology are the functional and operational views</b>, and the syllabus lists the <b>IoT level specification before them</b> — that ordering is deliberate. You cannot choose functions and technologies until you have decided whether the system is a single node or a gateway-plus-cloud deployment. If a question asks you to "design an IoT system for X", follow this order and the answer structures itself.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">5.2</span>Writing the purpose and requirement specification<span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Purpose &amp; requirement specification</b>The first step of IoT system design: state the <b>purpose</b> — the problem the system solves and for whom — then the <b>behaviour</b>, the <b>system management requirements</b>, the <b>data analysis requirements</b>, the <b>application deployment requirements</b> and the <b>security requirements</b>.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Part</th><th>What to write</th></tr></thead>
+  <tbody>
+  <tr><td><b>Purpose</b></td><td>One or two sentences: what problem, whose problem, what outcome. "A home automation system that lets the user monitor room temperature and control lights remotely."</td></tr>
+  <tr><td><b>Behaviour</b></td><td>How the system acts in normal operation <i>and</i> in special/failure cases — auto mode versus manual override, what happens if the network drops</td></tr>
+  <tr><td><b>System management</b></td><td>Remote monitoring and control of the devices themselves; firmware update; configuration</td></tr>
+  <tr><td><b>Data analysis</b></td><td>Local or cloud? Real-time or batch? What must be computed, and how often</td></tr>
+  <tr><td><b>Application deployment</b></td><td>Where the application runs — on the device, on a local server, in the cloud — and how the user reaches it</td></tr>
+  <tr><td><b>Security</b></td><td>Authentication, authorisation, encryption in transit and at rest, device identity</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Functional vs non-functional requirements</b> — a distinction the examiner will reward:</p>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>Functional</th><th>Non-functional</th></tr></thead>
+  <tbody>
+  <tr><td>Describes</td><td><b>What</b> the system does</td><td><b>How well</b> it does it</td></tr>
+  <tr><td>Examples</td><td>"Read temperature every 30 s", "turn on the light when motion is detected", "send an alert above 40 °C"</td><td>Accuracy ±0.5 °C · latency under 2 s · battery life 6 months · 99% uptime · cost under ₹1,500 · works offline for 24 h</td></tr>
+  <tr><td>Tested by</td><td>Does the feature exist and work?</td><td>Measurement against a threshold</td></tr>
+  </tbody>
+</table></div>
+  <div class="ask"><b>Worked example — a smart cold-storage tracker</b><b>Purpose:</b> monitor temperature and humidity inside a cold-storage unit so that spoilage is prevented and a compliance record exists. <b>Behaviour:</b> samples every 60 s; in auto mode raises an alarm and switches on the backup compressor above 8 °C; in manual mode the operator controls the compressor from the app; if the network is down, readings are buffered locally and uploaded on reconnection. <b>System management:</b> device health and firmware version visible remotely; OTA update supported. <b>Data analysis:</b> threshold checking on-device (must not depend on the network); trend analysis and monthly compliance reports in the cloud. <b>Application deployment:</b> cloud-hosted dashboard plus a mobile app. <b>Security:</b> per-device credentials, TLS in transit, role-based access to the dashboard. <b>Non-functional:</b> ±0.5 °C accuracy, alert within 10 s of breach, 24 h of local buffering, mains-powered with battery backup.</div>
+</div>
+
+      <h2 id="m1-levels">6 · IoT level specification</h2>
+
+<div class="card">
+  <h3><span class="n">6.1</span>The components every level is built from<span class="tag t-hi">★ high yield</span></h3>
+  <p>Before the levels, the seven components — the levels are just different arrangements of these.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Component</th><th>Role</th></tr></thead>
+  <tbody>
+  <tr><td><b>Device</b></td><td>Allows identification, remote sensing, actuating and remote monitoring</td></tr>
+  <tr><td><b>Resource</b></td><td>Software components <b>on the device</b> for accessing, processing and storing sensor information or controlling actuators; also the components that enable network access</td></tr>
+  <tr><td><b>Controller service</b></td><td>A <b>native service running on the device</b> that interacts with the web services — sends data from the device and receives commands for controlling it</td></tr>
+  <tr><td><b>Database</b></td><td>Local or in the cloud; stores the data the device generates</td></tr>
+  <tr><td><b>Web service</b></td><td>The link between device, application, database and analysis. Implemented with <b>HTTP and REST</b> principles, or with the <b>WebSocket</b> protocol</td></tr>
+  <tr><td><b>Analysis component</b></td><td>Analyses the IoT data and produces results in a form the user can understand</td></tr>
+  <tr><td><b>Application</b></td><td>The interface users use to control and monitor the system and view its status and processed data</td></tr>
+  </tbody>
+</table></div>
+</div>
+
+<div class="card">
+  <h3><span class="n">6.2</span>Levels 1 to 6<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>Level</th><th>Nodes</th><th>Where analysis happens</th><th>Where data is stored</th><th>Suits</th></tr></thead>
+  <tbody>
+  <tr><td><b>L1</b></td><td><b>Single</b> node — senses/actuates, stores data, analyses <b>and hosts the application</b></td><td>Local</td><td>Local</td><td>Low-cost, low-complexity; data not big, analysis not intensive</td></tr>
+  <tr><td><b>L2</b></td><td><b>Single</b> node, sensing/actuation + <b>local analysis</b></td><td><b>Local</b></td><td><b>Cloud</b></td><td>Data is big but the primary analysis is light and can be done locally</td></tr>
+  <tr><td><b>L3</b></td><td><b>Single</b> node</td><td><b>Cloud</b></td><td><b>Cloud</b></td><td>Data is big <b>and</b> analysis is computationally intensive</td></tr>
+  <tr><td><b>L4</b></td><td><b>Multiple</b> nodes with local analysis, plus local and cloud <b>observer nodes</b></td><td>Local + cloud</td><td>Cloud</td><td>Multiple nodes, big data, intensive analysis</td></tr>
+  <tr><td><b>L5</b></td><td><b>Multiple end nodes + one coordinator node</b> that collects and forwards</td><td>Cloud</td><td>Cloud</td><td><b>Wireless sensor networks</b>; big data, intensive analysis</td></tr>
+  <tr><td><b>L6</b></td><td><b>Multiple independent end nodes</b> sending straight to the cloud, with a <b>centralised controller</b> aware of all node states</td><td>Cloud</td><td>Cloud</td><td>Large deployments needing central control and visualisation</td></tr>
+  </tbody>
+</table></div>
+  <p>The distinguishing questions, in order: <b>one node or many?</b> → <b>local or cloud analysis?</b> → <b>is there a coordinator, or are the nodes independent?</b> Answer those three and the level falls out.</p>
+  <div class="trap cram"><b>Exam trap — the two versions of the level table</b>Your Module I deck gives a <b>simplified</b> ladder — L1 standalone, L2 single node + cloud, L3 multi-node, L4 multi-node + cloud, L5 gateway-based, L6 full cloud + AI — which is <b>not</b> the same as the Bahga &amp; Madisetti definitions above that the textbook and most question papers use. The differences that matter: in the standard scheme <b>L3 is still a single node</b> (cloud analysis, not multi-node) and <b>L5 is the coordinator/gateway level</b>. If a question quotes the deck's wording, follow the deck; otherwise use the table above, and if you have room, note in one line that the two conventions differ. Being explicit about which you are using is safer than picking silently.</div>
+  <div class="edge"><b>Extra marks</b>Give an example per level and the answer stops being abstract: <b>L1</b> a standalone room-temperature logger with a display · <b>L2</b> a smart thermostat that decides locally and logs to the cloud · <b>L3</b> a single camera streaming to cloud image recognition · <b>L4</b> a fleet of vibration sensors on machines with cloud analytics and a maintenance dashboard · <b>L5</b> a ZigBee farm sensor network reporting through one gateway · <b>L6</b> a city-wide streetlight network with a central controller.</div>
+</div>
+
+      <h2 id="m1-func">7 · Functional view specification</h2>
+
+<div class="card">
+  <h3><span class="n">7.1</span>What the functional view is<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Functional view</b>The specification of <b>WHAT the system does</b>. It defines actors, system boundaries and data flows; shows the logical functions — sensing, processing, communicating, storing; identifies the interfaces between subsystems; and is <b>technology-independent</b>, describing behaviour rather than components. It answers: <i>what inputs and outputs? what processing occurs? what data flows where?</i></div>
+  <p><b>The five functional groups</b> (Bahga's functional view, which is the form most questions expect):</p>
+  <div class="tw"><table>
+  <thead><tr><th>Functional group</th><th>Contains</th></tr></thead>
+  <tbody>
+  <tr><td><b>Device</b></td><td>Sensing, actuation, identification, monitoring — the capabilities of the thing itself</td></tr>
+  <tr><td><b>Communication</b></td><td>The protocol stack: link, network, transport and application layers, and the communication APIs</td></tr>
+  <tr><td><b>Services</b></td><td>Device monitoring, device control, data publishing, device discovery</td></tr>
+  <tr><td><b>Management</b></td><td>Device management, configuration, fault handling, state management, database management</td></tr>
+  <tr><td><b>Security</b></td><td>Authentication, authorisation, data security, key management</td></tr>
+  <tr><td><b>Application</b></td><td>The user interface — web or mobile — through which the system is monitored and controlled</td></tr>
+  </tbody>
+</table></div>
+  <figure><svg viewBox="0 0 540 190" role="img" aria-label="Functional groups of an IoT system">
+  <rect x="10" y="10" width="330" height="34" rx="5" class="svg-b" stroke="var(--pink)"/>
+  <text class="svg-l" x="175" y="32" text-anchor="middle" fill="var(--pink)">Application — dashboard, mobile app</text>
+  <rect x="10" y="52" width="330" height="34" rx="5" class="svg-b" stroke="var(--purple)"/>
+  <text class="svg-l" x="175" y="74" text-anchor="middle" fill="var(--purple)">Services — monitor · control · publish · discover</text>
+  <rect x="10" y="94" width="330" height="34" rx="5" class="svg-b" stroke="var(--green)"/>
+  <text class="svg-l" x="175" y="116" text-anchor="middle" fill="var(--green)">Communication — protocols &amp; APIs</text>
+  <rect x="10" y="136" width="330" height="34" rx="5" class="svg-b" stroke="var(--cyan)"/>
+  <text class="svg-l" x="175" y="158" text-anchor="middle" fill="var(--cyan)">Device — sensing · actuation · identification</text>
+  <rect x="352" y="10" width="86" height="160" rx="5" class="svg-b" stroke="var(--yellow)"/>
+  <text class="svg-l" x="395" y="80" text-anchor="middle" fill="var(--yellow)">Manage-</text>
+  <text class="svg-l" x="395" y="96" text-anchor="middle" fill="var(--yellow)">ment</text>
+  <rect x="446" y="10" width="86" height="160" rx="5" class="svg-b" stroke="var(--red)"/>
+  <text class="svg-l" x="489" y="88" text-anchor="middle" fill="var(--red)">Security</text>
+</svg><figcaption>Four stacked groups with management and security spanning all of them — because both apply at every layer, not at one.</figcaption></figure>
+</div>
+
+      <h2 id="m1-oper">8 · Operational view specification</h2>
+
+<div class="card">
+  <h3><span class="n">8.1</span>What the operational view is<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Operational view</b>The specification of <b>HOW and WHERE the system is deployed</b>. It shows the physical deployment of hardware and network elements; identifies the <b>communication protocol per link</b> (Wi-Fi, MQTT, HTTP); maps physical locations — field device, gateway, cloud; and includes network topology and infrastructure constraints. It answers: <i>which hardware? which protocol? how are the nodes connected?</i></div>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>Functional view</th><th>Operational view</th></tr></thead>
+  <tbody>
+  <tr><td><b>Question</b></td><td><b>WHAT</b> does the system do?</td><td><b>HOW and WHERE</b> is it deployed?</td></tr>
+  <tr><td><b>Content</b></td><td>Actors, boundaries, data flows, logical functions</td><td>Physical hardware, network elements, protocols per link</td></tr>
+  <tr><td><b>Technology</b></td><td><b>Independent</b> — no product names</td><td><b>Specific</b> — names the board, the protocol, the cloud service</td></tr>
+  <tr><td><b>Example entry</b></td><td>"Sense ambient temperature"</td><td>"<b>DHT11</b> on GPIO4 of a <b>NodeMCU</b>, publishing over <b>MQTT</b> to a broker on AWS"</td></tr>
+  <tr><td><b>Changes when…</b></td><td>The requirements change</td><td>The hardware or vendor changes</td></tr>
+  </tbody>
+</table></div>
+  <p><b>The operational view groups</b> to write about: <b>devices</b> and their operating system · <b>communication</b> — the actual link, network, transport and application protocols chosen · <b>services</b> — native service, REST/WebSocket services · <b>application</b> — web app, mobile app · <b>security</b> — the actual mechanisms · <b>management</b> — the tools used.</p>
+  <div class="edge"><b>Extra marks</b>The reason the two views are separated is worth one sentence: <b>the functional view survives a change of hardware; the operational view does not.</b> If the DHT11 is replaced with a BME280 and MQTT with HTTP, the functional view is untouched — "sense temperature, publish reading" is still true. That is the whole point of specifying them separately, and stating it shows you understand the method rather than the diagram.</div>
+</div>
+
+      <h2 id="m1-integ">9 · Device &amp; component integration</h2>
+
+<div class="card">
+  <h3><span class="n">9.1</span>Integration, and then the application<span class="tag t-past">named in syllabus</span></h3>
+  <div class="def"><b>Device &amp; component integration</b>Step 9 of the methodology: the physical and logical wiring-up of the chosen components — connecting sensors and actuators to the device, installing the controller service, connecting the device to the network and to the cloud services, and verifying that data flows end to end.</div>
+  <p><b>What integration actually involves:</b></p>
+  <ol>
+    <li><b>Electrical</b> — correct supply voltage, common ground, logic-level compatibility (a 5 V sensor output into a 3.3 V ESP pin needs a divider), current budget, pull-up resistors where the bus needs them.</li>
+    <li><b>Interface</b> — choosing and wiring the right bus per component: GPIO, analog in, UART, I2C or SPI, and resolving address clashes on I2C.</li>
+    <li><b>Driver / library</b> — installing the sensor library and confirming it reads sane values before anything else is built.</li>
+    <li><b>Controller service</b> — the on-device program that reads resources and talks to the web service.</li>
+    <li><b>Connectivity</b> — joining Wi-Fi, reaching the broker or REST endpoint, handling reconnection.</li>
+    <li><b>End-to-end verification</b> — a reading taken at the sensor appearing, correct and timestamped, in the cloud database.</li>
+  </ol>
+  <p><b>Step 10, application development</b>, then builds the interface on top: dashboards, controls, alerts and reports over the stored data.</p>
+  <div class="trap cram"><b>Exam trap</b>Integration is where <b>logic levels</b> kill projects. The Arduino Uno is a <b>5 V</b> board; the ESP8266 and ESP32 are <b>3.3 V</b> and their GPIO pins are <b>not 5 V tolerant</b>. Wiring a 5 V sensor output straight to an ESP pin can destroy it. Mention a level shifter or a voltage divider whenever a design mixes the two — it is the kind of practical detail that separates a lab answer from a textbook one.</div>
+</div>
+
+      <h2 id="m1-physical">10 · Physical design &amp; protocols</h2>
+
+<div class="card">
+  <h3><span class="n">10.1</span>Physical design of IoT<span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Physical design</b>The "things" in IoT are <b>IoT devices</b> which have unique identities and can perform <b>remote sensing, actuating and monitoring</b>. They can exchange data with other connected devices and applications directly or indirectly; collect data from other devices and process it locally; send data to centralised servers or cloud back-ends; or perform some tasks locally and others in the infrastructure, according to temporal and spatial constraints.</div>
+  <p><b>Generic block diagram of an IoT device</b> — the interfaces to name: <b>I/O interfaces for sensors</b> (and actuators) · <b>interfaces for internet connectivity</b> (Wi-Fi, Ethernet, cellular) · <b>memory and storage interfaces</b> (SD, flash) · <b>audio/video interfaces</b> · plus the CPU, graphics/audio processing and the on-board memory.</p>
+</div>
+
+<div class="card">
+  <h3><span class="n">10.2</span>The IoT protocol stack<span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>Layer</th><th>Protocols</th><th>Note</th></tr></thead>
+  <tbody>
+  <tr><td><b>Application</b></td><td><b>HTTP</b>, <b>CoAP</b>, <b>WebSocket</b>, <b>MQTT</b>, XMPP, DDS, AMQP</td><td>Where IoT differs most from the ordinary web</td></tr>
+  <tr><td><b>Transport</b></td><td><b>TCP</b>, <b>UDP</b></td><td>TCP for reliability, UDP for low overhead (CoAP runs on UDP)</td></tr>
+  <tr><td><b>Network / Internet</b></td><td><b>IPv4</b>, <b>IPv6</b>, <b>6LoWPAN</b></td><td>6LoWPAN carries IPv6 over 802.15.4's tiny frames</td></tr>
+  <tr><td><b>Link</b></td><td><b>802.3</b> Ethernet, <b>802.11</b> Wi-Fi, <b>802.16</b> WiMAX, <b>802.15.4</b> LR-WPAN, <b>2G/3G/4G</b></td><td>802.15.4 is the low-rate, low-power one behind ZigBee</td></tr>
+  </tbody>
+</table></div>
+  <div class="tw"><table>
+  <thead><tr><th>Protocol</th><th>Model</th><th>Transport</th><th>Best for</th></tr></thead>
+  <tbody>
+  <tr><td><b>HTTP / REST</b></td><td>Request–response</td><td>TCP</td><td>Occasional readings, easy integration, everything already speaks it</td></tr>
+  <tr><td><b>CoAP</b></td><td>Request–response</td><td><b>UDP</b></td><td>Constrained devices — a compact binary HTTP with retransmission</td></tr>
+  <tr><td><b>MQTT</b></td><td><b>Publish–subscribe</b></td><td>TCP</td><td>Many devices, frequent small messages, unreliable links</td></tr>
+  <tr><td><b>WebSocket</b></td><td><b>Exclusive pair</b></td><td>TCP</td><td>Continuous bidirectional streams, live dashboards</td></tr>
+  <tr><td><b>AMQP</b></td><td>Publish–subscribe / queues</td><td>TCP</td><td>Enterprise messaging with strong delivery guarantees</td></tr>
+  </tbody>
+</table></div>
+</div>
+
+      <h2 id="m1-logical">11 · Logical design &amp; communication models</h2>
+
+<div class="card">
+  <h3><span class="n">11.1</span>Logical design</h3>
+  <div class="def"><b>Logical design</b>An <b>abstract representation of the entities and processes</b> of an IoT system, without going into the low-level specifics of the implementation. An IoT system comprises a number of <b>functional blocks</b> that give it the capabilities for <b>identification, sensing, actuation, communication and management</b>.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">11.2</span>The four communication models<span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>Model</th><th>How it works</th><th>Coupling</th><th>Real protocol</th></tr></thead>
+  <tbody>
+  <tr><td><b>Request–response</b></td><td>The client sends requests; the server decides how to respond, fetches the data, retrieves resource representations, prepares and sends the response. <b>Stateless</b> — each request is independent</td><td>Client must know the server</td><td>HTTP / <b>REST</b>, CoAP</td></tr>
+  <tr><td><b>Publish–subscribe</b></td><td>Involves <b>publishers, brokers and consumers</b>. Publishers send data to <b>topics</b> managed by the broker and are <b>not aware of the consumers</b>. Consumers subscribe to topics; when the broker receives data for a topic it sends it to all subscribers</td><td><b>Fully decoupled</b> by the broker</td><td><b>MQTT</b>, AMQP</td></tr>
+  <tr><td><b>Push–pull</b></td><td>Producers <b>push</b> data into <b>queues</b>; consumers <b>pull</b> from them. Producers need not know the consumers. Queues decouple the two <b>and act as a buffer</b> when production and consumption rates differ</td><td>Decoupled by the queue</td><td>AMQP queues, Kafka</td></tr>
+  <tr><td><b>Exclusive pair</b></td><td><b>Bidirectional, full-duplex</b>, using a <b>persistent connection</b> between client and server. Once set up it stays open until the client closes it; either side may send at any time. <b>Stateful</b></td><td>Tightly coupled, one-to-one</td><td><b>WebSocket</b></td></tr>
+  </tbody>
+</table></div>
+  <figure><svg viewBox="0 0 540 150" role="img" aria-label="Request-response versus publish-subscribe">
+  <text class="svg-t" x="10" y="16" fill="var(--ink-3)">Request–response</text>
+  <rect x="10" y="30" width="70" height="34" rx="5" class="svg-b" stroke="var(--cyan)"/>
+  <text class="svg-l" x="45" y="52" text-anchor="middle" fill="var(--cyan)">Client</text>
+  <rect x="150" y="30" width="70" height="34" rx="5" class="svg-b" stroke="var(--green)"/>
+  <text class="svg-l" x="185" y="52" text-anchor="middle" fill="var(--green)">Server</text>
+  <line x1="80" y1="41" x2="150" y2="41" stroke="var(--cyan)" marker-end="url(#i2)"/>
+  <line x1="150" y1="56" x2="80" y2="56" stroke="var(--green)" marker-end="url(#i2)"/>
+  <text class="svg-t" x="115" y="36" text-anchor="middle" fill="var(--ink-3)">request</text>
+  <text class="svg-t" x="115" y="76" text-anchor="middle" fill="var(--ink-3)">response</text>
+  <text class="svg-t" x="10" y="106" fill="var(--ink-3)">Publish–subscribe</text>
+  <rect x="10" y="116" width="66" height="28" rx="5" class="svg-b" stroke="var(--pink)"/>
+  <text class="svg-l" x="43" y="134" text-anchor="middle" fill="var(--pink)">Publisher</text>
+  <rect x="112" y="116" width="66" height="28" rx="5" class="svg-b" stroke="var(--yellow)"/>
+  <text class="svg-l" x="145" y="134" text-anchor="middle" fill="var(--yellow)">Broker</text>
+  <rect x="214" y="102" width="76" height="24" rx="5" class="svg-b" stroke="var(--purple)"/>
+  <text class="svg-l" x="252" y="118" text-anchor="middle" fill="var(--purple)">Consumer A</text>
+  <rect x="214" y="132" width="76" height="24" rx="5" class="svg-b" stroke="var(--purple)"/>
+  <text class="svg-l" x="252" y="148" text-anchor="middle" fill="var(--purple)">Consumer B</text>
+  <line x1="76" y1="130" x2="112" y2="130" stroke="var(--pink)" marker-end="url(#i2)"/>
+  <line x1="178" y1="126" x2="214" y2="114" stroke="var(--purple)" marker-end="url(#i2)"/>
+  <line x1="178" y1="134" x2="214" y2="142" stroke="var(--purple)" marker-end="url(#i2)"/>
+  <text class="svg-t" x="330" y="120" fill="var(--ink-3)">the publisher never learns</text>
+  <text class="svg-t" x="330" y="136" fill="var(--ink-3)">who the consumers are</text>
+  <defs><marker id="i2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor"/></marker></defs>
+</svg><figcaption>Decoupling is the whole difference: adding a consumer on the right changes nothing about the publisher.</figcaption></figure>
+  <div class="def"><b>REST-based communication APIs</b>Representational State Transfer is a <b>set of architectural principles</b> for designing web services and APIs that focus on a system's <b>resources</b> and how resource states are addressed and transferred. REST APIs follow the <b>request–response</b> model, and its constraints apply to the components, connectors and data elements of a distributed hypermedia system.</div>
+  <div class="def"><b>WebSocket-based communication APIs</b>Allow <b>bi-directional, full-duplex</b> communication between clients and servers, following the <b>exclusive pair</b> model.</div>
+  <div class="edge"><b>Extra marks</b>REST's constraints are worth naming if the question is worth 5 marks or more: <b>client–server</b>, <b>stateless</b>, <b>cacheable</b>, <b>layered system</b>, <b>uniform interface</b> and optionally <b>code on demand</b>. "Stateless" is the one with IoT consequences — every request carries its own context, which is why REST scales but also why a device must re-send its identity every time, and why MQTT is cheaper for a sensor reporting every ten seconds.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">11.3</span>IoT design principles<span class="tag t-add">from deck 7</span></h3>
+  <ul>
+    <li><b>Interoperability</b> — devices from different vendors must work together, which is why standard protocols and data formats matter more than any single clever design.</li>
+    <li><b>Decentralisation</b> — pushing decisions to the edge rather than requiring a round trip to a central server for every action; this is the design principle behind fog computing.</li>
+    <li><b>Scalability</b> — the design must work for ten devices and ten thousand.</li>
+    <li><b>Security and privacy by design</b> — retrofitted security fails, because constrained devices have no headroom to add it later.</li>
+  </ul>
+  <p><b>Wireless network types</b> the deck contrasts: <b>infrastructure-based</b>, where wireless clients connect to a base station (AP) that provides all the traditional network services; and <b>infrastructure-less</b> (ad hoc), where the clients must provide those services to each other. Ad hoc networks are further classified by topology into <b>homogeneous</b> (one platform throughout) and <b>heterogeneous</b> (mixed platforms).</p>
+</div>
+
+      <h2 id="m1-pillars">12 · The four pillars</h2>
+
+<div class="card">
+  <h3><span class="n">12.1</span>Sensing, computation, communication, actuation<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>#</th><th>Pillar</th><th>What it does</th><th>Components</th><th>Key properties</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td><b>Sensing</b></td><td>Collecting data from the physical world</td><td>DHT11, PIR, LDR, ultrasonic sensors, cameras</td><td>accuracy, range, power, interface</td></tr>
+  <tr><td>2</td><td><b>Computation</b></td><td>Processing collected data locally on the device</td><td>MCUs (AVR, ARM, Xtensa), FPGAs, SoCs</td><td>clock speed, power, connectivity, peripherals</td></tr>
+  <tr><td>3</td><td><b>Communication</b></td><td>Transmitting data between devices and the cloud</td><td>UART, SPI, I2C, GPIO, Wi-Fi, MQTT, REST API</td><td>range, bandwidth, power, latency</td></tr>
+  <tr><td>4</td><td><b>Actuation</b></td><td>Driving physical change based on decisions</td><td>Relays, servos, LEDs, motors, buzzers</td><td>response time, load capacity, interface</td></tr>
+  </tbody>
+</table></div>
+  <div class="def"><b>The defining sentence</b>All four pillars must be present in an embedded IoT system — <b>removing any one pillar makes it merely a sensor, a computer, or a communication device.</b></div>
+  <div class="edge"><b>Extra marks</b>Use the pillars as a diagnostic and the answer writes itself: a weather station with no actuation is a <b>monitoring</b> system, not a control system; a device with sensing, computation and actuation but no communication is an <b>embedded system</b>, not an IoT one — which is exactly the migration Lab 4 asks for, adding the communication pillar to a bare-metal irrigation controller to turn it into a Level-2 IoT device.</div>
+</div>
+
+      <h2 id="m1-devices">13 · Physical devices — the internet of devices</h2>
+
+<div class="card">
+  <h3><span class="n">13.1</span>The components of an IoT system<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>#</th><th>Component</th><th>Role</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td><b>The Thing</b></td><td>The device or gadget itself — a sensor or actuator, or any object with a unique identifier that can transfer data</td></tr>
+  <tr><td>2</td><td><b>Local network</b></td><td>Connects things together, often via a <b>gateway</b> that translates proprietary protocols to IP</td></tr>
+  <tr><td>3</td><td><b>Internet &amp; cloud</b></td><td>Carries data beyond the local network; the cloud stores, aggregates and analyses it at scale</td></tr>
+  <tr><td>4</td><td><b>Back-end services</b></td><td>Enterprise data systems, dashboards, PCs and mobile apps that consume the processed data and drive decisions</td></tr>
+  </tbody>
+</table></div>
+  <p><b>The building blocks inside every "thing":</b> the <b>sensor/node</b> (a transducer sensing location, weather, motion or health data and outputting a signal) · the <b>gateway</b> (aggregates sensor data, translates protocols, forwards securely to the cloud) · the <b>microcontroller</b> (the "brain" executing logic and managing I/O) · the <b>actuator</b> (converts a control signal back into physical motion or action).</p>
+</div>
+
+<div class="card">
+  <h3><span class="n">13.2</span>The five-layer technology stack and the IoT platform</h3>
+  <div class="tw"><table>
+  <thead><tr><th>Layer</th><th>Contents</th></tr></thead>
+  <tbody>
+  <tr><td><b>5 · Cloud applications</b></td><td>Dashboards, analytics and the business logic end users see</td></tr>
+  <tr><td><b>4 · Cloud platform</b></td><td>Storage, processing and device management at scale</td></tr>
+  <tr><td><b>3 · Communications</b></td><td>Network connectivity linking devices to the world</td></tr>
+  <tr><td><b>2 · Device software</b></td><td>Firmware and embedded software driving the hardware</td></tr>
+  <tr><td><b>1 · Device hardware</b></td><td>Sensors, controllers, MCUs — the physical "thing"</td></tr>
+  </tbody>
+</table></div>
+  <div class="def"><b>IoT platform</b>The <b>middleware</b> sitting between IoT gateways/hardware and the application and business layers. It combines (1) sensors and controllers, (2) analysis software, (3) a gateway device, (4) a communication network and (5) end application services — collectively the <b>IoT value chain</b> — to provide interoperability, IP networking, security, application-layer support and device management.</div>
+  <div class="edge"><b>Extra marks</b>Say what the platform is <i>for</i>: without middleware, every application must speak every device's protocol and handle its own provisioning, authentication and firmware updates. The platform exists so that adding a new device type does not mean rewriting the application — which is <b>interoperability</b>, the first IoT design principle, made concrete.</div>
+</div>
+
+      <h2 id="m1-sensors">14 · Common sensors</h2>
+
+<div class="card">
+  <h3><span class="n">14.1</span>The selection table<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>Sensor</th><th>Type</th><th>Interface</th><th>Output</th><th>IoT use case</th></tr></thead>
+  <tbody>
+  <tr><td><b>DHT11</b></td><td>Temp / humidity</td><td>Single-wire GPIO</td><td>Digital (8-bit)</td><td>Climate monitoring, HVAC</td></tr>
+  <tr><td><b>DHT22</b></td><td>Temp / humidity</td><td>Single-wire GPIO</td><td>Digital (16-bit)</td><td>Cold-chain tracking, greenhouses</td></tr>
+  <tr><td><b>PIR (HC-SR501)</b></td><td>Motion / presence</td><td>GPIO (digital OUT)</td><td>Digital HIGH/LOW</td><td>Intruder detection, auto-lighting</td></tr>
+  <tr><td><b>Ultrasonic (HC-SR04)</b></td><td>Distance / level</td><td>Trigger + Echo GPIO</td><td>Time-of-flight pulse</td><td>Bin level, parking sensor</td></tr>
+  <tr><td><b>LDR</b></td><td>Light intensity</td><td><b>Analog (ADC)</b></td><td>Analog 0–5 V</td><td>Auto-dimming, daylight harvesting</td></tr>
+  <tr><td><b>MQ-2 / MQ-135</b></td><td>Gas / air quality</td><td>Analog (ADC)</td><td>Analog voltage</td><td>Smoke alarm, CO₂ monitoring</td></tr>
+  <tr><td><b>DS18B20</b></td><td>Temperature</td><td><b>1-Wire</b> (GPIO)</td><td>Digital 12-bit</td><td>Pipeline / soil temperature</td></tr>
+  </tbody>
+</table></div>
+  <p><b>The selection rule:</b> always check the datasheet — <b>Vcc range, output type (digital or analog), response time and accuracy</b> — before choosing a sensor for an IoT design.</p>
+  <div class="def"><b>Sensor vs transducer vs actuator</b>A <b>transducer</b> converts energy from one form to another. A <b>sensor</b> is a transducer that converts a physical quantity into an electrical signal (input). An <b>actuator</b> is a transducer that converts an electrical signal into a physical action (output).</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">14.2</span>DHT11 — digital humidity &amp; temperature<span class="tag t-hi">★ high yield</span></h3>
+  <p><b>Construction:</b> two parts — a <b>capacitive humidity sensor</b> and a <b>thermistor</b> — plus a basic chip inside that does the analog-to-digital conversion and emits a <b>digital signal</b> carrying temperature and humidity, easy to read from any microcontroller. The sensors are <b>basic and slow</b>.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Specification</th><th>Value</th></tr></thead>
+  <tbody>
+  <tr><td>Supply and I/O</td><td><b>3–5 V</b> (3.3 V is sometimes not enough — try 5 V)</td></tr>
+  <tr><td>Current</td><td>2.5 mA max during conversion</td></tr>
+  <tr><td>Humidity</td><td>0–100% with <b>2–5%</b> accuracy</td></tr>
+  <tr><td>Temperature</td><td><b>−40 to 80 °C</b>, ±0.5 °C</td></tr>
+  <tr><td><b>Sampling rate</b></td><td><b>No more than 0.5 Hz — once every 2 seconds</b></td></tr>
+  <tr><td>Body / pins</td><td>15.1 × 25 × 7.7 mm; 4 pins at 0.1" spacing</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Wiring:</b> <b>VCC</b> (red) to 3.3–5 V · <b>Data out</b> (white or yellow) · one pin <b>not connected</b> · <b>Ground</b> (black). A 4.7–10 kΩ pull-up between data and VCC is standard.</p>
+  <p><b>Library install (Arduino IDE):</b> <code>Sketch → Include Library → Manage Libraries…</code>, search "dht", install <b>"DHT sensor library by Adafruit"</b>.</p>
+  <div class="trap cram"><b>Exam trap</b>The <b>0.5 Hz limit</b> is the detail that gets asked and the one that breaks lab code: reading a DHT11 more often than <b>once every two seconds</b> returns stale or failed readings. If a design says "sample every 500 ms", the DHT11 is the wrong sensor.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">14.3</span>PIR, LDR and ultrasonic<span class="tag t-hi">★ high yield</span></h3>
+  <p><b>PIR — Passive Infrared sensor (HC-SR501).</b> Detects the presence of human beings or animals by sensing changes in infrared radiation. "Passive" because it emits nothing — it only receives.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Property</th><th>Value</th></tr></thead>
+  <tbody>
+  <tr><td>Pins</td><td>Three — <b>Vcc, Output, Ground</b></td></tr>
+  <tr><td>Input voltage</td><td>4 V to 12 V (<b>+5 V recommended</b>)</td></tr>
+  <tr><td>Output</td><td><b>High/Low, 3.3 V TTL</b> — a digital pin, no ADC needed</td></tr>
+  <tr><td>Discrimination</td><td>Can distinguish object movement from human movement</td></tr>
+  <tr><td>Modes</td><td>Two — <b>repeatable (H)</b> and <b>non-repeatable (L)</b></td></tr>
+  <tr><td>Coverage</td><td>About <b>120°</b> and <b>7 metres</b></td></tr>
+  <tr><td>Power / temperature</td><td>65 mA; −20 °C to +80 °C</td></tr>
+  </tbody>
+</table></div>
+  <p><b>LDR — Light Dependent Resistor</b>, also called a <b>photoresistor</b>. Measures visible light between <b>400 and 700 nm</b>, with efficiency similar to the human eye. <b>Resistance decreases as light increases</b> — a few megohms in a dark room falling to a few ohms under bright light. It is a special type of resistor with <b>no polarity</b>, so it can be connected either way round; its symbol is a resistor with inward arrows. Small, cheap, breadboard-friendly, and usable with a microcontroller or a plain digital/analog IC. Used to sense light and to distinguish day from night.</p>
+  <p><b>Ultrasonic — HC-SR04.</b> A four-pin module: <b>Vcc, Trigger, Echo, Ground</b>. The two "eyes" are the ultrasonic transmitter and receiver.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Property</th><th>Value</th></tr></thead>
+  <tbody>
+  <tr><td>Operating voltage</td><td>+5 V</td></tr>
+  <tr><td>Theoretical range</td><td>2 cm to 450 cm</td></tr>
+  <tr><td>Practical range</td><td><b>2 cm to 80 cm</b></td></tr>
+  <tr><td>Accuracy</td><td>3 mm</td></tr>
+  <tr><td>Measuring angle</td><td>&lt; 15°</td></tr>
+  <tr><td>Current / frequency</td><td>&lt; 15 mA / 40 Hz</td></tr>
+  </tbody>
+</table></div>
+  <p><b>How it works:</b> the transmitter emits an ultrasonic wave; the wave reflects off an object and returns to the receiver. The module holds the <b>Echo pin high for exactly the round-trip time</b>. Since the speed of the wave in air at room conditions is known (<b>≈ 330 m/s</b>; 343 m/s at 20 °C is also accepted), the microcontroller computes:</p>
+  <pre><code><span class="cm">// Distance = Speed × Time — and HALVED, because the pulse travels there AND back</span>
+distance_cm = (echo_time_us × 0.0343) / 2;
+<span class="cm">// or the classic shortcut:</span>
+distance_cm = echo_time_us / 58;</code></pre>
+  <div class="trap cram"><b>Exam trap</b><b>Divide by two.</b> The measured time is the round trip; forgetting the halving doubles every distance and is the single most common error in this calculation. And note the sensor's own limits when a design uses it: a &lt; 15° cone means it sees a narrow column, and soft or angled surfaces absorb or deflect the pulse instead of returning it.</div>
+</div>
+
+      <h2 id="m1-act">15 · Actuators</h2>
+
+<div class="card">
+  <h3><span class="n">15.1</span>The four to know<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>Actuator</th><th>How it is driven</th><th>Key facts</th></tr></thead>
+  <tbody>
+  <tr><td><b>Relay module</b></td><td>GPIO drives the coil; the contact switches the load</td><td><b>Electrically isolates the MCU from high-power loads</b>. Controls AC/DC motors, lamps, fans. Type: SPDT. Typical: <b>5 V coil, 10 A / 250 V AC contacts</b></td></tr>
+  <tr><td><b>Servo motor (SG90)</b></td><td><b>PWM</b> signal, 20 ms period (<b>50 Hz</b>)</td><td>Position-controlled, <b>0°–180°</b>. <b>1 ms pulse = 0°, 2 ms = 180°</b>. Power 4.8–6 V, torque 1.8 kg·cm. Robotic arms, valve control, door locks</td></tr>
+  <tr><td><b>LED / buzzer</b></td><td>GPIO <code>digitalWrite</code> HIGH/LOW</td><td>LED needs a <b>current-limiting resistor (220 Ω–1 kΩ)</b>. Buzzer: <b>active</b> (DC only) vs <b>passive</b> (needs PWM to make a tone). Status indication, alarms</td></tr>
+  <tr><td><b>DC motor + L298N</b></td><td><b>H-bridge</b> driver IC</td><td><b>IN1/IN2 set direction; ENA controls speed via PWM.</b> Drives two DC motors; motor supply 5–35 V. Wheels, conveyors, pumps</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>State the electrical reason a driver is needed at all, because it is the actual engineering content of this topic: a GPIO pin sources only <b>tens of milliamps</b> (40 mA absolute max on an ATmega328P, ~12 mA on an ESP8266), while a motor or lamp needs <b>amps</b>. So every real actuator sits behind a switch — a <b>relay</b> for isolation and AC loads, a <b>transistor/MOSFET</b> for simple DC switching, an <b>H-bridge</b> when direction must reverse. Add: a motor or relay coil is inductive, so a <b>flyback diode</b> is required or the back-EMF destroys the driver.</div>
+</div>
+
+      <h2 id="m1-cpu">16 · Embedded processors</h2>
+
+<div class="card">
+  <h3><span class="n">16.1</span>AVR vs ARM vs Xtensa<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>AVR — ATmega328P<br><span class="cm">Arduino Uno</span></th><th>ARM Cortex-M — STM32<br><span class="cm">STM32F4 / Blue Pill</span></th><th>Xtensa LX6 — ESP32<br><span class="cm">ESP32 / ESP8266</span></th></tr></thead>
+  <tbody>
+  <tr><td><b>Architecture</b></td><td>8-bit RISC</td><td>32-bit RISC</td><td>32-bit, <b>dual-core</b></td></tr>
+  <tr><td><b>Clock</b></td><td><b>16 MHz</b></td><td>72–216 MHz</td><td><b>240 MHz</b></td></tr>
+  <tr><td><b>RAM</b></td><td><b>2 KB</b> SRAM</td><td>256 KB – 1 MB</td><td><b>520 KB</b> SRAM</td></tr>
+  <tr><td><b>Flash</b></td><td><b>32 KB</b></td><td>512 KB – 2 MB</td><td>External <b>4–16 MB</b></td></tr>
+  <tr><td><b>GPIO</b></td><td>23 pins</td><td>51–140 pins</td><td>34 pins</td></tr>
+  <tr><td><b>Connectivity</b></td><td>UART, SPI, I2C</td><td>UART, SPI, I2C, USB, CAN</td><td><b>Wi-Fi, BT, BLE</b>, SPI, I2C</td></tr>
+  <tr><td><b>Power</b></td><td>~15 mA active</td><td>~10–80 mA</td><td><b>80–240 mA</b> with Wi-Fi active</td></tr>
+  <tr><td><b>Best for</b></td><td>Simple sensing, quick prototyping</td><td>Real-time control, medical IoT</td><td><b>Cloud-connected IoT</b> — this course</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>The row that decides real designs is <b>power</b>. The ESP is ten times hungrier than the AVR while its radio is on, which is why battery-powered ESP nodes are built around <b>deep sleep</b> — wake, read, publish, sleep — rather than staying connected. Selecting a processor is choosing where on the compute/connectivity/power triangle you want to sit, and saying so turns a memorised table into an argument.</div>
+</div>
+
+      <h2 id="m1-mem">17 · Memory architectures</h2>
+
+<div class="card">
+  <h3><span class="n">17.1</span>The hierarchy and what lives where<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <p><b>Fastest to largest:</b> registers → SRAM (cache/RAM) → EEPROM → Flash.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Memory</th><th>Volatile?</th><th>Holds</th><th>Caution</th></tr></thead>
+  <tbody>
+  <tr><td><b>Registers</b></td><td>Yes</td><td>Operands the CPU is working on right now</td><td>A handful of bytes</td></tr>
+  <tr><td><b>SRAM</b></td><td><b>Yes</b></td><td><b>Stack and heap at runtime</b>, global and local variables, sensor reading buffers</td><td><b>Must conserve — a shortage causes a crash.</b> 2 KB on an Uno</td></tr>
+  <tr><td><b>EEPROM</b></td><td>No</td><td>Device configuration (IP, SSID), calibration constants, alarm thresholds</td><td><b>Limited write cycles</b> (~100,000) — never write in a tight loop</td></tr>
+  <tr><td><b>Flash</b></td><td>No</td><td><b>Firmware</b> (program code), string constants (<code>PROGMEM</code>), the bootloader; the target of <b>OTA</b> updates</td><td>Slower to write; erased in blocks</td></tr>
+  </tbody>
+</table></div>
+  <div class="trap cram"><b>Exam trap</b>The classic Arduino bug is a <b>silent SRAM exhaustion</b>: string literals in <code>Serial.print("…")</code> are copied into the 2 KB of SRAM at startup, so a sketch with many messages runs out of stack and behaves erratically with no error message. <b><code>PROGMEM</code> / <code>F()</code> keeps them in flash</b> instead. Mentioning this shows you have actually run out of memory on a real board.</div>
+</div>
+
+      <h2 id="m1-bus">18 · Communication interfaces</h2>
+
+<div class="card">
+  <h3><span class="n">18.1</span>UART, SPI, I2C, GPIO<span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>UART</th><th>SPI</th><th>I2C</th><th>GPIO</th></tr></thead>
+  <tbody>
+  <tr><td><b>Wires</b></td><td><b>2</b> — TX, RX</td><td><b>4</b> — MOSI, MISO, SCK, CS</td><td><b>2</b> — SDA, SCL</td><td>1 per pin</td></tr>
+  <tr><td><b>Clock</b></td><td><b>Asynchronous</b> — no shared clock</td><td>Synchronous, master provides SCK</td><td>Synchronous, master provides SCL</td><td>—</td></tr>
+  <tr><td><b>Duplex</b></td><td>Full</td><td><b>Full</b></td><td><b>Half</b></td><td>—</td></tr>
+  <tr><td><b>Speed</b></td><td>Baud 9600–115200, must match both sides</td><td><b>Fastest, ~10 Mbps</b></td><td>100 kHz standard, 400 kHz fast</td><td>—</td></tr>
+  <tr><td><b>Devices</b></td><td>Point to point</td><td>One <b>CS pin per slave</b></td><td><b>Up to 127 devices on the same 2 wires</b> (addresses)</td><td>One per pin</td></tr>
+  <tr><td><b>Used for</b></td><td>Serial monitor, GPS, Bluetooth HC-05</td><td>SD cards, some OLEDs, MCP3008 ADC</td><td>SSD1306 OLED, BMP280, MPU6050</td><td>LED, button, DHT11, relay trigger</td></tr>
+  <tr><td><b>Note</b></td><td>TX → RX of the other device</td><td>Master–slave, up to ~50 cm</td><td><b>4.7 kΩ pull-ups required</b> on SDA and SCL</td><td>INPUT or OUTPUT; digital HIGH (3.3/5 V) or LOW; <b>PWM-capable pins simulate analog output</b></td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>Give the selection rule rather than the table alone: <b>I2C when you need many devices on few pins and speed does not matter</b> (sensors, displays); <b>SPI when you need throughput</b> (SD cards, displays with fast refresh) and can afford a chip-select pin each; <b>UART for a single point-to-point link to a module</b> that speaks its own protocol (GPS, Bluetooth); <b>GPIO for anything binary</b>. Then the pin-count trade-off in one line: I2C costs 2 pins for 127 devices, SPI costs 3 + n.</div>
+</div>
+
+      <h2 id="m1-sw">19 · Software architecture</h2>
+
+<div class="card">
+  <h3><span class="n">19.1</span>Bare-metal vs RTOS<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <pre><code><span class="cm">// BARE-METAL — the super-loop</span>
+<span class="kw">void</span> <span class="fn">setup</span>() { <span class="cm">/* init */</span> }
+<span class="kw">void</span> <span class="fn">loop</span>() {
+  <span class="fn">readSensor</span>();
+  <span class="fn">checkThreshold</span>();
+  <span class="fn">sendData</span>();
+  <span class="fn">delay</span>(<span class="st">1000</span>);      <span class="cm">// blocks EVERYTHING for a second</span>
+}
+
+<span class="cm">// RTOS — FreeRTOS tasks with priorities</span>
+<span class="fn">xTaskCreate</span>(sensorTask, <span class="st">"T1"</span>, <span class="st">1000</span>, NULL, <span class="st">1</span>, NULL);
+<span class="fn">xTaskCreate</span>(wifiTask,   <span class="st">"T2"</span>, <span class="st">2000</span>, NULL, <span class="st">2</span>, NULL);
+<span class="fn">vTaskStartScheduler</span>();</code></pre>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>Bare-metal (super-loop)</th><th>RTOS (FreeRTOS)</th></tr></thead>
+  <tbody>
+  <tr><td rowspan="4"><b>Advantages</b></td><td>Simple to understand and debug</td><td><b>True multi-tasking with priorities</b></td></tr>
+  <tr><td>No overhead from an OS scheduler</td><td><b>Task preemption ensures deadlines</b> are met</td></tr>
+  <tr><td>Full control over timing</td><td>ISR-to-task communication via <b>queues</b></td></tr>
+  <tr><td>Suitable for single-task applications</td><td>Scales cleanly for 5–20 concurrent tasks</td></tr>
+  <tr><td rowspan="4"><b>Limitations</b></td><td><b>Blocking <code>delay()</code> stops everything</b></td><td>Steeper learning curve</td></tr>
+  <tr><td>Hard to handle multiple concurrent tasks</td><td>Consumes extra RAM (~2–4 KB overhead)</td></tr>
+  <tr><td>Poor scalability for complex systems</td><td><b>Risk of race conditions</b> if resources are unguarded</td></tr>
+  <tr><td>Timing errors if tasks have variable duration</td><td>Requires careful priority assignment</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>Name the middle ground, because it is what most real Arduino code does: a <b>non-blocking super-loop</b> using <code>millis()</code> instead of <code>delay()</code> — a state machine that checks whether the interval has elapsed and returns immediately otherwise. It gets most of the concurrency without an RTOS's RAM cost, and it is the correct answer to "how would you read a sensor every 2 s while also responding to a button instantly" if adding an RTOS is overkill. The other correct answer to that question is an <b>interrupt</b> — which is section 33.</div>
+</div>
+
+      <h2 id="m1-cloud">20 · Cloud, fog &amp; economics</h2>
+
+<div class="card">
+  <h3><span class="n">20.1</span>Cloud computing and the service models<span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Cloud computing</b>The <b>on-demand availability of computing resources</b> — especially data storage and processing power — over the internet, without direct active management by the user. IoT devices generate huge data volumes; the cloud provides the scalable storage and analytics to make sense of it.</div>
+  <p><b>Deployment types:</b> <b>personal cloud</b> (Google Drive, iCloud) · <b>hybrid cloud</b> (Dropbox, Box — online storage synced with local copies) · <b>public cloud</b> (AWS, Azure, GCP — shared infrastructure, pay-as-you-go, no owned hardware). <b>Private</b> and <b>community</b> clouds complete the standard NIST list.</p>
+  <p><b>Why the cloud matters for IoT:</b> remote processing power beyond on-device limits · massive elastic storage with no on-premise infrastructure · centralised authentication and encryption · removes entry barriers with plug-and-play hosting · facilitates inter-device communication through cloud-hosted APIs.</p>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>IaaS</th><th>PaaS</th><th>SaaS</th></tr></thead>
+  <tbody>
+  <tr><td><b>Provides</b></td><td>Virtual compute, storage, network</td><td>A ready-made development and deployment platform</td><td>Fully managed applications via a browser</td></tr>
+  <tr><td><b>You manage</b></td><td>OS, runtime and applications</td><td><b>Only the application and its data</b></td><td><b>Nothing</b> underneath</td></tr>
+  <tr><td><b>Features</b></td><td>Full control; utility billing</td><td>OS, runtime, DB and web server provided; auto-scaling</td><td>No installation or maintenance; subscription pricing; any device</td></tr>
+  <tr><td><b>Examples</b></td><td>AWS EC2, Azure VMs, GCE</td><td>Heroku, Google App Engine</td><td>Google Workspace, Office 365</td></tr>
+  </tbody>
+</table></div>
+  <p>Left to right: <b>increasing abstraction, decreasing control</b>. <b>Popular IoT platforms:</b> AWS IoT, Microsoft Azure IoT Hub, IBM Watson IoT, Google Cloud IoT, Oracle, Cisco IoT Cloud Connect — and for coursework, <b>ThingSpeak</b>, <b>Blynk</b> and <b>Adafruit IO</b>.</p>
+</div>
+
+<div class="card">
+  <h3><span class="n">20.2</span>Fog computing<span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Fog computing</b>A distributed computing paradigm that brings <b>compute, storage and networking closer to end devices</b> — "a cloud that is close to the ground". Data is filtered, processed and analysed <b>at the edge</b>, and only the essential results are sent to the cloud.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Why it is needed</th><th>Because</th></tr></thead>
+  <tbody>
+  <tr><td><b>Mobility</b></td><td>Devices change location; cloud round trips become unreliable</td></tr>
+  <tr><td><b>Real-time actuation</b></td><td>Cloud round-trip latency is too high for time-critical control</td></tr>
+  <tr><td><b>Scalability</b></td><td>More devices means more cloud requests and rising latency</td></tr>
+  <tr><td><b>Power constraints</b></td><td>Constant cloud communication drains battery-powered devices</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Key features:</b> <b>low latency</b> (compute and storage right at the fog node / smart gateway) · <b>location awareness</b> · <b>distributed nodes</b> deployed geographically rather than one central cloud · <b>mobility support</b> — devices connect to the nearest gateway · <b>real-time response</b> · <b>cloud interaction</b> — only necessary, pre-processed data is forwarded.</p>
+  <p><b>Applications:</b> smart traffic lights in vehicular networks, smart-grid load balancing, industrial IoT gateway hubs.</p>
+  <div class="trap cram"><b>Exam trap</b>Fog is <b>not</b> a replacement for the cloud — it is a <b>layer between</b> devices and the cloud. The standard answer names both roles: the fog node decides <i>now</i> (close the valve), the cloud decides <i>later and across everything</i> (this pump is failing more often than the others). Also distinguish <b>edge computing</b>, which runs on the device itself, from <b>fog</b>, which runs on a nearby gateway serving several devices.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">20.3</span>Value chain, monetisation, security<span class="tag t-add">deck 1.10</span></h3>
+  <p><b>The IoT value cycle — four parameters</b>, each phrased as a question: <b>Visibility</b> "am I fully connected?" (M2M, cellular, telematics, industrial wireless) · <b>Security</b> "am I fully protected?" (data at rest and in motion, physical security, BYOD) · <b>Profitability</b> "am I fully innovating?" (service excellence, engagement, monetisation) · <b>Productivity</b> "am I fully unlocking knowledge?" (uptime, efficiency, throughput).</p>
+  <div class="tw"><table>
+  <thead><tr><th>Monetisation model</th><th>How it earns</th><th>Example</th></tr></thead>
+  <tbody>
+  <tr><td><b>Ecosystem building</b></td><td>The platform promoter earns from end-customers <b>and</b> other platform vendors</td><td>SmartThings hub plus a third-party device marketplace</td></tr>
+  <tr><td><b>Hardware premium</b></td><td>Add connectivity or remote control and charge a premium</td><td>LIFX smart bulbs at ~10× a standard bulb</td></tr>
+  <tr><td><b>Service revenue</b></td><td>Convert a one-time product sale into a <b>recurring subscription</b></td><td>Volkswagen Car-Net security and navigation</td></tr>
+  <tr><td><b>Data revenue</b></td><td>Sell packaged insights generated from sensor data</td><td>Michelin Solutions analysing tyre sensor data</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Security aspects in IoT — four areas:</b> <b>user management</b> (identifying users, roles and access levels; recording activity) · <b>security monitoring</b> (logging and analysing commands sent to devices, storing logs in the cloud to catch breaches early) · <b>privacy</b> (what data a device collects, how long it is kept, how it is used) · <b>safety</b> (a device's <b>operational role</b> — a smart insulin pump, a vehicle — can matter more than its data, because malfunction or hijack causes <b>physical harm</b>).</p>
+  <p><b>Core security considerations for device design:</b> <b>trustworthy communication</b> (encryption, digital signatures, TLS 1.2/DTLS 1.2, updatable per-device keys) · <b>physical tamper-proofing</b> (secure bootloader, TPM, intrusion-detecting sensors) · <b>monitoring and logging</b> (device health, configuration changes, request rates, anomalies).</p>
+  <div class="tw"><table>
+  <thead><tr><th>Key benefits</th><th>Key challenges</th></tr></thead>
+  <tbody>
+  <tr><td>Technical optimisation — refine designs using real sensor data</td><td><b>Security</b> — little authentication control across huge device ecosystems</td></tr>
+  <tr><td>Improved, immediate data collection versus passive traditional methods</td><td><b>Privacy</b> — detailed personal data exposed without active consent</td></tr>
+  <tr><td>Reduced waste through real-time decision-making</td><td><b>Complexity</b> — design, deployment and maintenance of diverse systems</td></tr>
+  <tr><td>Improved customer engagement and experience</td><td><b>Flexibility &amp; compliance</b> — integrating disparate systems and regulation</td></tr>
+  </tbody>
+</table></div>
 </div>
 
       <div class="mod">Module 2 · Automation</div>
-      <h2 id="m2-warn">Read this first</h2>
-<div class="card">
-  <h3>Most of Module 2 is not in your decks<span class="tag t-add">+ added</span></h3>
-  <div class="trap"><b>Exam trap</b>The 10 decks cover <b>Arduino Uno</b> well, but the syllabus’s Module 2 is mostly <b>ESP8266 NodeMCU, MicroPython, Wi-Fi, REST/MQTT code, interrupts and ESP32-vs-ESP8266</b> — and those are <b>almost entirely absent</b>. Everything tagged <span class="tag t-add">+ added</span> below is filled from standard sources so this half of the paper isn’t blank. Cross-check against any class notes if you can.</div>
-</div>
-<h2 id="m2-uno">Arduino Uno</h2>
-<div class="card">
-  <h3><span class="n">2.1</span>Uno / ATmega328P specs<span class="tag t-hi">★ high yield</span></h3>
-  <div class="tw"><table>
-  <thead><tr><th>Spec</th><th>Value</th></tr></thead>
-  <tbody><tr><td>Microcontroller</td><td>ATmega328P (8-bit AVR, RISC)</td></tr><tr><td>Clock</td><td>16 MHz</td></tr><tr><td>Flash / SRAM / EEPROM</td><td>32 KB / 2 KB / 1 KB</td></tr><tr><td>Digital I/O</td><td>14 (6 are PWM: 3, 5, 6, 9, 10, 11)</td></tr><tr><td>Analog in</td><td>6 (A0–A5), 10-bit ADC (1024 levels)</td></tr><tr><td>Operating / input voltage</td><td>5 V / 7–12 V</td></tr><tr><td>Pin current</td><td>40 mA per pin</td></tr></tbody>
-</table></div><p>ADC resolution: 5 V / 1024 ≈ <b>4.9 mV</b> per step. PWM: <code>analogWrite(pin, 0–255)</code>, output ≈ (duty/255) × 5 V.</p>
-</div><div class="card">
-  <h3><span class="n">2.2</span>Sketch structure<span class="tag t-hi">★ high yield</span></h3>
-  <pre><code><span class="cm">// Blink — the canonical sketch</span>
-<span class="kw">void</span> <span class="fn">setup</span>() {              <span class="cm">// runs once</span>
-  <span class="fn">pinMode</span>(13, OUTPUT);
-}
-<span class="kw">void</span> <span class="fn">loop</span>() {               <span class="cm">// runs forever</span>
-  <span class="fn">digitalWrite</span>(13, HIGH);
-  <span class="fn">delay</span>(1000);            <span class="cm">// ms</span>
-  <span class="fn">digitalWrite</span>(13, LOW);
-  <span class="fn">delay</span>(1000);
-}</code></pre><p>Core API: <code>pinMode</code>, <code>digitalRead/Write</code>, <code>analogRead/Write</code>, <code>delay</code>, and Serial (<code>Serial.begin(9600)</code>, <code>Serial.println()</code>). Workflow: write sketch → compile → upload over USB → runs standalone.</p>
-</div>
-<h2 id="m2-esp">ESP8266 NodeMCU &amp; ESP32</h2>
-<div class="card">
-  <h3><span class="n">2.3</span>ESP8266-12E NodeMCU<span class="tag t-add">+ added</span><span class="tag t-hi">★ high yield</span></h3>
-  <div class="tw"><table>
-  <thead><tr><th>Spec</th><th>ESP8266-12E</th></tr></thead>
-  <tbody><tr><td>Chip</td><td>Tensilica L106 (32-bit)</td></tr><tr><td>Clock</td><td>80 MHz (up to 160)</td></tr><tr><td>Flash</td><td>4 MB (typical)</td></tr><tr><td>GPIO</td><td>~11 usable + 1 ADC</td></tr><tr><td>ADC</td><td>1 channel, 10-bit (0–1 V, 3.3 V-tolerant via divider on board)</td></tr><tr><td>Wi-Fi</td><td>802.11 b/g/n, 2.4 GHz</td></tr><tr><td>Logic level</td><td>3.3 V (NOT 5 V-tolerant)</td></tr></tbody>
-</table></div><div class="trap"><b>Exam trap</b>The NodeMCU is <b>3.3 V logic</b>. Feeding a 5 V sensor output straight into a GPIO can damage it — use a divider or level shifter. This is the classic viva question.</div>
-</div><div class="card">
-  <h3><span class="n">2.4</span>ESP8266 vs ESP32<span class="tag t-add">+ added</span><span class="tag t-hi">★ high yield</span></h3>
-  <div class="tw"><table>
-  <thead><tr><th></th><th>ESP8266</th><th>ESP32</th></tr></thead>
-  <tbody><tr><td>CPU</td><td>Single-core L106</td><td>Dual-core Xtensa LX6</td></tr><tr><td>Clock</td><td>80–160 MHz</td><td>160–240 MHz</td></tr><tr><td>Wireless</td><td>Wi-Fi only</td><td>Wi-Fi + Bluetooth + BLE</td></tr><tr><td>GPIO</td><td>~11</td><td>~34</td></tr><tr><td>ADC</td><td>1 ch, 10-bit</td><td>18 ch, 12-bit</td></tr><tr><td>Touch / DAC</td><td>No</td><td>Yes (capacitive touch, 2× DAC)</td></tr></tbody>
-</table></div><p>Rule of thumb: ESP8266 for cheap Wi-Fi sensing; ESP32 when you need Bluetooth, more pins, or more compute.</p>
-</div>
-<h2 id="m2-micropython">MicroPython, Wi-Fi &amp; cloud</h2>
-<div class="card">
-  <h3><span class="n">2.5</span>MicroPython & flashing<span class="tag t-add">+ added</span></h3>
-  <div class="def"><b>MicroPython</b>A lean implementation of Python 3 for microcontrollers — you write Python instead of C/C++, and run it interactively over a REPL. Edited in the <b>Thonny</b> or uPyCraft IDE.</div><p><b>Flashing the ESP8266 (once):</b> erase the chip and write the MicroPython firmware with <code>esptool</code>:</p><pre><code>esptool.py --port COM3 erase_flash
-esptool.py --port COM3 write_flash 0 esp8266.bin</code></pre><p>After flashing, the board exposes a Python REPL over serial; <code>boot.py</code> and <code>main.py</code> run automatically at power-on.</p>
-</div><div class="card">
-  <h3><span class="n">2.6</span>Connect to Wi-Fi & POST to the cloud<span class="tag t-add">+ added</span><span class="tag t-hi">★ high yield</span></h3>
-  <pre><code><span class="kw">import</span> network, urequests
-wlan = network.<span class="fn">WLAN</span>(network.STA_IF)
-wlan.<span class="fn">active</span>(True)
-wlan.<span class="fn">connect</span>(<span class="st">'SSID'</span>, <span class="st">'password'</span>)
-<span class="kw">while</span> <span class="kw">not</span> wlan.<span class="fn">isconnected</span>(): <span class="kw">pass</span>
+      <h2 id="m2-uno">21 · Arduino Uno</h2>
 
-<span class="cm"># REST: POST a reading to the cloud</span>
-urequests.<span class="fn">post</span>(<span class="st">'http://api.example.com/data'</span>,
-    json={<span class="st">'temp'</span>: 28})</code></pre><p><b>REST verbs:</b> GET = read, POST = create/upload, PUT = update, DELETE = remove; payload is JSON. This is the “Interfacing ESP with the Cloud (REST — GET/POST)” syllabus line.</p>
-</div><div class="card">
-  <h3><span class="n">2.7</span>MQTT<span class="tag t-add">+ added</span><span class="tag t-hi">★ high yield</span></h3>
-  <div class="def"><b>MQTT</b>Message Queue Telemetry Transport — a lightweight <b>publish/subscribe</b> protocol over TCP, ideal for constrained IoT devices. Devices <b>publish</b> to a <b>topic</b> on a <b>broker</b>; other devices <b>subscribe</b> to that topic.</div><figure><svg viewBox="0 0 480 170" role="img" aria-label="MQTT publish subscribe">
-  <rect x="15" y="65" width="110" height="40" rx="6" fill="rgba(0,229,255,.12)" stroke="var(--cyan)"/><text class="svg-t" x="70" y="82" text-anchor="middle" fill="var(--cyan)">Sensor</text><text class="svg-l" x="70" y="97" text-anchor="middle">publisher</text>
-  <rect x="185" y="60" width="110" height="50" rx="6" fill="rgba(255,210,63,.14)" stroke="var(--yellow)"/><text class="svg-t" x="240" y="80" text-anchor="middle" fill="var(--yellow)">Broker</text><text class="svg-l" x="240" y="96" text-anchor="middle">topic: temp</text>
-  <rect x="355" y="20" width="110" height="40" rx="6" fill="rgba(49,214,122,.12)" stroke="var(--green)"/><text class="svg-t" x="410" y="45" text-anchor="middle" fill="var(--green)">Phone</text>
-  <rect x="355" y="110" width="110" height="40" rx="6" fill="rgba(49,214,122,.12)" stroke="var(--green)"/><text class="svg-t" x="410" y="135" text-anchor="middle" fill="var(--green)">Dashboard</text>
-  <line x1="125" y1="85" x2="185" y2="85" stroke="var(--cyan)" marker-end="url(#m)"/><text class="svg-l" x="155" y="78" text-anchor="middle" fill="var(--cyan)">PUBLISH</text>
-  <line x1="295" y1="78" x2="355" y2="45" stroke="var(--green)" marker-end="url(#m)"/><line x1="295" y1="92" x2="355" y2="128" stroke="var(--green)" marker-end="url(#m)"/>
-  <text class="svg-l" x="330" y="95" text-anchor="middle">SUBSCRIBE</text>
-  <defs><marker id="m" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="var(--ink-2)"/></marker></defs>
-</svg><figcaption>The sensor publishes to a topic; the broker fans it out to every subscriber. Publisher and subscribers never talk directly — they’re decoupled.</figcaption></figure><div class="tw"><table>
-  <thead><tr><th>QoS</th><th>Guarantee</th></tr></thead>
-  <tbody><tr><td><b>0</b> — at most once</td><td>"Fire and forget" — may be lost, never duplicated</td></tr><tr><td><b>1</b> — at least once</td><td>Guaranteed delivery, but may arrive twice</td></tr><tr><td><b>2</b> — exactly once</td><td>Guaranteed once — highest overhead</td></tr></tbody>
-</table></div><p><b>Retained message:</b> the broker keeps the last message on a topic so a new subscriber gets it immediately. <b>MQTT vs REST:</b> MQTT is push-based, persistent, low-overhead (great for many sensors); REST is pull-based request/response. <b>Broker</b> example: Mosquitto; library: <code>umqtt.simple</code> on MicroPython.</p><div class="ask"><b>Likely question</b>The course lab explicitly lists “publish temperature data to an MQTT broker” — expect a question on broker/topic/QoS. The QoS table is the high-value part.</div>
-</div>
-<h2 id="m2-interrupts">Interrupts</h2>
 <div class="card">
-  <h3><span class="n">2.8</span>Interrupts<span class="tag t-add">+ added</span><span class="tag t-hi">★ high yield</span></h3>
-  <div class="def"><b>Interrupt</b>A hardware signal that <b>pauses the main program</b> to run a short <b>ISR (Interrupt Service Routine)</b>, then resumes — so the MCU reacts instantly to an event instead of constantly polling for it.</div><pre><code><span class="fn">attachInterrupt</span>(
-  <span class="fn">digitalPinToInterrupt</span>(2),  <span class="cm">// pin</span>
-  onMotion,                    <span class="cm">// ISR</span>
-  RISING);                     <span class="cm">// trigger edge</span></code></pre><p><b>Trigger modes:</b> RISING, FALLING, CHANGE, LOW. <b>ISR rules:</b> keep it tiny, no <code>delay()</code> or <code>Serial.print()</code> inside, and mark shared variables <code>volatile</code>. On the Uno only pins <b>2 and 3</b> support external interrupts; the ESP8266 allows interrupts on most GPIOs.</p><div class="edge"><b>Extra marks</b>Contrast <b>interrupt vs polling</b>: polling wastes CPU checking a pin in a loop and can miss brief events; an interrupt is event-driven and never misses the edge. That comparison is the most likely exam framing.</div>
+  <h3><span class="n">21.1</span>The board<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Microcontroller</b>A small computer on a single chip containing a <b>processor, memory and input/output</b>, typically embedded inside some device that it controls. Often small and low cost.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Arduino Uno specification</th><th>Value</th></tr></thead>
+  <tbody>
+  <tr><td>Microcontroller</td><td><b>Atmel AVR ATmega328P</b>, 8-bit</td></tr>
+  <tr><td>Clock speed</td><td><b>16 MHz</b></td></tr>
+  <tr><td>Flash / SRAM / EEPROM</td><td><b>32 KB</b> (0.5 KB used by the bootloader) / <b>2 KB</b> / <b>1 KB</b></td></tr>
+  <tr><td>Digital I/O pins</td><td><b>14</b>, of which <b>6 provide PWM</b> (pins 3, 5, 6, 9, 10, 11)</td></tr>
+  <tr><td>Analog input pins</td><td><b>6</b> (A0–A5), 10-bit ADC</td></tr>
+  <tr><td>Operating voltage</td><td><b>5 V</b> (input 7–12 V via the barrel jack)</td></tr>
+  <tr><td>Current per I/O pin</td><td><b>40 mA</b> maximum (20 mA recommended)</td></tr>
+  <tr><td>Interfaces</td><td>UART (pins 0/1), SPI (10–13), I2C (A4 SDA, A5 SCL)</td></tr>
+  <tr><td>Programming</td><td>USB via a serial-to-USB chip; the <b>bootloader</b> receives the sketch</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Getting started — the nine steps:</b> download and install the Arduino IDE → connect the board to the computer with the USB cable → install drivers if needed → launch the IDE → <b>select your board</b> → <b>select your serial port</b> → open the <b>Blink</b> example → <b>upload</b> the program → watch the LED.</p>
+  <p><b>Adding an external LED to pin 13:</b> <code>File → Examples → Digital → Blink</code>. LEDs <b>have polarity</b> — the negative side (cathode) is indicated by the <b>flat side of the housing and the shorter leg</b>. Always add a current-limiting resistor.</p>
+  <div class="trap cram"><b>Exam trap</b>Two settings cause almost every failed upload and both are named in the deck: <b>the wrong board</b> and <b>the wrong serial port</b>. If a viva asks "your sketch will not upload, what do you check?", the order is: board selected, port selected, cable is a data cable not charge-only, and nothing else is holding the serial port open (close the Serial Monitor).</div>
 </div>
+
+      <h2 id="m2-prog">22 · Programming basics</h2>
+
+<div class="card">
+  <h3><span class="n">22.1</span>Structure and syntax<span class="tag t-hi">★ high yield</span></h3>
+  <p><b>The rules the deck states:</b> code is <b>case sensitive</b> · statements are commands and <b>must end with a semicolon</b> · comments follow <code>//</code> or are wrapped in <code>/* … */</code> · every sketch has <b><code>setup</code></b> and <b><code>loop</code></b>.</p>
+  <pre><code><span class="cm">// Blink — the structure of every Arduino sketch</span>
+<span class="kw">int</span> led = <span class="st">13</span>;              <span class="cm">// variable: named storage with a type</span>
+
+<span class="kw">void</span> <span class="fn">setup</span>() {              <span class="cm">// runs ONCE at power-up or reset</span>
+  <span class="fn">pinMode</span>(led, OUTPUT);
+}
+
+<span class="kw">void</span> <span class="fn">loop</span>() {               <span class="cm">// runs FOREVER, over and over</span>
+  <span class="fn">digitalWrite</span>(led, HIGH);
+  <span class="fn">delay</span>(<span class="st">1000</span>);
+  <span class="fn">digitalWrite</span>(led, LOW);
+  <span class="fn">delay</span>(<span class="st">1000</span>);
+}</code></pre>
+  <div class="tw"><table>
+  <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+  <tbody>
+  <tr><td><b>Sketch</b></td><td>An Arduino program</td></tr>
+  <tr><td><b><code>setup()</code></b></td><td>Runs once at power-up or reset; used for <code>pinMode</code>, <code>Serial.begin</code>, sensor initialisation</td></tr>
+  <tr><td><b><code>loop()</code></b></td><td>Runs repeatedly for as long as the board has power — the super-loop</td></tr>
+  <tr><td><b>Function</b></td><td>A named block of code, called by name</td></tr>
+  <tr><td><b>Variable</b></td><td>Named storage with a type: <code>int</code> (2 bytes), <code>long</code> (4), <code>float</code> (4), <code>char</code> (1), <code>boolean</code> (1), <code>byte</code> (1)</td></tr>
+  <tr><td><b>Constant</b></td><td><code>HIGH</code>/<code>LOW</code>, <code>INPUT</code>/<code>OUTPUT</code>/<code>INPUT_PULLUP</code>, <code>true</code>/<code>false</code></td></tr>
+  </tbody>
+</table></div>
+  <p><b>Timing:</b> <code>delay(ms)</code> pauses for milliseconds; <code>delayMicroseconds(us)</code> pauses for microseconds; <code>millis()</code> returns milliseconds since start and is what you use instead of <code>delay</code> when other things must keep running.</p>
+</div>
+
+      <h2 id="m2-dio">23 · Digital I/O</h2>
+
+<div class="card">
+  <h3><span class="n">23.1</span>The three functions<span class="tag t-hi">★ high yield</span></h3>
+  <p><b>Digital I/O is binary</b> — on or off, 1 or 0. Internally all microprocessors are digital, because two well-separated voltage levels are far more noise-tolerant than a continuum.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Function</th><th>Does</th></tr></thead>
+  <tbody>
+  <tr><td><code><b>pinMode</b>(pin, mode)</code></td><td>Sets the pin to <code>INPUT</code>, <code>OUTPUT</code> or <code>INPUT_PULLUP</code></td></tr>
+  <tr><td><code><b>digitalRead</b>(pin)</code></td><td>Reads <code>HIGH</code> or <code>LOW</code> from a pin</td></tr>
+  <tr><td><code><b>digitalWrite</b>(pin, value)</code></td><td>Writes <code>HIGH</code> or <code>LOW</code> to a pin</td></tr>
+  </tbody>
+</table></div>
+  <p><b>The electrical facts the deck gives:</b> output pins can provide <b>40 mA</b> of current; writing <code>HIGH</code> to an <b>input</b> pin installs a <b>20 kΩ pull-up</b> resistor (this is what <code>INPUT_PULLUP</code> does explicitly).</p>
+  <pre><code><span class="cm">// Exercise 1: a push button turning an LED on and off</span>
+<span class="kw">const int</span> BUTTON = <span class="st">2</span>, LED = <span class="st">13</span>;
+
+<span class="kw">void</span> <span class="fn">setup</span>() {
+  <span class="fn">pinMode</span>(BUTTON, INPUT_PULLUP);   <span class="cm">// internal pull-up: no external resistor</span>
+  <span class="fn">pinMode</span>(LED, OUTPUT);
+}
+<span class="kw">void</span> <span class="fn">loop</span>() {
+  <span class="cm">// With a pull-up the logic is INVERTED: pressed reads LOW</span>
+  <span class="kw">if</span> (<span class="fn">digitalRead</span>(BUTTON) == LOW) <span class="fn">digitalWrite</span>(LED, HIGH);
+  <span class="kw">else</span>                              <span class="fn">digitalWrite</span>(LED, LOW);
+}</code></pre>
+  <div class="trap cram"><b>Exam trap</b>A digital input pin must <b>never be left floating</b> — an unconnected input picks up noise and reads randomly HIGH and LOW. Every button needs a <b>pull-up or pull-down</b> resistor, and with a pull-up the pressed state is <b>LOW</b>, not HIGH. Getting that inversion the wrong way round is the standard lab mistake and a standard viva question.</div>
+</div>
+
+      <h2 id="m2-adc">24 · Analog input &amp; the ADC</h2>
+
+<div class="card">
+  <h3><span class="n">24.1</span>Resolution and quantisation<span class="tag t-hi">★ high yield</span></h3>
+  <p><b>Digital has two values; analog has infinitely many.</b> Computers do not really do analog — they <b>quantise</b>. The bridge is the <b>analog-to-digital converter</b>.</p>
+  <div class="def"><b>Resolution</b>The number of different voltage levels (states) used to discretise an input signal. Values range from <b>256 states (8 bits)</b> to <b>4,294,967,296 states (32 bits)</b>. <b>The Arduino uses 1024 states — 10 bits.</b></div>
+  <div class="tw"><table>
+  <thead><tr><th>Quantity</th><th>Arduino Uno</th></tr></thead>
+  <tbody>
+  <tr><td>ADC resolution</td><td><b>10 bits = 1024 states</b> (0–1023)</td></tr>
+  <tr><td>Reference voltage</td><td>5 V (default)</td></tr>
+  <tr><td><b>Smallest measurable change</b></td><td><b>5 V / 1024 = 4.8 mV</b></td></tr>
+  <tr><td>Maximum sample rate</td><td><b>10,000 samples per second</b></td></tr>
+  <tr><td>Analog pins</td><td>6 (A0–A5)</td></tr>
+  <tr><td>Function</td><td><code>analogRead(pin)</code> → returns 0–1023</td></tr>
+  </tbody>
+</table></div>
+  <pre><code><span class="cm">// Convert a raw ADC count back to volts — the calculation exams ask for</span>
+<span class="kw">int</span>   raw     = <span class="fn">analogRead</span>(A0);        <span class="cm">// 0 … 1023</span>
+<span class="kw">float</span> volts   = raw * (<span class="st">5.0</span> / <span class="st">1023.0</span>);   <span class="cm">// 0 … 5 V</span>
+<span class="cm">// e.g. raw = 512  ->  512 × 4.8828 mV ≈ 2.50 V</span></code></pre>
+  <div class="edge"><b>Extra marks</b>Two additions that pay: <b>sample rate and word length</b> are the two axes of any digitisation (the deck's CD analogy — a CD is an analog signal captured on digital media at 44.1 kHz, 16 bits), and the <b>Nyquist rule</b> says the sample rate must exceed <b>twice</b> the highest frequency of interest or the signal aliases. Also note that a higher-resolution ADC does not help if the sensor itself is noisier than one least-significant bit.</div>
+</div>
+
+      <h2 id="m2-pwm">25 · Analog output &amp; PWM</h2>
+
+<div class="card">
+  <h3><span class="n">25.1</span>Pulse width modulation<span class="tag t-hi">★ high yield</span></h3>
+  <p><b>Can a digital device produce analog output?</b> Not truly — but it can be <b>simulated using pulse width modulation</b>.</p>
+  <div class="def"><b>PWM</b>You cannot use a digital pin to supply, say, 2.5 V directly, but you can <b>pulse the output on and off very fast</b> to produce the same effect. The pulsing happens so quickly that the connected output device "sees" the result as a reduction in voltage. The cycle length is <b>fixed</b>, with a constant number of cycles per second; what varies is the <b>duty cycle</b>.</div>
+  <pre><code>output voltage = (on_time / cycle_time) × 5 V
+
+<span class="fn">analogWrite</span>(pin, value)   <span class="cm">// value is the duty cycle, 0 … 255</span>
+<span class="fn">analogWrite</span>(<span class="st">9</span>, <span class="st">128</span>)        <span class="cm">// 50% duty cycle  -> ~2.5 V average</span>
+<span class="fn">analogWrite</span>(<span class="st">11</span>, <span class="st">64</span>)        <span class="cm">// 25% duty cycle  -> ~1.25 V average</span></code></pre>
+  <p><b>PWM-capable pins on the Uno:</b> 3, 5, 6, 9, 10, 11 — marked with a tilde (<b>~</b>) on the board. Default PWM frequency is about 490 Hz (980 Hz on pins 5 and 6).</p>
+  <p><b>Uses:</b> LED brightness, DC motor speed through a driver, servo position, and generating tones on a passive buzzer.</p>
+  <div class="trap cram"><b>Exam trap</b>PWM is <b>not</b> a true DAC. The pin is still only ever at 0 V or 5 V; the <b>average</b> is what varies. That matters in practice: an LED or a motor integrates the pulses and behaves as if it saw the average, but a circuit that needs a genuine steady voltage — a reference, an analog input to another device — needs an RC low-pass filter or a real DAC. Say this and the difference between <code>analogWrite</code> and analog output is clearly understood.</div>
+</div>
+
+      <h2 id="m2-serial">26 · Serial communication</h2>
+
+<div class="card">
+  <h3><span class="n">26.1</span>How the board talks to the computer<span class="tag t-hi">★ high yield</span></h3>
+  <p><b>What happens on upload:</b> compiling turns the program into binary data — ones and zeros; uploading sends those bits through the USB cable to the Arduino. The two LEDs near the USB connector blink when data moves: <b>RX blinks when the Arduino is receiving</b>, <b>TX when it is transmitting</b>.</p>
+  <div class="tw"><table>
+  <thead><tr><th>Command</th><th>Purpose</th></tr></thead>
+  <tbody>
+  <tr><td><code>Serial.begin(9600)</code></td><td>Opens the serial port at a <b>baud rate</b> — the monitor must be set to the same number</td></tr>
+  <tr><td><code>Serial.print(v)</code> / <code>Serial.println(v)</code></td><td>Sends a value, without / with a newline</td></tr>
+  <tr><td><code>Serial.available()</code></td><td>How many bytes are waiting to be read</td></tr>
+  <tr><td><code>Serial.read()</code></td><td>Reads one incoming byte</td></tr>
+  <tr><td><code>Serial.parseInt()</code></td><td>Reads incoming numeric characters as an integer</td></tr>
+  <tr><td><code>Serial.write()</code></td><td>Sends raw bytes rather than text</td></tr>
+  </tbody>
+</table></div>
+  <pre><code><span class="cm">// Exercise 3: set LED brightness from keyboard input 0-9</span>
+<span class="kw">void</span> <span class="fn">setup</span>() { <span class="fn">Serial</span>.<span class="fn">begin</span>(<span class="st">9600</span>); <span class="fn">pinMode</span>(<span class="st">9</span>, OUTPUT); }
+
+<span class="kw">void</span> <span class="fn">loop</span>() {
+  <span class="kw">if</span> (<span class="fn">Serial</span>.<span class="fn">available</span>() &gt; <span class="st">0</span>) {
+    <span class="kw">int</span> n = <span class="fn">Serial</span>.<span class="fn">parseInt</span>();          <span class="cm">// 0 = off, 9 = full</span>
+    <span class="kw">if</span> (n &gt;= <span class="st">0</span> &amp;&amp; n &lt;= <span class="st">9</span>) {
+      <span class="fn">analogWrite</span>(<span class="st">9</span>, <span class="fn">map</span>(n, <span class="st">0</span>, <span class="st">9</span>, <span class="st">0</span>, <span class="st">255</span>));
+      <span class="fn">Serial</span>.<span class="fn">print</span>(<span class="st">"brightness "</span>); <span class="fn">Serial</span>.<span class="fn">println</span>(n);
+    }
+  }
+}</code></pre>
+  <p><b>Two different protocols are involved.</b> The ATmega speaks <b>serial (TTL)</b> — simple asynchronous bytes on TX/RX at an agreed baud rate. The computer speaks <b>USB</b>, which is far more complicated. A <b>serial-to-USB chip</b> on the board translates between them. Boards without one — the LilyPad and Fio — need an external USB-to-TTL adapter such as an <b>FTDI cable</b>; on the <b>Leonardo</b>, a single microcontroller runs the sketches <i>and</i> handles USB itself.</p>
+  <div class="edge"><b>Extra marks</b>Serial is the primary <b>debugging</b> tool on a board with no screen — <code>Serial.println</code> is the embedded developer's print statement. Add the cost, because it is examinable: serial printing is slow (at 9600 baud, roughly one character per millisecond) and every literal string consumes SRAM, so heavy printing changes the timing of the code it is meant to diagnose.</div>
+</div>
+
+      <h2 id="m2-esp">27 · ESP8266-12E NodeMCU</h2>
+
+<div class="card">
+  <h3><span class="n">27.1</span>Getting started with the ESP board<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>ESP8266-12E NodeMCU</b>A low-cost Wi-Fi microcontroller module from <b>Espressif</b>. The <b>ESP-12E</b> is the shielded module carrying the ESP8266 SoC and 4 MB of flash; <b>NodeMCU</b> is the development board that adds a USB-to-serial chip (CP2102 or CH340), a 3.3 V regulator, and RST/FLASH buttons, so it can be programmed over USB like an Arduino.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Specification</th><th>Value</th></tr></thead>
+  <tbody>
+  <tr><td>CPU</td><td>Tensilica <b>Xtensa L106</b>, 32-bit, <b>80 MHz</b> (boostable to 160)</td></tr>
+  <tr><td>RAM / Flash</td><td>~50 KB usable heap / <b>4 MB</b> external flash</td></tr>
+  <tr><td><b>Operating voltage</b></td><td><b>3.3 V — the GPIO pins are NOT 5 V tolerant</b></td></tr>
+  <tr><td>Wi-Fi</td><td><b>802.11 b/g/n</b>, 2.4 GHz, with a full TCP/IP stack; station, AP and station+AP modes</td></tr>
+  <tr><td>Digital GPIO</td><td>~11 usable (D0–D10 on the NodeMCU silkscreen)</td></tr>
+  <tr><td><b>Analog input</b></td><td><b>Exactly one — A0</b>, 10-bit, 0–1.0 V at the chip (the NodeMCU board adds a divider so the pin accepts 0–3.3 V)</td></tr>
+  <tr><td>Interfaces</td><td>UART, SPI, I2C (software), PWM on most pins, 1-Wire</td></tr>
+  <tr><td>Current</td><td>~80 mA average with the radio on, peaks near 300 mA when transmitting</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Getting started, the Arduino-IDE route:</b> install the ESP8266 board package via <code>File → Preferences → Additional Board Manager URLs</code>, then <code>Tools → Board → Boards Manager → esp8266</code> → select <b>NodeMCU 1.0 (ESP-12E Module)</b> → select the port → set upload speed 115200 → upload. Install the CP2102/CH340 driver if the port does not appear.</p>
+  <div class="trap cram"><b>Exam trap — the pin numbering</b>The NodeMCU silkscreen labels (<b>D0…D8</b>) are <b>not</b> the GPIO numbers the code uses. <b>D1 = GPIO5, D2 = GPIO4, D3 = GPIO0, D4 = GPIO2, D5 = GPIO14, D6 = GPIO12, D7 = GPIO13, D8 = GPIO15.</b> In MicroPython you write <code>Pin(5)</code> to mean the pin printed <code>D1</code>. Also: <b>GPIO0, GPIO2 and GPIO15 are boot-mode pins</b> — pulling them the wrong way at power-up stops the board from booting, so avoid them for inputs with pull-downs. This is the single most examinable practical detail about the board.</div>
+</div>
+
+      <h2 id="m2-upy">28 · MicroPython &amp; flashing</h2>
+
+<div class="card">
+  <h3><span class="n">28.1</span>MicroPython and the Explorer IDE<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>MicroPython</b>A lean, efficient <b>re-implementation of Python 3</b> optimised to run on microcontrollers. It includes a subset of the standard library plus hardware modules (<code>machine</code>, <code>network</code>, <code>utime</code>), and — its distinguishing feature — an interactive <b>REPL</b> over the serial port, so you can type a line and see the pin change immediately, with no compile-and-upload cycle.</div>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>Arduino C/C++</th><th>MicroPython</th></tr></thead>
+  <tbody>
+  <tr><td>Workflow</td><td><b>Compile → upload → run</b></td><td><b>Interpreted</b>; files copied to the board's filesystem, or typed live at the REPL</td></tr>
+  <tr><td>Iteration speed</td><td>Slower — a rebuild for every change</td><td><b>Immediate</b> — test a line at the REPL</td></tr>
+  <tr><td>Performance / RAM</td><td>Faster, smaller</td><td>Slower, needs more RAM (which is why it suits the ESP, not an Uno)</td></tr>
+  <tr><td>Files on device</td><td>One compiled firmware image</td><td><b><code>boot.py</code></b> runs first at power-up, then <b><code>main.py</code></b>; your own modules alongside</td></tr>
+  <tr><td>Best for</td><td>Tight timing, minimal hardware</td><td>Rapid prototyping, network code, readable logic</td></tr>
+  </tbody>
+</table></div>
+  <p><b>The IDEs:</b> <b>uPyCraft</b> — the "Explorer" style IDE with a device file explorer, editor and serial terminal in one window; <b>Thonny</b>, which is now the more common choice and can install MicroPython for you; and <b>ampy</b> / <b>rshell</b> on the command line for copying files.</p>
+</div>
+
+<div class="card">
+  <h3><span class="n">28.2</span>Flashing the ESP8266 with MicroPython<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <p>Learn this as an ordered procedure — it is a viva question and a lab step.</p>
+  <ol>
+    <li><b>Install esptool:</b> <code>pip install esptool</code>.</li>
+    <li><b>Download the firmware</b> — the <code>.bin</code> for ESP8266 from micropython.org/download.</li>
+    <li><b>Connect the board</b> by USB and find the port (<code>/dev/ttyUSB0</code>, <code>COM3</code>).</li>
+    <li><b>Erase the flash first.</b> This is not optional — leftover data from the factory AT firmware causes boot loops.</li>
+    <li><b>Write the new firmware</b> at address 0.</li>
+    <li><b>Open the REPL</b> and check you get the <code>&gt;&gt;&gt;</code> prompt.</li>
+  </ol>
+  <pre><code><span class="cm"># 4 — erase</span>
+esptool.py --port /dev/ttyUSB0 erase_flash
+
+<span class="cm"># 5 — write (ESP8266 with 4 MB flash: dio mode, address 0)</span>
+esptool.py --port /dev/ttyUSB0 --baud 460800 write_flash \
+           --flash_size=detect -fm dio 0 esp8266-20240602-v1.23.0.bin
+
+<span class="cm"># 6 — connect to the REPL at 115200 baud, then:</span>
+&gt;&gt;&gt; <span class="kw">import</span> machine
+&gt;&gt;&gt; led = machine.<span class="fn">Pin</span>(<span class="st">2</span>, machine.Pin.OUT)
+&gt;&gt;&gt; led.<span class="fn">value</span>(<span class="st">0</span>)      <span class="cm"># on — the built-in LED is ACTIVE LOW</span></code></pre>
+  <div class="trap cram"><b>Exam trap</b>Three things fail this step in the lab. <b>(1) Skipping <code>erase_flash</code></b> — the most common cause of a board that boots into gibberish. <b>(2) Flash mode</b> — the ESP-12E generally needs <code>-fm dio</code>; using <code>qio</code> on a board that does not support it produces a device that flashes successfully and then will not run. <b>(3) Boot mode</b> — some boards need <b>GPIO0 held LOW at reset</b> to enter the bootloader; the NodeMCU does this automatically with its FLASH and RST buttons, a bare ESP-12E does not.</div>
+</div>
+
+      <h2 id="m2-sense">29 · Connecting sensors to the ESP</h2>
+
+<div class="card">
+  <h3><span class="n">29.1</span>Wiring and reading<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>Sensor</th><th>Wiring to NodeMCU</th><th>Read with</th></tr></thead>
+  <tbody>
+  <tr><td><b>DHT11 / DHT22</b></td><td>VCC→3V3, GND→GND, DATA→<b>D4 (GPIO2)</b> with a 10 kΩ pull-up to 3V3</td><td><code>dht.DHT11(Pin(2))</code></td></tr>
+  <tr><td><b>LDR</b></td><td>Voltage divider: 3V3 → LDR → <b>A0</b> → 10 kΩ → GND</td><td><code>ADC(0).read()</code> → 0–1023</td></tr>
+  <tr><td><b>PIR (HC-SR501)</b></td><td>VCC→<b>VIN/5V</b>, GND→GND, OUT→any GPIO (output is 3.3 V TTL, so it is safe)</td><td><code>Pin(14, Pin.IN).value()</code></td></tr>
+  <tr><td><b>Ultrasonic (HC-SR04)</b></td><td>VCC→VIN/5V, TRIG→GPIO, <b>ECHO→ voltage divider → GPIO</b></td><td>Time the echo pulse</td></tr>
+  <tr><td><b>Relay module</b></td><td>VCC→VIN, GND→GND, IN→GPIO (most modules are <b>active LOW</b>)</td><td><code>Pin(5, Pin.OUT).value(0)</code></td></tr>
+  </tbody>
+</table></div>
+  <pre><code><span class="kw">from</span> machine <span class="kw">import</span> Pin, ADC
+<span class="kw">import</span> dht, time
+
+sensor = dht.<span class="fn">DHT11</span>(<span class="fn">Pin</span>(<span class="st">2</span>))       <span class="cm"># D4</span>
+ldr    = <span class="fn">ADC</span>(<span class="st">0</span>)                  <span class="cm"># the ESP8266's ONE analog pin</span>
+pir    = <span class="fn">Pin</span>(<span class="st">14</span>, Pin.IN)          <span class="cm"># D5</span>
+
+<span class="kw">while</span> <span class="kw">True</span>:
+    <span class="kw">try</span>:
+        sensor.<span class="fn">measure</span>()               <span class="cm"># triggers a reading</span>
+        t = sensor.<span class="fn">temperature</span>()      <span class="cm"># degrees C</span>
+        h = sensor.<span class="fn">humidity</span>()         <span class="cm"># percent</span>
+        <span class="fn">print</span>(t, h, ldr.<span class="fn">read</span>(), pir.<span class="fn">value</span>())
+    <span class="kw">except</span> OSError:
+        <span class="fn">print</span>(<span class="st">'sensor read failed'</span>)  <span class="cm"># DHT reads DO fail sometimes — catch it</span>
+    time.<span class="fn">sleep</span>(<span class="st">2</span>)                    <span class="cm"># DHT11 max rate is 0.5 Hz</span></code></pre>
+  <div class="trap cram"><b>Exam trap — three things that break ESP sensor wiring</b><b>(1)</b> The ESP8266 has <b>exactly one analog pin (A0)</b>. Two analog sensors need an external ADC (ADS1115 over I2C) or an analog multiplexer — this is a favourite "why won't this design work" question. <b>(2)</b> GPIO pins are <b>3.3 V and not 5 V tolerant</b>: the HC-SR04's <b>ECHO output is 5 V</b> and must go through a divider (1 kΩ + 2 kΩ) or it can damage the pin. <b>(3)</b> Sensors needing 5 V take it from <b>VIN</b>, not 3V3, and every device must share a <b>common ground</b> — a floating ground is the reason "the sensor reads nonsense".</div>
+</div>
+
+      <h2 id="m2-wifi">30 · Connecting the ESP to Wi-Fi</h2>
+
+<div class="card">
+  <h3><span class="n">30.1</span>Station and access-point modes<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>Mode</th><th>Meaning</th><th>Used for</th></tr></thead>
+  <tbody>
+  <tr><td><b>STA</b> — station</td><td>The ESP <b>joins</b> an existing Wi-Fi network as a client</td><td>Normal operation — reaching the internet and the cloud</td></tr>
+  <tr><td><b>AP</b> — access point</td><td>The ESP <b>creates</b> its own network that others join</td><td>First-time configuration, or a standalone local device</td></tr>
+  <tr><td><b>STA + AP</b></td><td>Both at once</td><td>Provisioning: connect to the ESP's own network to tell it which Wi-Fi to join</td></tr>
+  </tbody>
+</table></div>
+  <pre><code><span class="kw">import</span> network, time
+
+<span class="kw">def</span> <span class="fn">connect</span>(ssid, password, timeout=<span class="st">15</span>):
+    wlan = network.<span class="fn">WLAN</span>(network.STA_IF)   <span class="cm"># station interface</span>
+    wlan.<span class="fn">active</span>(<span class="kw">True</span>)
+    <span class="kw">if</span> <span class="kw">not</span> wlan.<span class="fn">isconnected</span>():
+        <span class="fn">print</span>(<span class="st">'connecting…'</span>)
+        wlan.<span class="fn">connect</span>(ssid, password)
+        t0 = time.<span class="fn">time</span>()
+        <span class="kw">while</span> <span class="kw">not</span> wlan.<span class="fn">isconnected</span>():
+            <span class="kw">if</span> time.<span class="fn">time</span>() - t0 &gt; timeout:   <span class="cm"># ALWAYS bound the wait</span>
+                <span class="kw">raise</span> <span class="fn">OSError</span>(<span class="st">'wifi timeout'</span>)
+            time.<span class="fn">sleep</span>(<span class="st">0.5</span>)
+    <span class="fn">print</span>(<span class="st">'ifconfig:'</span>, wlan.<span class="fn">ifconfig</span>())    <span class="cm"># (IP, netmask, gateway, DNS)</span>
+    <span class="kw">return</span> wlan
+
+<span class="cm"># Put this in boot.py so the board is online before main.py runs</span>
+<span class="fn">connect</span>(<span class="st">'MyNetwork'</span>, <span class="st">'password'</span>)</code></pre>
+  <p><b>Useful calls:</b> <code>wlan.scan()</code> lists nearby networks · <code>wlan.status()</code> reports why a connection failed · <code>wlan.ifconfig()</code> returns the IP tuple · <code>network.WLAN(network.AP_IF)</code> with <code>.config(essid=…, password=…)</code> starts an access point.</p>
+  <div class="edge"><b>Extra marks</b>Three practical points worth a mark each. <b>(1)</b> The ESP8266 is <b>2.4 GHz only</b> — it cannot see a 5 GHz network, which is the most common "it won't connect" cause. <b>(2)</b> Always <b>bound the connection wait</b>; a <code>while not connected: pass</code> loop hangs the board forever if the router is down. <b>(3)</b> Wi-Fi is the dominant power draw, so battery designs connect, publish and immediately <code>deepsleep</code> rather than staying associated.</div>
+</div>
+
+      <h2 id="m2-rest">31 · REST API — GET and POST</h2>
+
+<div class="card">
+  <h3><span class="n">31.1</span>Interfacing the ESP with the cloud over HTTP<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>Method</th><th>Meaning</th><th>Where the data goes</th><th>Safe / idempotent</th></tr></thead>
+  <tbody>
+  <tr><td><b>GET</b></td><td><b>Retrieve</b> a resource</td><td>In the URL as query parameters</td><td>Safe and idempotent — should not change state</td></tr>
+  <tr><td><b>POST</b></td><td><b>Create</b> / submit data</td><td>In the <b>request body</b>, usually JSON</td><td>Neither — repeating it creates another record</td></tr>
+  <tr><td><b>PUT</b></td><td>Replace a resource</td><td>Body</td><td>Idempotent</td></tr>
+  <tr><td><b>DELETE</b></td><td>Remove a resource</td><td>—</td><td>Idempotent</td></tr>
+  </tbody>
+</table></div>
+  <pre><code><span class="kw">import</span> urequests <span class="kw">as</span> requests
+<span class="kw">import</span> ujson
+
+API_KEY = <span class="st">'YOUR_WRITE_KEY'</span>
+
+<span class="cm"># --- GET: everything in the URL (ThingSpeak's update endpoint accepts this) ---</span>
+url = <span class="st">'http://api.thingspeak.com/update?api_key={}&amp;field1={}&amp;field2={}'</span>.<span class="fn">format</span>(
+        API_KEY, temperature, humidity)
+r = requests.<span class="fn">get</span>(url)
+<span class="fn">print</span>(r.status_code, r.text)
+r.<span class="fn">close</span>()                       <span class="cm"># MUST close — leaked sockets exhaust RAM</span>
+
+<span class="cm"># --- POST: data in the body as JSON ---</span>
+payload = {<span class="st">'api_key'</span>: API_KEY, <span class="st">'field1'</span>: temperature, <span class="st">'field2'</span>: humidity}
+r = requests.<span class="fn">post</span>(<span class="st">'http://api.thingspeak.com/update.json'</span>,
+                  data=ujson.<span class="fn">dumps</span>(payload),
+                  headers={<span class="st">'Content-Type'</span>: <span class="st">'application/json'</span>})
+<span class="fn">print</span>(r.status_code)
+r.<span class="fn">close</span>()</code></pre>
+  <p><b>Status codes to recognise:</b> <b>200</b> OK · 201 Created · <b>400</b> bad request · <b>401</b> unauthorised (wrong API key) · 404 not found · <b>429</b> too many requests (ThingSpeak's free tier allows one update per 15 s) · 500 server error.</p>
+  <div class="trap cram"><b>Exam trap</b><b>Always call <code>r.close()</code>.</b> On a device with ~50 KB of heap, a request loop that leaks sockets runs for a few hundred iterations and then dies with a memory allocation error — a fault that looks random and is not. And note the security point: a <b>GET puts the API key in the URL</b>, where it appears in server logs and proxies; a POST at least keeps it in the body. Neither is safe without <b>HTTPS</b>, which the ESP8266 can do but at significant RAM cost.</div>
+</div>
+
+      <h2 id="m2-mqtt">32 · MQTT</h2>
+
+<div class="card">
+  <h3><span class="n">32.1</span>The protocol<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>MQTT</b>Message Queuing Telemetry Transport — a <b>lightweight publish–subscribe</b> messaging protocol over TCP, designed for constrained devices and unreliable, low-bandwidth networks. Publishers send messages to <b>topics</b> on a <b>broker</b>; subscribers receive every message on the topics they subscribe to. Publishers and subscribers never know about each other.</div>
+  <div class="tw"><table>
+  <thead><tr><th>Concept</th><th>Meaning</th></tr></thead>
+  <tbody>
+  <tr><td><b>Broker</b></td><td>The server that receives all messages and routes them — Mosquitto, HiveMQ, AWS IoT Core</td></tr>
+  <tr><td><b>Topic</b></td><td>A hierarchical string: <code>home/livingroom/temperature</code>. Wildcards: <code>+</code> one level, <code>#</code> all remaining levels</td></tr>
+  <tr><td><b>Publish</b></td><td>Send a payload to a topic</td></tr>
+  <tr><td><b>Subscribe</b></td><td>Register interest in a topic and receive its messages</td></tr>
+  <tr><td><b>QoS 0</b></td><td><b>At most once</b> — fire and forget</td></tr>
+  <tr><td><b>QoS 1</b></td><td><b>At least once</b> — acknowledged, may duplicate</td></tr>
+  <tr><td><b>QoS 2</b></td><td><b>Exactly once</b> — four-way handshake, most overhead</td></tr>
+  <tr><td><b>Retained message</b></td><td>The broker keeps the last message on a topic and gives it to new subscribers immediately</td></tr>
+  <tr><td><b>Last Will &amp; Testament</b></td><td>A message the broker publishes on the device's behalf if it disconnects unexpectedly — how a dashboard knows a node has died</td></tr>
+  <tr><td><b>Keep-alive</b></td><td>Interval after which the broker considers a silent client gone</td></tr>
+  </tbody>
+</table></div>
+  <pre><code><span class="kw">from</span> umqtt.simple <span class="kw">import</span> MQTTClient
+<span class="kw">import</span> machine, time
+
+<span class="kw">def</span> <span class="fn">on_message</span>(topic, msg):          <span class="cm"># callback for SUBSCRIBED topics</span>
+    <span class="fn">print</span>(<span class="st">'got'</span>, topic, msg)
+    <span class="kw">if</span> msg == <span class="st">b'ON'</span>:
+        machine.<span class="fn">Pin</span>(<span class="st">5</span>, machine.Pin.OUT).<span class="fn">value</span>(<span class="st">1</span>)
+
+client = <span class="fn">MQTTClient</span>(<span class="st">'esp-node-01'</span>, <span class="st">'broker.hivemq.com'</span>, port=<span class="st">1883</span>)
+client.<span class="fn">set_callback</span>(on_message)
+client.<span class="fn">connect</span>()
+client.<span class="fn">subscribe</span>(<span class="st">b'home/livingroom/light'</span>)
+
+<span class="kw">while</span> <span class="kw">True</span>:
+    client.<span class="fn">publish</span>(<span class="st">b'home/livingroom/temperature'</span>, <span class="fn">str</span>(t))
+    client.<span class="fn">check_msg</span>()               <span class="cm"># non-blocking; wait_msg() blocks</span>
+    time.<span class="fn">sleep</span>(<span class="st">5</span>)</code></pre>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>MQTT</th><th>HTTP / REST</th></tr></thead>
+  <tbody>
+  <tr><td>Model</td><td><b>Publish–subscribe</b></td><td><b>Request–response</b></td></tr>
+  <tr><td>Connection</td><td><b>Persistent</b> — one connection, many messages</td><td>New request each time</td></tr>
+  <tr><td>Overhead</td><td><b>2-byte</b> minimum header</td><td>Hundreds of bytes of headers per request</td></tr>
+  <tr><td>Direction</td><td><b>Bidirectional</b> — the server can push to the device</td><td>Device must poll to receive anything</td></tr>
+  <tr><td>Delivery guarantees</td><td>Three QoS levels</td><td>None beyond TCP</td></tr>
+  <tr><td>Best for</td><td>Frequent small telemetry, many devices, control commands</td><td>Occasional updates, easy integration with web tooling</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>The sharpest justification for MQTT in an IoT design: <b>a device cannot be reached by HTTP.</b> It sits behind NAT with no public address, so an HTTP-only node must <b>poll</b> — waking, connecting and asking "anything for me?" on a timer, which wastes power and adds latency. MQTT's persistent connection lets the broker <b>push</b> a command the instant it arrives. That is why the syllabus pairs REST and MQTT: REST for the device reporting upward, MQTT when the cloud must also talk back.</div>
+</div>
+
+      <h2 id="m2-irq">33 · Interrupts</h2>
+
+<div class="card">
+  <h3><span class="n">33.1</span>Polling vs interrupts<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="def"><b>Interrupt</b>A hardware signal that <b>suspends the normal flow</b> of the program so that a special function — the <b>Interrupt Service Routine (ISR)</b> — runs immediately, after which execution resumes where it left off. It lets a microcontroller respond to an event <b>without continuously checking for it</b>.</div>
+  <div class="tw"><table>
+  <thead><tr><th></th><th>Polling</th><th>Interrupt</th></tr></thead>
+  <tbody>
+  <tr><td>How</td><td>The loop repeatedly reads the pin</td><td>The hardware calls you when the pin changes</td></tr>
+  <tr><td>Latency</td><td>Up to one full loop iteration — worse with any <code>delay()</code></td><td>Microseconds, and <b>bounded</b></td></tr>
+  <tr><td>CPU cost</td><td>Wasted cycles checking nothing</td><td>Zero until the event happens</td></tr>
+  <tr><td>Missed events</td><td><b>Possible</b> — a short pulse between two checks is lost</td><td>Caught</td></tr>
+  <tr><td>Power</td><td>Cannot sleep — must stay awake to poll</td><td><b>Can sleep and be woken by the pin</b></td></tr>
+  <tr><td>Complexity</td><td>Simple</td><td>Shared-variable hazards; needs care</td></tr>
+  </tbody>
+</table></div>
+  <p><b>Trigger types:</b> <b>rising</b> edge (LOW→HIGH) · <b>falling</b> edge (HIGH→LOW) · <b>both/change</b> · <b>level</b> (while held). Sources are <b>external</b> (a pin) or <b>internal</b> (a timer, the ADC, the UART).</p>
+  <pre><code><span class="cm"># --- MicroPython on the ESP8266 ---</span>
+<span class="kw">from</span> machine <span class="kw">import</span> Pin
+<span class="kw">import</span> micropython
+micropython.<span class="fn">alloc_emergency_exception_buf</span>(<span class="st">100</span>)   <span class="cm"># so ISR errors are reportable</span>
+
+count = <span class="st">0</span>
+<span class="kw">def</span> <span class="fn">handler</span>(pin):          <span class="cm"># the ISR — keep it TINY</span>
+    <span class="kw">global</span> count
+    count += <span class="st">1</span>              <span class="cm"># set a flag / bump a counter, nothing more</span>
+
+button = <span class="fn">Pin</span>(<span class="st">14</span>, Pin.IN, Pin.PULL_UP)
+button.<span class="fn">irq</span>(trigger=Pin.IRQ_FALLING, handler=handler)
+
+<span class="cm"># --- Arduino C equivalent ---</span>
+<span class="cm">// volatile: the compiler must not cache a variable an ISR can change</span>
+<span class="kw">volatile</span> <span class="kw">int</span> count = <span class="st">0</span>;
+<span class="kw">void</span> <span class="fn">isr</span>() { count++; }
+<span class="fn">attachInterrupt</span>(<span class="fn">digitalPinToInterrupt</span>(<span class="st">2</span>), isr, FALLING);
+<span class="cm">// Uno: only pins 2 and 3 support external interrupts</span></code></pre>
+  <p><b>The rules for writing an ISR:</b></p>
+  <ol>
+    <li><b>Keep it as short as possible</b> — set a flag or increment a counter; do the real work in the main loop.</li>
+    <li><b>No <code>delay()</code>, no <code>Serial.print</code>, no network calls</b> inside an ISR.</li>
+    <li><b>No memory allocation</b> in a MicroPython ISR — no new strings, lists or objects.</li>
+    <li>Shared variables must be <b>volatile</b> in C, and read atomically if larger than one machine word.</li>
+    <li><b>Debounce</b> mechanical switches — one press produces many electrical edges, so ignore edges within ~50 ms of the last one, or filter in hardware with an RC network.</li>
+  </ol>
+  <div class="trap cram"><b>Exam trap</b>On the <b>Arduino Uno only pins 2 and 3</b> can raise external interrupts — a question that attaches one to pin 7 is testing exactly this. On the <b>ESP8266 every GPIO except GPIO16</b> supports interrupts. And the reason <code>volatile</code> exists is examinable in itself: without it the optimiser may keep the variable in a register and the main loop will never see the ISR's change.</div>
+</div>
+
+      <h2 id="m2-esp32">34 · ESP32 vs ESP8266</h2>
+
+<div class="card">
+  <h3><span class="n">34.1</span>The comparison<span class="tag t-past">named in syllabus</span><span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>Feature</th><th>ESP8266 (ESP-12E / NodeMCU)</th><th>ESP32</th></tr></thead>
+  <tbody>
+  <tr><td><b>CPU</b></td><td>Xtensa L106, <b>single core</b>, 80–160 MHz</td><td>Xtensa LX6, <b>dual core</b>, up to <b>240 MHz</b></td></tr>
+  <tr><td><b>SRAM</b></td><td>~80 KB (≈50 KB usable)</td><td><b>520 KB</b></td></tr>
+  <tr><td><b>Flash</b></td><td>4 MB typical (external)</td><td>4–16 MB (external)</td></tr>
+  <tr><td><b>Wi-Fi</b></td><td>802.11 b/g/n, 2.4 GHz</td><td>802.11 b/g/n, 2.4 GHz</td></tr>
+  <tr><td><b>Bluetooth</b></td><td><b>None</b></td><td><b>Bluetooth Classic + BLE</b></td></tr>
+  <tr><td><b>GPIO</b></td><td>~11 usable</td><td><b>34</b></td></tr>
+  <tr><td><b>ADC</b></td><td><b>1 channel</b>, 10-bit</td><td><b>18 channels</b>, 12-bit</td></tr>
+  <tr><td><b>DAC</b></td><td><b>None</b></td><td><b>2 × 8-bit</b></td></tr>
+  <tr><td><b>Touch sensing</b></td><td>None</td><td><b>10 capacitive touch pins</b></td></tr>
+  <tr><td><b>Hall sensor / temp sensor</b></td><td>None</td><td>Built in</td></tr>
+  <tr><td><b>Hardware SPI / I2C / UART</b></td><td>1 / software / 2</td><td>4 / 2 / 3</td></tr>
+  <tr><td><b>Security</b></td><td>Minimal</td><td><b>Secure boot, flash encryption, AES/SHA/RSA accelerators</b></td></tr>
+  <tr><td><b>Deep-sleep current</b></td><td>~20 µA</td><td>~10 µA, plus an <b>ultra-low-power co-processor</b> that can sample sensors while the main cores sleep</td></tr>
+  <tr><td><b>Price</b></td><td>Cheaper</td><td>Roughly 1.5–2× the ESP8266</td></tr>
+  <tr><td><b>Choose it when…</b></td><td>One sensor, Wi-Fi only, lowest cost, simplest design</td><td>Bluetooth needed · several analog inputs · concurrent tasks (one core for Wi-Fi, one for the application) · security matters</td></tr>
+  </tbody>
+</table></div>
+  <div class="edge"><b>Extra marks</b>Answer the "which would you choose" version with a rule rather than a preference: <b>the ESP8266 is not obsolete</b> — for a single-sensor Wi-Fi node it is cheaper, uses less power and is entirely sufficient, and the whole of this module's syllabus targets it. Move to the ESP32 when the design needs something the 8266 <b>cannot do at all</b>: Bluetooth/BLE, more than one analog channel, real concurrency, or hardware security. Naming the specific missing capability is what earns the mark.</div>
+</div>
+
+      <div class="mod">Exam craft</div>
+      <h2 id="x-map">35 · Syllabus → answer map</h2>
+
+<div class="card">
+  <h3><span class="n">35.1</span>Every descriptor, and where it is answered<span class="tag t-hi">★ high yield</span></h3>
+  <div class="tw"><table>
+  <thead><tr><th>Module</th><th>Syllabus descriptor</th><th>Card</th></tr></thead>
+  <tbody>
+  <tr><td rowspan="11"><b>1</b><br><span class="cm">Embedded IoT<br>25 marks</span></td><td>Purpose and requirement specification</td><td>5.1, 5.2</td></tr>
+  <tr><td>IoT level specification</td><td>6.1, 6.2</td></tr>
+  <tr><td>Functional view specification</td><td>7.1</td></tr>
+  <tr><td>Operational view specification</td><td>8.1</td></tr>
+  <tr><td>Device and component integration</td><td>9.1</td></tr>
+  <tr><td>Pillars of Embedded IoT</td><td>12.1</td></tr>
+  <tr><td>Physical Devices: The internet of devices</td><td>13.1, 13.2, 10.1</td></tr>
+  <tr><td>Design of Embedded Systems</td><td>3.1–3.4, 4.1, 19.1</td></tr>
+  <tr><td>Common Sensors · Actuators</td><td>14.1–14.3 · 15.1</td></tr>
+  <tr><td>Embedded Processors · Memory Architectures</td><td>16.1 · 17.1</td></tr>
+  <tr><td>Software architecture</td><td>19.1 (with 18.1 for the interfaces)</td></tr>
+  <tr><td rowspan="9"><b>2</b><br><span class="cm">Automation<br>25 marks</span></td><td>Arduino Uno — getting started with the Uno boards</td><td>21.1, 22.1, 23.1, 24.1, 25.1, 26.1</td></tr>
+  <tr><td>ESP8266-12E NodeMCU — getting started with the ESP board</td><td>27.1</td></tr>
+  <tr><td>Micro python and Explorer IDE</td><td>28.1</td></tr>
+  <tr><td>Flushing the ESP8266 board with micropython</td><td>28.2</td></tr>
+  <tr><td>Connecting sensors to the ESP board</td><td>29.1</td></tr>
+  <tr><td>Connecting ESP board to WiFi</td><td>30.1</td></tr>
+  <tr><td>Interfacing ESP with the Cloud (REST API — GET, POST)</td><td>31.1</td></tr>
+  <tr><td>MQTT</td><td>32.1</td></tr>
+  <tr><td>Interrupts · comparison of ESP32 with ESP8266</td><td>33.1 · 34.1</td></tr>
+  </tbody>
+</table></div>
+  <div class="trap cram"><b>Note on the wider course</b>The full ECE441 curriculum has <b>four</b> modules — Module III is Raspberry Pi 3 (Raspbian, headless SSH, GPIO scripting) and Module IV is Pi interfacing (DHT11, plug-and-play cloud platforms, RPi4 vs RPi3, LoRaWAN/LPWAN). Those are <b>not</b> in this minor exam, which covers Modules 1–2. They are the end-semester paper's territory.</div>
+</div>
+
+<div class="card">
+  <h3><span class="n">35.2</span>Diagrams and calculations to have ready</h3>
+  <p><b>Diagrams:</b></p>
+  <ol>
+    <li>Sense → process → act pipeline with A/D and D/A (card 3.2)</li>
+    <li>Functional groups stacked, with management and security spanning them (7.1)</li>
+    <li>Request–response vs publish–subscribe (11.2)</li>
+    <li>An IoT level diagram — pick L2 and L5, they are the most asked</li>
+    <li>The five-layer technology stack (13.2)</li>
+    <li>A wiring sketch: NodeMCU + DHT11 + LDR divider + relay (29.1)</li>
+  </ol>
+  <p><b>Calculations:</b></p>
+  <div class="tw"><table>
+  <thead><tr><th>Quantity</th><th>Formula</th><th>Worked value</th></tr></thead>
+  <tbody>
+  <tr><td>ADC step size</td><td>V<sub>ref</sub> / 2<sup>n</sup></td><td>5 V / 1024 = <b>4.88 mV</b> (Uno, 10-bit)</td></tr>
+  <tr><td>ADC count → volts</td><td>raw × V<sub>ref</sub> / 1023</td><td>512 → <b>2.50 V</b></td></tr>
+  <tr><td>PWM average output</td><td>(on_time / cycle_time) × 5 V</td><td><code>analogWrite(9,128)</code> → <b>2.5 V</b></td></tr>
+  <tr><td>Ultrasonic distance</td><td>(t<sub>echo</sub> × 0.0343) / <b>2</b> cm, t in µs</td><td>580 µs → <b>≈ 10 cm</b></td></tr>
+  <tr><td>Servo angle</td><td>1 ms = 0°, 1.5 ms = 90°, 2 ms = 180°, 20 ms period</td><td>50 Hz</td></tr>
+  <tr><td>LED resistor</td><td>(V<sub>supply</sub> − V<sub>f</sub>) / I</td><td>(5 − 2) / 0.015 = <b>200 Ω → use 220 Ω</b></td></tr>
+  </tbody>
+</table></div>
+</div>
+
+      <h2 id="x-test">36 · Self test</h2>
+
+<div class="card no-cram">
+  <h3><span class="n">36.1</span>Module 1 — quick recall</h3>
+  <div class="ask"><b>Answer without looking</b>
+  <ol>
+    <li>Give the formal Bahga definition of IoT and the five characteristics.</li>
+    <li>What are the four kinds of "things" — tagging, feeling, shrinking, thinking — and the eight bridging capabilities?</li>
+    <li>Who coined the term, in what year, and where? Give five other milestones with dates.</li>
+    <li>Compare M2M and IoT on six points. Which single row matters most?</li>
+    <li>Define an embedded system and give its six characteristics and six purposes.</li>
+    <li>Draw the sense → process → act block diagram and label all five blocks.</li>
+    <li>For automatic lighting, irrigation and air-conditioning: name the sensor, processor, converter and actuator.</li>
+    <li>Compare classic design flow with hardware/software co-design on five points. What is an ICE?</li>
+    <li>Compare microprocessor and microcontroller on six points. Name six processor types beyond those two.</li>
+    <li>List all ten steps of the IoT design methodology in order.</li>
+    <li>What six parts does a purpose and requirement specification contain? Distinguish functional from non-functional requirements.</li>
+    <li>Name the seven components every IoT level is built from.</li>
+    <li>Describe all six IoT levels: nodes, where analysis happens, where data is stored, and what each suits.</li>
+    <li>Distinguish the functional view from the operational view on five points. Name the six functional groups.</li>
+    <li>What does device and component integration involve? Give six concerns.</li>
+    <li>Give the four layers of the IoT protocol stack with three protocols each.</li>
+    <li>Describe the four communication models and name a real protocol for each.</li>
+    <li>Name the four pillars with components and key properties. What is the defining sentence about them?</li>
+    <li>Give the four components of an IoT system and the five-layer technology stack.</li>
+    <li>For DHT11, PIR, LDR and HC-SR04: interface, output type, and one key limit each.</li>
+    <li>Give the ultrasonic distance formula and explain the division by two.</li>
+    <li>For relay, servo, LED/buzzer and L298N: how each is driven and one key fact.</li>
+    <li>Compare AVR, ARM Cortex-M and Xtensa on clock, RAM, flash, connectivity and power.</li>
+    <li>Name the four memory types, what each holds, and one caution for each.</li>
+    <li>Compare UART, SPI, I2C and GPIO on wires, clock, duplex, speed and device count.</li>
+    <li>Compare bare-metal and RTOS, four advantages and four limitations each.</li>
+    <li>Define fog computing, give four reasons it is needed and six of its features.</li>
+    <li>Distinguish IaaS, PaaS and SaaS with two examples each.</li>
+  </ol></div>
+</div>
+
+<div class="card no-cram">
+  <h3><span class="n">36.2</span>Module 2 — quick recall</h3>
+  <div class="ask"><b>Answer without looking</b>
+  <ol>
+    <li>Give the Arduino Uno's microcontroller, clock, flash, SRAM, EEPROM, digital pins, PWM pins and analog pins.</li>
+    <li>List the nine steps of getting started with the Uno.</li>
+    <li>What runs in <code>setup()</code> and what in <code>loop()</code>? Give four syntax rules.</li>
+    <li>Give the three digital I/O functions. How much current can an output pin supply, and what does writing HIGH to an input pin do?</li>
+    <li>Why must a digital input never float, and what does a pull-up do to the logic?</li>
+    <li>What is the Arduino's ADC resolution, its number of states, its smallest measurable voltage change and its maximum sample rate?</li>
+    <li>Convert an ADC reading of 512 to volts. Show the formula.</li>
+    <li>Explain PWM and give the output-voltage formula. What does <code>analogWrite(11, 64)</code> produce?</li>
+    <li>Name six serial commands and say what RX and TX blinking means.</li>
+    <li>Why is a serial-to-USB chip needed, and which boards do without one?</li>
+    <li>Give the ESP8266's CPU, clock, operating voltage, Wi-Fi standard and number of analog pins.</li>
+    <li>What is D1 in GPIO numbering? Which three GPIOs are boot-mode pins?</li>
+    <li>What is MicroPython? Compare it with Arduino C on five points. What do <code>boot.py</code> and <code>main.py</code> do?</li>
+    <li>Give the six steps of flashing MicroPython onto an ESP8266, with the two esptool commands.</li>
+    <li>Why must the flash be erased first, and what does <code>-fm dio</code> mean?</li>
+    <li>How do you wire a DHT11, an LDR and an HC-SR04 to a NodeMCU? What must you add for the ECHO pin, and why?</li>
+    <li>Write the MicroPython to connect to Wi-Fi with a timeout. What does <code>ifconfig()</code> return?</li>
+    <li>Distinguish STA, AP and STA+AP modes.</li>
+    <li>Compare GET and POST on where the data goes and idempotency. Why must <code>r.close()</code> be called?</li>
+    <li>Define MQTT. Explain broker, topic, QoS 0/1/2, retained messages and Last Will.</li>
+    <li>Compare MQTT and HTTP on six points, and give the NAT argument for MQTT.</li>
+    <li>Compare polling and interrupts on six points. Give the five rules for writing an ISR.</li>
+    <li>Which Uno pins support external interrupts? Why is <code>volatile</code> needed?</li>
+    <li>Compare the ESP32 and ESP8266 on ten points, and say when each is the right choice.</li>
+  </ol></div>
+</div>
+
+<div class="card">
+  <h3><span class="n">36.3</span>The five things most likely to be dropped<span class="tag t-hi">★ high yield</span></h3>
+  <div class="trap cram"><b>Exam trap — final checklist</b>
+  <ol>
+    <li><b>The ultrasonic distance is halved.</b> The pulse travels there and back.</li>
+    <li><b>The ESP8266 has one analog pin.</b> Any design needing two analog sensors needs an external ADC.</li>
+    <li><b>The ESP is 3.3 V and not 5 V tolerant</b>; the Uno is 5 V. Mixing them needs a divider or level shifter.</li>
+    <li><b>Uno external interrupts exist only on pins 2 and 3</b>, and shared variables must be <code>volatile</code>.</li>
+    <li><b>The functional view is technology-independent; the operational view is not.</b> That is the whole reason they are specified separately.</li>
+  </ol></div>
+</div>
+
     <div class="empty"></div>
   </main>
 </div>
+
 
 <script>
 (function(){
