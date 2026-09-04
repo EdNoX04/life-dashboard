@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { aiChat, pickProvider, providerLabel } from '../lib/ai.js';
-import { buildContext, systemPrompt, scopeFor, PROMPTS } from '../lib/ally.js';
+import { buildContext, systemPrompt, scopeFor, PROMPTS, asText } from '../lib/ally.js';
 
 // ALLY — the floating terminal.
 //
@@ -40,13 +40,17 @@ function useTypewriter(text, speed = 9) {
 }
 
 function Line({ m, live }) {
-  const typed = useTypewriter(live ? m.content : '');
-  const body = live ? typed : m.content;
-  if (m.role === 'system') return <div className="al-sys">{m.content}</div>;
+  // asText, not m.content directly. A message body that is not a string reaches
+  // `.slice` in the typewriter and React's child renderer, and both of those
+  // throw — one bad bubble would take the whole dock down. See lib/ally.js.
+  const content = asText(m.content);
+  const typed = useTypewriter(live ? content : '');
+  const body = live ? typed : content;
+  if (m.role === 'system') return <div className="al-sys">{content}</div>;
   return (
     <div className={`al-line al-${m.role}`}>
       <span className="al-who">{m.role === 'user' ? 'YOU' : 'ALLY'}</span>
-      <span className="al-body">{body}{live && typed.length < m.content.length && <i className="al-cur" />}</span>
+      <span className="al-body">{body}{live && typed.length < content.length && <i className="al-cur" />}</span>
     </div>
   );
 }
@@ -83,7 +87,10 @@ export default function Ally({ tab, data = {} }) {
     setMsgs(next);
     setBusy(true);
     try {
-      const reply = await aiChat(
+      // Destructured. `aiChat` resolves to { text, provider, model, citations };
+      // taking the whole object as the reply is what crashed this dock on every
+      // answer it ever gave.
+      const { text: reply } = await aiChat(
         next.filter(m => m.role !== 'system').map(m => ({ role: m.role, content: m.content })),
         // The tab name is already the routing key for what data may enter the
         // prompt (see ally.js SCOPES), so it is the right key for where that
@@ -128,19 +135,13 @@ export default function Ally({ tab, data = {} }) {
         <div className="al-scan" aria-hidden="true" />
         {BOOT.map((b, i) => <div className="al-boot" key={i}>{b}</div>)}
 
-        {!provider && (
-          <div className="al-sys">
-            NO AI KEY. Add a Claude, Gemini or OpenAI key in Settings → AI
-            providers and ALLY wakes up.
-          </div>
-        )}
-        {provider && !scope && (
+        {!scope && (
           <div className="al-sys">
             This screen is not wired for context, so I answer from general
             knowledge only — I cannot see anything on it.
           </div>
         )}
-        {provider && scope && msgs.length === 0 && (
+        {scope && msgs.length === 0 && (
           <div className="al-sys">
             Reading {scope.blurb} — nothing else in the app. Ask away.
           </div>
@@ -153,7 +154,7 @@ export default function Ally({ tab, data = {} }) {
         <div ref={endRef} />
       </div>
 
-      {msgs.length === 0 && provider && scope && (
+      {msgs.length === 0 && scope && (
         <div className="al-quick">
           {PROMPTS.map(p => (
             <button key={p.label} className="al-chip" onClick={() => send(p.text)}>{p.label}</button>
@@ -165,12 +166,12 @@ export default function Ally({ tab, data = {} }) {
         <span className="al-caret">&gt;</span>
         <input
           value={input}
-          disabled={!provider || busy}
-          placeholder={provider ? 'type a question…' : 'no key set'}
+          disabled={busy}
+          placeholder="type a question…"
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && send()}
         />
-        <button className="btn btn-sm btn-green" disabled={!provider || busy || !input.trim()} onClick={() => send()}>
+        <button className="btn btn-sm btn-green" disabled={busy || !input.trim()} onClick={() => send()}>
           SEND
         </button>
       </div>

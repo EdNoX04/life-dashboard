@@ -12,6 +12,7 @@
 
 import {
   SCOPES, scopeFor, mediaContext, buildContext, systemPrompt, PROMPTS, MAX_CONTEXT_CHARS,
+  asText,
 } from '../src/lib/ally.js';
 
 import { homeContext, classNow, HOME_READS, HOME_WITHHELD } from '../src/lib/ally.js';
@@ -297,6 +298,34 @@ ok(/Next is Module 3/.test(fblDoneCtx), 'with the next one named');
 ok(/Study plan for today/.test(fblCtx), "the day's plan is in the context");
 ok(/Network Security|Blockchain|IoT/.test(fblCtx.split('Study plan for today')[1] || ''),
   'and it names actual material, not just a heading');
+
+// ---------------------------------------------------------------- asText
+//
+// THE BUG THIS CAME FROM. `aiChat()` used to resolve to a string and now
+// resolves to `{ text, provider, model, citations }`. Every caller was updated
+// except Ally, which stored the whole object as a message body — so the
+// typewriter called `.slice` on an object and React was handed an object as a
+// child. ALLY crashed on its first answer, every time, from the day that
+// signature changed until 2026-09-04.
+//
+// The call site is fixed. This function exists because a fixed call site is not
+// the same as an impossible failure: the next shape change should produce one
+// visibly-wrong bubble, not take the dock down.
+{
+  eq(asText('hello'), 'hello', 'a string passes straight through');
+  eq(asText(''), '', 'including an empty one');
+  eq(asText({ text: 'the answer', provider: 'proxy', model: 'x' }), 'the answer',
+     'an aiChat result handed over whole yields its text — the exact bug');
+  eq(asText({ text: '' }), '', 'even when that text is empty');
+  eq(asText(null), '', 'null is nothing, not "null"');
+  eq(asText(undefined), '', 'and so is undefined');
+  eq(asText(42), '42', 'a number reads as itself');
+
+  // Deliberately NOT '' — a silently empty bubble looks like the model said
+  // nothing, which is the failure that goes unreported for a month.
+  ok(asText({ nope: 1 }).length > 0, 'an unrecognised object renders as something visible rather than vanishing');
+  ok(typeof asText({ text: 42 }) === 'string', 'and the return is always a string, whatever went in');
+}
 
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);

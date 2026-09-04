@@ -189,6 +189,30 @@ export function systemPrompt(tab, contextText) {
 // Openers that do something rather than saying hello. Each is a question the
 // context can actually answer, which is also how a new user learns what the
 // thing is for.
+/**
+ * Whatever a caller put in a message bubble, as text.
+ *
+ * THE BUG THIS EXISTS FOR. `aiChat()` used to resolve to a string and now
+ * resolves to `{ text, provider, model, citations }`. PLAYER TWO, LEDGER, the
+ * lecture recorder and the advisor were all updated; Ally was not. So Ally
+ * stored the whole object as a message body, the typewriter called `.slice` on
+ * it, and React was handed an object as a child — which means ALLY crashed on
+ * its first answer, every time, and had done since the day that signature
+ * changed.
+ *
+ * The call site is fixed. This exists because the call site being fixed is not
+ * the same as the failure being impossible: the next shape change should
+ * degrade to visibly-wrong text in one bubble, not take the whole dock down.
+ * `String(v)` rather than `''` on purpose — "[object Object]" is ugly and gets
+ * reported, whereas a silently empty answer looks like the model said nothing.
+ */
+export function asText(v) {
+  if (typeof v === 'string') return v;
+  if (v == null) return '';
+  if (typeof v === 'object' && typeof v.text === 'string') return v.text;
+  return String(v);
+}
+
 export const PROMPTS = [
   { label: 'I HAVE 90 MINUTES', text: 'I have about 90 minutes tonight. What should I watch, and why that one?' },
   { label: 'MY TASTE?', text: 'Based on my ratings and reviews, describe my taste in films. Be specific and tell me something I might not have noticed.' },
