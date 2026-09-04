@@ -15,6 +15,22 @@ applyTheme(getTheme()); // set the saved color theme before first paint
 // From here it lives in module memory until the Settings card files it.
 takeHandoff();
 
+// Register the service worker.
+//
+// It caches nothing — see public/sw.js for why that is deliberate. Its whole job
+// is to make notifications possible on iOS, where the `Notification` constructor
+// does not exist and `registration.showNotification()` is the only route, and to
+// make clicking a notification focus the app instead of doing nothing.
+//
+// After render, and failing silently: a browser that refuses to register one
+// (private windows, older Safari, an insecure origin) should lose notifications
+// on that device, not the dashboard.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => { /* notifications only */ });
+  });
+}
+
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <LoginGate>

@@ -165,12 +165,46 @@ export async function askNotify() {
   try { return await N.requestPermission(); } catch { return N.permission; }
 }
 
+// How long to wait for a service worker before giving up on it.
+export const SW_WAIT_MS = 1500;
+
+let regPromise = null;
+
+/**
+ * The service worker registration, or null — but NEVER a promise that hangs.
+ *
+ * `navigator.serviceWorker.ready` is a trap. It does not reject when nothing is
+ * registered; it simply never settles. So the obvious `await
+ * navigator.serviceWorker.ready` inside notify() means that on any browser where
+ * registration has not completed — a first visit, a private window, a device
+ * where it failed — the alarm waits forever and shows nothing, silently. That is
+ * a bug I shipped in the first version of this file and it would have looked
+ * exactly like "notifications just don't work on my phone".
+ *
+ * Racing it against a timeout turns a hang into a fallback. The answer is cached
+ * because the wait only needs to happen once per page load.
+ */
+function registration() {
+  if (regPromise) return regPromise;
+  const sw = globalThis.navigator?.serviceWorker;
+  if (!sw?.ready) return (regPromise = Promise.resolve(null));
+  regPromise = Promise.race([
+    Promise.resolve(sw.ready).catch(() => null),
+    new Promise(resolve => setTimeout(() => resolve(null), SW_WAIT_MS)),
+  ]);
+  return regPromise;
+}
+
+/** Forget the cached registration — for tests, and after a failed register. */
+export function resetRegistration() { regPromise = null; }
+
 /**
  * Show one.
  *
- * On Android and in any page controlled by a service worker, constructing a
- * `Notification` directly throws — the platform requires it to come from the
- * registration. This is a PWA, so that path is tried first.
+ * The service worker path is tried FIRST because on iOS and iPadOS it is the
+ * only path that exists: `new Notification(...)` is not implemented there at
+ * all, and a page can only notify through its registration, and only once the
+ * app has been added to the Home Screen. On desktop either route works.
  */
 export async function notify(title, body, tag = 'p1-pomodoro') {
   if (!P.notify) return false;
@@ -183,9 +217,12 @@ export async function notify(title, body, tag = 'p1-pomodoro') {
     silent: true,              // the chime is the sound; two at once is a mess
   };
   try {
-    const reg = await globalThis.navigator?.serviceWorker?.ready;
+    const reg = await registration();
     if (reg?.showNotification) { await reg.showNotification(title, opts); return true; }
   } catch { /* fall through to the constructor */ }
+  // No worker, or it refused. On a desktop browser the constructor still works;
+  // on iOS it does not exist, and there this returns false honestly rather than
+  // pretending something was shown.
   try { new globalThis.Notification(title, opts); return true; } catch { return false; }
 }
 

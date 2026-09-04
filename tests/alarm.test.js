@@ -198,6 +198,60 @@ const ctx = bus.context();          // the one the module will use too
   ok(/50m/.test(shown.at(-1).title), 'and still reports the time');
 }
 
+// ------------------------------------------------------------- the service worker
+// On iOS the `Notification` constructor does not exist at all; a page there can
+// only notify through its service worker registration. So the worker path is
+// tried first — and the way it is awaited is a trap worth a test of its own.
+{
+  const t0 = Date.now();
+
+  // THE BUG THIS PINS. `navigator.serviceWorker.ready` does not reject when
+  // nothing is registered — it never settles. Awaiting it directly means that on
+  // a first visit, a private window, or any device where registration failed,
+  // notify() waits forever and shows nothing, with no error anywhere. It would
+  // look exactly like "notifications just don't work on my phone".
+  // node 22 defines `navigator` as a getter-only global, so it has to be
+  // replaced with defineProperty rather than assigned.
+  const setNavigator = v =>
+    Object.defineProperty(globalThis, 'navigator', { value: v, configurable: true, writable: true });
+
+  setNavigator({ serviceWorker: { ready: new Promise(() => {}) } });
+  alarm.resetRegistration();
+
+  const n = shown.length;
+  eq(await alarm.notify('Hung', 'worker never answers'), true,
+     'a service worker that never answers does not swallow the notification');
+  eq(shown.length, n + 1, 'it falls back to the constructor');
+  eq(shown.at(-1).via, 'constructor', 'by that route specifically');
+  ok(Date.now() - t0 < alarm.SW_WAIT_MS + 800, 'and gives up on the worker rather than hanging');
+
+  // When a worker IS there, it wins — because on iOS it is the only thing that
+  // works, and its notifications survive the page being backgrounded.
+  const viaWorker = [];
+  setNavigator({
+    serviceWorker: {
+      ready: Promise.resolve({
+        showNotification: (title, opts) => { viaWorker.push({ title, opts }); },
+      }),
+    },
+  });
+  alarm.resetRegistration();
+
+  eq(await alarm.notify('Focus done', 'Break next'), true, 'a registered worker shows it');
+  eq(viaWorker.length, 1, 'through the worker');
+  eq(viaWorker[0].title, 'Focus done', 'with the title');
+  eq(viaWorker[0].opts.requireInteraction, true, 'and the same options as the direct route');
+
+  // The wait happens once per page load, not once per pomodoro.
+  const t1 = Date.now();
+  await alarm.notify('Second', 'x');
+  ok(Date.now() - t1 < 100, 'and the lookup is cached, so later blocks ring immediately');
+  eq(viaWorker.length, 2, 'still through the worker');
+
+  setNavigator(undefined);
+  alarm.resetRegistration();
+}
+
 // ------------------------------------------------------------- stale blocks
 {
   // The timer settles itself against the clock when the app loads. So opening
