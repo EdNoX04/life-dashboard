@@ -19,20 +19,36 @@ no defence — the stolen token *is* the credential RLS asks for.
   rather than assumed: the built app loads exactly one script of its own,
   same-origin, and has zero inline scripts. So an injected `<script src=…>` or
   inline handler has nothing to fall back on.
-- **There are no exceptions, and the one that existed has been removed.** The
-  lofi radio used to load YouTube's IFrame Player API at runtime — the only
-  third-party script in this app — and `script-src 'self'` blocked it. The
-  walkthrough that found 0 violations never caught it, because nobody pressed
-  play during the walk: the radio fetched the API only on first play, so a
-  passive tour of all 25 tabs could not trigger it. **Lesson recorded rather
-  than repeated: a CSP walkthrough has to exercise the features, not just
-  render the pages.** `script-src` was widened to admit YouTube, and then
-  narrowed again when it turned out YouTube was refusing to play anyway
-  (error 150, embedding disabled by the channel owner). The radio now uses a
-  plain `<audio>` element against direct Icecast streams, which needs no
-  third-party script at all — so the app is back to **exactly one script, its
-  own**. `radio.js` also rejects loudly on any future CSP refusal rather than
-  spinning forever.
+- **There is exactly one exception, and it is YouTube.** `script-src` admits
+  `https://www.youtube.com` and `https://s.ytimg.com`, and `frame-src` admits
+  the player. This is the only third-party script in the app, and the story of
+  how it got here is worth keeping, because it contains two separate mistakes:
+
+  1. **The security pass set `script-src 'self'` and silently broke the radio.**
+     The walkthrough that found 0 violations never caught it, because nobody
+     pressed play during the walk — the radio fetches the API only on first
+     play, so a passive tour of all 25 tabs could not trigger it. *Lesson: a CSP
+     walkthrough has to exercise the features, not just render the pages.*
+  2. **Then I narrowed it again for the wrong reason.** With the script allowed,
+     one video id returned error 150 (embedding disabled by the owner) and I
+     generalised that single measurement into "YouTube does not work here" and
+     removed the transport. Synth and Jazz — the same channel — had been playing
+     the whole time. *Lesson: one refusal is a fact about one video, not about a
+     transport.*
+
+  So the exception is back, deliberately. What it costs is honestly stated: a
+  script from `youtube.com` executes in this origin, and if Google ever serves
+  something hostile from it, CSP is not what stops it. What it buys is the one
+  feature Neel actually asked for by name. The mitigations are that no token
+  lives anywhere reachable by script (see above — `sessionStorage`, never
+  `localStorage`), `object-src 'none'` and `frame-ancestors 'none'` are
+  untouched, and `radio.js` rejects loudly on any future CSP refusal rather than
+  spinning forever. **`tests/radio.test.js` asserts that both directives still
+  admit YouTube**, so the first mistake cannot be made silently a second time.
+
+  Direct Icecast streams remain in every station as the last fallback, so a
+  future decision to drop the exception costs a station's audio quality and
+  nothing else.
 - **`style-src` keeps `'unsafe-inline'` on purpose.** React writes `style={{…}}`
   attributes throughout this app (the attendance bars, for one) and CSP counts
   those as inline styles. Styles cannot exfiltrate a token, so the cost is close

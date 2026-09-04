@@ -7023,6 +7023,19 @@ th:hover .hold-info { color: var(--cyan); }
 
 /* Pomodoro task picker + focus history. */
 .pomo-task { margin-bottom: 12px; }
+
+/* The alarm row. Centred under the controls rather than hidden behind the
+   settings toggle: whether the timer can reach you is not a setting you
+   configure once, it is something you check at a glance before walking away. */
+.pomo-alerts {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  margin-top: 10px;
+}
+.pomo-alerts .small { padding: 2px 4px; }
 .pomo-task-on {
   font-size: 13px;
   color: var(--cyan);

@@ -35,7 +35,7 @@ export default function LofiRadio({ stations = [], stopKey = 0, source = 'study'
       <div style={{ flex: 1, minWidth: 190 }}>
         <div className="flex" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
           {list.map((s, i) => (
-            <button key={(s.url || s.id || '') + i} className={`btn btn-sm ${r.idx === i ? 'btn-purple' : ''}`} onClick={() => radio.pick(i)}>{s.label}</button>
+            <button key={(s.label || '') + i} className={`btn btn-sm ${r.idx === i ? 'btn-purple' : ''}`} onClick={() => radio.pick(i)}>{s.label}</button>
           ))}
         </div>
         <div className="flex" style={{ gap: 10, alignItems: 'center' }}>
@@ -48,7 +48,7 @@ export default function LofiRadio({ stations = [], stopKey = 0, source = 'study'
         <div className="small muted mt">
           {r.err ? <span style={{ color: 'var(--red)' }}>{r.err}</span>
             : r.loading ? `Tuning in to ${cur.label}…`
-            : r.playing ? `Now playing — ${cur.label} 🎧`
+            : r.playing ? `Now playing — ${cur.label}${r.via === 'stream' ? ' · radio stream' : ''} 🎧`
             : 'Hit play — live radio, audio only.'}
         </div>
         {busy && <div className="small muted mt">Keeps playing when you switch tabs — controls sit next to your XP bar.</div>}

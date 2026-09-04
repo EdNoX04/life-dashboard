@@ -264,6 +264,33 @@ export function get() {
   return state;
 }
 
+/**
+ * Settle against the clock and TELL PEOPLE.
+ *
+ * `get()` deliberately does not notify — it is called during render, and a store
+ * that pushes updates mid-render is how you get React's "cannot update a
+ * component while rendering another" and a hard-to-find crash. But that left a
+ * real hole, and it is the exact hole Neel reported as "when it ends I don't
+ * know when it does":
+ *
+ *   the 1-second tick called get(), get() settled the block, running went false
+ *   — and nothing was told. The subscribed state still said running, so the
+ *   component never re-rendered, and the timer sat at 00:00 showing FOCUS until
+ *   something else happened to write to the store.
+ *
+ * So the periodic check gets its own entry point, called from an interval and on
+ * tab focus, where notifying is exactly what you want.
+ */
+export function poll() {
+  if (!state) { state = load(); }
+  const next = settle(state);
+  if (next === state) return state;
+  state = next;
+  persist();
+  for (const s of subs) s(state);
+  return state;
+}
+
 export function set(fn) {
   state = fn(get());
   persist();

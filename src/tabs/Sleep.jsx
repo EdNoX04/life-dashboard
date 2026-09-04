@@ -6,13 +6,27 @@ import * as radio from '../lib/radio.js';
 
 // Wind-down room — ambient/downtempo radio, calming ambience,
 // and a sleep timer that fades everything out so you can drift off.
-// Direct audio streams (see lib/radio.js — YouTube embedding was disabled by the
-// channel owner). Ordered slowest-first, because this is the wind-down room.
+// Same multi-source shape as Study — Lofi Girl's sleep streams first, an
+// ambient Icecast mount as the fallback. Ordered slowest-first; this is the
+// wind-down room.
 const SLEEP_STATIONS = [
-  { url: 'https://ice1.somafm.com/dronezone-128-mp3',   label: 'Sleep' },
-  { url: 'https://ice1.somafm.com/deepspaceone-128-mp3', label: 'Deep' },
-  { url: 'https://ice1.somafm.com/lush-128-mp3',        label: 'Lush' },
-  { url: 'https://ice1.somafm.com/fluid-128-mp3',       label: 'Lofi' },
+  { label: 'Sleep', sources: [
+    { kind: 'yt', id: 'JD-kMIpDfnY' },                       // lofi hip hop — beats to sleep/chill to
+    { kind: 'yt', id: '28KRPhVzCus' },
+    { kind: 'stream', url: 'https://ice1.somafm.com/dronezone-128-mp3' },
+  ]},
+  { label: 'Lofi', sources: [
+    { kind: 'yt', id: 'rUxyKA_-grg' },
+    { kind: 'yt', id: 'jfKfPfyJRdk' },
+    { kind: 'stream', url: 'https://ice1.somafm.com/fluid-128-mp3' },
+  ]},
+  { label: 'Deep', sources: [
+    { kind: 'yt', id: 'S_MOd40zlYU' },                       // dark ambient radio
+    { kind: 'stream', url: 'https://ice1.somafm.com/deepspaceone-128-mp3' },
+  ]},
+  { label: 'Lush', sources: [
+    { kind: 'stream', url: 'https://ice1.somafm.com/lush-128-mp3' },
+  ]},
 ];
 // The wind-down subset: nothing percussive, nothing with speech in it.
 const CALM_KEYS = ['rain', 'storm', 'thunder', 'wind', 'waves', 'river', 'night', 'fire', 'noise', 'pink'];

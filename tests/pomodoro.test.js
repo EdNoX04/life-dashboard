@@ -14,6 +14,7 @@ import {
   DUR, emptyState, remaining, settle, start, pause, reset, setMode, nextMode, ROUNDS_PER_LONG,
   seconds, setConfig, normalizeConfig, defaultConfig, applyPreset, presetOf, PRESETS,
   MIN_MINUTES, MAX_MINUTES, MIN_ROUNDS, MAX_ROUNDS,
+  get, set, poll, subscribe,
 } from '../src/lib/pomodoro.js';
 
 let pass = 0, fail = 0;
@@ -184,6 +185,46 @@ eq(applyPreset(emptyState(), 'nope').cfg.focus, 25, 'an unknown preset id change
   eq(cfg.focus, defaultConfig().focus, 'a state with no cfg gets the defaults');
   eq(normalizeConfig(null).long, 15, 'and so does null');
   eq(normalizeConfig({ focus: null, short: undefined }).short, 5, 'partial configs fill in');
+}
+
+// ---------------------------------------------------------------- poll()
+// THE BUG THIS FUNCTION EXISTS FOR.
+//
+// `get()` settles the timer against the clock but deliberately does not notify —
+// it is called during render. That meant the one-second tick, which called
+// get(), silently flipped `running` to false and told nobody: the subscribed
+// state still said the block was running, so nothing re-rendered, and the ring
+// sat at 00:00 still labelled FOCUS. Neel described the symptom as not knowing
+// when the timer ended. It was not that the signal was quiet; there was no
+// signal.
+{
+  set(st => start({ ...st, mode: 'focus', label: 'Blockchain' }));
+  eq(get().running, true, 'a started block is running');
+
+  let told = 0, last = null;
+  const off = subscribe(s2 => { told++; last = s2; });
+
+  poll();
+  eq(told, 0, 'polling mid-block tells nobody — nothing has happened');
+  eq(get().running, true, 'and leaves it running');
+
+  // Exactly what the clock does, without waiting 25 minutes for it.
+  set(st => ({ ...st, endsAt: Date.now() - 1000 }));
+  told = 0; last = null;
+
+  const after = poll();
+  ok(!after.running, 'polling past the deadline settles the block');
+  eq(told, 1, 'and TELLS the subscriber — this is the entire point of the function');
+  ok(last?.finished, 'the finished block is handed over');
+  eq(last.finished.mode, 'focus', 'with the mode that ended');
+  eq(last.finished.label, 'Blockchain', 'and what it was for, so the alarm can name it');
+  ok(last.finished.minutes > 0, 'and a length, so the alarm can say how long you managed');
+
+  told = 0;
+  poll();
+  eq(told, 0, 'a second poll says nothing — one settle, one announcement');
+  off();
+  set(st => reset(st));
 }
 
 console.log(`${pass}/${pass + fail} passing`);

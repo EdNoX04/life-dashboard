@@ -10,6 +10,7 @@ import {
 } from '../lib/exams.js';
 import { useReminderDone } from '../lib/useReminderDone.js';
 import * as focus from '../lib/focus.js';
+import * as alarm from '../lib/alarm.js';
 import * as db from '../lib/db.js';
 
 // The study room, now with an exam in it.
@@ -19,15 +20,37 @@ import * as db from '../lib/db.js';
 // a paper the first two are the only things worth looking at, and they should
 // not be below a fold.
 
-// Direct audio streams, not YouTube. Lofi Girl disabled third-party embedding
-// (YouTube error 150), so the old station ids could never have played again —
-// see the note at the top of lib/radio.js. SomaFM publishes these mounts for
-// direct listening and they need no API, no key and no permission.
+// Stations are LISTS OF SOURCES, tried in order until one plays.
+//
+// Lofi Girl's streams come first because they are what Neel actually wants —
+// her catalogue is the point. One of her ids (the main study stream) returned
+// YouTube error 150, "embedding disabled by the owner", while Synth and Jazz
+// played fine the whole time; I wrongly generalised that one refusal into
+// "YouTube is dead" and removed the lot. It is not the transport that fails, it
+// is individual videos, unpredictably and without warning.
+//
+// So each station carries her streams first and a direct Icecast mount last.
+// If an id is refused the radio marks it dead for the session and moves to the
+// next source silently — Neel hears music, not an error.
 const STUDY_STATIONS = [
-  { url: 'https://ice1.somafm.com/fluid-128-mp3',        label: 'Lofi' },
-  { url: 'https://ice1.somafm.com/groovesalad-128-mp3',  label: 'Chill' },
-  { url: 'https://ice1.somafm.com/sonicuniverse-128-mp3', label: 'Jazz' },
-  { url: 'https://ice1.somafm.com/spacestation-128-mp3', label: 'Synth' },
+  { label: 'Lofi', sources: [
+    { kind: 'yt', id: 'jfKfPfyJRdk' },                       // lofi hip hop radio — beats to relax/study to
+    { kind: 'yt', id: 'rUxyKA_-grg' },                       // lofi hip hop radio — beats to sleep/chill to
+    { kind: 'yt', id: 'DWcJFNfaw9c' },                       // older Lofi Girl lofi stream
+    { kind: 'stream', url: 'https://ice1.somafm.com/fluid-128-mp3' },
+  ]},
+  { label: 'Synth', sources: [
+    { kind: 'yt', id: '4xDzrJKXOOY' },                       // synthwave radio — confirmed playing
+    { kind: 'stream', url: 'https://ice1.somafm.com/spacestation-128-mp3' },
+  ]},
+  { label: 'Jazz', sources: [
+    { kind: 'yt', id: 'E2vONfzoyRI' },                       // jazz lofi radio — confirmed playing
+    { kind: 'stream', url: 'https://ice1.somafm.com/sonicuniverse-128-mp3' },
+  ]},
+  { label: 'Chill', sources: [
+    { kind: 'yt', id: '5yx6BWlEVcY' },                       // Chillhop Radio
+    { kind: 'stream', url: 'https://ice1.somafm.com/groovesalad-128-mp3' },
+  ]},
 ];
 const DUR = pomo.DUR;
 const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
@@ -101,6 +124,45 @@ export default function Study({ go }) {
 
   useEffect(() => pomo.subscribe(setPomoState), []);
 
+  // ---- the end-of-block alarm ----
+  const [alerts, setAlerts] = useState(alarm.prefs);
+  const [notifPerm, setNotifPerm] = useState(alarm.notifyPermission);
+  useEffect(() => alarm.subscribe(() => setAlerts(alarm.prefs())), []);
+
+  // Ring when a block ends.
+  //
+  // `announce` is idempotent per deadline, which is what makes it safe to call
+  // from two places: this effect (which fires whenever anything reads the timer)
+  // and the scheduled timeout below. Neither one alone is enough — the effect
+  // depends on something re-rendering, and a backgrounded tab has its repeating
+  // timers throttled to about once a minute — so both exist and exactly one
+  // rings.
+  useEffect(() => {
+    const f = pomoState.finished;
+    if (!f) return;
+    alarm.announce({
+      mode: f.mode, at: f.at, label: f.label, minutes: f.minutes,
+      next: pomo.MODE_LABEL[pomo.get().mode],
+    });
+  }, [pomoState.finished]);
+
+  // One long timeout aimed at the deadline itself. Browsers are far kinder to a
+  // single distant timeout than to a 1-second interval in a hidden tab, so this
+  // is what actually gets you off the sofa.
+  useEffect(() => {
+    if (!pomoState.running || !pomoState.endsAt) return undefined;
+    return alarm.armAt(pomoState.endsAt, () => {
+      const st = pomo.poll();
+      const f = st.finished;
+      if (f) {
+        alarm.announce({
+          mode: f.mode, at: f.at, label: f.label, minutes: f.minutes,
+          next: pomo.MODE_LABEL[st.mode],
+        });
+      }
+    });
+  }, [pomoState.running, pomoState.endsAt]);
+
   // Write a completed block to history, exactly once.
   //
   // `markLogged` is what makes it exactly once: this effect runs on every change
@@ -140,15 +202,19 @@ export default function Study({ go }) {
   useEffect(() => {
     if (!running) { clearInterval(tick.current); return; }
     tick.current = setInterval(() => {
-      const st = pomo.get();
-      if (!st.running) return;
+      // poll(), not get(): get() settles silently, so the second the block ended
+      // the subscribed state still said "running" and the ring froze at 00:00
+      // without ever showing that it was over. That was the actual reason the
+      // end of a pomodoro was easy to miss.
+      const st = pomo.poll();
       repaint(n => n + 1);
+      if (!st.running) clearInterval(tick.current);
     }, 1000);
     return () => clearInterval(tick.current);
   }, [running]);
 
   useEffect(() => {
-    const wake = () => { pomo.get(); repaint(n => n + 1); };
+    const wake = () => { pomo.poll(); repaint(n => n + 1); };
     document.addEventListener('visibilitychange', wake);
     window.addEventListener('focus', wake);
     return () => {
@@ -459,6 +525,42 @@ export default function Study({ go }) {
           <div className="small muted mt" style={{ textAlign: 'center' }}>
             🍅 {rounds} rounds this session · long break every {cfg.perLong}
             {todayMins > 0 && <> · <b style={{ color: 'var(--green)' }}>{focus.fmtMinutes(todayMins)} focused today</b></>}
+          </div>
+          {/* ---- how you find out it is over ---- */}
+          <div className="pomo-alerts">
+            <button className={`btn btn-sm ${alerts.sound ? 'btn-green' : ''}`}
+              aria-pressed={alerts.sound}
+              onClick={() => alarm.setPrefs({ sound: !alerts.sound })}
+              title="Play a chime when the block ends">
+              {alerts.sound ? '🔊' : '🔇'} chime
+            </button>
+            <button className="btn btn-sm" onClick={() => alarm.preview(mode)} title="Hear it now">
+              test
+            </button>
+
+            {notifPerm === 'granted' ? (
+              <button className={`btn btn-sm ${alerts.notify ? 'btn-green' : ''}`}
+                aria-pressed={alerts.notify}
+                onClick={() => alarm.setPrefs({ notify: !alerts.notify })}
+                title="Show a desktop notification when the block ends">
+                {alerts.notify ? '🔔' : '🔕'} popup
+              </button>
+            ) : notifPerm === 'denied' ? (
+              // Worth saying plainly: once Chrome has been told no, the page can
+              // never ask again — only the padlock in the address bar can undo it.
+              <span className="small muted" title="Unblock notifications for this site in your browser's site settings">
+                🔕 popups blocked in browser settings
+              </span>
+            ) : notifPerm === 'unsupported' ? (
+              <span className="small muted">🔕 popups unavailable here</span>
+            ) : (
+              // Asked from a click, never on load: a page that prompts on load
+              // gets the origin permanently blocked in Chrome.
+              <button className="btn btn-sm btn-cyan"
+                onClick={async () => setNotifPerm(await alarm.askNotify())}>
+                🔔 enable popups
+              </button>
+            )}
           </div>
           {logErr && (
             <div className="small mt" style={{ textAlign: 'center', color: 'var(--red)' }}>
