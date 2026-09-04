@@ -725,6 +725,53 @@
 .pomo-time { font-family: var(--font-pixel); font-size: 26px; text-shadow: 0 0 12px currentColor; }
 .pomo-mode { font-family: var(--font-pixel); font-size: 8px; color: var(--ink-2); margin-top: 8px; letter-spacing: 2px; }
 
+/* ---- Breathing ----
+   The ring is the instruction, so it gets room and nothing competes with it.
+   No CSS animation drives the size: the scale comes from the eased curve in
+   lib/breathe.js on every frame, so the ring and the countdown can never drift
+   apart the way a keyframe animation and a JS timer eventually would. The only
+   transition here is on colour, which nothing else depends on. */
+.breathe-setup { transition: opacity .45s ease; }
+.breathe-foot { min-height: 80px; }
+.breathe-stage {
+  position: relative;
+  height: 220px;
+  display: flex; align-items: center; justify-content: center;
+  margin-top: 12px;
+}
+.breathe-ring {
+  position: absolute;
+  width: 200px; height: 200px;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  background: radial-gradient(closest-side,
+    color-mix(in srgb, var(--cyan) 12%, transparent) 0 70%, transparent 71%);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--cyan) 28%, transparent);
+  transition: border-color .3s linear;
+  /* transform is set inline every frame — declaring a transition on it here
+     would fight the frame loop and make the ring lag the count. */
+  will-change: transform;
+}
+.breathe-face { position: relative; text-align: center; z-index: 1; }
+.breathe-cue {
+  font-family: var(--font-pixel); font-size: 9px;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--ink-2);
+}
+.breathe-count {
+  font-family: var(--font-pixel); font-size: 34px; margin-top: 10px;
+  color: var(--cyan); text-shadow: 0 0 14px currentColor;
+}
+.breathe-rhythm {
+  font-family: var(--font-pixel); font-size: 16px; margin-top: 10px; color: var(--ink-2);
+}
+
+/* Someone reaching for a breathing exercise may well be reaching for it because
+   they are overstimulated. Respect the system setting and hold the ring still —
+   the count and the cue tone carry the exercise on their own. */
+@media (prefers-reduced-motion: reduce) {
+  .breathe-ring { transform: scale(0.8) !important; transition: none; }
+}
+
 /* ---- Study room: ambience grid ---- */
 .amb-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .amb-tile {

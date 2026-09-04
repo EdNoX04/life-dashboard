@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Card } from '../components/ui.jsx';
 import LofiRadio from '../components/LofiRadio.jsx';
 import Ambience from '../components/Ambience.jsx';
+import Breathe from '../components/Breathe.jsx';
 import * as radio from '../lib/radio.js';
+import { useCollection } from '../lib/hooks.js';
+import * as focus from '../lib/focus.js';
+import * as breathe from '../lib/breathe.js';
 
 // Wind-down room — ambient/downtempo radio, calming ambience,
 // and a sleep timer that fades everything out so you can drift off.
@@ -39,6 +43,17 @@ export default function Sleep() {
   radio.useRadio();
   const left = radio.sleepLeft();
 
+  // Same table and same rule as the Study tab: recorded under breathe.MODE, so
+  // a session before bed never counts toward how long you studied.
+  const { items: sessions, add: addSession } =
+    useCollection('focus_sessions', { order: 'ended_at', asc: false });
+
+  const logBreath = useCallback(async ({ label, minutes, endedAt }) => {
+    try {
+      await addSession(focus.sessionRow({ mode: breathe.MODE, label, minutes, endedAt }));
+    } catch { /* the exercise happened either way; a failed write must not interrupt it */ }
+  }, [addSession]);
+
   const setTimer = m => radio.setSleep(m);
   const cancelTimer = () => radio.cancelSleep();
 
@@ -49,6 +64,13 @@ export default function Sleep() {
 
       <Card title="Sleep radio" color="var(--purple)">
         <LofiRadio stations={SLEEP_STATIONS} source="sleep" />
+      </Card>
+
+      {/* Above the ambience and the timer on purpose: this is the thing most
+          likely to actually get someone to sleep, and it should not be the card
+          you scroll past to reach the volume sliders. */}
+      <Card title="Breathing" color="var(--cyan)">
+        <Breathe rows={sessions} onFinish={logBreath} suggest="478" />
       </Card>
 
       <div className="grid2">

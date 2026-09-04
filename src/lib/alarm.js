@@ -98,36 +98,114 @@ export function phraseFor(mode) {
  * then fall back to the notification alone rather than believing it made a
  * sound it did not make.
  */
+/**
+ * One note, scheduled on the shared context.
+ *
+ * `now` is passed in rather than read here: reading `ctx.currentTime` once per
+ * note means each one is scheduled against a slightly later clock, and a phrase
+ * meant to be evenly spaced drifts by a few milliseconds per note. Small, but
+ * it is the difference between a phrase and three separate beeps.
+ */
+function tone(ctx, out, now, { hz, at = 0, len = 0.4, peak = 0.9, type = 'sine' }) {
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = hz;
+  const t0 = now + at;
+  // A struck-bell envelope: near-instant attack, exponential decay. A square
+  // on/off would click, and a click is what a cheap alarm sounds like.
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(peak, t0 + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + len);
+  osc.connect(g); g.connect(out);
+  osc.start(t0);
+  osc.stop(t0 + len + 0.05);
+  return osc;
+}
+
+/** Its own gain straight to the speakers — see the note at the top about why. */
+function outputGain(ctx, volume) {
+  const out = ctx.createGain();
+  out.gain.value = volume;
+  out.connect(ctx.destination);
+  // Release it once the sound is over rather than leaving a gain per completed
+  // pomodoro hanging off the destination for the life of the page.
+  setTimeout(() => { try { out.disconnect(); } catch { /* already gone */ } }, 3000);
+  return out;
+}
+
 export function chime(mode = 'focus') {
   if (!P.sound) return false;
   const ctx = bus.context();
   if (!ctx || !ctx.createOscillator) return false;
   try {
     const now = ctx.currentTime;
-    // Its own gain straight to the speakers — see the note at the top about why
-    // this bypasses the master.
-    const out = ctx.createGain();
-    out.gain.value = P.volume;
-    out.connect(ctx.destination);
+    const out = outputGain(ctx, P.volume);
+    for (const n of phraseFor(mode)) tone(ctx, out, now, { hz: n.hz, at: n.at, len: n.len, peak: 0.9 });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
-    for (const n of phraseFor(mode)) {
-      const osc = ctx.createOscillator();
-      const g = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = n.hz;
-      const t0 = now + n.at;
-      // A struck-bell envelope: near-instant attack, exponential decay. A square
-      // on/off would click, and a click is what a cheap alarm sounds like.
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(0.9, t0 + 0.012);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + n.len);
-      osc.connect(g); g.connect(out);
-      osc.start(t0);
-      osc.stop(t0 + n.len + 0.05);
-    }
-    // Release the node once the phrase is over rather than leaving a gain per
-    // completed pomodoro hanging off the destination for the life of the page.
-    setTimeout(() => { try { out.disconnect(); } catch { /* already gone */ } }, 3000);
+/**
+ * Schedule a whole run of notes up front, on the audio clock.
+ *
+ * THIS IS WHY THE BREATHING CUES STAY ON THE BEAT.
+ *
+ * The obvious way to cue a breathing exercise is a timer that plays a note when
+ * it notices the phase changed. That works only while someone is watching:
+ * `requestAnimationFrame` stops entirely in a background tab, and `setInterval`
+ * is throttled to roughly once a second — so the moment you put the phone down
+ * and close your eyes, which is the entire point of the exercise, the cue that
+ * tells you when to breathe out arrives up to a second late.
+ *
+ * Web Audio does not have that problem. A note scheduled at a time on the audio
+ * clock plays at that time, sample-accurate, regardless of what the page's
+ * timers are doing. So the whole session's cues are scheduled the moment it
+ * starts, and the visual ring is left to catch up whenever anyone looks.
+ *
+ * Returns a cancel function. Silencing the shared gain is what stops the
+ * remainder — individual scheduled oscillators cannot be un-scheduled cheaply,
+ * but nothing they play reaches the speakers once this gain is at zero.
+ */
+export const MAX_SCHEDULED = 400;
+
+export function scheduleTones(notes, { volume = P.volume } = {}) {
+  const ctx = bus.context();
+  if (!ctx || !ctx.createOscillator || !Array.isArray(notes) || !notes.length) return () => {};
+  try {
+    const out = ctx.createGain();
+    out.gain.value = volume;
+    out.connect(ctx.destination);
+    const now = ctx.currentTime;
+    // A cap, because the number of notes comes from a duration the person
+    // chose: a very long session should cue its first stretch rather than
+    // allocate thousands of oscillators at once.
+    for (const n of notes.slice(0, MAX_SCHEDULED)) tone(ctx, out, now, n);
+    return () => {
+      try { out.gain.value = 0; out.disconnect(); } catch { /* already gone */ }
+    };
+  } catch {
+    return () => {};
+  }
+}
+
+/**
+ * A single soft note, right now.
+ *
+ * The breathing exercise uses this for its phase cues, which is why it takes its
+ * own volume and ignores the alarm's on/off preference: wanting a pomodoro chime
+ * and wanting a breathing cue are different wants, and the caller owns that
+ * choice. It shares this file only because the audio graph — one gain, past the
+ * ambience master, released after use — is the same and should not be written
+ * twice.
+ */
+export function blip({ hz = 528, len = 0.35, peak = 0.3, volume = P.volume } = {}) {
+  const ctx = bus.context();
+  if (!ctx || !ctx.createOscillator) return false;
+  try {
+    tone(ctx, outputGain(ctx, volume), ctx.currentTime, { hz, len, peak });
     return true;
   } catch {
     return false;

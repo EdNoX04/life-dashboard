@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Empty } from '../components/ui.jsx';
 import { useCollection, todayStr } from '../lib/hooks.js';
 import LofiRadio from '../components/LofiRadio.jsx';
 import Ambience from '../components/Ambience.jsx';
+import Breathe from '../components/Breathe.jsx';
 import * as pomo from '../lib/pomodoro.js';
 import {
   SUBJECTS, EXAM_WINDOW, FBL_MODULES, FBL_RULE,
@@ -11,6 +12,7 @@ import {
 import { useReminderDone } from '../lib/useReminderDone.js';
 import * as focus from '../lib/focus.js';
 import * as alarm from '../lib/alarm.js';
+import * as breathe from '../lib/breathe.js';
 import * as db from '../lib/db.js';
 
 // The study room, now with an exam in it.
@@ -222,6 +224,18 @@ export default function Study({ go }) {
       window.removeEventListener('focus', wake);
     };
   }, []);
+
+  // A finished breathing session is recorded in the same table as focus blocks
+  // but under its own mode, so it is never counted as study time — focus.js
+  // filters on mode === 'focus'. Winding down is worth a record and is not work.
+  const logBreath = useCallback(async ({ label, minutes, endedAt }) => {
+    try {
+      await addSession(focus.sessionRow({ mode: breathe.MODE, label, minutes, endedAt }));
+      setLogErr('');
+    } catch (e) {
+      setLogErr(String(e.message || e));
+    }
+  }, [addSession]);
 
   const setM = m => pomo.set(st => pomo.setMode(st, m));
   const cfg = pomo.normalizeConfig(pomoState.cfg);
@@ -574,6 +588,10 @@ export default function Study({ go }) {
               {' '}— {pomo.MODE_LABEL[mode].toLowerCase()} is loaded and waiting.
             </div>
           )}
+        </Card>
+
+        <Card title="Breathing" color="var(--cyan)">
+          <Breathe rows={sessions} onFinish={logBreath} />
         </Card>
 
         <Card title="Ambience" color="var(--cyan)">

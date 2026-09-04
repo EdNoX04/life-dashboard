@@ -136,6 +136,26 @@ const ctx = bus.context();          // the one the module will use too
   alarm.setPrefs({ sound: true });
 }
 
+// ------------------------------------------------------------- blip
+// The breathing exercise's phase cue. Shares the audio graph with the chime and
+// nothing else — in particular NOT the chime's on/off preference, because
+// wanting an alarm and wanting a breathing cue are different wants.
+{
+  alarm.setPrefs({ sound: false });
+  const before = ctx.started.length, gainsBefore = ctx.gains.length;
+
+  eq(alarm.blip({ hz: 528 }), true, 'a blip sounds even when the alarm chime is switched off');
+  const note = ctx.started[before];
+  eq(ctx.started.length, before + 1, 'and it is exactly one note');
+  eq(note.frequency.value, 528, 'at the pitch asked for');
+  eq(ctx.gains[gainsBefore].out[0], ctx.destination, 'past the ambience master, like the chime');
+
+  const quiet = ctx.gains.length;
+  alarm.blip({ hz: 392, volume: 0.1 });
+  eq(ctx.gains[quiet].gain.value, 0.1, 'the caller sets its own volume');
+  alarm.setPrefs({ sound: true });
+}
+
 // ------------------------------------------------------------- notifications
 {
   permission = 'default';
