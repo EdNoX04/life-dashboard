@@ -95,17 +95,21 @@ async function reportStatus(patch) {
  */
 async function loadCookies() {
   const envCookie = (process.env.AMIZONE_COOKIE || '').trim();
-  let stored = '', firstSeen = null;
+  let stored = '', firstSeen = null, lastOk = null;
   try {
     const rows = await supa('memory?key=eq.amizone_cookie&select=value');
     const v = rows?.[0]?.value;
     stored = String((typeof v === 'string' ? v : v?.value) || '').trim();
     firstSeen = (typeof v === 'object' && v?.first_seen) || null;
+    // The last run that actually reached Amizone with this ticket. Together with
+    // first_seen it brackets the session lifetime when the ticket finally dies.
+    lastOk = (typeof v === 'object' && v?.updated_at) || null;
   } catch { /* first ever run: the row does not exist yet */ }
   return {
     primary: stored || envCookie,
     fallback: stored && envCookie && stored !== envCookie ? envCookie : '',
     firstSeen,
+    lastOk,
   };
 }
 
@@ -213,8 +217,38 @@ function parseRecords(html) {
 const pad = n => String(n).padStart(2, '0');
 const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
+/**
+ * How long the ticket lasted, in the words of the two timestamps we already keep.
+ *
+ * WHY THIS EXISTS. Until now the expiry path said "cookie is no longer valid"
+ * and nothing else, so the session's actual lifetime was never measured — only
+ * guessed. And the guess was bad: the two successful runs were 17 minutes apart
+ * and the next scheduled run was 9.5 HOURS later, so the honest bracket was
+ * "somewhere between 18 minutes and nine hours", which is far too wide to design
+ * a schedule around. I had asserted 30 minutes from the ASP.NET default as
+ * though it were measured. It was not.
+ *
+ * Both numbers were already in the store; nothing was reading them on the path
+ * where they matter most. One re-paste now yields the real figure to the minute,
+ * and the schedule follows from it instead of from a framework default.
+ */
+function lifetimeLine(firstSeen, lastOk) {
+  const mins = t => (t ? Math.round((Date.now() - Date.parse(t)) / 60000) : null);
+  const age = mins(firstSeen);
+  const since = mins(lastOk);
+  if (age == null && since == null) return 'lifetime: unknown (no timestamps stored yet)';
+  const parts = [];
+  if (age != null) parts.push(`ticket was ${age} min old`);
+  if (since != null) parts.push(`last confirmed working ${since} min ago`);
+  // The bracket, stated plainly: alive at `since`, dead by `age`.
+  if (age != null && since != null && age >= since) {
+    parts.push(`so the session survived at least ${since} min and was dead by ${age} min`);
+  }
+  return 'lifetime: ' + parts.join(' · ');
+}
+
 async function main() {
-  const { primary, fallback, firstSeen } = await loadCookies();
+  const { primary, fallback, firstSeen, lastOk } = await loadCookies();
   if (!primary) {
     await reportStatus({ ok: false, configured: false, reason: 'no Amizone cookie stored — paste .ASPXAUTH into the AMIZONE_COOKIE secret' });
     console.error('FATAL: no cookie in memory.amizone_cookie and no AMIZONE_COOKIE set.');
@@ -235,8 +269,15 @@ async function main() {
     process.exit(4);
   }
   if (looksLoggedOut(coursesRes.body)) {
-    await reportStatus({ ok: false, configured: true, reason: 'Amizone cookie expired — log in on Chrome and re-paste .ASPXAUTH' });
+    const life = lifetimeLine(firstSeen, lastOk);
+    await reportStatus({
+      ok: false, configured: true,
+      reason: `Amizone cookie expired — log in on Chrome and re-paste .ASPXAUTH (${life})`,
+    });
     console.error('FATAL: cookie is no longer valid — Amizone returned the login page.');
+    // The measurement. This is the number the whole schedule depends on, and
+    // until now the one path guaranteed to know it threw it away.
+    console.error(life);
     process.exit(5);
   }
 
