@@ -88,6 +88,10 @@ const SCOPE = [
 ].join(' ');
 const REDIRECT = 'http://localhost:53682';
 
+// If Google routes you to the wrong account's page instead of the consent
+// screen, it is because that account is the signed-in "current" one and the hint
+// below lost. The reliable fix is an incognito window: open the printed URL
+// there, sign in as the intended account only, and nothing else can win.
 const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
   client_id: GOOGLE_CLIENT_ID,
   redirect_uri: REDIRECT,
@@ -100,6 +104,17 @@ const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchP
   // thing that makes "which account is this" a decision rather than an
   // accident.
   prompt: 'select_account consent',
+  // …but the chooser alone is not enough when several accounts are signed in.
+  // Google will happily route the whole flow through whichever account it
+  // considers current — landing you on that account's page instead of the
+  // consent screen you asked for. `login_hint` names the account this run is
+  // FOR, so Google preselects it instead of guessing.
+  //
+  // It is a hint, not a guarantee: Google can still ignore it, which is why the
+  // token is verified against SLOTS[WHICH].email after the exchange and refused
+  // if it does not match. Belt and braces, because the failure it prevents is
+  // silent — a work calendar showing personal events forever.
+  login_hint: EXPECT,
 });
 
 async function exchange(code) {
