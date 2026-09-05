@@ -142,6 +142,14 @@ async function run(reason = 'alarm') {
   const to = new Date(); to.setDate(to.getDate() + 21);
   const diary = await pullDiary(from, to);
 
+  // Placement drives. A registration window is the one thing on Amizone that
+  // cannot be caught up on afterwards, so it is fetched every cycle rather than
+  // occasionally — the pages are small and the cost of being an hour late is
+  // the drive. Failures here are recorded and do NOT sink the run: attendance
+  // arriving without placements is a much better outcome than neither.
+  const placement = await get('/Placement/PlacementDetails').catch(e => ({ status: 0, body: '', error: String(e) }));
+  const corporate = await get('/Placement/CorporatEvent').catch(e => ({ status: 0, body: '', error: String(e) }));
+
   await memPut(cfg, 'amizone_raw', {
     fetched_at: new Date().toISOString(),
     source: 'chrome-extension',
@@ -150,11 +158,13 @@ async function run(reason = 'alarm') {
     courses: courses.body,
     registers,
     diary,
+    placement: placement.body || '',
+    corporate: corporate.body || '',
   });
 
   await report(cfg, {
     ok: true, configured: true,
-    reason: `raw pages captured in this browser (${registers.length} registers, ${diary.length} diary chunks)`,
+    reason: `raw pages captured in this browser (${registers.length} registers, ${diary.length} diary chunks, placement ${placement.status || 'failed'})`,
   });
   return { ok: true, registers: registers.length, diary: diary.length };
 }

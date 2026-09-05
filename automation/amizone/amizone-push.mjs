@@ -194,6 +194,28 @@ async function main() {
     day: g.day, start_time: g.start_time, end_time: g.end_time, subject: g.subject, room: g.room, faculty: g.faculty,
   }));
 
+  // ---- placement drives ----
+  //
+  // Guarded, not merged. If a run parses zero drives — a logged-out capture, a
+  // markup change, a page that timed out — the previous list stays. Overwriting
+  // a list of live deadlines with an empty array would turn a parsing failure
+  // into a silently empty Placement card, which is precisely the failure mode
+  // this whole feature exists to prevent.
+  const placements = Array.isArray(data.placements) ? data.placements : [];
+  if (placements.length) {
+    const open = placements.filter(p => p.status !== 'closed' && p.status !== 'ineligible'
+      && p.end && Date.parse(p.end) > Date.now()).length;
+    await upsertMemory('amizone_placements', {
+      at: new Date().toISOString(),
+      count: placements.length,
+      open,
+      rows: placements.slice(0, 200),
+    }).catch(() => {});
+    log(`placements: ${placements.length} written (${open} open)`);
+  } else {
+    log('placements: none parsed — keeping whatever is already stored');
+  }
+
   await upsertMemory('amizone_raw_diary', {
     at: new Date().toISOString(), window: data.window || null,
     events: (data.events || []).map(e => ({ start: e.start, end: e.end, title: e.title, code: e.code, room: e.room, faculty: e.faculty, sType: e.sType })).slice(0, 400),

@@ -14,6 +14,7 @@ import { currencyOf } from '../lib/indiabook.js';
 import { fetchUsdInr } from '../lib/markets.js';
 import { activeDay, ROLLOVER_HOUR } from '../lib/schedule.js';
 import { dayRows, dateOfDay, changeSummary, startingSoon, covers, isoDay, CHANGE_LABEL } from '../lib/today.js';
+import { placementView, deadlineSoon, hoursLeft, driveId } from '../lib/placements.js';
 import DashAllocation from '../components/money/DashAllocation.jsx';
 import { studyReminders } from '../lib/exams.js';
 import { isHidden } from '../lib/reminders.js';
@@ -67,6 +68,8 @@ export default function HQ({ go }) {
   // this row, and until now nothing read it.
   const { items: diaryMem } = useCollection('memory', { filter: 'key=eq.amizone_raw_diary', order: 'key' });
   const diary = diaryMem?.[0]?.value || null;
+  const { items: placeMem } = useCollection('memory', { filter: 'key=eq.amizone_placements', order: 'key' });
+  const placements = placeMem?.[0]?.value?.rows || [];
   const gEvents = calMem?.[0]?.value?.events || [];
 
   const brief = briefs.find(b => b.date === today) || briefs[0];
@@ -100,7 +103,7 @@ export default function HQ({ go }) {
   // this exact thing already been said — lives in notify.fire(), so this is
   // allowed to be a dumb interval.
   useEffect(() => {
-    if (!timetable.length && !todos.length) return undefined;
+    if (!timetable.length && !todos.length && !placements.length) return undefined;
     const check = () => {
       const now = new Date();
       // Diary-driven, so an EXTRA class notifies at all and a moved room is the
@@ -114,13 +117,15 @@ export default function HQ({ go }) {
       // make the attendance card go red — it keeps showing three-week-old
       // numbers, which is the failure this whole channel exists for.
       notify.fire('sync', notify.syncDown(syncMem?.[0]?.value, now));
+      // The only channel in the app whose miss cannot be undone.
+      notify.fire('placement', deadlineSoon(placements, now));
     };
     check();
     // A minute is fine: the class window is ten minutes wide, so nothing can
     // slip through it, and a tighter loop would only burn battery.
     const id = setInterval(check, 60000);
     return () => clearInterval(id);
-  }, [timetable, todos, syncMem, diaryMem]);
+  }, [timetable, todos, syncMem, diaryMem, placeMem]);
   const [moneyVis, toggleMoney] = useMoneyVisible();
   const held = investments.filter(h => Number(h.qty) > 0);
   // Needed to price the rupee holdings. Until it arrives they are excluded from
@@ -165,6 +170,22 @@ export default function HQ({ go }) {
   }
 
   const reminders = [];
+  // Ahead of even the exam reminders, and this is the one place in HQ where
+  // that ordering is arguable and still right: a paper you are underprepared
+  // for is a bad morning, and a registration window that shuts is a company you
+  // do not get to apply to. Only drives that are actually open appear — an
+  // ineligible or already-registered one on this row is pure noise, and noise
+  // here costs the rows below it.
+  placementView(placements, now).actionable.slice(0, 2).forEach(r => {
+    const h = hoursLeft(r, now);
+    reminders.push({
+      icon: '★',
+      text: `${r.company} — placement registration`,
+      chip: h == null ? 'open' : h < 24 ? `${Math.max(1, Math.round(h))}h left` : `${Math.round(h / 24)}d left`,
+      c: h != null && h < 48 ? 'var(--red)' : 'var(--yellow)',
+      go: 'college',
+    });
+  });
   // First, and deliberately so. The card renders seven rows, and these are the
   // only entries whose deadline cannot be recovered: a missed Spanish FBL
   // module may never be attempted later, and an exam does not reschedule. They

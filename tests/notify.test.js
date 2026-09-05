@@ -51,7 +51,20 @@ const eq = (a, b, n) => ok(Object.is(a, b), `${n} (got ${JSON.stringify(a)}, wan
   for (const id of INFORMATIONAL) {
     ok(!on.includes(id), `${id} is informational, so it ships off`);
   }
-  ok(on.length <= 4, 'and the on-by-default set stays small enough to still be read');
+  // The counterpart, and the reason this is not a cap on the number: a channel
+  // earns default-on by being ACTIONABLE, and the list may only grow by adding a
+  // name here deliberately. A bare `on.length <= 4` broke the first time a
+  // genuinely actionable channel was added and would have been "fixed" by
+  // bumping it to 5, which tests nothing at all.
+  //
+  // placement is the strongest case in the app: every other channel reports
+  // something you can still act on tomorrow. A registration window that has shut
+  // cannot be reopened.
+  const ACTIONABLE = ['focus', 'class', 'sip', 'sync', 'placement'];
+  for (const id of on) {
+    ok(ACTIONABLE.includes(id), `${id} ships on, so it must be a channel that asks something of you`);
+  }
+  ok(on.includes('placement'), 'a deadline you cannot catch up on ships switched on');
 }
 
 // ---------------------------------------------------------------- prefs

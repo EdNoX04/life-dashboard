@@ -5,6 +5,7 @@ import { Card, Empty, StatTile, RefreshButton } from '../components/ui.jsx';
 import { DAYS, activeDay, dayLabel } from '../lib/schedule.js';
 import { dayRows, dateOfDay, changeSummary, CHANGE_LABEL } from '../lib/today.js';
 import WhatsAppImport from '../components/college/WhatsAppImport.jsx';
+import Placements from '../components/college/Placements.jsx';
 import { announcementLink } from '../lib/whatsapp.js';
 
 // Amizone stores attendance as a fraction (0.81) OR a percent (81); normalize to %.
@@ -21,6 +22,7 @@ export default function College() {
   // extra class or a changed room actually lives, and the day is what you turn
   // up to.
   const { items: diaryMem } = useCollection('memory', { filter: 'key=eq.amizone_raw_diary', order: 'key' });
+  const { items: placeMem } = useCollection('memory', { filter: 'key=eq.amizone_placements', order: 'key' });
   const diary = diaryMem?.[0]?.value || null;
   const attLog = logMem?.[0]?.value;
 
@@ -98,6 +100,8 @@ export default function College() {
           <div style={{ marginTop: 10, opacity: 0.6, fontSize: 12 }}>Usual weekly slots — the diary hasn't been synced for this date.</div>
         )}
       </Card>
+
+      <Placements data={placeMem?.[0]?.value || null} />
 
       <Card title="Attendance by subject" color="var(--green)">
         {subjects.length === 0 && <Empty icon="%" text="Synced from Amizone once connected — or add subjects in the Subjects tab." />}

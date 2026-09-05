@@ -70,6 +70,10 @@ export const CHANNELS = [
     note: 'At seven, three and one day out from a paper.',
   },
   {
+    id: 'placement', label: 'Placement deadlines', on: true, needs: 'College',
+    note: 'A day before and two hours before a registration window shuts. On by default because this is the only thing in the app you cannot catch up on afterwards — once a drive closes, it is closed.',
+  },
+  {
     id: 'sync', label: 'A sync has died', on: true, needs: 'HQ',
     note: 'When a background worker stops reporting healthy — the Amizone session expiring, most often. On by default because a dead sync is silent by nature: the dashboard keeps showing the last numbers it had.',
   },

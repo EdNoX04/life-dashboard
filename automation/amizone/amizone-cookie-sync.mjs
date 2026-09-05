@@ -37,6 +37,10 @@
  */
 import fs from 'node:fs';
 import { DOMParser } from 'linkedom';
+// The placement parser is shared with the app rather than reimplemented here.
+// Two parsers for one page is how the diary parser and the timetable builder
+// would have drifted, and drift on a deadline shows up as a missed drive.
+import { parsePlacements, parseCorporateEvents } from '../../src/lib/placements.js';
 
 const argv = process.argv.slice(2);
 const arg = (n, d = null) => { const i = argv.indexOf(`--${n}`); return i === -1 ? d : argv[i + 1]; };
@@ -344,8 +348,20 @@ async function mainFromRaw() {
   log(`diary: ${events.length} events (${classCount} classes) across ${raw.window?.start}…${raw.window?.end}`);
   if (!classCount) log('  WARNING: zero class events — the range cliff may have moved, or term is out');
 
+  // Placement drives. Parsed here, beside everything else, so one run produces
+  // one payload — but kept strictly optional: an empty placement page must never
+  // be a reason to withhold attendance, and equally must never overwrite a good
+  // list with nothing (that is enforced downstream, in the push).
+  const placements = [
+    ...parsePlacements(raw.placement || ''),
+    ...parseCorporateEvents(raw.corporate || ''),
+  ];
+  const openNow = placements.filter(p => p.status !== 'closed' && p.status !== 'ineligible' && p.end && Date.parse(p.end) > Date.now());
+  log(`placements: ${placements.length} listed, ${openNow.length} still open`);
+  if (raw.placement && !placements.length) log('  WARNING: the placement page returned bytes but parsed to 0 drives — the markup may have changed');
+
   fs.writeFileSync(OUT, JSON.stringify({
-    needLogin: false, window: raw.window || {}, courses, events,
+    needLogin: false, window: raw.window || {}, courses, events, placements,
     session: { source: 'chrome-extension', captured_at: raw.fetched_at },
   }, null, 2));
 
