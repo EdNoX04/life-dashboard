@@ -81,11 +81,79 @@ async function report(cfg, state) {
 }
 
 async function get(path) {
-  // credentials:'include' plus host_permissions is what carries the HttpOnly
-  // ticket. If a future Chrome tightens this, the login-page check below turns
-  // it into a clear message instead of silently storing the login page as data.
   const r = await fetch(AMIZONE + path, { credentials: 'include', cache: 'no-store' });
   return { status: r.status, body: await r.text() };
+}
+
+// ---------------------------------------------------------------- the cookie
+
+const DNR_RULE_ID = 7301;
+
+/**
+ * WHY THE PLAIN FETCH COMES BACK LOGGED OUT.
+ *
+ * Measured, not guessed. The exact same request made from an Amizone page's own
+ * context returns 200 with five courses in 29 KB; made from this service worker
+ * it returns the login page. The session is not the problem — the cookie is
+ * simply not being attached.
+ *
+ * Chrome sends a service worker's fetch with no site-for-cookies, so it counts
+ * as cross-site, and a `SameSite=Lax` cookie is withheld. ASP.NET Framework has
+ * issued its forms-auth ticket as Lax by default since 4.7.2, which is exactly
+ * what `.ASPXAUTH` is. `credentials: 'include'` does not override SameSite; it
+ * never could.
+ *
+ * So attach it explicitly. `Cookie` is a forbidden header for fetch(), so the
+ * only route is declarativeNetRequest, scoped as tightly as it goes: this
+ * extension's own tab-less requests, to this one host, and a session rule that
+ * dies with the browser.
+ *
+ * WHAT THIS DOES NOT DO. The value is read from Chrome's own jar, used in
+ * this process, and never stored, logged, sent to Supabase or written anywhere.
+ * It does not leave the machine — which was the whole point of moving the fetch
+ * here in the first place.
+ */
+async function armCookieHeader() {
+  // Every cookie for the host, not just .ASPXAUTH: ASP.NET pairs the auth
+  // ticket with ASP.NET_SessionId, and sending one without the other is its own
+  // kind of logged-out.
+  const jar = await chrome.cookies.getAll({ domain: 's.amizone.net' });
+  const value = jar.map(c => `${c.name}=${c.value}`).join('; ');
+  if (!value) return { armed: false, names: [] };
+
+  await chrome.declarativeNetRequest.updateSessionRules({
+    removeRuleIds: [DNR_RULE_ID],
+    addRules: [{
+      id: DNR_RULE_ID,
+      priority: 1,
+      action: { type: 'modifyHeaders', requestHeaders: [{ header: 'Cookie', operation: 'set', value }] },
+      condition: {
+        urlFilter: '||s.amizone.net/',
+        // -1 is TAB_ID_NONE: requests with no tab behind them, i.e. this worker.
+        // Without it the rule would also rewrite the headers of Neel's own
+        // browsing, which is not something a sync job should be doing.
+        tabIds: [-1],
+        resourceTypes: ['xmlhttprequest', 'other'],
+      },
+    }],
+  });
+  return { armed: true, names: jar.map(c => c.name) };
+}
+
+/**
+ * Arm first, then fetch.
+ *
+ * An earlier version tried the plain fetch and only attached the cookie after
+ * seeing the login page. That reads as more careful and is actually worse: on
+ * the second and later runs in the same browser session the rule is still
+ * installed, so the "plain" fetch silently succeeds *because of it* and the run
+ * reports `direct` — a status line that quietly lies about how it worked. One
+ * order, one answer.
+ */
+async function openSession(state) {
+  state.arm = await armCookieHeader();
+  state.via = state.arm.armed ? 'cookie-header' : 'no-cookie';
+  return state.arm.armed;
 }
 
 /**
@@ -122,10 +190,21 @@ async function run(reason = 'alarm') {
     return { ok: false, reason: 'not configured — open the extension options and paste your Supabase URL and service key' };
   }
 
+  const state = {};
+  await openSession(state);
   const courses = await get('/Academics/MyCourses');
   if (looksLoggedOut(courses.body)) {
-    await report(cfg, { ok: false, configured: true, reason: 'not signed in to Amizone in this browser — open s.amizone.net and log in' });
-    return { ok: false, reason: 'not signed in to Amizone in this browser' };
+    // Two very different failures, and telling them apart is the difference
+    // between "log in again" and "something changed, come and look".
+    const jarEmpty = !state.arm?.names?.length;
+    // Cookie NAMES, never values. What went wrong is diagnosable from the
+    // names alone, and a value in a status row is a live credential written
+    // into Supabase.
+    const msg = jarEmpty
+      ? 'no Amizone cookie in this browser — open s.amizone.net and log in'
+      : `cookies present (${state.arm.names.join(', ')}) but Amizone still returned the login page (HTTP ${courses.status}, ${courses.body.length} bytes) — the session may have been invalidated elsewhere`;
+    await report(cfg, { ok: false, configured: true, reason: msg });
+    return { ok: false, reason: msg };
   }
 
   // Per-course attendance registers. The id comes out of an onclick attribute,
@@ -164,9 +243,9 @@ async function run(reason = 'alarm') {
 
   await report(cfg, {
     ok: true, configured: true,
-    reason: `raw pages captured in this browser (${registers.length} registers, ${diary.length} diary chunks, placement ${placement.status || 'failed'})`,
+    reason: `raw pages captured in this browser via ${state.via} (${registers.length} registers, ${diary.length} diary chunks, placement ${placement.status || 'failed'})`,
   });
-  return { ok: true, registers: registers.length, diary: diary.length, placement: placement.status || 0 };
+  return { ok: true, registers: registers.length, diary: diary.length, placement: placement.status || 0, via: state.via };
 }
 
 // ---------------------------------------------------------------- scheduling

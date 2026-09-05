@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Keeps PLAYER ONE's attendance and timetable current by fetching Amizone from this browser, using the session already signed in here.",
 
-  "permissions": ["alarms", "storage", "cookies"],
+  "permissions": ["alarms", "storage", "cookies", "declarativeNetRequestWithHostAccess"],
 
   "host_permissions": [
     "https://s.amizone.net/*",

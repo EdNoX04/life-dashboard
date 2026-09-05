@@ -36,7 +36,7 @@ $('now').addEventListener('click', async () => {
     res = { ok: false, reason: String(e?.message || e) };
   }
   const text = res?.ok
-    ? `Captured ${res.registers} attendance registers, ${res.diary} diary chunks and the placement page${res.placement === 200 ? '' : ' (FAILED — ' + res.placement + ')'}. The sync will parse them.`
+    ? `Captured ${res.registers} attendance registers, ${res.diary} diary chunks and the placement page${res.placement === 200 ? '' : ' (FAILED — ' + res.placement + ')'} via ${res.via}. The sync will parse them.`
     : `Did not run — ${res?.reason || 'unknown error'}`;
   msg(text, res?.ok ? 'ok' : 'bad');
   // Remembered so reopening the popup shows the last outcome rather than a blank

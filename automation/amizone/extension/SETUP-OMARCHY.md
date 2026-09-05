@@ -43,6 +43,10 @@ Start Chromium normally, then:
 2. **Developer mode** on (top right)
 3. **Load unpacked** → `~/life-dashboard/automation/amizone/extension`
 
+**After any `git pull` that touches this folder, press Reload (⟳) on the
+extension card.** A changed `manifest.json` in particular is only read at load
+time, so a new permission silently does nothing until you do.
+
 ## 4 · Configure it
 
 Click the extension's icon in the toolbar:
@@ -70,7 +74,27 @@ You want: *"Captured N attendance registers, M diary chunks and the placement pa
 If the placement half says FAILED the attendance still lands — the two are
 deliberately independent, because attendance without placements beats neither.
 
-If it says *"not signed in to Amizone in this browser"*, step 5 did not take.
+The messages that are not that:
+
+- *"no Amizone cookie in this browser"* → step 5 did not take. Log in on this
+  machine's Chromium, not another browser.
+- *"cookies present (...) but Amizone still returned the login page"* → you ARE
+  signed in and the ticket was rejected anyway. That is a different problem —
+  the session was probably invalidated somewhere else. Tell me the message.
+
+### Why it needs the cookie permission
+
+Chrome sends a service worker's `fetch()` with no site-for-cookies, so it counts
+as cross-site and a `SameSite=Lax` cookie is withheld — and ASP.NET has issued
+its forms-auth ticket as Lax by default since 4.7.2. `credentials: 'include'`
+does not override SameSite and never could. Measured directly: the same request
+from an Amizone page returns 200 and five courses; from the worker it returns
+the login page.
+
+So the extension reads the cookies from Chrome's own jar and attaches them with
+a `declarativeNetRequest` session rule scoped to this one host and to its own
+tab-less requests — it does not touch your normal browsing. The value is used in
+that process and never stored, logged, or sent to Supabase.
 
 ---
 
