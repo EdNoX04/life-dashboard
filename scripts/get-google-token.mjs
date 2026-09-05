@@ -29,7 +29,21 @@ import readline from 'readline';
 
 const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } = process.env;
 if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-  console.error('Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET first (export them), then re-run.');
+  // "export them" was true and a dead end — it did not say where to get them,
+  // which is the only hard part. Same failure the Meetings tab had.
+  console.error('\nThis needs the OAuth client credentials in your shell first.\n');
+  console.error('  Client ID (public, already recorded in claude/google-oauth.md):');
+  console.error('    1055390146832-5isuruvjq6fdsnj2q22vh890ts106dub.apps.googleusercontent.com\n');
+  console.error('  Client secret — Google Cloud Console → APIs & Services → Credentials');
+  console.error('    → project marine-guard-439012-u0 → "PLAYER ONE token minter".');
+  console.error('    If it is no longer displayed, "Add secret" makes a new one.\n');
+  console.error('  Then, in THIS shell:\n');
+  console.error('    export GOOGLE_CLIENT_ID=1055390146832-5isuruvjq6fdsnj2q22vh890ts106dub.apps.googleusercontent.com');
+  console.error('    read -rs "?Client secret: " GOOGLE_CLIENT_SECRET && export GOOGLE_CLIENT_SECRET\n');
+  console.error('  The `read -rs` form is deliberate: it does not echo the secret and');
+  console.error('  does not put it in your shell history, which `export FOO=value` does.\n');
+  console.error('  Run ONE account at a time — each opens a browser and needs THAT');
+  console.error('  account signed in at the chooser.\n');
   process.exit(1);
 }
 
@@ -196,7 +210,16 @@ try {
     process.exit(1);
   }
   const pad = SECRET_NAME.length > 20 ? SECRET_NAME.length : 20;
-  console.log('\n==================  GITHUB SECRETS  ==================');
+  // BOTH destinations, named. Saying only "GitHub secrets" is what caused a
+  // whole afternoon of confusion on 2026-09-05: the calendar sync reads these
+  // from GitHub Actions, but the Meetings tab calls /api/meet, which runs on
+  // Vercel and cannot see GitHub secrets at all. Same names, two stores, and
+  // this heading only ever mentioned one of them.
+  console.log('\n======  PUT THESE IN **BOTH** PLACES  ======');
+  console.log('  1. GitHub → repo → Settings → Secrets → Actions   (the calendar sync)');
+  console.log('  2. Vercel → project → Settings → Environment Variables   (the Meetings tab)');
+  console.log('  Vercel needs a redeploy afterwards; env vars only apply to a new build.');
+  console.log('===========================================================');
   console.log('GOOGLE_CLIENT_ID'.padEnd(pad), '=', GOOGLE_CLIENT_ID);
   console.log('GOOGLE_CLIENT_SECRET'.padEnd(pad), '=', GOOGLE_CLIENT_SECRET);
   console.log(SECRET_NAME.padEnd(pad), '=', tok.refresh_token);
