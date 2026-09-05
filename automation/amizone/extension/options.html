@@ -1,0 +1,57 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>PLAYER ONE — Amizone bridge</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 18px; width: 380px;
+    font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: #17101f; color: #d8cfe8;
+  }
+  h1 { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #4fd1ff; margin: 0 0 4px; }
+  p.sub { margin: 0 0 16px; color: #8d81a5; font-size: 11px; }
+  label { display: block; margin: 12px 0 4px; font-size: 11px; color: #8d81a5; }
+  input {
+    width: 100%; box-sizing: border-box; padding: 7px 9px;
+    background: #0e0916; border: 1px solid #3a2f52; border-radius: 3px;
+    color: #d8cfe8; font: inherit;
+  }
+  input:focus { outline: none; border-color: #4fd1ff; }
+  .row { display: flex; gap: 8px; margin-top: 16px; }
+  button {
+    flex: 1; padding: 8px; cursor: pointer; font: inherit;
+    background: #0e0916; border: 1px solid #3a2f52; border-radius: 3px; color: #d8cfe8;
+  }
+  button.primary { border-color: #39ff14; color: #39ff14; }
+  button:hover { border-color: #4fd1ff; }
+  #msg { margin-top: 14px; font-size: 11px; line-height: 1.6; min-height: 34px; }
+  .ok { color: #39ff14; } .bad { color: #ff6b6b; } .muted { color: #8d81a5; }
+  .note { margin-top: 16px; padding-top: 12px; border-top: 1px solid #2a2140; font-size: 10.5px; color: #8d81a5; }
+</style>
+
+<h1>Amizone bridge</h1>
+<p class="sub">Fetches Amizone from this browser, using the session already signed in here. The ticket never leaves this machine.</p>
+
+<label for="url">Supabase URL</label>
+<input id="url" placeholder="https://xroynvkzephebhcztvfo.supabase.co" spellcheck="false">
+
+<label for="key">Service role key</label>
+<input id="key" type="password" placeholder="sb_secret_… or eyJ…" spellcheck="false">
+
+<label for="every">Run every (minutes)</label>
+<input id="every" type="number" min="5" max="1440" value="30">
+
+<div class="row">
+  <button id="save">Save</button>
+  <button id="now" class="primary">Run now</button>
+</div>
+
+<div id="msg" class="muted"></div>
+
+<div class="note">
+  The key is kept in this browser's extension storage and is sent only to your own
+  Supabase project. It is never written into the repo. Amizone's session cookie is
+  read by Chrome itself and is never stored or transmitted anywhere.
+</div>
+
+<script src="options.js"></script>

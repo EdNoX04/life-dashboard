@@ -42,6 +42,36 @@ const argv = process.argv.slice(2);
 const arg = (n, d = null) => { const i = argv.indexOf(`--${n}`); return i === -1 ? d : argv[i + 1]; };
 const OUT = arg('out', 'amizone-payload.json');
 
+/**
+ * --from-raw: parse pages the Chrome extension already fetched, instead of
+ * fetching them here.
+ *
+ * WHY THIS MODE EXISTS. Two things were measured on 2026-09-05 and between them
+ * they end the cookie-in-the-cloud design:
+ *
+ *   · `.ASPXAUTH` is HttpOnly. `document.cookie` on an Amizone page is the empty
+ *     string while requests from that same page are authenticated — so the
+ *     bookmarklet cannot read it, and nothing in the web sandbox can.
+ *   · The session does not travel. A ticket serving Neel's browser happily for
+ *     33 minutes died within minutes of being used from two datacenters.
+ *
+ * So the fetching moves to a Chrome extension on his own machine, where the
+ * session already is, and this script keeps doing the part it is good at:
+ * parsing. Same parser, same tests, same output — only the source of the bytes
+ * changes. No credential ever leaves his browser, and nothing here needs one.
+ */
+const FROM_RAW = argv.includes('--from-raw');
+
+/**
+ * How old captured pages may be before this refuses to parse them.
+ *
+ * The failure this prevents is the one this project keeps meeting: parsing
+ * six-day-old HTML and writing it out as today's attendance is not a visible
+ * error, it is a dashboard confidently showing stale numbers. Better to fail and
+ * say the browser has not run recently.
+ */
+const RAW_MAX_AGE_MS = 6 * 3600 * 1000;
+
 const SUPA_URL = String(process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const SUPA_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 // The publishable key passes a bare `sb_` test and then fails at the database
@@ -247,7 +277,88 @@ function lifetimeLine(firstSeen, lastOk) {
   return 'lifetime: ' + parts.join(' · ');
 }
 
+/** Read what the extension captured, refusing anything stale. */
+async function loadRaw() {
+  const rows = await supa('memory?key=eq.amizone_raw&select=value');
+  const raw = rows?.[0]?.value;
+  if (!raw || !raw.courses) {
+    await reportStatus({
+      ok: false, configured: false,
+      reason: 'no captured pages — install the Chrome extension (automation/amizone/extension) and press Run now',
+    });
+    console.error('FATAL: memory.amizone_raw is empty. The browser extension has never run.');
+    process.exit(7);
+  }
+  const age = Date.now() - Date.parse(raw.fetched_at || 0);
+  if (!Number.isFinite(age) || age > RAW_MAX_AGE_MS) {
+    const hours = Number.isFinite(age) ? (age / 3.6e6).toFixed(1) : '?';
+    await reportStatus({
+      ok: false, configured: true,
+      reason: `captured pages are ${hours}h old — open Chrome so the Amizone bridge can refresh them`,
+    });
+    console.error(`FATAL: captured pages are ${hours}h old (limit ${RAW_MAX_AGE_MS / 3.6e6}h). Refusing to publish stale attendance as current.`);
+    process.exit(8);
+  }
+  log(`raw: captured ${(age / 60000).toFixed(0)} min ago by ${raw.source || 'unknown'}`);
+  return raw;
+}
+
+async function mainFromRaw() {
+  const raw = await loadRaw();
+
+  const courses = parseCourses(raw.courses);
+  if (!courses.length) {
+    await reportStatus({ ok: false, configured: true, reason: 'captured MyCourses parsed to 0 courses — the markup may have changed' });
+    console.error('FATAL: 0 courses parsed from the captured page.');
+    process.exit(6);
+  }
+  log(`courses: ${courses.length}`);
+
+  // The extension keys each register by the same id the course row carries, so
+  // this is a lookup rather than a second round of requests.
+  const byId = new Map((raw.registers || []).map(r => [String(r.id), r.body]));
+  for (const c of courses) {
+    c.records = [];
+    const body = c.attId ? byId.get(String(c.attId)) : null;
+    if (body) c.records = parseRecords(body);
+  }
+
+  const seen = new Set();
+  const events = [];
+  for (const chunk of raw.diary || []) {
+    try {
+      const j = JSON.parse(chunk.body);
+      for (const e of (Array.isArray(j) ? j : [])) {
+        const k = String(e.id ?? `${e.start}|${e.title}`);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        events.push({
+          title: e.title, start: e.start, end: e.end, code: e.CourseCode,
+          faculty: e.FacultyName, room: e.RoomNo, sType: e.sType, allDay: e.allDay,
+          attendColor: e.AttndColor,
+        });
+      }
+    } catch { /* one bad chunk must not cost the whole window */ }
+  }
+  const classCount = events.filter(e => String(e.sType).toUpperCase() === 'C').length;
+  log(`diary: ${events.length} events (${classCount} classes) across ${raw.window?.start}…${raw.window?.end}`);
+  if (!classCount) log('  WARNING: zero class events — the range cliff may have moved, or term is out');
+
+  fs.writeFileSync(OUT, JSON.stringify({
+    needLogin: false, window: raw.window || {}, courses, events,
+    session: { source: 'chrome-extension', captured_at: raw.fetched_at },
+  }, null, 2));
+
+  await reportStatus({
+    ok: true, configured: true,
+    reason: `parsed pages captured by the browser ${(Date.now() - Date.parse(raw.fetched_at)) / 60000 | 0} min ago`,
+  });
+  log(`wrote ${OUT} · ${courses.length} subjects, ${events.length} diary events`);
+  courses.forEach(c => log(`   ${(c.code || '—').padEnd(8)} ${String(c.pct ?? '—').padStart(3)}%  (${c.records.length} days)`));
+}
+
 async function main() {
+  if (FROM_RAW) return mainFromRaw();
   const { primary, fallback, firstSeen, lastOk } = await loadCookies();
   if (!primary) {
     await reportStatus({ ok: false, configured: false, reason: 'no Amizone cookie stored — paste .ASPXAUTH into the AMIZONE_COOKIE secret' });

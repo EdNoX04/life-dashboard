@@ -51,12 +51,32 @@ jobs:
       - name: Install linkedom
         run: npm install --no-save linkedom@0.18.5
 
-      - name: Fetch Amizone with the stored session
-        run: node automation/amizone/amizone-cookie-sync.mjs --out /tmp/amizone-payload.json
+      # THIS RUNNER NO LONGER TALKS TO AMIZONE AT ALL.
+      #
+      # Two things were measured on 2026-09-05 and together they end the
+      # cookie-in-the-cloud design:
+      #
+      #   · `.ASPXAUTH` is HttpOnly — document.cookie on an Amizone page is the
+      #     empty string while requests from it are authenticated. The
+      #     bookmarklet reads document.cookie, so it can never work again.
+      #   · The session does not travel. A ticket serving Neel's own browser for
+      #     33 minutes died within minutes of being used from two datacenters.
+      #     Whether that is IP binding or one-session-per-user was never
+      #     separated; both are avoided by not moving the credential.
+      #
+      # So the fetching happens in a Chrome extension on his machine, where the
+      # session already is, and this step only PARSES what it captured — the same
+      # parser, the same tests, the same output. No cookie is needed here, which
+      # is why AMIZONE_COOKIE is gone from this step.
+      #
+      # Refuses to publish captures older than 6 hours: writing week-old HTML out
+      # as today's attendance is not a visible error, it is a dashboard lying
+      # quietly, which is the failure this whole file keeps meeting.
+      - name: Parse the pages the browser captured
+        run: node automation/amizone/amizone-cookie-sync.mjs --from-raw --out /tmp/amizone-payload.json
         env:
           SUPABASE_URL: https://xroynvkzephebhcztvfo.supabase.co
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          AMIZONE_COOKIE: ${{ secrets.AMIZONE_COOKIE }}
 
       - name: Push to Supabase
         run: node automation/amizone/amizone-push.mjs --payload /tmp/amizone-payload.json
