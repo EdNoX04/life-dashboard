@@ -35,7 +35,10 @@ Supabase.** Only the resulting pages are.
    key** → **Save**
 4. Make sure you are signed into Amizone in this browser, then press **Run now**
 
-You want: *"Captured N attendance registers and M diary chunks."*
+You want: *"Captured N attendance registers, M diary chunks and the placement page."*
+
+If the placement half says FAILED the attendance still lands — the two are
+deliberately independent, because attendance without placements beats neither.
 
 The key is kept in this browser's extension storage. It is never written into the
 repo — same trust boundary as `amizone.config.local.json`.

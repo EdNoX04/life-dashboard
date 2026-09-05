@@ -65,7 +65,10 @@ which is the whole reason this machine is doing the job.
 
 Click the extension icon → **Run now**.
 
-You want: *"Captured N attendance registers and M diary chunks."*
+You want: *"Captured N attendance registers, M diary chunks and the placement page."*
+
+If the placement half says FAILED the attendance still lands — the two are
+deliberately independent, because attendance without placements beats neither.
 
 If it says *"not signed in to Amizone in this browser"*, step 5 did not take.
 

@@ -166,7 +166,7 @@ async function run(reason = 'alarm') {
     ok: true, configured: true,
     reason: `raw pages captured in this browser (${registers.length} registers, ${diary.length} diary chunks, placement ${placement.status || 'failed'})`,
   });
-  return { ok: true, registers: registers.length, diary: diary.length };
+  return { ok: true, registers: registers.length, diary: diary.length, placement: placement.status || 0 };
 }
 
 // ---------------------------------------------------------------- scheduling
