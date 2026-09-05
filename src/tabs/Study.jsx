@@ -13,6 +13,7 @@ import { useReminderDone } from '../lib/useReminderDone.js';
 import * as focus from '../lib/focus.js';
 import * as alarm from '../lib/alarm.js';
 import * as breathe from '../lib/breathe.js';
+import * as notify from '../lib/notify.js';
 import * as db from '../lib/db.js';
 
 // The study room, now with an exam in it.
@@ -123,6 +124,11 @@ export default function Study({ go }) {
     pomo.set(st => pomo.setTask(st, { label, todoId: null }));
     setPickTask(false); setTaskDraft('');
   }
+
+  // Exam milestones — seven, three and one day out. Not every day: a countdown
+  // that speaks daily is wallpaper by the third morning, and the one that
+  // matters arrives looking exactly like the four you ignored.
+  useEffect(() => { notify.fire('exam', notify.examSoon(exams)); }, []);
 
   useEffect(() => pomo.subscribe(setPomoState), []);
 

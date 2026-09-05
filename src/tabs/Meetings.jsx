@@ -25,6 +25,7 @@ export default function Meetings() {
   const today = todayStr();
 
   const [connected, setConnected] = useState(null);   // null = server not asked yet
+  const [setup, setSetup] = useState(null);            // what the server says it is missing
   const [form, setForm] = useState({
     account: 'personal', title: '', notes: '',
     date: today, time: '15:00', dur: 30, meet: true, guests: '',
@@ -43,7 +44,12 @@ export default function Meetings() {
     let dead = false;
     fetch('/api/meet')
       .then(r => r.json())
-      .then(j => { if (!dead && Array.isArray(j.accounts)) setConnected(j.accounts.map(a => a.id)); })
+      .then(j => {
+        if (dead) return;
+        if (Array.isArray(j.accounts)) setConnected(j.accounts.map(a => a.id));
+        // Names only — the endpoint never sends values, and this never renders one.
+        setSetup({ ready: Boolean(j.ready), missing: j.missing || [], optional: j.optional || [], where: j.where || '' });
+      })
       .catch(() => {});
     return () => { dead = true; };
   }, []);
@@ -143,7 +149,7 @@ export default function Meetings() {
           ))}
           {connected && connected.length === 0 && (
             <span className="small" style={{ color: 'var(--yellow)' }}>
-              No Google account is configured on the server yet.
+              No Google account is configured on this deployment.
             </span>
           )}
           {connected && connected.length > 0 && connected.length < ACCOUNTS.length && (
@@ -152,6 +158,40 @@ export default function Meetings() {
             </span>
           )}
         </div>
+
+        {setup && !setup.ready && (
+          /* THE POINT OF THIS PANEL.
+             The old message was "No Google account is configured on the server
+             yet" and nothing else — true, and a dead end. It did not say which
+             server, which variables, or where they go, and the natural
+             assumption is the wrong one: the refresh tokens ARE configured, in
+             GitHub Secrets, which is where the calendar sync workflow reads
+             them. /api/meet runs on Vercel and cannot see GitHub Secrets. Same
+             variable names, two entirely separate stores. */
+          <div className="mt-setup">
+            <b>Meetings needs its own copy of the Google credentials.</b>
+            <p>
+              The calendar <i>sync</i> works because the GitHub Action reads these from
+              GitHub Secrets. This page is different — it calls <code>/api/meet</code>,
+              which runs on Vercel, and Vercel cannot read GitHub Secrets. The same
+              values have to exist in both places.
+            </p>
+            <div className="mt-setup-list">
+              <span className="small muted">Missing on Vercel:</span>
+              {setup.missing.map(k => <code key={k} className="mt-env">{k}</code>)}
+            </div>
+            {setup.optional.length > 0 && (
+              <div className="mt-setup-list">
+                <span className="small muted">Optional — each adds an account to the picker:</span>
+                {setup.optional.map(k => <code key={k} className="mt-env dim">{k}</code>)}
+              </div>
+            )}
+            <p className="small muted">
+              {setup.where}. Add them, redeploy, and this panel disappears. Values come from{' '}
+              <code>scripts/get-google-token.mjs &lt;slot&gt;</code>, which prints them and writes nothing to disk.
+            </p>
+          </div>
+        )}
 
         <label className="mt-lbl mt">Title</label>
         <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}

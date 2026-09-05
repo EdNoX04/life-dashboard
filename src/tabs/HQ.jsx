@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useCollection, todayStr } from '../lib/hooks.js';
+import * as notify from '../lib/notify.js';
 import { Card, Empty, StatTile, useNow, useMoneyVisible, money } from '../components/ui.jsx';
 import { Ticker, Sky, useDailySpark } from '../components/arcade.jsx';
 import LiveStatus from '../components/LiveStatus.jsx';
@@ -68,6 +69,32 @@ export default function HQ({ go }) {
   const liveHabits = habits.filter(h => !h.archived);
   const habitsDone = liveHabits.filter(h => logs.some(l => l.habit_id === h.id && l.date === today)).length;
   const classes = timetable.filter(t => t.day === viewDay.name);
+
+  // ---- notifications ----
+  //
+  // Driven from HQ rather than from a root-level watcher on purpose. A component
+  // at the root that could announce a class, a due task and a market move would
+  // have to load the timetable, the todos and the holdings itself, and
+  // useCollection re-polls every 45 seconds — so the whole app would pay, all
+  // day, to serve a notification that fires twice a week. HQ already has this
+  // data in hand and is the tab that is actually open.
+  //
+  // Every guard that matters — is the channel on, has permission been given, has
+  // this exact thing already been said — lives in notify.fire(), so this is
+  // allowed to be a dumb interval.
+  useEffect(() => {
+    if (!timetable.length && !todos.length) return undefined;
+    const check = () => {
+      const now = new Date();
+      notify.fire('class', notify.classSoon(timetable, now));
+      notify.fire('todo', notify.todosDue(todos, now));
+    };
+    check();
+    // A minute is fine: the class window is ten minutes wide, so nothing can
+    // slip through it, and a tighter loop would only burn battery.
+    const id = setInterval(check, 60000);
+    return () => clearInterval(id);
+  }, [timetable, todos]);
   const [moneyVis, toggleMoney] = useMoneyVisible();
   const held = investments.filter(h => Number(h.qty) > 0);
   // Needed to price the rupee holdings. Until it arrives they are excluded from

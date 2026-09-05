@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import * as notify from '../lib/notify.js';
 import GlobalSearch from '../components/money/GlobalSearch.jsx';
 import GlobalOverview from '../components/money/GlobalOverview.jsx';
 import { useCollection } from '../lib/hooks.js';
@@ -256,6 +257,29 @@ export default function Money() {
 
   // live price for a holding: streamed quote → stored last_price → avg cost
   const priceOf = h => Number(quotes[h.ticker]?.price ?? h.last_price ?? h.avg_cost ?? 0);
+
+  // ---- notifications ----
+  //
+  // Here rather than at the app root because the day's move only exists once the
+  // live quotes have arrived, and those are fetched by this tab. The channel's
+  // settings row says "needs Money open" for exactly this reason — the
+  // alternative is a root watcher polling a quotes API all day so it can say
+  // something twice a month.
+  //
+  // What it says is a statement of fact about his own book. It never suggests
+  // doing anything, and it must not start to: Money is read-only by standing
+  // rule, and a notification is the worst possible place for advice — it arrives
+  // uninvited and is read in three seconds.
+  useEffect(() => {
+    const rows = held
+      .map(h => ({ symbol: h.ticker, day_change_pct: quotes[h.ticker]?.changePct }))
+      .filter(r => r.day_change_pct != null);
+    if (rows.length) notify.fire('money', notify.bigMoves(rows, notify.prefs().movePct));
+  }, [held, quotes]);
+
+  useEffect(() => {
+    if (sips.length) notify.fire('sip', notify.sipTrouble(sips));
+  }, [sips]);
 
   // Every total below is in DOLLARS, and getting there needs a currency check
   // per holding rather than a bare multiply. GOLDBEES is priced at about 122

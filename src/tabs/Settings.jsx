@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Security from '../components/Security.jsx';
 import { Card, StatTile } from '../components/ui.jsx';
+import { NotifySettings } from '../components/Notifications.jsx';
 import { getConfig, setConfig, isRemote, syncPushConfig } from '../lib/db.js';
 import { useCollection } from '../lib/hooks.js';
 import { THEMES, getTheme, setTheme } from '../lib/theme.js';
@@ -41,6 +42,13 @@ export default function Settings() {
 
       <Security />
       <p className="tab-sub">Theme, keys and how the dashboard stays live.</p>
+
+      {/* First card, deliberately. This is the setting most likely to be looked
+          for and least likely to be found — the previous version of it was one
+          button at the bottom of the Study tab's pomodoro card. */}
+      <Card title="Notifications" color="var(--cyan)">
+        <NotifySettings />
+      </Card>
 
       <Card title="Theme" color="var(--pink)">
         <div className="small muted" style={{ marginBottom: 10, lineHeight: 1.5 }}>

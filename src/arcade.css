@@ -7153,3 +7153,53 @@ th:hover .hold-info { color: var(--cyan); }
   .focus-row-name { min-width: 100px; }
   .focus-row-meta { display: none; }
 }
+
+/* ---- Notifications ----
+   The banner is the fix for a real failure: the pomodoro's popup switch shipped
+   working and was never found, so the feature did nothing for a month. A
+   permission that can be asked for exactly once, only from a click, and never
+   again after a refusal, does not belong at the bottom of one card. */
+.notify-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 0 0 14px; padding: 10px 12px;
+  border: 2px solid var(--cyan); border-radius: 4px;
+  background: color-mix(in srgb, var(--cyan) 10%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--cyan) 22%, transparent);
+}
+.notify-bar-i { font-size: 15px; line-height: 1; }
+.notify-bar-t { flex: 1; min-width: 220px; font-size: 12px; line-height: 1.5; color: var(--ink-1, #fff); }
+.notify-bar-x {
+  background: none; border: none; color: var(--ink-2); cursor: pointer;
+  font-size: 13px; padding: 2px 6px;
+}
+.notify-bar-x:hover { color: var(--ink-1, #fff); }
+
+.notify-list { display: flex; flex-direction: column; gap: 10px; }
+.notify-row { display: flex; gap: 10px; align-items: flex-start; }
+.notify-row-t { flex: 1; line-height: 1.5; }
+.notify-needs {
+  margin-left: 8px; font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--ink-2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px;
+}
+.notify-thresh { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.notify-thresh input { width: 70px; }
+
+/* ---- Meetings: the "not configured" panel ----
+   Replaces a one-line dead end ("No Google account is configured on the server
+   yet") that named neither the server, the variables, nor where they go — and
+   whose natural reading was wrong, because the tokens ARE configured, in
+   GitHub Secrets, which this Vercel function cannot see. */
+.mt-setup {
+  margin: 12px 0 4px; padding: 12px 14px;
+  border: 2px solid var(--yellow); border-radius: 4px;
+  background: color-mix(in srgb, var(--yellow) 8%, transparent);
+  line-height: 1.6;
+}
+.mt-setup > b { color: var(--yellow); display: block; margin-bottom: 6px; }
+.mt-setup p { margin: 6px 0; font-size: 12px; color: var(--ink-2); }
+.mt-setup-list { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
+.mt-env {
+  font-family: 'VT323', monospace; font-size: 13px; letter-spacing: .5px;
+  border: 1px solid var(--yellow); border-radius: 3px; padding: 1px 6px; color: var(--yellow);
+}
+.mt-env.dim { border-color: var(--border); color: var(--ink-2); }

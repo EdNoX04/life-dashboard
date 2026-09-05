@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import PlayerTwo from './components/PlayerTwo.jsx';
+import { NotifyBanner } from './components/Notifications.jsx';
 import { syncPullConfig } from './lib/db.js';
 import { pendingHandoff } from './lib/amizonecookie.js';
 import HQ from './tabs/HQ.jsx';
@@ -101,6 +102,11 @@ export default function App() {
         <PlayerCard />
       </nav>
       <main className="main">
+        {/* Above every tab, not inside one. Browser notification permission can
+            be asked for exactly once, only from a click, and never again after a
+            refusal — so the ask does not belong at the bottom of one card in one
+            tab, which is where it was, and where it was never found. */}
+        <NotifyBanner />
         <ErrorBoundary key={tab}>
           <Active go={setTab} />
         </ErrorBoundary>
