@@ -13,6 +13,7 @@ import { portfolioTotals } from '../lib/holdings.js';
 import { currencyOf } from '../lib/indiabook.js';
 import { fetchUsdInr } from '../lib/markets.js';
 import { activeDay, ROLLOVER_HOUR } from '../lib/schedule.js';
+import { dayRows, dateOfDay, changeSummary, startingSoon, covers, isoDay, CHANGE_LABEL } from '../lib/today.js';
 import DashAllocation from '../components/money/DashAllocation.jsx';
 import { studyReminders } from '../lib/exams.js';
 import { isHidden } from '../lib/reminders.js';
@@ -59,6 +60,13 @@ export default function HQ({ go }) {
   const { items: news } = useCollection('news', { order: 'published_at' });
   const { items: subjects } = useCollection('subjects');
   const { items: calMem } = useCollection('memory', { filter: 'key=eq.calendar_events', order: 'key' });
+  // The diary. The `timetable` table is a WEEKLY pattern and is deliberately
+  // lossy — it keeps only slots seen on two or more dates, which is what stops
+  // makeups being welded into the grid, and is also why it structurally cannot
+  // carry an extra class or a room change. Both of those are already sitting in
+  // this row, and until now nothing read it.
+  const { items: diaryMem } = useCollection('memory', { filter: 'key=eq.amizone_raw_diary', order: 'key' });
+  const diary = diaryMem?.[0]?.value || null;
   const gEvents = calMem?.[0]?.value?.events || [];
 
   const brief = briefs.find(b => b.date === today) || briefs[0];
@@ -69,7 +77,15 @@ export default function HQ({ go }) {
   const openTodos = todos.filter(t => !t.completed && t.due_date && t.due_date <= today);
   const liveHabits = habits.filter(h => !h.archived);
   const habitsDone = liveHabits.filter(h => logs.some(l => l.habit_id === h.id && l.date === today)).length;
-  const classes = timetable.filter(t => t.day === viewDay.name);
+  // What is actually on. `dayRows` hands back rows in the same shape as the
+  // grid — start_time, subject, room — so everything downstream is unchanged,
+  // with `change`/`usualRoom` riding along. When the diary has not been fetched
+  // for that date it returns the weekly grid and says so, because an unasked
+  // date must look like the usual week and never like a free day.
+  const viewDate = dateOfDay(viewDay.name, now, viewDay.rolled);
+  const dayView = dayRows(diary, timetable, viewDate);
+  const classes = dayView.rows;
+  const changed = changeSummary({ known: dayView.known, classes: classes.map(c => ({ subject: c.subject, change: c.change })), dropped: dayView.dropped });
 
   // ---- notifications ----
   //
@@ -87,7 +103,12 @@ export default function HQ({ go }) {
     if (!timetable.length && !todos.length) return undefined;
     const check = () => {
       const now = new Date();
-      notify.fire('class', notify.classSoon(timetable, now));
+      // Diary-driven, so an EXTRA class notifies at all and a moved room is the
+      // room in the notification. Falls back to the grid only when the diary
+      // cannot speak for today — silence there would be the worst outcome.
+      notify.fire('class', covers(diary, isoDay(now))
+        ? startingSoon(diary, timetable, now)
+        : notify.classSoon(timetable, now));
       notify.fire('todo', notify.todosDue(todos, now));
       // The one that reports something STOPPING. A dead Amizone session does not
       // make the attendance card go red — it keeps showing three-week-old
@@ -99,7 +120,7 @@ export default function HQ({ go }) {
     // slip through it, and a tighter loop would only burn battery.
     const id = setInterval(check, 60000);
     return () => clearInterval(id);
-  }, [timetable, todos, syncMem]);
+  }, [timetable, todos, syncMem, diaryMem]);
   const [moneyVis, toggleMoney] = useMoneyVisible();
   const held = investments.filter(h => Number(h.qty) > 0);
   // Needed to price the rupee holdings. Until it arrives they are excluded from
@@ -173,7 +194,10 @@ export default function HQ({ go }) {
   const lookAhead = viewDay.rolled ? viewDay
     : activeDay(new Date(now.getFullYear(), now.getMonth(), now.getDate(), ROLLOVER_HOUR));
   const nextDay = lookAhead.name;
-  const tmrwClasses = viewDay.rolled ? classes.length : timetable.filter(t => t.day === nextDay).length;
+  // Counted off the diary too, so "3 classes tomorrow" survives an extra one.
+  const tmrwClasses = viewDay.rolled
+    ? classes.length
+    : dayRows(diary, timetable, dateOfDay(nextDay, now, true)).rows.length;
   const doneToday = todos.filter(t => t.completed).length;
   const briefMeta = phase === 'morning' ? { t: "Today's brief", c: 'var(--yellow)' }
     : phase === 'evening' ? { t: 'This evening', c: 'var(--cyan)' } : { t: 'Tonight', c: 'var(--purple)' };
@@ -184,7 +208,7 @@ export default function HQ({ go }) {
         <>
           <div style={{ lineHeight: 1.6 }}>
             {classes.length
-              ? `${classes.length} class${classes.length > 1 ? 'es' : ''} ${whenWord}${first ? ` — first is ${first.subject} at ${first.start_time}` : ''}. `
+              ? `${classes.length} class${classes.length > 1 ? 'es' : ''} ${whenWord}${first ? ` — first is ${first.subject} at ${first.start_time}${first.room ? ` in ${first.room}` : ''}` : ''}. ${changed ? `${changed}. ` : ''}`
               : `No classes on the timetable ${whenWord}. `}
             {openTodos.length ? `${openTodos.length} task${openTodos.length > 1 ? 's' : ''} due, ` : 'Nothing due, '}
             habits {habitsDone}/{liveHabits.length} done.
@@ -274,14 +298,32 @@ export default function HQ({ go }) {
   );
   const ClassesCard = (
     <Card key="classes" title={viewDay.rolled ? `Classes ${whenWord}` : "Today's classes"} color="var(--cyan)" right={<button className="btn btn-sm" onClick={() => go('college')}>open →</button>}>
+      {changed && <div className="dim" style={{ marginBottom: 8, color: 'var(--yellow)' }}>⚠ {changed}</div>}
       {classes.length === 0 && <Empty icon="☺" text={`No classes ${whenWord} — free roam.`} />}
       {classes.slice(0, 8).map(t => (
         <div className="row" key={t.id}>
           <span className="chip c-cyan">{t.start_time}</span>
-          <span style={{ flex: 1 }}>{t.subject}</span>
+          <span style={{ flex: 1 }}>
+            {t.subject}
+            {t.change === 'room' && t.usualRoom && <span className="dim" style={{ fontSize: 11 }}> was {t.usualRoom}</span>}
+          </span>
+          {t.change && <span className="chip c-yellow">{CHANGE_LABEL[t.change]}</span>}
           {t.room && <span className="chip c-purple">{t.room}</span>}
         </div>
       ))}
+      {/* A usual slot with nothing on the diary. Reported apart from the classes
+          above and worded as an absence, because "probably cancelled" and
+          "definitely on" must not look alike — turning up is the cheap mistake. */}
+      {dayView.dropped.slice(0, 4).map(d => (
+        <div className="row" key={`x-${d.subject}-${d.start}`} style={{ opacity: 0.55 }}>
+          <span className="chip">{d.start}</span>
+          <span style={{ flex: 1, textDecoration: 'line-through' }}>{d.subject}</span>
+          <span className="dim" style={{ fontSize: 11 }}>not on the diary</span>
+        </div>
+      ))}
+      {!dayView.known && classes.length > 0 && (
+        <div className="dim" style={{ marginTop: 8, fontSize: 11 }}>Usual weekly slots — the diary hasn't been synced this far ahead.</div>
+      )}
     </Card>
   );
 

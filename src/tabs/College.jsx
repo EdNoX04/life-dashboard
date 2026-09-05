@@ -3,6 +3,7 @@ import { freshnessNote, TONE } from '../lib/collegefresh.js';
 import { useCollection } from '../lib/hooks.js';
 import { Card, Empty, StatTile, RefreshButton } from '../components/ui.jsx';
 import { DAYS, activeDay, dayLabel } from '../lib/schedule.js';
+import { dayRows, dateOfDay, changeSummary, CHANGE_LABEL } from '../lib/today.js';
 import WhatsAppImport from '../components/college/WhatsAppImport.jsx';
 import { announcementLink } from '../lib/whatsapp.js';
 
@@ -16,6 +17,11 @@ export default function College() {
   const { items: logMem, refresh: rL } = useCollection('memory', { filter: 'key=eq.attendance_log', order: 'key' });
   const { items: syncMem } = useCollection('memory', { filter: 'key=eq.amizone_last_sync', order: 'key' });
   const { items: statusMem } = useCollection('memory', { filter: 'key=eq.sync_status', order: 'key' });
+  // The weekly grid below is a PATTERN. This row is the DAY: it is where an
+  // extra class or a changed room actually lives, and the day is what you turn
+  // up to.
+  const { items: diaryMem } = useCollection('memory', { filter: 'key=eq.amizone_raw_diary', order: 'key' });
+  const diary = diaryMem?.[0]?.value || null;
   const attLog = logMem?.[0]?.value;
 
   // How old everything on this screen is. The tab used to present three-week-old
@@ -29,6 +35,9 @@ export default function College() {
   // after 9pm (and all day Sunday) this points at the next day instead of the spent one
   const viewDay = activeDay();
   const todayName = viewDay.name;
+  const dayView = dayRows(diary, timetable, dateOfDay(todayName, new Date(), viewDay.rolled));
+  const dayClasses = dayView.rows;
+  const changed = changeSummary({ known: dayView.known, classes: dayClasses.map(c => ({ subject: c.subject, change: c.change })), dropped: dayView.dropped });
   // average only over subjects that actually have attendance data (skip unsynced 0s)
   const rated = subjects.map(s => attPct(s.attendance_pct)).filter(p => p != null);
   const avgAtt = rated.length ? Math.round(rated.reduce((a, b) => a + b, 0) / rated.length) : null;
@@ -55,24 +64,39 @@ export default function College() {
           note={lowAtt.length ? `${lowAtt.length} subject(s) below 75%!` : 'all safe'}
           color={avgAtt != null && avgAtt < 75 ? 'var(--red)' : 'var(--green)'} />
         <StatTile label={viewDay.rolled ? `Classes ${viewDay.isTomorrow ? 'tomorrow' : todayName}` : 'Classes today'}
-          value={timetable.filter(t => t.day === todayName).length} color="var(--cyan)" />
+          value={dayClasses.length} color="var(--cyan)" />
         <StatTile label="Announcements" value={annc.length} color="var(--pink)" />
       </div>
 
       <Card title={dayLabel(viewDay)} color="var(--cyan)">
-        {timetable.filter(t => t.day === todayName).length === 0 && (
+        {changed && <div style={{ marginBottom: 10, color: 'var(--yellow)' }}>⚠ {changed}</div>}
+        {dayClasses.length === 0 && (
           <Empty icon="☺" text={timetable.length ? `No classes on ${todayName} — free roam. Your classes: ${[...new Set(timetable.map(t => t.day))].join(', ')}.` : 'No classes synced yet — ask Cowork to sync your college.'} />
         )}
-        {timetable.filter(t => t.day === todayName).map(t => (
+        {dayClasses.map(t => (
           <div className="tt-item" key={t.id}>
-            <span className="chip c-cyan tt-time">{t.start_time}–{t.end_time}</span>
+            <span className="chip c-cyan tt-time">{t.start_time}{t.end_time ? `–${t.end_time}` : ''}</span>
             <span className="tt-subj">{t.subject}</span>
             <span className="tt-meta">
+              {t.change && <span className="chip c-yellow">{CHANGE_LABEL[t.change]}</span>}
               {t.room && <span className="chip">{t.room}</span>}
+              {t.change === 'room' && t.usualRoom && <span className="chip" style={{ opacity: 0.6, textDecoration: 'line-through' }}>{t.usualRoom}</span>}
               {t.faculty && <span className="chip c-purple">{t.faculty}</span>}
             </span>
           </div>
         ))}
+        {/* Worded as an absence, never as a cancellation. The diary not carrying
+            a slot is evidence, not proof, and turning up is the cheap mistake. */}
+        {dayView.dropped.map(d => (
+          <div className="tt-item" key={`x-${d.subject}-${d.start}`} style={{ opacity: 0.55 }}>
+            <span className="chip tt-time">{d.start}{d.end ? `–${d.end}` : ''}</span>
+            <span className="tt-subj" style={{ textDecoration: 'line-through' }}>{d.subject}</span>
+            <span className="tt-meta"><span className="chip">not on the diary</span></span>
+          </div>
+        ))}
+        {!dayView.known && dayClasses.length > 0 && (
+          <div style={{ marginTop: 10, opacity: 0.6, fontSize: 12 }}>Usual weekly slots — the diary hasn't been synced for this date.</div>
+        )}
       </Card>
 
       <Card title="Attendance by subject" color="var(--green)">
