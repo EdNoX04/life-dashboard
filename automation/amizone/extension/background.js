@@ -113,13 +113,29 @@ const DNR_RULE_ID = 7301;
  * It does not leave the machine — which was the whole point of moving the fetch
  * here in the first place.
  */
+async function readJar() {
+  // ASK BY URL, NOT BY DOMAIN.
+  //
+  // `getAll({ domain: 's.amizone.net' })` returns cookies on that host and its
+  // SUBDOMAINS. A cookie set on `.amizone.net` is the parent, not a subdomain,
+  // so the filter excludes it — and that is what happened here: the jar came
+  // back empty while the browser was plainly signed in.
+  //
+  // The `url` form asks the question that actually matters: what would Chrome
+  // send to this address? Parent-domain cookies included, which is the whole
+  // point.
+  let jar = await chrome.cookies.getAll({ url: AMIZONE + '/' });
+  if (!jar.length) jar = await chrome.cookies.getAll({ domain: 'amizone.net' });
+  return jar;
+}
+
 async function armCookieHeader() {
-  // Every cookie for the host, not just .ASPXAUTH: ASP.NET pairs the auth
-  // ticket with ASP.NET_SessionId, and sending one without the other is its own
-  // kind of logged-out.
-  const jar = await chrome.cookies.getAll({ domain: 's.amizone.net' });
+  // Every cookie the host would receive, not just .ASPXAUTH: ASP.NET pairs the
+  // auth ticket with ASP.NET_SessionId, and sending one without the other is
+  // its own kind of logged-out.
+  const jar = await readJar();
   const value = jar.map(c => `${c.name}=${c.value}`).join('; ');
-  if (!value) return { armed: false, names: [] };
+  if (!value) return { armed: false, names: [], where: [] };
 
   await chrome.declarativeNetRequest.updateSessionRules({
     removeRuleIds: [DNR_RULE_ID],
@@ -137,7 +153,10 @@ async function armCookieHeader() {
       },
     }],
   });
-  return { armed: true, names: jar.map(c => c.name) };
+  // Names and DOMAINS only — never values. If this ever fails again, which
+  // cookie came from which domain is the diagnosis, and a value here would be a
+  // live credential in a log line.
+  return { armed: true, names: jar.map(c => c.name), where: [...new Set(jar.map(c => c.domain))] };
 }
 
 /**
@@ -201,8 +220,8 @@ async function run(reason = 'alarm') {
     // names alone, and a value in a status row is a live credential written
     // into Supabase.
     const msg = jarEmpty
-      ? 'no Amizone cookie in this browser — open s.amizone.net and log in'
-      : `cookies present (${state.arm.names.join(', ')}) but Amizone still returned the login page (HTTP ${courses.status}, ${courses.body.length} bytes) — the session may have been invalidated elsewhere`;
+      ? 'Chrome has no cookie for s.amizone.net in this profile — open s.amizone.net here and log in (and check this is the same Chrome profile the extension is loaded in)'
+      : `cookies present (${state.arm.names.join(', ')} on ${state.arm.where.join(', ')}) but Amizone still returned the login page (HTTP ${courses.status}, ${courses.body.length} bytes) — the session may have been invalidated elsewhere`;
     await report(cfg, { ok: false, configured: true, reason: msg });
     return { ok: false, reason: msg };
   }
