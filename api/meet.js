@@ -57,6 +57,40 @@ function accounts() {
   ].filter(a => a.refresh);
 }
 
+/**
+ * What is missing, by NAME only.
+ *
+ * WHY THIS EXISTS. The tab said "No Google account is configured on the server
+ * yet" and stopped there — true, and useless. It named neither which server, nor
+ * which variables, nor where they go, and the obvious assumption is the wrong
+ * one: the refresh tokens ARE configured, in GitHub Secrets, where the calendar
+ * sync workflow reads them. This function runs on Vercel, which cannot see
+ * GitHub Secrets at all. Same names, two different stores, and nothing in the
+ * error said so.
+ *
+ * NAMES ONLY, never values and never lengths. These names are already written
+ * in the header of this file; the values are secrets and no diagnostic is worth
+ * putting one on a wire.
+ */
+function missingEnv() {
+  const out = [];
+  // Shared by all three accounts. Checked separately because a refresh token
+  // without these fails at POST time with an opaque Google error, after the
+  // picker has already offered the account as usable.
+  if (!env('GOOGLE_CLIENT_ID')) out.push('GOOGLE_CLIENT_ID');
+  if (!env('GOOGLE_CLIENT_SECRET')) out.push('GOOGLE_CLIENT_SECRET');
+  if (!env('GOOGLE_REFRESH_TOKEN')) out.push('GOOGLE_REFRESH_TOKEN');
+  return out;
+}
+
+/** The optional ones — each adds an account to the picker. Names only. */
+function absentOptional() {
+  const out = [];
+  if (!env('GOOGLE_WORK_REFRESH_TOKEN')) out.push('GOOGLE_WORK_REFRESH_TOKEN');
+  if (!env('GOOGLE_THIRD_REFRESH_TOKEN')) out.push('GOOGLE_THIRD_REFRESH_TOKEN');
+  return out;
+}
+
 /** Who is asking. Same gate as /api/chat: this creates real calendar events. */
 async function verifySession(req) {
   const auth = req.headers.authorization || '';
@@ -102,7 +136,15 @@ export default async function handler(req, res) {
   // GET tells the client which accounts are actually usable, so the picker can
   // only offer accounts that will work.
   if (req.method === 'GET') {
-    return json(res, 200, { accounts: accounts().map(a => ({ id: a.id, label: a.label })) });
+    const missing = missingEnv();
+    return json(res, 200, {
+      accounts: accounts().map(a => ({ id: a.id, label: a.label })),
+      // So the tab can say what is actually wrong instead of that something is.
+      ready: missing.length === 0,
+      missing,
+      optional: absentOptional(),
+      where: 'Vercel → Settings → Environment Variables (NOT GitHub Secrets — this function runs on Vercel and cannot read those)',
+    });
   }
   if (req.method !== 'POST') return json(res, 405, { error: 'POST only' });
 
