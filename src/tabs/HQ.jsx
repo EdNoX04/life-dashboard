@@ -54,6 +54,7 @@ export default function HQ({ go }) {
   const { items: habits } = useCollection('habits');
   const { items: logs } = useCollection('habit_logs');
   const { items: timetable } = useCollection('timetable', { order: 'start_time', asc: true });
+  const { items: syncMem } = useCollection('memory', { filter: 'key=eq.sync_status', order: 'key' });
   const { items: investments } = useCollection('investments');
   const { items: news } = useCollection('news', { order: 'published_at' });
   const { items: subjects } = useCollection('subjects');
@@ -88,13 +89,17 @@ export default function HQ({ go }) {
       const now = new Date();
       notify.fire('class', notify.classSoon(timetable, now));
       notify.fire('todo', notify.todosDue(todos, now));
+      // The one that reports something STOPPING. A dead Amizone session does not
+      // make the attendance card go red — it keeps showing three-week-old
+      // numbers, which is the failure this whole channel exists for.
+      notify.fire('sync', notify.syncDown(syncMem?.[0]?.value, now));
     };
     check();
     // A minute is fine: the class window is ten minutes wide, so nothing can
     // slip through it, and a tighter loop would only burn battery.
     const id = setInterval(check, 60000);
     return () => clearInterval(id);
-  }, [timetable, todos]);
+  }, [timetable, todos, syncMem]);
   const [moneyVis, toggleMoney] = useMoneyVisible();
   const held = investments.filter(h => Number(h.qty) > 0);
   // Needed to price the rupee holdings. Until it arrives they are excluded from

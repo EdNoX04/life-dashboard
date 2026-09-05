@@ -21,6 +21,27 @@
 // turns a missing/broken `npm install playwright` into a plain sentence instead
 // of an ERR_MODULE_NOT_FOUND stack above every other message.
 let chromium;
+
+/**
+ * Load Playwright's API, from either package.
+ *
+ * `playwright` pulls ~300 MB of browser builds on install. This script never
+ * uses them: `findBrowser()` locates the REAL Chrome already on the machine and
+ * passes it as `executablePath`, because a warm profile in a browser Cloudflare
+ * already trusts is the entire point. `playwright-core` is the same API without
+ * the downloads — a few megabytes. Try the full package first so an existing
+ * install keeps working, then fall back.
+ */
+async function loadChromium() {
+  if (chromium) return chromium;
+  for (const pkg of ['playwright', 'playwright-core']) {
+    try { ({ chromium } = await import(pkg)); return chromium; } catch { /* try the next */ }
+  }
+  console.error('\nNeither playwright nor playwright-core is installed. Either will do:');
+  console.error('  npm install --no-save playwright-core     (a few MB — recommended, this uses your real Chrome)');
+  console.error('  npm install --no-save playwright          (~300 MB, only if you want the bundled browsers)');
+  process.exit(1);
+}
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
@@ -435,8 +456,7 @@ async function loginMode() {
     console.error('\nNo browser found:  yay -S google-chrome   or   sudo pacman -S chromium');
     process.exit(1);
   }
-  try { ({ chromium } = await import('playwright')); }
-  catch { console.error('\nnpm install playwright@1.48.0   (needed to read the cookies back)'); process.exit(1); }
+  await loadChromium();
 
   fs.mkdirSync(PROFILE_DIR, { recursive: true });
   log(`browser: ${bin}`);
@@ -477,8 +497,7 @@ async function main() {
   if (CHECK_MODE) return check();
   if (LOGIN_MODE) return loginMode();
   if (CAPTURE_MODE) {
-    try { ({ chromium } = await import('playwright')); }
-    catch { console.error('\nnpm install playwright@1.48.0'); process.exit(1); }
+    await loadChromium();
     log(`Attaching to the Chrome you started on port ${CDP_PORT}…`);
     const ok = await captureFrom(CDP_PORT);
     if (!ok) {
@@ -519,7 +538,7 @@ async function main() {
   }
 
   try {
-    ({ chromium } = await import('playwright'));
+    await loadChromium();
   } catch {
     console.error('\nPlaywright is not installed here. In this folder run:\n');
     console.error('  npm install playwright@1.48.0\n');
@@ -544,7 +563,19 @@ async function main() {
   // So: same binary (resolved by findBrowser, exactly as --login does), and the
   // same three flags. Nothing that says "automated" beyond what Playwright must
   // do to drive the page at all.
+  // NO XVFB ON macOS. The scraper is deliberately headful — that is the whole
+  // reason it runs at home instead of on a runner — and on Linux Xvfb gives it a
+  // display nobody sees. macOS has no such thing, so an unattended run would pop
+  // a Chrome window onto the desktop every twenty minutes.
+  //
+  // Putting the window far off-screen is the equivalent: the browser is fully
+  // real, it renders, it passes Turnstile, and it is simply not on any monitor.
+  const offscreen = process.env.AMIZONE_OFFSCREEN === '1'
+    ? ['--window-position=-4000,-4000', '--window-size=1280,900']
+    : [];
+
   const antiBotArgs = [
+    ...offscreen,
     '--no-first-run',
     '--no-default-browser-check',
     // --password-store=basic is not optional on Linux, and it is almost

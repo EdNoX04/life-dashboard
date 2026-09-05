@@ -15,7 +15,7 @@
 import {
   CHANNELS, CHANNEL_IDS, defaults, normalize, enabledFor,
   seenKey, hasSeen, markSeen, prune, dayStamp,
-  classSoon, todosDue, bigMoves, sipTrouble, examSoon,
+  classSoon, todosDue, bigMoves, sipTrouble, examSoon, syncDown,
   MIN_MOVE, MAX_MOVE, DEFAULT_MOVE, EXAM_MILESTONES,
 } from '../src/lib/notify.js';
 
@@ -36,8 +36,22 @@ const eq = (a, b, n) => ok(Object.is(a, b), `${n} (got ${JSON.stringify(a)}, wan
   ok(on.includes('focus'), 'the focus timer is on by default — it is the one he asked for');
   ok(!on.includes('money'), 'market moves are OFF by default');
   ok(!on.includes('todo'), 'and so are task reminders');
-  ok(on.length <= 3, 'at most three things interrupt out of the box — a dashboard that opens by interrupting you six times gets switched off wholesale');
-  ok(on.includes('sip'), 'but a failed SIP is on, because it is the one that needs action');
+  ok(on.includes('sip'), 'a failed SIP is on, because it needs action in another app');
+  ok(on.includes('sync'), 'and so is a dead sync, because a stopped sync is invisible by nature');
+
+  // THE ACTUAL RULE, rather than a number I picked.
+  //
+  // A default-on channel must be one where the notification asks something of
+  // you: a block ended, a class starts in ten minutes, an installment failed, a
+  // sync died and the dashboard is now lying to you by omission. Anything that
+  // is merely INTERESTING — a stock moved, a task is due, an exam is a week away
+  // — is information you can go and look at, and shipping it switched on is how
+  // the whole feature gets muted in week one, taking the useful ones with it.
+  const INFORMATIONAL = ['money', 'todo', 'exam'];
+  for (const id of INFORMATIONAL) {
+    ok(!on.includes(id), `${id} is informational, so it ships off`);
+  }
+  ok(on.length <= 4, 'and the on-by-default set stays small enough to still be read');
 }
 
 // ---------------------------------------------------------------- prefs
@@ -201,6 +215,40 @@ const eq = (a, b, n) => ok(Object.is(a, b), `${n} (got ${JSON.stringify(a)}, wan
   ok(!/Quiet|Past/.test(JSON.stringify(hits)), 'nothing for a non-milestone or a paper already sat');
   eq(examSoon([{ subject: 'x', date: 'nonsense' }], now).length, 0, 'an unparseable date is skipped');
   eq(examSoon(null, now).length, 0, 'and no exams is no notifications');
+}
+
+// ---------------------------------------------------------------- a dead sync
+//
+// The one channel that is on by default, because it reports something STOPPING
+// rather than something happening — and a stopped sync is invisible by nature:
+// the attendance card keeps showing the last numbers it ever fetched, with
+// nothing to say they are three weeks old.
+{
+  const now = new Date(2026, 8, 5, 10, 0);
+  const status = {
+    amizone: { ok: false, configured: true, reason: 'Amizone cookie expired — log in on Chrome and re-paste .ASPXAUTH' },
+    prices: { ok: true, at: '2026-09-05T04:00:00Z' },
+    letterboxd: { ok: false, configured: false },        // never set up
+    brief: { at: '2026-09-05T01:00:00Z' },               // has never reported ok at all
+  };
+  const hits = syncDown(status, now);
+  eq(hits.length, 1, 'only the worker that is actually broken');
+  ok(/amizone/i.test(hits[0].title), 'named');
+  ok(/re-paste/.test(hits[0].body), 'carrying the reason the worker itself gave, which says what to do');
+
+  const blob = JSON.stringify(hits);
+  ok(!/letterboxd/.test(blob), 'a worker that was never configured is not "broken"');
+  // "we have never heard from this" is not the same claim as "this is broken",
+  // and announcing the first as the second is how a nightly false alarm trains
+  // you to ignore the real one.
+  ok(!/brief/.test(blob), 'and neither is one that has simply never reported');
+  ok(!/prices/.test(blob), 'healthy workers say nothing');
+
+  eq(hits[0].thing, `amizone:${dayStamp(now)}`, 'day-stamped, so a permanently dead sync says so once a day');
+  eq(syncDown({ amizone: { ok: false, configured: true } }, now)[0].body.length > 0, true,
+     'a failure with no reason still produces a usable sentence');
+  eq(syncDown(null, now).length, 0, 'no status blob, nothing said');
+  eq(syncDown('nonsense', now).length, 0, 'and a corrupt one does not throw');
 }
 
 // ---------------------------------------------------------------- nothing says "undefined"

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PLAYER ONE — Amizone sync, every 20 minutes, on this Mac.
+
+  WHY 20 MINUTES. Amizone is ASP.NET forms auth with no "remember me" option, so
+  the .ASPXAUTH ticket is governed by <forms timeout>, whose framework default is
+  30 minutes, sliding. Sliding means the server reissues the ticket on any
+  request made BEFORE it expires — so a job that runs inside the window keeps the
+  session alive indefinitely, and one that runs outside it finds a dead session
+  every single time. The GitHub workflow ran every 2 hours and therefore never
+  once succeeded on a schedule: 76 runs, 2 successes, both manual.
+
+  20 gives a comfortable margin under 30 for a late wake-up or a slow run.
+
+  StartInterval does not fire while the Mac is asleep; it fires once on wake. So
+  after a night with the lid shut the first run may find the ticket dead — which
+  is exactly the case amizone-auto.mjs handles by logging in again with the
+  stored credentials, in a real browser on your own connection, where Turnstile
+  passes without being asked.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.playerone.amizone</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/neel/Projects/life-dashboard/automation/amizone/run-amizone-macos.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/neel/Projects/life-dashboard/automation/amizone</string>
+
+  <key>StartInterval</key>
+  <integer>1200</integer>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- launchd gives an agent a minimal PATH that does not include Homebrew, so
+       `node` is not found and every run fails instantly with 127. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>AMIZONE_OFFSCREEN</key>
+    <string>1</string>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/Users/neel/Projects/life-dashboard/automation/amizone/launchd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/neel/Projects/life-dashboard/automation/amizone/launchd.err.log</string>
+</dict>
+</plist>

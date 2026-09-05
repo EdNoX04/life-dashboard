@@ -69,6 +69,10 @@ export const CHANNELS = [
     id: 'exam', label: 'Exam countdown', on: false, needs: 'Study',
     note: 'At seven, three and one day out from a paper.',
   },
+  {
+    id: 'sync', label: 'A sync has died', on: true, needs: 'HQ',
+    note: 'When a background worker stops reporting healthy — the Amizone session expiring, most often. On by default because a dead sync is silent by nature: the dashboard keeps showing the last numbers it had.',
+  },
 ];
 
 export const CHANNEL_IDS = CHANNELS.map(c => c.id);
@@ -251,6 +255,44 @@ export function sipTrouble(sips, now = new Date()) {
     title: bad.length === 1 ? `SIP failed: ${bad[0].name || bad[0].symbol || 'one installment'}` : `${bad.length} SIP installments failed`,
     body: 'Needs fixing in the INDmoney app — nothing here can retry it.',
   }];
+}
+
+/**
+ * Workers that have stopped reporting healthy.
+ *
+ * WHY THIS IS ON BY DEFAULT, when the other five are not.
+ *
+ * Every other notification here tells you about something that happened. This
+ * one tells you that something STOPPED happening, and that is a category the
+ * dashboard is structurally bad at showing you: when the Amizone sync dies, the
+ * attendance card does not go blank or turn red — it keeps displaying the last
+ * numbers it successfully fetched, indefinitely, with no indication they are
+ * from three weeks ago. That exact failure is recorded twice in the project
+ * notes ("attendance stayed frozen for weeks with nothing visibly wrong") and it
+ * is the one thing a notification is genuinely better at than a screen.
+ *
+ * Keyed by worker AND day, so a permanently dead sync says so once a day rather
+ * than every minute — enough to be remembered, not enough to be muted.
+ */
+export function syncDown(status, now = new Date()) {
+  if (!status || typeof status !== 'object') return [];
+  const day = dayStamp(now);
+  const out = [];
+  for (const [worker, s] of Object.entries(status)) {
+    // `ok` must be explicitly false. A worker that has never reported has no
+    // `ok` at all, and "we have never heard from this" is not the same claim as
+    // "this is broken" — announcing the first as the second is how a nightly
+    // false alarm trains you to ignore the real one.
+    if (!s || typeof s !== 'object' || s.ok !== false) continue;
+    if (s.configured === false) continue;   // not set up is not the same as broken
+    const reason = typeof s.reason === 'string' ? s.reason.trim() : '';
+    out.push({
+      thing: `${worker}:${day}`,
+      title: `${worker} sync has stopped`,
+      body: reason || 'It is reporting unhealthy. The dashboard is still showing its last good data.',
+    });
+  }
+  return out.slice(0, 2);
 }
 
 export const EXAM_MILESTONES = [7, 3, 1];

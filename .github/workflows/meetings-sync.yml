@@ -2,7 +2,18 @@ name: Meetings sync (Google Calendar + Meet)
 
 on:
   schedule:
-    - cron: '*/5 2-20 * * *'
+    # Hourly, not every five minutes.
+    #
+    # This workflow PULLS calendar events into Supabase. It has nothing to do
+    # with creating a Meet link — that happens synchronously in the browser
+    # through /api/meet when you press the button, and is unaffected by this
+    # schedule. Nobody was ever waiting on this cron for a link.
+    #
+    # At */5 across 19 hours it fired ~228 times a day. GitHub bills private-repo
+    # Actions with a one-minute minimum per run, so that one line was ~6,800
+    # minutes a month against a 2,000-minute allowance — while making a calendar
+    # four minutes fresher than hourly.
+    - cron: '0 2-20 * * *'
   workflow_dispatch:
 
 concurrency:
