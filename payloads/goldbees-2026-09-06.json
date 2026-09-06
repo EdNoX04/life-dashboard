@@ -1,0 +1,16 @@
+{
+  "ops": [
+    {
+      "table": "investments",
+      "method": "update",
+      "match": "id=eq.28a4564d-3d73-46b9-8dbc-f566819b00d7",
+      "row": {
+        "qty": 37,
+        "avg_cost": 126.4922,
+        "last_price": 127.17,
+        "source": "indmoney-mcp-2026-09-06",
+        "updated_at": "2026-09-06T00:00:00.000Z"
+      }
+    }
+  ]
+}
