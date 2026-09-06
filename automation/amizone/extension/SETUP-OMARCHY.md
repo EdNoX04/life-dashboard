@@ -82,19 +82,21 @@ The messages that are not that:
   signed in and the ticket was rejected anyway. That is a different problem —
   the session was probably invalidated somewhere else. Tell me the message.
 
-### Why it needs the cookie permission
+### Why it needs `tabs` and `scripting`
 
-Chrome sends a service worker's `fetch()` with no site-for-cookies, so it counts
-as cross-site and a `SameSite=Lax` cookie is withheld — and ASP.NET has issued
-its forms-auth ticket as Lax by default since 4.7.2. `credentials: 'include'`
-does not override SameSite and never could. Measured directly: the same request
-from an Amizone page returns 200 and five courses; from the worker it returns
-the login page.
+Measured from a signed-in browser: `/Academics/MyCourses` requested from an
+Amizone **page** returns 200 with five courses; the identical request from the
+extension's service worker returns the login page. Chrome sends a worker's
+`fetch()` with no site-for-cookies, so it counts as cross-site and a
+`SameSite=Lax` cookie is withheld — and that is what ASP.NET's forms-auth ticket
+has been by default since 4.7.2. `credentials: 'include'` does not override
+SameSite and never could.
 
-So the extension reads the cookies from Chrome's own jar and attaches them with
-a `declarativeNetRequest` session rule scoped to this one host and to its own
-tab-less requests — it does not touch your normal browsing. The value is used in
-that process and never stored, logged, or sent to Supabase.
+Rather than keep reconstructing a first-party request, the extension **is** one:
+it injects the fetches into a tab on `s.amizone.net`, where Chrome attaches the
+cookies itself. Your open Amizone tab is reused if you have one; otherwise a
+background tab is opened inactive and closed when the run finishes. Nothing
+reads or stores the cookie at all now.
 
 ---
 

@@ -3,16 +3,23 @@
   "name": "PLAYER ONE — Amizone bridge",
   "version": "1.0.0",
   "description": "Keeps PLAYER ONE's attendance and timetable current by fetching Amizone from this browser, using the session already signed in here.",
-
-  "permissions": ["alarms", "storage", "cookies", "declarativeNetRequestWithHostAccess"],
-
+  "permissions": [
+    "alarms",
+    "storage",
+    "tabs",
+    "scripting"
+  ],
   "host_permissions": [
     "https://s.amizone.net/*",
-    "https://*.amizone.net/*",
     "https://xroynvkzephebhcztvfo.supabase.co/*"
   ],
-
-  "background": { "service_worker": "background.js", "type": "module" },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
   "options_page": "options.html",
-  "action": { "default_title": "PLAYER ONE — Amizone bridge", "default_popup": "options.html" }
+  "action": {
+    "default_title": "PLAYER ONE — Amizone bridge",
+    "default_popup": "options.html"
+  }
 }

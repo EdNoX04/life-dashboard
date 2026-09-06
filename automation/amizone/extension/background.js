@@ -31,6 +31,13 @@
 // So this fetches, stores the raw responses, and the existing pipeline parses
 // them exactly as it always has. The only thing that changes is WHERE the fetch
 // happens. That is the whole fix.
+//
+// AND "WHERE" TURNED OUT TO MEAN A TAB, NOT THIS WORKER.
+//
+// Two versions of this file tried to make the service worker's own fetch carry
+// the ticket and both failed — see amizoneTab() below for what was measured.
+// The requests now run inside a page on s.amizone.net, which is the context
+// that was proven to work rather than the one that ought to.
 
 const AMIZONE = 'https://s.amizone.net';
 const ALARM = 'amizone-pull';
@@ -80,99 +87,75 @@ async function report(cfg, state) {
   } catch { /* a health note is not worth failing the run over */ }
 }
 
-async function get(path) {
-  const r = await fetch(AMIZONE + path, { credentials: 'include', cache: 'no-store' });
-  return { status: r.status, body: await r.text() };
-}
-
-// ---------------------------------------------------------------- the cookie
-
-const DNR_RULE_ID = 7301;
+// ------------------------------------------------- fetching from a real tab
 
 /**
- * WHY THE PLAIN FETCH COMES BACK LOGGED OUT.
+ * THE PATH THAT ACTUALLY WORKS, AND WHY IT TOOK THREE TRIES TO GET HERE.
  *
- * Measured, not guessed. The exact same request made from an Amizone page's own
- * context returns 200 with five courses in 29 KB; made from this service worker
- * it returns the login page. The session is not the problem — the cookie is
- * simply not being attached.
+ * Measured from Neel's signed-in browser: `/Academics/MyCourses` requested from
+ * an Amizone PAGE returns 200, 29,150 bytes, five courses. The identical request
+ * from this service worker returns the login page. Two attempts to make the
+ * worker's own fetch carry the ticket — `credentials: 'include'`, then a
+ * declarativeNetRequest Cookie header off `chrome.cookies` — each failed for a
+ * different reason, and the third failure was a bare "TypeError: Failed to
+ * fetch" with nothing to read.
  *
- * Chrome sends a service worker's fetch with no site-for-cookies, so it counts
- * as cross-site, and a `SameSite=Lax` cookie is withheld. ASP.NET Framework has
- * issued its forms-auth ticket as Lax by default since 4.7.2, which is exactly
- * what `.ASPXAUTH` is. `credentials: 'include'` does not override SameSite; it
- * never could.
+ * So stop trying to reconstruct a first-party request and just BE one. A script
+ * injected into a tab on s.amizone.net fetches with that page's origin: same
+ * site, cookies attached by Chrome itself, no SameSite question, no cookie jar
+ * to query, nothing to get subtly wrong. It is exactly the context that was
+ * measured working.
  *
- * So attach it explicitly. `Cookie` is a forbidden header for fetch(), so the
- * only route is declarativeNetRequest, scoped as tightly as it goes: this
- * extension's own tab-less requests, to this one host, and a session rule that
- * dies with the browser.
- *
- * WHAT THIS DOES NOT DO. The value is read from Chrome's own jar, used in
- * this process, and never stored, logged, sent to Supabase or written anywhere.
- * It does not leave the machine — which was the whole point of moving the fetch
- * here in the first place.
+ * The tab is reused if Neel already has Amizone open, and otherwise opened
+ * inactive and closed afterwards — on the always-on machine that is an
+ * invisible background tab for a few seconds every half hour.
  */
-async function readJar() {
-  // ASK BY URL, NOT BY DOMAIN.
-  //
-  // `getAll({ domain: 's.amizone.net' })` returns cookies on that host and its
-  // SUBDOMAINS. A cookie set on `.amizone.net` is the parent, not a subdomain,
-  // so the filter excludes it — and that is what happened here: the jar came
-  // back empty while the browser was plainly signed in.
-  //
-  // The `url` form asks the question that actually matters: what would Chrome
-  // send to this address? Parent-domain cookies included, which is the whole
-  // point.
-  let jar = await chrome.cookies.getAll({ url: AMIZONE + '/' });
-  if (!jar.length) jar = await chrome.cookies.getAll({ domain: 'amizone.net' });
-  return jar;
-}
+async function amizoneTab() {
+  const open = await chrome.tabs.query({ url: 'https://s.amizone.net/*' });
+  const ready = open.find(t => t.status === 'complete');
+  if (ready) return { tabId: ready.id, ours: false };
 
-async function armCookieHeader() {
-  // Every cookie the host would receive, not just .ASPXAUTH: ASP.NET pairs the
-  // auth ticket with ASP.NET_SessionId, and sending one without the other is
-  // its own kind of logged-out.
-  const jar = await readJar();
-  const value = jar.map(c => `${c.name}=${c.value}`).join('; ');
-  if (!value) return { armed: false, names: [], where: [] };
-
-  await chrome.declarativeNetRequest.updateSessionRules({
-    removeRuleIds: [DNR_RULE_ID],
-    addRules: [{
-      id: DNR_RULE_ID,
-      priority: 1,
-      action: { type: 'modifyHeaders', requestHeaders: [{ header: 'Cookie', operation: 'set', value }] },
-      condition: {
-        urlFilter: '||s.amizone.net/',
-        // -1 is TAB_ID_NONE: requests with no tab behind them, i.e. this worker.
-        // Without it the rule would also rewrite the headers of Neel's own
-        // browsing, which is not something a sync job should be doing.
-        tabIds: [-1],
-        resourceTypes: ['xmlhttprequest', 'other'],
-      },
-    }],
+  const wins = await chrome.windows.getAll({ windowTypes: ['normal'] });
+  let tab;
+  if (wins.length) {
+    tab = await chrome.tabs.create({ windowId: wins[0].id, url: AMIZONE + '/Home', active: false });
+  } else {
+    // `--no-startup-window` means there may be no window at all. Minimized so
+    // it never steals focus from whatever is on screen.
+    const w = await chrome.windows.create({ url: AMIZONE + '/Home', focused: false, state: 'minimized' });
+    tab = w.tabs[0];
+  }
+  await new Promise((resolve) => {
+    const done = () => { chrome.tabs.onUpdated.removeListener(on); clearTimeout(bail); resolve(); };
+    const on = (id, info) => { if (id === tab.id && info.status === 'complete') done(); };
+    chrome.tabs.onUpdated.addListener(on);
+    // A tab that never finishes loading must not hang the run forever; the
+    // fetches below will fail loudly on their own if the page really is broken.
+    const bail = setTimeout(done, 20000);
   });
-  // Names and DOMAINS only — never values. If this ever fails again, which
-  // cookie came from which domain is the diagnosis, and a value here would be a
-  // live credential in a log line.
-  return { armed: true, names: jar.map(c => c.name), where: [...new Set(jar.map(c => c.domain))] };
+  return { tabId: tab.id, ours: true };
 }
 
-/**
- * Arm first, then fetch.
- *
- * An earlier version tried the plain fetch and only attached the cookie after
- * seeing the login page. That reads as more careful and is actually worse: on
- * the second and later runs in the same browser session the rule is still
- * installed, so the "plain" fetch silently succeeds *because of it* and the run
- * reports `direct` — a status line that quietly lies about how it worked. One
- * order, one answer.
- */
-async function openSession(state) {
-  state.arm = await armCookieHeader();
-  state.via = state.arm.armed ? 'cookie-header' : 'no-cookie';
-  return state.arm.armed;
+/** Run every fetch inside the page, in one round trip. */
+async function fetchInTab(tabId, paths) {
+  const [hit] = await chrome.scripting.executeScript({
+    target: { tabId },
+    args: [paths],
+    func: async (list) => {
+      const out = [];
+      for (const p of list) {
+        try {
+          const r = await fetch(p, { credentials: 'include', cache: 'no-store' });
+          out.push({ path: p, status: r.status, body: await r.text() });
+        } catch (e) {
+          out.push({ path: p, status: 0, body: '', error: String(e && e.message || e) });
+        }
+      }
+      return out;
+    },
+  });
+  if (!hit || !Array.isArray(hit.result)) throw new Error('the injected fetch returned nothing — the tab may have navigated away');
+  return hit.result;
 }
 
 /**
@@ -188,86 +171,99 @@ async function openSession(state) {
  */
 const DIARY_CHUNK_DAYS = 21;
 
-async function pullDiary(from, to) {
-  const out = [];
-  let cur = new Date(from);
-  while (cur <= to) {
-    const hi = new Date(cur);
-    hi.setDate(hi.getDate() + DIARY_CHUNK_DAYS);
-    const end = hi > to ? to : hi;
-    const r = await get(`/Calendar/home/GetDiaryEvents?start=${ymd(cur)}&end=${ymd(end)}`);
-    out.push({ start: ymd(cur), end: ymd(end), status: r.status, body: r.body });
-    cur = new Date(end);
-    cur.setDate(cur.getDate() + 1);
-  }
-  return out;
-}
-
 async function run(reason = 'alarm') {
   const cfg = await settings();
   if (!cfg.url || !cfg.key) {
     return { ok: false, reason: 'not configured — open the extension options and paste your Supabase URL and service key' };
   }
 
-  const state = {};
-  await openSession(state);
-  const courses = await get('/Academics/MyCourses');
-  if (looksLoggedOut(courses.body)) {
-    // Two very different failures, and telling them apart is the difference
-    // between "log in again" and "something changed, come and look".
-    const jarEmpty = !state.arm?.names?.length;
-    // Cookie NAMES, never values. What went wrong is diagnosable from the
-    // names alone, and a value in a status row is a live credential written
-    // into Supabase.
-    const msg = jarEmpty
-      ? 'Chrome has no cookie for s.amizone.net in this profile — open s.amizone.net here and log in (and check this is the same Chrome profile the extension is loaded in)'
-      : `cookies present (${state.arm.names.join(', ')} on ${state.arm.where.join(', ')}) but Amizone still returned the login page (HTTP ${courses.status}, ${courses.body.length} bytes) — the session may have been invalidated elsewhere`;
+  // Every stage is named. The last round of this failed with a bare
+  // "TypeError: Failed to fetch" on the errors page and nothing to read: no
+  // indication whether it was Amizone, Supabase, or the injection itself. A
+  // message that does not say WHERE it broke costs another whole round trip.
+  let stage = 'start';
+  let tab = null;
+  try {
+    stage = 'opening an Amizone tab';
+    tab = await amizoneTab();
+
+    stage = 'fetching MyCourses in that tab';
+    const [courses] = await fetchInTab(tab.tabId, ['/Academics/MyCourses']);
+    if (courses.error) throw new Error(courses.error);
+    if (looksLoggedOut(courses.body)) {
+      const msg = `Amizone returned the login page in its own tab (HTTP ${courses.status}, ${courses.body.length} bytes) — open s.amizone.net in this browser and sign in`;
+      await report(cfg, { ok: false, configured: true, reason: msg });
+      return { ok: false, reason: msg };
+    }
+
+    stage = 'listing attendance registers';
+    const ids = [...new Set([...courses.body.matchAll(/FnAttendance\(\s*['"]?(\d+)/g)].map(m => m[1]))];
+
+    const from = new Date(); from.setDate(from.getDate() - 60);
+    const to = new Date(); to.setDate(to.getDate() + 21);
+
+    // The diary window in DIARY_CHUNK_DAYS slices — see the cliff note above.
+    const chunks = [];
+    for (let cur = new Date(from); cur <= to;) {
+      const hi = new Date(cur); hi.setDate(hi.getDate() + DIARY_CHUNK_DAYS);
+      const end = hi > to ? to : hi;
+      chunks.push({ start: ymd(cur), end: ymd(end) });
+      cur = new Date(end); cur.setDate(cur.getDate() + 1);
+    }
+
+    // One injection for everything else. Twenty separate executeScript calls
+    // would each pay the round trip and each risk the tab moving underneath.
+    stage = 'fetching registers, diary and placements in that tab';
+    const paths = [
+      ...ids.map(id => `/Academics/MyCourses/_Attendance?id=${id}`),
+      ...chunks.map(c => `/Calendar/home/GetDiaryEvents?start=${c.start}&end=${c.end}`),
+      '/Placement/PlacementDetails',
+      '/Placement/CorporatEvent',
+    ];
+    const res = await fetchInTab(tab.tabId, paths);
+    const at = p => res.find(r => r.path === p) || { status: 0, body: '' };
+
+    const registers = ids.map((id, i) => ({ id, status: res[i].status, body: res[i].body }));
+    const diary = chunks.map((c, i) => {
+      const r = res[ids.length + i];
+      return { start: c.start, end: c.end, status: r.status, body: r.body };
+    });
+    const placement = at('/Placement/PlacementDetails');
+    const corporate = at('/Placement/CorporatEvent');
+
+    stage = 'writing to Supabase';
+    await memPut(cfg, 'amizone_raw', {
+      fetched_at: new Date().toISOString(),
+      source: 'chrome-extension',
+      reason,
+      window: { start: ymd(from), end: ymd(to) },
+      courses: courses.body,
+      registers,
+      diary,
+      placement: placement.body || '',
+      corporate: corporate.body || '',
+    });
+
+    await report(cfg, {
+      ok: true, configured: true,
+      reason: `raw pages captured in ${tab.ours ? 'a background' : 'your open'} Amizone tab (${registers.length} registers, ${diary.length} diary chunks, placement ${placement.status || 'failed'})`,
+    });
+    return {
+      ok: true, registers: registers.length, diary: diary.length,
+      placement: placement.status || 0, via: tab.ours ? 'background tab' : 'your open tab',
+    };
+  } catch (e) {
+    const msg = `failed while ${stage}: ${String(e && e.message || e)}`;
     await report(cfg, { ok: false, configured: true, reason: msg });
     return { ok: false, reason: msg };
+  } finally {
+    // Only ever close a tab this run opened. Closing Neel's own Amizone tab
+    // out from under him would be its own bug report.
+    if (tab?.ours) { try { await chrome.tabs.remove(tab.tabId); } catch { /* already gone */ } }
   }
-
-  // Per-course attendance registers. The id comes out of an onclick attribute,
-  // and it is read here only to know WHICH pages to fetch — the parsing of them
-  // still happens downstream.
-  const ids = [...courses.body.matchAll(/FnAttendance\(\s*['"]?(\d+)/g)].map(m => m[1]);
-  const registers = [];
-  for (const id of [...new Set(ids)]) {
-    const r = await get(`/Academics/MyCourses/_Attendance?id=${id}`);
-    registers.push({ id, status: r.status, body: r.body });
-  }
-
-  const from = new Date(); from.setDate(from.getDate() - 60);
-  const to = new Date(); to.setDate(to.getDate() + 21);
-  const diary = await pullDiary(from, to);
-
-  // Placement drives. A registration window is the one thing on Amizone that
-  // cannot be caught up on afterwards, so it is fetched every cycle rather than
-  // occasionally — the pages are small and the cost of being an hour late is
-  // the drive. Failures here are recorded and do NOT sink the run: attendance
-  // arriving without placements is a much better outcome than neither.
-  const placement = await get('/Placement/PlacementDetails').catch(e => ({ status: 0, body: '', error: String(e) }));
-  const corporate = await get('/Placement/CorporatEvent').catch(e => ({ status: 0, body: '', error: String(e) }));
-
-  await memPut(cfg, 'amizone_raw', {
-    fetched_at: new Date().toISOString(),
-    source: 'chrome-extension',
-    reason,
-    window: { start: ymd(from), end: ymd(to) },
-    courses: courses.body,
-    registers,
-    diary,
-    placement: placement.body || '',
-    corporate: corporate.body || '',
-  });
-
-  await report(cfg, {
-    ok: true, configured: true,
-    reason: `raw pages captured in this browser via ${state.via} (${registers.length} registers, ${diary.length} diary chunks, placement ${placement.status || 'failed'})`,
-  });
-  return { ok: true, registers: registers.length, diary: diary.length, placement: placement.status || 0, via: state.via };
 }
 
-// ---------------------------------------------------------------- scheduling
+// ---------------------------------- scheduling
 
 async function arm() {
   const { every } = await settings();
@@ -284,7 +280,15 @@ chrome.storage.onChanged.addListener(arm);
 
 chrome.alarms.onAlarm.addListener(async (a) => {
   if (a.name !== ALARM) return;
-  try { await run('alarm'); } catch (e) { console.error('[amizone]', e); }
+  // run() reports its own failures now, with the stage named. This catch is for
+  // the case it cannot: a throw before the try block, i.e. reading settings.
+  try {
+    const r = await run('alarm');
+    if (!r.ok) console.warn('[amizone]', r.reason);
+    // Remember it, so the popup shows the last ALARM outcome too and not only
+    // the last time the button was pressed.
+    await chrome.storage.local.set({ lastRun: { ok: r.ok, text: r.ok ? 'Scheduled run captured the pages.' : `Scheduled run: ${r.reason}`, at: Date.now() } });
+  } catch (e) { console.error('[amizone]', e); }
 });
 
 // The options page calls this for its "Run now" button.
