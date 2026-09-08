@@ -79,6 +79,20 @@ export const ACTIONS = {
     fields: { title: 'text', body: 'long', folder: 'text?', tags: 'list?' },
     describe: a => `Save “${a.title}” to the vault${a.folder ? ` under ${a.folder}` : ''}`,
   },
+  // "I have an idea, build it."
+  //
+  // The confirmation for this one is NOT a yes/no — it is the SPEC. The card
+  // renders the steps and their sizes so Neel confirms a plan he has actually
+  // read, and corrects it before it becomes a file. A card saying "queue a
+  // build?" would be asking him to approve something he cannot see.
+  //
+  // Sizes, never hours: an LLM asked how long something takes produces a
+  // confident number with nothing behind it, and that number becomes the thing
+  // he plans around.
+  queue_build: {
+    fields: { title: 'text', why: 'long', steps: 'list' },
+    describe: a => `Queue “${a.title}” as a build spec — ${(a.steps || []).length} steps`,
+  },
   // THE ONLY DESTRUCTIVE VERB, AND THE REASONING FOR THE LINE IT SITS ON.
   //
   // Everything else here is reversible: a task can be un-completed, a habit log
@@ -121,6 +135,11 @@ export const ACTION_INSTRUCTIONS = [
   '  inbox, daily, decisions, college, projects, people, reference. Defaults to inbox.',
   'Use remember when he says to note, save, remember or write something down, or when a decision is reached',
   'and worth keeping. Write the note as if he will read it in six months with none of this conversation around it.',
+  'queue_build takes title, why, and steps — one step per line, each prefixed with a size:',
+  '  S: small   M: medium   L: large.   Break the work into the steps YOU would actually take.',
+  'NEVER estimate hours, days or weeks. A confident number with nothing behind it becomes the thing he plans around.',
+  'Propose it when he describes something he wants built. Write the steps so they still make sense to a machine',
+  'reading only that file, with none of this conversation around it.',
   'delete_todo takes title and DESTROYS the task. Propose it only when Neel plainly asks to delete or remove a task —',
   'never as tidying, never because a task looks stale, and never in place of complete_todo when he says he has done it.',
   'Propose an action only when asked to do something — never to answer a question.',
@@ -214,8 +233,20 @@ function build(item) {
       // Tags. Taken as an array or a comma string, because a model asked for
       // "tags" produces both, and rejecting one of them at random would mean a
       // note that queues sometimes.
-      const raw = Array.isArray(value) ? value : String(value).split(',');
-      const list = raw.map(t => cleanText(t).toLowerCase()).filter(Boolean).slice(0, 8);
+      // How a list is split depends on what it is, and getting this wrong is
+      // silent. TAGS arrive comma separated. STEPS arrive one per line and
+      // routinely CONTAIN a comma — "the webhook, and its verify handshake" is
+      // one step, and splitting it on the comma produces a plan that looks
+      // longer and means less. So steps split on newlines only.
+      const isSteps = field === 'steps';
+      const raw = Array.isArray(value)
+        ? value
+        : String(value).split(isSteps ? /\r?\n/ : /\r?\n|,/);
+      const keepCase = isSteps;
+      const list = raw
+        .map(t => (keepCase ? cleanText(t) : cleanText(t).toLowerCase()))
+        .filter(Boolean)
+        .slice(0, isSteps ? 20 : 8);
       if (!list.length) { if (!optional) return { ok: false, reason: `${verb} needs ${field}` }; continue; }
       action[field] = list;
     } else if (type === 'long') {

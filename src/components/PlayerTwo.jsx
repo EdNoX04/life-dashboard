@@ -11,6 +11,7 @@ import { fblStatus } from '../lib/exams.js';
 import { brainContext } from '../lib/brain.js';
 import { ACTION_INSTRUCTIONS, parseActions, stripActionsLive, describeAction, resolveTodo, resolveHabit, isDestructive } from '../lib/actions.js';
 import { inboxRow, WRITE_DELAY_NOTE, vaultTrouble } from '../lib/vault.js';
+import { specNote, toSteps, sizeSummary } from '../lib/buildspec.js';
 
 // PLAYER TWO — the co-op partner, reachable from every screen.
 //
@@ -249,6 +250,22 @@ export default function PlayerTwo({ tab }) {
         // does is the small lie that makes him check the vault, find nothing, and
         // stop trusting the feature.
         setActionNote(`Queued “${a.title}” for ${made.row.path}. ${WRITE_DELAY_NOTE}`);
+      } else if (a.do === 'queue_build') {
+        // Same queue, same path rules, different folder. The spec is a note in
+        // projects/ rather than a row in `builds`, so intake, plan, progress and
+        // retrospective end up in ONE file that Obsidian can edit, git can
+        // version, and Hermes can read and write back into.
+        const made = inboxRow({
+          title: a.title,
+          body: specNote({ title: a.title, why: a.why, steps: a.steps, status: 'queued' }),
+          folder: 'projects',
+          tags: ['build'],
+          source: 'player-two',
+        });
+        if (!made.ok) { setActionNote(`Didn't do it — ${made.reason}.`); return; }
+        await db.insert('vault_inbox', made.row);
+        await rInbox();
+        setActionNote(`Queued the spec for ${made.row.path}. ${WRITE_DELAY_NOTE}`);
       } else if (a.do === 'delete_todo') {
         // Resolved across OPEN AND COMPLETED todos — unlike complete_todo,
         // which only looks at open ones. He may well want to throw away
@@ -371,6 +388,23 @@ export default function PlayerTwo({ tab }) {
                   <span className="small" style={{ flex: 1, color: isDestructive(a.do) ? 'var(--red)' : undefined }}>
                     {isDestructive(a.do) && <span aria-hidden="true">⚠ </span>}
                     {describeAction(a)}
+                    {/* For a build, the confirmation is the SPEC, not a yes/no.
+                        Asking him to approve "queue a build?" is asking him to
+                        approve something he cannot see — and the point of the
+                        intake is that he corrects the plan BEFORE it is a file. */}
+                    {a.do === 'queue_build' && (
+                      <span style={{ display: 'block', marginTop: 6, color: 'var(--ink-2)' }}>
+                        {a.why && <span style={{ display: 'block', marginBottom: 4 }}>{a.why}</span>}
+                        {toSteps(a.steps).map((st, k) => (
+                          <span key={k} style={{ display: 'block' }}>
+                            <span className="chip" style={{ marginRight: 6 }}>{st.size}</span>{st.text}
+                          </span>
+                        ))}
+                        <span style={{ display: 'block', marginTop: 4, color: 'var(--ink-3)' }}>
+                          {sizeSummary(toSteps(a.steps))} · no time estimate, deliberately
+                        </span>
+                      </span>
+                    )}
                   </span>
                   <button
                     className={`btn btn-sm${isDestructive(a.do) ? ' btn-red' : ''}`}

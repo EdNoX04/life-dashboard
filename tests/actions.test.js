@@ -20,7 +20,7 @@ const block = o => '```action\n' + JSON.stringify(o) + '\n```';
 // gets "fixed" by bumping the number, which tests nothing. Naming them means a
 // new verb cannot reach the model without someone writing it down HERE, next to
 // the reason the allowlist exists.
-const ALLOWED = ['add_todo', 'reschedule_todo', 'complete_todo', 'delete_todo', 'log_habit', 'unlog_habit', 'fbl_done', 'remember'];
+const ALLOWED = ['add_todo', 'reschedule_todo', 'complete_todo', 'delete_todo', 'log_habit', 'unlog_habit', 'fbl_done', 'remember', 'queue_build'];
 for (const n of ACTION_NAMES) ok(ALLOWED.includes(n), `${n} is on the reviewed allowlist`);
 for (const n of ALLOWED) ok(ACTION_NAMES.includes(n), `${n} is still implemented`);
 // FINANCIAL stays absolute. Money is read-only and no verb here may touch it.
@@ -223,6 +223,40 @@ for (const verb of ['delete_habit', 'delete_subject', 'drop_table', 'buy', 'sell
   is(parseActions(block({ do: 'remember', title: 'X', body: 'y' })).actions[0].tags, undefined, 'tags stay optional');
   is(parseActions(block({ do: 'remember', title: 'X', body: 'y', tags: [] })).actions[0].tags, undefined, 'an empty list is no tags, not a refusal');
   ok(parseActions(block({ do: 'remember', title: 'X', body: 'y', tags: Array(30).fill('t') })).actions[0].tags.length <= 8, 'and the list is capped');
+}
+
+
+// ------------------------------------------------------------ queueing a build
+{
+  const r = parseActions(block({ do: 'queue_build', title: 'WhatsApp bot',
+    why: 'Capture tasks from the phone.', steps: ['S: pick a number', 'L: the webhook, and its verify handshake'] }));
+  is(r.actions.length, 1, 'a build can be proposed');
+  is(r.actions[0].steps.length, 2, 'with its steps');
+  ok(/2 steps/.test(describeAction(r.actions[0])), 'and the card says how many, so it is a plan he can read');
+
+  // THE COMMA TRAP. Tags arrive comma-separated; build steps arrive one per
+  // line and routinely contain commas. Splitting steps on commas would shatter
+  // "the webhook, and its verify handshake" into two half-steps — a plan that
+  // looks longer and means less.
+  const nl = parseActions(block({ do: 'queue_build', title: 'X', why: 'y',
+    steps: 'S: pick a number\nL: the webhook, and its verify handshake' })).actions[0];
+  is(nl.steps.length, 2, 'a newline string splits on lines');
+  ok(/webhook, and its verify handshake/.test(nl.steps[1]), 'and a comma INSIDE a step survives');
+
+  // Case matters for steps and not for tags: "S:" is a size, "Amizone" is not a tag.
+  ok(/^S:/.test(nl.steps[0]), 'a step keeps its case, because the size prefix is uppercase');
+  is(parseActions(block({ do: 'remember', title: 'X', body: 'y', tags: 'Amizone' })).actions[0].tags[0], 'amizone',
+     'while tags are still lowercased');
+
+  is(parseActions(block({ do: 'queue_build', title: 'X', why: 'y' })).actions.length, 0, 'a build with no steps is not a plan');
+  is(parseActions(block({ do: 'queue_build', title: 'X', steps: ['S: a'] })).actions.length, 0, 'nor one with no reason');
+  ok(parseActions(block({ do: 'queue_build', title: 'X', why: 'y', steps: Array(40).fill('S: a') })).actions[0].steps.length <= 20,
+     'and a forty-step plan is capped');
+
+  // The promise it must not make.
+  ok(/NEVER estimate hours/.test(ACTION_INSTRUCTIONS), 'the model is told not to estimate durations');
+  ok(/S: small/.test(ACTION_INSTRUCTIONS), 'and given sizes instead');
+  ok(!isDestructive('queue_build'), 'queueing a spec destroys nothing');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

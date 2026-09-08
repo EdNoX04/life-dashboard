@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useCollection } from '../lib/hooks.js';
 import { Card, Empty } from '../components/ui.jsx';
 import * as db from '../lib/db.js';
+import { byType, indexAge } from '../lib/brain.js';
+import { buildsFrom } from '../lib/buildspec.js';
 
 const COLS = [
   ['pending', 'PENDING', 'var(--yellow)'],
@@ -12,6 +14,12 @@ const COLS = [
 
 export default function Builds() {
   const { items, add, patch, del } = useCollection('builds');
+  // Specs live in the vault, not in this table. The plan's own words: intake,
+  // plan, progress and retrospective are ONE FILE, so a spec Neel edited in
+  // Obsidian on the train is the same object rendered here.
+  const { items: brainMem } = useCollection('memory', { filter: 'key=eq.brain_index', order: 'key' });
+  const index = brainMem?.[0]?.value || null;
+  const specs = buildsFrom(byType(index, 'project', { limit: 100 }));
   const [name, setName] = useState('');
 
   async function propose() {
@@ -39,6 +47,54 @@ export default function Builds() {
           <button className="btn btn-green" onClick={propose}>+ Queue</button>
         </div>
         <div className="small muted mt">Queued builds get a PRD from Cowork first — you approve, then the midnight run builds it.</div>
+      </Card>
+
+      <Card title="Build specs" color="var(--purple)"
+        right={<span className="small muted">from the vault · projects/</span>}>
+        {/* Same lie this codebase keeps running into: a month-old index showing
+            two specs reads exactly like a current one showing two specs. */}
+        {(() => {
+          const h = indexAge(index);
+          if (h == null || h < 48) return null;
+          return <div className="small" style={{ color: 'var(--red)', marginBottom: 8 }}>
+            Vault index last built {h < 168 ? `${Math.round(h / 24)} days` : `${Math.round(h / 168)} weeks`} ago — anything written since is not here.
+          </div>;
+        })()}
+        {!specs.length && (
+          <Empty icon="◷" text={index
+            ? 'No build specs yet. Tell PLAYER TWO what you want built — it writes the spec here for you to correct.'
+            : 'Waiting for the vault index.'} />
+        )}
+        {specs.map(b => (
+          <div className="dec-item" key={b.path}>
+            <div className="spread" style={{ gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ flex: 1, minWidth: 200 }}>
+                <b>{b.title}</b>
+                {b.why && <div className="small muted" style={{ marginTop: 3 }}>{b.why}</div>}
+              </span>
+              <span className="flex" style={{ gap: 5, alignItems: 'flex-start' }}>
+                <span className={`chip ${b.status === 'done' ? 'c-green' : b.status === 'blocked' ? 'c-red' : b.status === 'building' ? 'c-cyan' : ''}`}>{b.status}</span>
+                <span className="chip">{b.progress.done}/{b.progress.total}</span>
+              </span>
+            </div>
+            {/* The plan, as sizes and a count. Never as a duration — a confident
+                number with nothing behind it becomes the thing he plans around. */}
+            <div className="small mt" style={{ color: 'var(--ink-3)' }}>{b.summary}</div>
+            {b.steps.map((st, i) => (
+              <div className="small" key={i} style={{ lineHeight: 1.6, opacity: st.done ? 0.5 : 1 }}>
+                <span style={{ color: st.done ? 'var(--green)' : 'var(--ink-3)' }}>{st.done ? '✓' : '○'} </span>
+                <span className="chip" style={{ marginRight: 6 }}>{st.size}</span>
+                <span style={{ textDecoration: st.done ? 'line-through' : 'none' }}>{st.text}</span>
+              </div>
+            ))}
+            {b.notes && (
+              <div className="small mt" style={{ lineHeight: 1.55 }}>
+                <span style={{ color: 'var(--cyan)' }}>Progress — </span>
+                <span className="muted">{b.notes}</span>
+              </div>
+            )}
+          </div>
+        ))}
       </Card>
 
       <div className="kanban">
