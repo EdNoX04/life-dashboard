@@ -30,8 +30,18 @@ const MAX_TEXT = 200;
 // The allowlist. Adding a verb here is a deliberate act; nothing is generic.
 export const ACTIONS = {
   add_todo: {
-    fields: { title: 'text', due: 'date?' },
-    describe: a => `Add task “${a.title}”${a.due ? ` — due ${a.due}` : ''}`,
+    // `time` is optional and separate from `due` because a task with no time is
+    // not a task at midnight — the same reason todos.due_time is nullable. Until
+    // this existed, "remind me to email her at 5" quietly dropped the 5.
+    fields: { title: 'text', due: 'date?', time: 'time?' },
+    describe: a => `Add task “${a.title}”${a.due ? ` — due ${a.due}` : ''}${a.time ? ` at ${a.time}` : ''}`,
+  },
+  // Moving a due date is the commonest thing asked after adding one, and until
+  // now the only way to do it through PLAYER TWO was to complete the task and
+  // add it again — which loses its history and is not what was asked.
+  reschedule_todo: {
+    fields: { title: 'text', due: 'date', time: 'time?' },
+    describe: a => `Move “${a.title}” to ${a.due}${a.time ? ` at ${a.time}` : ''}`,
   },
   complete_todo: {
     // By title, not id: the model is given task titles in its context and never
@@ -42,6 +52,14 @@ export const ACTIONS = {
   log_habit: {
     fields: { name: 'text' },
     describe: a => `Log habit “${a.name}” for today`,
+  },
+  // The symmetric one. You ask for this exactly when you have just made a
+  // mistake, and having no way to undo a log is what makes people stop logging.
+  // It removes TODAY's entry only — the history before today is not reachable
+  // from a chat message.
+  unlog_habit: {
+    fields: { name: 'text' },
+    describe: a => `Remove today's log for “${a.name}”`,
   },
   fbl_done: {
     fields: {},
@@ -60,8 +78,9 @@ export const ACTION_INSTRUCTIONS = [
   '{"do":"add_todo","title":"Email Krati mam","due":"2026-09-02"}',
   '```',
   `Allowed: ${ACTION_NAMES.join(', ')}.`,
-  'add_todo takes title and optional due (YYYY-MM-DD). complete_todo takes title.',
-  'log_habit takes name. fbl_done takes nothing.',
+  'add_todo takes title, optional due (YYYY-MM-DD) and optional time (HH:MM, 24h).',
+  'reschedule_todo takes title and due, plus optional time — use it to move a task, never complete-and-re-add.',
+  'complete_todo takes title. log_habit and unlog_habit take name. fbl_done takes nothing.',
   'Propose an action only when asked to do something — never to answer a question.',
   'Never propose more than two. Keep your prose answer above the block, and do not mention the block itself.',
   'Nothing happens until Neel confirms, so do not claim you have done it — say what you are about to do.',
@@ -71,6 +90,9 @@ const FENCE = /```action\s*([\s\S]*?)```/g;
 
 const cleanText = v => (typeof v === 'string' ? v.trim().slice(0, MAX_TEXT) : '');
 const isDate = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
+// 24-hour only. Accepting "5pm" would mean guessing at "5" — and a task placed
+// twelve hours from where it was meant is worse than one with no time at all.
+const isTime = v => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
 
 /** Prose with the machinery removed. Neel should never see a JSON block. */
 export function stripActions(text) {
@@ -148,6 +170,9 @@ function build(item) {
       action[field] = t;
     } else if (type === 'date') {
       if (!isDate(value)) return { ok: false, reason: `${field} must look like 2026-09-02` };
+      action[field] = value;
+    } else if (type === 'time') {
+      if (!isTime(value)) return { ok: false, reason: `${field} must look like 17:00` };
       action[field] = value;
     }
   }

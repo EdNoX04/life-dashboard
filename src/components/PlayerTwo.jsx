@@ -77,7 +77,12 @@ export default function PlayerTwo({ tab }) {
   const { items: calMem } = useCollection('memory', { filter: 'key=eq.calendar_events', order: 'key' });
   // Habit NAMES were already here; what was missing was whether any of them had
   // been done today, which is the only part of a habit anyone asks about.
-  const { items: habitLogs } = useCollection('habit_logs', { order: 'date' });
+  // The refresh matters more here than it looks. Without it habitLogs stays
+  // stale for the 45s poll after a write, so log_habit's "already logged today"
+  // guard reads pre-write data and would insert a duplicate on a second ask —
+  // and unlog_habit, run straight after a log, would find no row and report
+  // "not logged today", which is both wrong and impossible to make sense of.
+  const { items: habitLogs, refresh: rLogs } = useCollection('habit_logs', { order: 'date' });
   // The Obsidian vault, indexed by the `brain` repo on every push. Loaded whole
   // because retrieval happens here, in the browser — see lib/brain.js for where
   // that stops being the right shape.
@@ -201,11 +206,24 @@ export default function PlayerTwo({ tab }) {
     try {
       if (a.do === 'add_todo') {
         await db.insert('todos', {
-          title: a.title, due_date: a.due || null, due_time: null,
+          title: a.title, due_date: a.due || null, due_time: a.time || null,
           duration_min: null, priority: 0, list: 'Inbox', completed: false,
         });
         await rTodos();
-        setActionNote(`Added “${a.title}”.`);
+        setActionNote(`Added “${a.title}”${a.time ? ` at ${a.time}` : ''}.`);
+      } else if (a.do === 'reschedule_todo') {
+        // Resolved against OPEN todos only, like complete_todo: moving a task
+        // that is already finished is never what was meant.
+        const hit = resolveTodo(a.title, todos || []);
+        if (!hit.ok) { setActionNote(`Didn't do it — ${hit.reason}.`); return; }
+        const patch = { due_date: a.due };
+        // Only touch the time when one was actually given. Writing null here
+        // would silently strip a time he had set by hand, which is a loss he
+        // would not connect to having asked to move the date.
+        if (a.time) patch.due_time = a.time;
+        await db.update('todos', hit.row.id, patch);
+        await rTodos();
+        setActionNote(`Moved “${hit.row.title}” to ${a.due}${a.time ? ` at ${a.time}` : ''}.`);
       } else if (a.do === 'complete_todo') {
         const hit = resolveTodo(a.title, todos || []);
         if (!hit.ok) { setActionNote(`Didn't do it — ${hit.reason}.`); return; }
@@ -221,7 +239,20 @@ export default function PlayerTwo({ tab }) {
           return;
         }
         await db.insert('habit_logs', { habit_id: hit.row.id, date: day });
+        await rLogs();
         setActionNote(`Logged “${hit.row.name}”.`);
+      } else if (a.do === 'unlog_habit') {
+        const hit = resolveHabit(a.name, habits || []);
+        if (!hit.ok) { setActionNote(`Didn't do it — ${hit.reason}.`); return; }
+        const day = todayStr();
+        // TODAY's row only, found by id — never a filter that could match more
+        // than one day. Deleting a week of history because a date comparison was
+        // loose is not recoverable from here.
+        const row = (habitLogs || []).find(l => l.habit_id === hit.row.id && l.date === day);
+        if (!row) { setActionNote(`“${hit.row.name}” was not logged today, so there is nothing to undo.`); return; }
+        await db.remove('habit_logs', row.id);
+        await rLogs();
+        setActionNote(`Removed today's log for “${hit.row.name}”.`);
       } else if (a.do === 'fbl_done') {
         const open = fblOpenKey;
         if (!open) { setActionNote("Didn't do it — no FBL module is open right now."); return; }
