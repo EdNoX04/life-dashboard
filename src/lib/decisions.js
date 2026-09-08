@@ -16,6 +16,8 @@
 // So the tab reads what a person wrote, and tolerates them not following the
 // template exactly.
 
+import { byType } from './brain.js';
+
 const OBSIDIAN_VAULT = 'brain';
 
 // `**Decided** 2026-08-30`, or a `decided:`/`created:` frontmatter date the
@@ -88,10 +90,26 @@ function verdictOf(outcome) {
   return 'mixed';
 }
 
-/** Every decision note in the index, newest first. */
+/**
+ * Every decision note in the index, newest first.
+ *
+ * Reads through byType() rather than filtering here, because there were two
+ * spellings of this type in the same index and this file only knew one of them.
+ * The indexer sets `type` from frontmatter when present and from the FOLDER
+ * otherwise, and the folders are plural while the conventions' `type:` values
+ * are singular — so a decision note with frontmatter indexed as `decision` and
+ * one without indexed as `decisions`. The `path.startsWith('decisions/')` clause
+ * was quietly carrying every note this filter missed, which also meant a
+ * decision filed anywhere else was invisible.
+ *
+ * The path clause stays as a second net: a note in decisions/ IS a decision,
+ * whatever its frontmatter claims.
+ */
 export function decisionsFrom(index) {
-  return (index?.notes || [])
-    .filter(n => String(n.type || '').toLowerCase() === 'decisions' || String(n.path || '').startsWith('decisions/'))
+  const byShape = byType(index, 'decision', { limit: 500 });
+  const seen = new Set(byShape.map(n => n.path));
+  const byFolder = (index?.notes || []).filter(n => !seen.has(n.path) && String(n.path || '').startsWith('decisions/'));
+  return [...byShape, ...byFolder]
     .map(parseDecision)
     .sort((a, b) => String(b.decided || '').localeCompare(String(a.decided || ''))
       || String(a.title).localeCompare(String(b.title)));

@@ -183,11 +183,31 @@ export function brainContext(question, index, opts) {
 
 const lower = v => String(v || '').toLowerCase().trim();
 
+/**
+ * ONE TYPE, TWO SPELLINGS — and both are in the index right now.
+ *
+ * The indexer does `type: data.type || folder`, and the folders are plural while
+ * CONVENTIONS.md's `type:` values are singular. So a decision note WITH
+ * frontmatter indexes as `decision` and one WITHOUT indexes as `decisions`, and
+ * a filter written for either spelling silently misses half the vault. That is
+ * not hypothetical: the two notes in the vault today are on opposite sides of it.
+ *
+ * Normalising here rather than in the indexer is deliberate — the indexer lives
+ * in another repo on another schedule, and a rule that only works after both are
+ * deployed is a rule that is wrong in between. Readers can be right immediately.
+ */
+const TYPE_ALIAS = {
+  decisions: 'decision', people: 'person', projects: 'project',
+  notes: 'note', references: 'reference', reference: 'reference',
+  inbox: 'note', college: 'note', daily: 'daily',
+};
+export const canonicalType = t => { const v = lower(t); return TYPE_ALIAS[v] || v || 'note'; };
+
 /** Every type present, with counts. What the vault actually contains. */
 export function types(index) {
   const out = {};
   for (const n of index?.notes || []) {
-    const t = lower(n.type) || 'note';
+    const t = canonicalType(n.type);
     out[t] = (out[t] || 0) + 1;
   }
   return out;
@@ -205,10 +225,10 @@ export function types(index) {
  * the top of every list.
  */
 export function byType(index, type, { limit = 50, tag = '' } = {}) {
-  const want = lower(type);
+  const want = canonicalType(type);
   const wantTag = lower(tag);
   return (index?.notes || [])
-    .filter(n => lower(n.type) === want)
+    .filter(n => canonicalType(n.type) === want)
     .filter(n => !wantTag || (n.tags || []).some(t => lower(t) === wantTag))
     .sort((a, b) => String(b.updated || '').localeCompare(String(a.updated || '')))
     .slice(0, Math.max(0, limit));

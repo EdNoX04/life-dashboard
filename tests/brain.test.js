@@ -6,7 +6,7 @@
 // with something vaguely related is worse than no vault — it spends the budget
 // and lowers the quality of the answers the dock was already good at.
 
-import { terms, search, brainContext, types, byType, noteAt, noteBody, indexAge } from '../src/lib/brain.js';
+import { terms, search, brainContext, types, byType, noteAt, noteBody, indexAge, canonicalType } from '../src/lib/brain.js';
 
 let pass = 0, fail = 0;
 const ok = (c, n) => { if (c) { pass++; } else { fail++; 
@@ -136,6 +136,36 @@ is(brainContext('anything', null), '', 'and a missing index adds nothing');
   const now = new Date('2026-09-08T12:00:00Z');
   is(Math.round(indexAge(idx, now)), 6, 'the age of the index is readable');
   is(indexAge({ notes: [] }, now), null, 'and unknown when it has never been built');
+}
+
+
+// ---------------------------------------------------------------- one type, two spellings
+//
+// NOT hypothetical. The indexer does `type: data.type || folder`, and the
+// folders are plural while CONVENTIONS.md's `type:` values are singular. So a
+// decision note WITH frontmatter indexes as `decision` and one WITHOUT indexes
+// as `decisions` — and the two notes in the vault today sit on opposite sides
+// of that line. A filter written for either spelling silently misses half.
+{
+  is(canonicalType('decisions'), 'decision', 'the folder spelling folds to the type');
+  is(canonicalType('decision'), 'decision', 'and the type spelling stays put');
+  is(canonicalType('people'), 'person', 'including the irregular plural');
+  is(canonicalType('projects'), 'project', 'and the regular one');
+  is(canonicalType('inbox'), 'note', 'inbox is a folder, not a type');
+  is(canonicalType('college'), 'note', 'so is college');
+  is(canonicalType(''), 'note', 'and nothing at all is a note');
+  is(canonicalType('DECISIONS'), 'decision', 'case does not matter');
+
+  const mixed = { notes: [
+    { path: 'decisions/withfm.md', title: 'With', type: 'decision', tags: [], updated: '2026-09-02', chunks: [] },
+    { path: 'decisions/nofm.md', title: 'Without', type: 'decisions', tags: [], updated: '2026-09-03', chunks: [] },
+    { path: 'people/x.md', title: 'X', type: 'people', tags: [], updated: '2026-09-01', chunks: [] },
+  ] };
+  is(byType(mixed, 'decision').length, 2, 'both spellings come back from one query');
+  is(byType(mixed, 'decisions').length, 2, 'and asking either way gives the same answer');
+  is(byType(mixed, 'decision')[0].title, 'Without', 'still newest first');
+  is(types(mixed).decision, 2, 'and the counts are not split across two names');
+  is(types(mixed).person, 1, 'nor for people');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
