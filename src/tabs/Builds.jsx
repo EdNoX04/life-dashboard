@@ -4,6 +4,7 @@ import { Card, Empty } from '../components/ui.jsx';
 import * as db from '../lib/db.js';
 import { byType, indexAge } from '../lib/brain.js';
 import { buildsFrom } from '../lib/buildspec.js';
+import { hermesHealth } from '../lib/hermes.js';
 
 const COLS = [
   ['pending', 'PENDING', 'var(--yellow)'],
@@ -58,6 +59,21 @@ export default function Builds() {
           if (h == null || h < 48) return null;
           return <div className="small" style={{ color: 'var(--red)', marginBottom: 8 }}>
             Vault index last built {h < 168 ? `${Math.round(h / 24)} days` : `${Math.round(h / 168)} weeks`} ago — anything written since is not here.
+          </div>;
+        })()}
+        {/* An agent that stopped mid-build. Same shape as every other silence
+            in this codebase: it is not queued, so nothing picks it up, and not
+            done, so nothing complains. */}
+        {(() => {
+          const h = hermesHealth(specs);
+          if (!h.stale.length && !h.blocked.length) return null;
+          return <div className="small" style={{ color: 'var(--red)', marginBottom: 8 }}>
+            {h.stale.map(s => (
+              <div key={`st-${s.path}`}>
+                “{s.title}” has been building{s.hours ? ` for ${s.hours}h` : ' with nothing holding it'} — the agent stopped. It will not be picked up again until it is set back to queued.
+              </div>
+            ))}
+            {h.blocked.map(s => <div key={`bl-${s.path}`}>“{s.title}” is blocked and needs you.</div>)}
           </div>;
         })()}
         {!specs.length && (

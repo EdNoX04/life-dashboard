@@ -20,6 +20,10 @@
 // ordering also means the first few builds pay for the estimates of every build
 // after them.
 
+// hermes.js imports nothing, so this direction is safe and there is no cycle.
+// Reading the claim here rather than in the tab keeps one parser for the file.
+import { readClaim } from './hermes.js';
+
 export const SIZES = ['S', 'M', 'L'];
 
 export const SIZE_LABEL = { S: 'small', M: 'medium', L: 'large' };
@@ -141,6 +145,10 @@ export function parseSpec(note) {
     title: typeof note === 'string' ? '' : (note?.title || ''),
     updated: typeof note === 'string' ? null : (note?.updated || null),
     status,
+    // Who is holding it, if anyone. Without this a spec left `building` by an
+    // agent that stopped is invisible: not queued so nothing picks it up, not
+    // done so nothing complains.
+    claim: readClaim(body),
     why: section(body, 'Why').replace(/^_.*_$/m, '').trim(),
     steps,
     progress: progressOf(steps),
