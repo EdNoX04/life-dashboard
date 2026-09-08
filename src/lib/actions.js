@@ -76,7 +76,7 @@ export const ACTIONS = {
   // dotfile tricks unreachable rather than merely defended against — and the
   // runner re-validates anyway, since it is the one holding the push token.
   remember: {
-    fields: { title: 'text', body: 'long', folder: 'text?' },
+    fields: { title: 'text', body: 'long', folder: 'text?', tags: 'list?' },
     describe: a => `Save “${a.title}” to the vault${a.folder ? ` under ${a.folder}` : ''}`,
   },
   // THE ONLY DESTRUCTIVE VERB, AND THE REASONING FOR THE LINE IT SITS ON.
@@ -116,7 +116,8 @@ export const ACTION_INSTRUCTIONS = [
   'add_todo takes title, optional due (YYYY-MM-DD) and optional time (HH:MM, 24h).',
   'reschedule_todo takes title and due, plus optional time — use it to move a task, never complete-and-re-add.',
   'complete_todo takes title. log_habit and unlog_habit take name. fbl_done takes nothing.',
-  'remember takes title, body (markdown, the note itself) and optional folder — one of:',
+  'remember takes title, body (markdown, the note itself), optional tags (lowercase words he would say out loud),',
+  'and optional folder — one of:',
   '  inbox, daily, decisions, college, projects, people, reference. Defaults to inbox.',
   'Use remember when he says to note, save, remember or write something down, or when a decision is reached',
   'and worth keeping. Write the note as if he will read it in six months with none of this conversation around it.',
@@ -209,6 +210,14 @@ function build(item) {
       const t = cleanText(value);
       if (!t) return { ok: false, reason: `${verb} needs ${field}` };
       action[field] = t;
+    } else if (type === 'list') {
+      // Tags. Taken as an array or a comma string, because a model asked for
+      // "tags" produces both, and rejecting one of them at random would mean a
+      // note that queues sometimes.
+      const raw = Array.isArray(value) ? value : String(value).split(',');
+      const list = raw.map(t => cleanText(t).toLowerCase()).filter(Boolean).slice(0, 8);
+      if (!list.length) { if (!optional) return { ok: false, reason: `${verb} needs ${field}` }; continue; }
+      action[field] = list;
     } else if (type === 'long') {
       // Trimmed but NOT collapsed: a note keeps its paragraphs.
       const t = typeof value === 'string' ? value.trim().slice(0, MAX_LONG) : '';

@@ -18,6 +18,7 @@
 
 import {
   FOLDERS, DEFAULT_FOLDER, MAX_BODY, slug, notePath, checkBody, inboxRow, vaultTrouble,
+  TYPES, typeOfFolder, composeNote,
 } from '../src/lib/vault.js';
 
 let pass = 0, fail = 0;
@@ -134,6 +135,56 @@ ok(FOLDERS.includes(DEFAULT_FOLDER), 'the default is one of them');
   eq(vaultTrouble(null, now).stuck.length, 0, 'and no rows at all does not throw');
   eq(vaultTrouble([{ status: 'pending', created_at: 'nonsense' }], now).stuck.length, 0,
      'an unparseable timestamp is not evidence of being stuck');
+}
+
+
+// ---------------------------------------------------------------- the note has a SHAPE
+//
+// CONVENTIONS.md says frontmatter is never required and a bare note still
+// indexes. That is exactly right for something Neel types at midnight and wrong
+// for something a machine produces: with no `type` the note can only ever be
+// found by keyword, so "show me my decisions" cannot see it; with no `created`
+// it cannot be ordered. Written by hand that is a fair trade for not breaking
+// flow. Written by a model there is no flow to break.
+{
+  const now = new Date(2026, 8, 8, 12, 0);
+  const n = composeNote({ title: 'Why Turnstile blocks it', body: 'Because datacenters never pass.', folder: 'decisions', tags: ['Amizone', '#college'], now });
+
+  ok(n.startsWith('---\n'), 'frontmatter leads');
+  ok(/type: decision/.test(n), 'the type comes from the folder, which is why the folders are named after types');
+  ok(/created: 2026-09-08/.test(n), 'dated, so it can be ordered');
+  ok(/updated: 2026-09-08/.test(n), 'and updated, which is what breaks ties in retrieval');
+  ok(/tags: \[amizone, college\]/.test(n), 'tags are lowercased and the # stripped, as the conventions ask');
+  ok(/source: player-two/.test(n), 'and it records that a machine wrote it — a real question six months from now');
+  ok(/^# Why Turnstile blocks it$/m.test(n), 'a title heading is added, because retrieval weights it heavily');
+  ok(n.indexOf('# Why') > n.indexOf('---'), 'after the frontmatter, not before it');
+
+  eq(typeOfFolder('decisions'), 'decision', 'folder → type is singular, matching the conventions');
+  eq(typeOfFolder('people'), 'person', 'including the irregular one');
+  eq(typeOfFolder('inbox'), 'note', 'inbox is just a note');
+  eq(typeOfFolder('nonsense'), 'note', 'and anything unknown is a note rather than a crash');
+  for (const f of FOLDERS) ok(TYPES.includes(typeOfFolder(f)), `${f} maps to a real type`);
+
+  // A model that wrote its own frontmatter must not get a second block — two
+  // `---` openings and the whole thing parses as body text.
+  const own = composeNote({ title: 'X', body: '---\ntype: decision\ntags: [a]\n---\n\n# X\n\nBody.', folder: 'inbox', now });
+  eq(own.split('---').length - 1, 2, 'its own frontmatter is left alone rather than nested');
+  ok(!/source: player-two/.test(own), 'and nothing is injected into it');
+
+  // A body that already opens with its own heading keeps it.
+  ok(composeNote({ title: 'Ignored', body: '# Real heading\n\nText.', folder: 'inbox', now })
+     .split('# ').length === 2, 'a body with its own heading does not get a second one');
+
+  eq(composeNote({ title: 'X', body: 'y', folder: 'inbox', tags: ['ok', 'has/slash', '  ', 'fine'], now })
+     .match(/tags: \[(.*)\]/)[1], 'ok, fine', 'a tag that would not survive the vault is dropped, not mangled');
+  ok(!/tags:/.test(composeNote({ title: 'X', body: 'y', folder: 'inbox', now })),
+     'and with no tags the line is absent rather than empty');
+
+  // The composed note is what gets queued.
+  const r = inboxRow({ title: 'A decision', body: 'Because.', folder: 'decisions', tags: ['money'], now });
+  ok(/type: decision/.test(r.row.body), 'inboxRow queues the composed note, not the raw body');
+  ok(!inboxRow({ title: 'X', body: '   ', folder: 'inbox', now }).ok,
+     'and an empty body still refuses — the frontmatter must never be what makes an empty note look full');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

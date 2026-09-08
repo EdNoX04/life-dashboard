@@ -212,5 +212,18 @@ for (const verb of ['delete_habit', 'delete_subject', 'drop_table', 'buy', 'sell
   ok(/six months/.test(ACTION_INSTRUCTIONS), 'and tells it to write for a reader who has none of this conversation');
 }
 
+
+// tags: a model asked for "tags" produces an array sometimes and a comma string
+// other times. Rejecting one at random means a note that queues sometimes.
+{
+  const a = parseActions(block({ do: 'remember', title: 'X', body: 'y', tags: ['Amizone', 'College'] })).actions[0];
+  ok(Array.isArray(a.tags) && a.tags.join(',') === 'amizone,college', 'an array of tags is lowercased and kept');
+  const b = parseActions(block({ do: 'remember', title: 'X', body: 'y', tags: 'amizone, college' })).actions[0];
+  ok(b.tags.join(',') === 'amizone,college', 'and a comma string parses the same way');
+  is(parseActions(block({ do: 'remember', title: 'X', body: 'y' })).actions[0].tags, undefined, 'tags stay optional');
+  is(parseActions(block({ do: 'remember', title: 'X', body: 'y', tags: [] })).actions[0].tags, undefined, 'an empty list is no tags, not a refusal');
+  ok(parseActions(block({ do: 'remember', title: 'X', body: 'y', tags: Array(30).fill('t') })).actions[0].tags.length <= 8, 'and the list is capped');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

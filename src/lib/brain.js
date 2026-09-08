@@ -161,3 +161,89 @@ export function brainContext(question, index, opts) {
   }).join('\n\n');
   return 'FROM NEEL’S NOTES (his own vault; quote it as his, not as fact you looked up):\n' + body;
 }
+
+// ---------------------------------------------------------------- by shape
+//
+// WHY KEYWORD SEARCH IS NOT ENOUGH, AND WHY THIS IS THE BACKBONE.
+//
+// Everything above answers "what in the vault is relevant to this sentence".
+// That is the right tool for a question, and the wrong one for every feature
+// that is coming: the decisions tab wants ALL decisions, newest first; the build
+// intake wants THE note for one project; a people screen wants everyone. Asking
+// keyword search for those means guessing a word that happens to appear in each
+// of them, which works until it silently does not.
+//
+// The index already carries `type`, `tags`, `path` and `updated` on every note —
+// the conventions were written for exactly this, with the folders named after
+// types so a note filed correctly needs no frontmatter at all. Nothing read them.
+//
+// So the vault stops being a thing to quote from and becomes a thing to read.
+// After this, "decisions on the vault", "a build spec", "lecture notes" and
+// "captures from the phone" are each a NOTE TYPE, not new architecture.
+
+const lower = v => String(v || '').toLowerCase().trim();
+
+/** Every type present, with counts. What the vault actually contains. */
+export function types(index) {
+  const out = {};
+  for (const n of index?.notes || []) {
+    const t = lower(n.type) || 'note';
+    out[t] = (out[t] || 0) + 1;
+  }
+  return out;
+}
+
+/**
+ * Notes of one type, newest first.
+ *
+ * Newest first because `updated` is what the conventions say breaks ties, and
+ * because every screen that will use this — decisions, projects, people — is a
+ * list someone scrolls from the top.
+ *
+ * Notes with no date sort LAST rather than first. An undated note is not a new
+ * one, and treating missing as newest would put the least-maintained notes at
+ * the top of every list.
+ */
+export function byType(index, type, { limit = 50, tag = '' } = {}) {
+  const want = lower(type);
+  const wantTag = lower(tag);
+  return (index?.notes || [])
+    .filter(n => lower(n.type) === want)
+    .filter(n => !wantTag || (n.tags || []).some(t => lower(t) === wantTag))
+    .sort((a, b) => String(b.updated || '').localeCompare(String(a.updated || '')))
+    .slice(0, Math.max(0, limit));
+}
+
+/** One note by its exact vault path, or null. */
+export function noteAt(index, path) {
+  const want = lower(path);
+  return (index?.notes || []).find(n => lower(n.path) === want) || null;
+}
+
+/**
+ * A note's full text, chunks rejoined in order.
+ *
+ * `search` deliberately returns fragments; a screen showing one decision needs
+ * the whole thing, and stitching it at the call site would put the chunking
+ * format in three places.
+ */
+export function noteBody(note) {
+  return (note?.chunks || [])
+    .map(c => (c.heading ? `## ${c.heading}\n${c.text}` : c.text))
+    .join('\n\n')
+    .trim();
+}
+
+/**
+ * Is the index worth trusting?
+ *
+ * It is rebuilt on every push to the vault. If it has not moved in a long time
+ * either nothing has been written or the indexer has stopped, and those look
+ * identical from here — so this reports the age and lets the caller say so
+ * rather than quietly answering from a month-old vault.
+ */
+export function indexAge(index, now = new Date()) {
+  const t = Date.parse(index?.built || '');
+  if (!Number.isFinite(t)) return null;
+  return (now.getTime() - t) / 3600000;
+}

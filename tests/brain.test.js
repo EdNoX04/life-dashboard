@@ -6,10 +6,11 @@
 // with something vaguely related is worse than no vault — it spends the budget
 // and lowers the quality of the answers the dock was already good at.
 
-import { terms, search, brainContext } from '../src/lib/brain.js';
+import { terms, search, brainContext, types, byType, noteAt, noteBody, indexAge } from '../src/lib/brain.js';
 
 let pass = 0, fail = 0;
-const ok = (c, n) => { if (c) { pass++; } else { fail++; console.log('FAIL ' + n); } };
+const ok = (c, n) => { if (c) { pass++; } else { fail++; 
+console.log('FAIL ' + n); } };
 const is = (a, b, n) => ok(Object.is(a, b), `${n} (got ${JSON.stringify(a)}, want ${JSON.stringify(b)})`);
 
 const index = {
@@ -89,6 +90,53 @@ ok(/quote it as his/.test(block), 'and that they are his claims, not facts to as
 ok(block.includes('decisions/vault-in-git.md'), 'the source path is included so it can be cited');
 is(brainContext('hi', index), '', 'nothing found means nothing added — not an empty header');
 is(brainContext('anything', null), '', 'and a missing index adds nothing');
+
+// ---------------------------------------------------------------- reading BY SHAPE
+//
+// The backbone. Everything above answers "what is relevant to this sentence",
+// which is right for a question and wrong for every screen that is coming: the
+// decisions tab wants ALL decisions, a build wants ONE note, a people screen
+// wants everyone. Asking keyword search for those means guessing a word that
+// happens to be in each of them — which works until it silently does not.
+{
+  const idx = { built: '2026-09-08T06:00:00Z', notes: [
+    { path: 'decisions/a.md', title: 'A', type: 'decision', tags: ['money'], updated: '2026-09-01',
+      chunks: [{ i: 0, heading: '', text: 'Intro line.' }, { i: 1, heading: 'Rejected', text: 'The other way.' }] },
+    { path: 'decisions/b.md', title: 'B', type: 'decision', tags: ['college'], updated: '2026-09-05', chunks: [] },
+    { path: 'decisions/c.md', title: 'C', type: 'decision', tags: [], updated: null, chunks: [] },
+    { path: 'people/kr.md', title: 'Krati', type: 'person', tags: [], updated: '2026-08-01', chunks: [] },
+  ] };
+
+  is(types(idx).decision, 3, 'types() counts what the vault actually holds');
+  is(types(idx).person, 1, 'across every type');
+  is(Object.keys(types({ notes: [] })).length, 0, 'and an empty vault has no types rather than throwing');
+
+  const d = byType(idx, 'decision');
+  is(d.length, 3, 'every decision, not a keyword guess at them');
+  is(d[0].title, 'B', 'newest first — every screen using this is a list read from the top');
+  is(d[2].title, 'C', 'and an UNDATED note sorts last, because missing is not the same as new');
+  is(byType(idx, 'person')[0].title, 'Krati', 'another type is another list');
+  is(byType(idx, 'DECISION').length, 3, 'type matching is case-insensitive — the index lowercases, callers should not have to');
+  is(byType(idx, 'nothing').length, 0, 'a type with no notes is empty, not everything');
+  is(byType(idx, 'decision', { tag: 'money' }).length, 1, 'and it can narrow by tag');
+  is(byType(idx, 'decision', { limit: 2 }).length, 2, 'with a cap, because context is not free');
+  is(byType(null, 'decision').length, 0, 'no index is an empty list, not a crash');
+
+  is(noteAt(idx, 'decisions/a.md').title, 'A', 'one note by path');
+  is(noteAt(idx, 'DECISIONS/A.MD').title, 'A', 'case-insensitively');
+  is(noteAt(idx, 'nope.md'), null, 'and a miss is null rather than the first note');
+
+  ok(/Intro line/.test(noteBody(noteAt(idx, 'decisions/a.md'))), 'the whole note reassembles');
+  ok(/## Rejected/.test(noteBody(noteAt(idx, 'decisions/a.md'))),
+     'with its headings back — a screen showing one decision needs the whole thing, not fragments');
+  is(noteBody(null), '', 'and no note is an empty string');
+
+  // The index is rebuilt on every push. Not moving means either nothing was
+  // written or the indexer stopped, and those look identical from here.
+  const now = new Date('2026-09-08T12:00:00Z');
+  is(Math.round(indexAge(idx, now)), 6, 'the age of the index is readable');
+  is(indexAge({ notes: [] }, now), null, 'and unknown when it has never been built');
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

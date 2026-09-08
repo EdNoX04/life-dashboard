@@ -10,7 +10,7 @@ import { useReminderDone } from '../lib/useReminderDone.js';
 import { fblStatus } from '../lib/exams.js';
 import { brainContext } from '../lib/brain.js';
 import { ACTION_INSTRUCTIONS, parseActions, stripActionsLive, describeAction, resolveTodo, resolveHabit, isDestructive } from '../lib/actions.js';
-import { inboxRow, WRITE_DELAY_NOTE } from '../lib/vault.js';
+import { inboxRow, WRITE_DELAY_NOTE, vaultTrouble } from '../lib/vault.js';
 
 // PLAYER TWO — the co-op partner, reachable from every screen.
 //
@@ -80,6 +80,11 @@ export default function PlayerTwo({ tab }) {
   // DEADLINE behind it, and "is what you are telling me actually current?"
   const { items: placeMem } = useCollection('memory', { filter: 'key=eq.amizone_placements', order: 'key' });
   const { items: syncMem } = useCollection('memory', { filter: 'key=eq.sync_status', order: 'key' });
+  // The way back. A queued note that the runner rejects gets a reason written
+  // onto its row and NOTHING reads it — so a note that vanished between here and
+  // the vault is currently silent, which is the same failure shape as every
+  // other one in this codebase.
+  const { items: inbox, refresh: rInbox } = useCollection('vault_inbox', { order: 'created_at' });
   // Habit NAMES were already here; what was missing was whether any of them had
   // been done today, which is the only part of a habit anyone asks about.
   // The refresh matters more here than it looks. Without it habitLogs stays
@@ -239,6 +244,7 @@ export default function PlayerTwo({ tab }) {
         const made = inboxRow({ title: a.title, body: a.body, folder: a.folder, source: 'player-two' });
         if (!made.ok) { setActionNote(`Didn't do it — ${made.reason}.`); return; }
         await db.insert('vault_inbox', made.row);
+        await rInbox();
         // Deliberately not "Saved". The file does not exist yet, and claiming it
         // does is the small lie that makes him check the vault, find nothing, and
         // stop trusting the feature.
@@ -383,6 +389,23 @@ export default function PlayerTwo({ tab }) {
             </div>
           )}
           {actionNote && <div className="p2-note small">{actionNote}</div>}
+          {/* Notes that never became files. Shown here rather than in a settings
+              screen because this is where they were created, and a rejection is
+              only useful next to the thing that caused it. */}
+          {(() => {
+            const t = vaultTrouble(inbox || []);
+            if (!t.rejected.length && !t.stuck.length) return null;
+            return (
+              <div className="p2-note small" style={{ color: 'var(--red)' }}>
+                {t.rejected.slice(0, 2).map(r => (
+                  <div key={r.id}>“{r.title || r.path}” never reached the vault — {r.reason || 'rejected'}.</div>
+                ))}
+                {t.stuck.length > 0 && (
+                  <div>{t.stuck.length} note{t.stuck.length > 1 ? 's are' : ' is'} still queued past the 15-minute sync — the vault runner may have stopped.</div>
+                )}
+              </div>
+            );
+          })()}
 
           <form className="p2-form" onSubmit={e => { e.preventDefault(); send(); }}>
             <input

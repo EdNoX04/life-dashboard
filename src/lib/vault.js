@@ -82,6 +82,62 @@ export function checkBody(body) {
   return { ok: true };
 }
 
+// The vault's own note types, from brain/CONVENTIONS.md. `type` defaults to the
+// folder name when absent, which is why the folders are named after types.
+export const TYPES = ['note', 'daily', 'decision', 'person', 'project', 'reference'];
+
+/** The type a folder implies, so a note filed correctly needs no declaration. */
+export const typeOfFolder = f => ({
+  inbox: 'note', daily: 'daily', decisions: 'decision',
+  people: 'person', projects: 'project', reference: 'reference', college: 'note',
+}[String(f || '').toLowerCase()] || 'note');
+
+const isoDay = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/**
+ * A note, in the shape the vault's conventions describe.
+ *
+ * WHY THIS IS NOT OPTIONAL FOR MACHINE-WRITTEN NOTES.
+ *
+ * CONVENTIONS.md says frontmatter is never required and a bare note still
+ * indexes — which is exactly right for something Neel types at midnight, and
+ * wrong for something a machine produces. A note with no `type` can only ever be
+ * found by keyword, so "show me my decisions" cannot see it; with no `created`
+ * it cannot be ordered; with no `tags` it is invisible to every question that
+ * uses his words rather than the note's. Written by hand, that is a fair
+ * trade for not breaking flow. Written by a model, there is no flow to break.
+ *
+ * If the model wrote its own frontmatter, this leaves it alone — a second `---`
+ * block would make the whole thing parse as body text.
+ */
+export function composeNote({ title, body, folder = DEFAULT_FOLDER, tags = [], now = new Date() }) {
+  const text = String(body || '').trim();
+  if (text.startsWith('---')) return text;
+
+  const clean = (Array.isArray(tags) ? tags : [tags])
+    .map(t => String(t || '').toLowerCase().replace(/^#/, '').trim())
+    .filter(t => /^[a-z0-9][a-z0-9 _-]*$/.test(t))
+    .slice(0, 8);
+
+  const day = isoDay(now);
+  const fm = [
+    '---',
+    `type: ${typeOfFolder(folder)}`,
+    clean.length ? `tags: [${clean.join(', ')}]` : null,
+    `created: ${day}`,
+    `updated: ${day}`,
+    'source: player-two',
+    '---',
+    '',
+  ].filter(v => v !== null).join('\n');
+
+  // The first `#` is the title and retrieval weights it heavily, so it is added
+  // when the body does not already open with one.
+  const heading = /^#\s/m.test(text.split('\n')[0] || '') ? '' : `# ${String(title || '').trim()}\n\n`;
+  return `${fm}${heading}${text}\n`;
+}
+
 /**
  * The row to queue.
  *
@@ -89,12 +145,15 @@ export function checkBody(body) {
  * from now, "which feature produced this" is the first question, and the runner
  * writes it into the note's own front matter.
  */
-export function inboxRow({ title, body, folder = DEFAULT_FOLDER, source = 'player-two' }) {
+export function inboxRow({ title, body, folder = DEFAULT_FOLDER, tags = [], source = 'player-two', now = new Date() }) {
   const p = notePath(title, folder);
   if (!p.ok) return p;
   const b = checkBody(body);
   if (!b.ok) return b;
-  return { ok: true, row: { path: p.path, title: String(title).trim().slice(0, 200), body, source, status: 'pending' } };
+  // Composed AFTER the body check, so the frontmatter this adds can never be
+  // what makes an empty note look like a full one.
+  const composed = composeNote({ title, body, folder, tags, now });
+  return { ok: true, row: { path: p.path, title: String(title).trim().slice(0, 200), body: composed, source, status: 'pending' } };
 }
 
 /**
