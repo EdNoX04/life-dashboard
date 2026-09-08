@@ -7,7 +7,7 @@
 
 import {
   ACTIONS, ACTION_NAMES, ACTION_INSTRUCTIONS,
-  parseActions, stripActions, describeAction, resolveTodo, resolveHabit,
+  parseActions, stripActions, describeAction, resolveTodo, resolveHabit, isDestructive,
 } from '../src/lib/actions.js';
 
 let pass = 0, fail = 0;
@@ -20,11 +20,26 @@ const block = o => '```action\n' + JSON.stringify(o) + '\n```';
 // gets "fixed" by bumping the number, which tests nothing. Naming them means a
 // new verb cannot reach the model without someone writing it down HERE, next to
 // the reason the allowlist exists.
-const ALLOWED = ['add_todo', 'reschedule_todo', 'complete_todo', 'log_habit', 'unlog_habit', 'fbl_done'];
+const ALLOWED = ['add_todo', 'reschedule_todo', 'complete_todo', 'delete_todo', 'log_habit', 'unlog_habit', 'fbl_done'];
 for (const n of ACTION_NAMES) ok(ALLOWED.includes(n), `${n} is on the reviewed allowlist`);
 for (const n of ALLOWED) ok(ACTION_NAMES.includes(n), `${n} is still implemented`);
-ok(!ACTION_NAMES.some(n => /delete|remove|drop|money|trade|buy|sell/i.test(n)),
-  'nothing destructive and nothing financial is reachable');
+// FINANCIAL stays absolute. Money is read-only and no verb here may touch it.
+ok(!ACTION_NAMES.some(n => /money|invest|trade|buy|sell|order|portfolio|holding/i.test(n)),
+  'nothing financial is reachable — Money is read-only and that is not negotiable');
+
+// DESTRUCTIVE is no longer "none", so it has to be "exactly these". A blanket
+// ban was easy to keep and stopped being true the moment Neel asked to be able
+// to delete a task; a named set is the version that still means something.
+const DESTRUCTIVE = ['delete_todo'];
+for (const n of ACTION_NAMES) {
+  ok(isDestructive(n) === DESTRUCTIVE.includes(n), `${n}'s destructive flag matches the reviewed set`);
+}
+// The line that matters more than the list: what a destructive verb may reach.
+// Everything else in this app is a RECORD OF WHAT HAPPENED — attendance,
+// holdings, habit history, diary events — and a chat message must not erase one.
+for (const n of ACTION_NAMES.filter(isDestructive)) {
+  ok(/todo/.test(n), `${n} destroys a todo and nothing else — records of what happened are out of reach`);
+}
 for (const n of ACTION_NAMES) ok(ACTION_INSTRUCTIONS.includes(n), `the prompt teaches ${n} — prompt and allowlist must not drift`);
 
 // ------------------------------------------------------------ happy path
@@ -67,6 +82,11 @@ is(resolveTodo('krati', todos).row.id, 1, 'a unique partial resolves');
 ok(!resolveTodo('email', todos).ok, 'an ambiguous partial refuses rather than picking one');
 ok(/matches 2/.test(resolveTodo('email', todos).reason), 'and says how many it matched');
 ok(!resolveTodo('Old done thing', todos).ok, 'a completed task cannot be completed again');
+// ...but it CAN be deleted. Throwing away something already ticked is ordinary;
+// refusing to find it would be baffling.
+ok(resolveTodo('Old done thing', todos, { includeDone: true }).ok, 'and includeDone reaches it for delete_todo');
+ok(!resolveTodo('email', todos, { includeDone: true }).ok,
+   'the ambiguity guard still refuses — which matters most on the one action that cannot be undone');
 ok(!resolveTodo('nothing like this', todos).ok, 'no match refuses');
 ok(!resolveTodo('', todos).ok, 'an empty name refuses');
 
@@ -119,7 +139,7 @@ ok(!resolveHabit('Read', habits).ok, 'an archived habit is not loggable');
 // ------------------------------------------------------------ still fenced in
 //
 // The point of widening the allowlist is that it stays an allowlist.
-for (const verb of ['delete_todo', 'drop_table', 'buy', 'sell', 'update_investment', 'reschedule_meeting']) {
+for (const verb of ['delete_habit', 'delete_subject', 'drop_table', 'buy', 'sell', 'update_investment', 'reschedule_meeting']) {
   is(parseActions(block({ do: verb, title: 'x', due: '2026-09-08' })).actions.length, 0,
      `${verb} is still not a thing PLAYER TWO can propose`);
 }
@@ -128,6 +148,39 @@ for (const verb of ['delete_todo', 'drop_table', 'buy', 'sell', 'update_investme
   const many = ['add_todo', 'reschedule_todo', 'unlog_habit']
     .map(v => block({ do: v, title: 'T', due: '2026-09-08', name: 'Gym' })).join('\n');
   ok(parseActions(many).actions.length <= 2, 'the two-action cap survives a wider allowlist');
+}
+
+
+// ------------------------------------------------------------ deleting a task
+//
+// The first verb here that cannot be undone. Everything else is reversible — a
+// task un-completes, a habit log goes back, a due date moves back. So this one
+// has to look different at every stage, not just work.
+{
+  const r = parseActions(block({ do: 'delete_todo', title: 'Old thing' }));
+  is(r.actions.length, 1, 'a delete can be proposed');
+  ok(isDestructive('delete_todo'), 'and is flagged destructive so the confirm card can say so');
+  ok(!isDestructive('complete_todo'), 'while completing something is not');
+
+  const card = describeAction(r.actions[0]);
+  ok(/Delete/.test(card), 'the card says delete');
+  ok(/cannot be undone/.test(card),
+     'and says it cannot be undone — the word "delete" alone reads like "dismiss" on a card you tap through');
+  // \b matters: the card legitimately contains "undone", and a loose /done/
+  // would have failed on the very phrase that makes it safe.
+  ok(!/\bMark\b/i.test(card) && !/\bdone\b/i.test(card),
+     'and never reads like completing it — "Mark X as done" and "Delete X" must not be confusable on a card you tap through');
+
+  is(parseActions(block({ do: 'delete_todo' })).actions.length, 0, 'a delete with no title is refused');
+
+  // Taught to the model, with the restraint attached. A verb the prompt
+  // describes but the file rejects, or the reverse, is how an assistant starts
+  // promising things that never happen — or doing things nobody asked for.
+  ok(ACTION_INSTRUCTIONS.includes('delete_todo'), 'the prompt teaches it');
+  ok(/only when Neel plainly asks/.test(ACTION_INSTRUCTIONS),
+     'and tells it not to propose one as tidying');
+  ok(/never in place of complete_todo/.test(ACTION_INSTRUCTIONS),
+     'and not to reach for it when he says he has DONE something — that is the dangerous confusion');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

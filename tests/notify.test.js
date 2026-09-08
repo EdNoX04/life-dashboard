@@ -17,6 +17,7 @@ import {
   seenKey, hasSeen, markSeen, prune, dayStamp,
   classSoon, todosDue, bigMoves, sipTrouble, examSoon, syncDown,
   MIN_MOVE, MAX_MOVE, DEFAULT_MOVE, EXAM_MILESTONES,
+  QUIET_AFTER_H,
 } from '../src/lib/notify.js';
 
 let pass = 0, fail = 0;
@@ -287,6 +288,67 @@ const eq = (a, b, n) => ok(Object.is(a, b), `${n} (got ${JSON.stringify(a)}, wan
   ok(!/\bNaN\b/.test(blob), 'or NaN');
   ok(!/\[object Object\]/.test(blob), 'or a stringified object');
   ok(everything.every(n => n.title && n.body && n.thing), 'and every one has a title, a body and an identity');
+}
+
+
+// ------------------------------------------------------------ a sync that goes QUIET
+//
+// The hole this closes, measured on the live dashboard 2026-09-08: `ai` sat at
+// ok:true with an `at` 212 hours old. Nine days silent, reported healthy, and
+// the dashboard serving its last good data the whole time. `ok === false`
+// catches a worker that says it broke; nothing caught one that simply stopped.
+{
+  const now = new Date('2026-09-08T10:00:00Z');
+  const ago = h => new Date(now.getTime() - h * 3600000).toISOString();
+
+  eq(syncDown({ meetings: { ok: true, at: ago(2) } }, now).length, 0,
+     'an hourly worker two hours quiet is simply between runs');
+
+  const q = syncDown({ meetings: { ok: true, at: ago(20) } }, now);
+  eq(q.length, 1, 'twenty hours from an hourly worker is news');
+  ok(/gone quiet/.test(q[0].title), 'and it is named as quiet, not as broken — those are different claims');
+  ok(/meetings/.test(q[0].title), 'the worker is named');
+  ok(/20 hours/.test(q[0].body), 'with how long it has been');
+  ok(/every 6h/.test(q[0].body), 'and what normal looks like, so the gap means something');
+  ok(/last good data/.test(q[0].body), 'and that the screen is still showing something — which is why it looked fine');
+
+  ok(/9 days/.test(syncDown({ meetings: { ok: true, at: ago(212) } }, now)[0].body),
+     'past two days it switches to days — "212 hours" is a number nobody converts');
+
+  // The weekend trap. prices runs weekdays only, so a Monday-morning check sees
+  // a gap that is completely normal. Firing there would train him to ignore it.
+  eq(syncDown({ prices: { ok: true, at: ago(36) } }, now).length, 0,
+     "a weekday-only worker's weekend gap is not a fault");
+  eq(syncDown({ prices: { ok: true, at: ago(50) } }, now).length, 1, 'but past the weekend it is');
+
+  // An unknown worker is never called quiet — same principle as never calling a
+  // worker that has never reported "broken". An assumed cadence is an invented
+  // alarm.
+  eq(syncDown({ somethingNew: { ok: true, at: ago(500) } }, now).length, 0,
+     'a worker with no known cadence is never reported quiet');
+  ok(!Object.prototype.hasOwnProperty.call(QUIET_AFTER_H, 'ai'),
+     'and `ai` is deliberately unlisted — it is not a cron worker with a cadence to miss');
+
+  eq(syncDown({ meetings: { ok: true, at: 'not a date' } }, now).length, 0, 'an unparseable timestamp says nothing');
+  eq(syncDown({ meetings: { ok: true } }, now).length, 0, 'and a worker with no `at` at all says nothing');
+  eq(syncDown({ meetings: { ok: true, at: ago(99), configured: false } }, now).length, 0,
+     'not set up is still not the same as broken');
+
+  // Precedence and the cap.
+  const both = syncDown({
+    binance: { ok: false, reason: 'restricted location' },
+    amizone: { ok: false, reason: 'no captured pages' },
+    meetings: { ok: true, at: ago(99) },
+  }, now);
+  eq(both.length, 2, 'never more than two at once, quiet ones included');
+  ok(both.every(x => /has stopped/.test(x.title)),
+     'a worker that says it is broken outranks one that has merely gone quiet');
+
+  // Dedupe keys must not collide, or the quiet notice would be swallowed as
+  // "already said" by the failure notice for the same worker.
+  const f = syncDown({ meetings: { ok: false, reason: 'x' } }, now)[0];
+  const g = syncDown({ meetings: { ok: true, at: ago(99) } }, now)[0];
+  ok(f.thing !== g.thing, 'a failure and a silence are different things to be told');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

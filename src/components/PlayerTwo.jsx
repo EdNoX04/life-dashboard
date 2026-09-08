@@ -9,7 +9,7 @@ import { THREAD_KEY, sanitizeThread, trimForStore, trimForSend, threadChanged } 
 import { useReminderDone } from '../lib/useReminderDone.js';
 import { fblStatus } from '../lib/exams.js';
 import { brainContext } from '../lib/brain.js';
-import { ACTION_INSTRUCTIONS, parseActions, stripActionsLive, describeAction, resolveTodo, resolveHabit } from '../lib/actions.js';
+import { ACTION_INSTRUCTIONS, parseActions, stripActionsLive, describeAction, resolveTodo, resolveHabit, isDestructive } from '../lib/actions.js';
 
 // PLAYER TWO — the co-op partner, reachable from every screen.
 //
@@ -75,6 +75,10 @@ export default function PlayerTwo({ tab }) {
   // on the front page.
   const { items: subjects } = useCollection('subjects', { order: 'name', asc: true });
   const { items: calMem } = useCollection('memory', { filter: 'key=eq.calendar_events', order: 'key' });
+  // The two things the dock could not previously answer: a question with a
+  // DEADLINE behind it, and "is what you are telling me actually current?"
+  const { items: placeMem } = useCollection('memory', { filter: 'key=eq.amizone_placements', order: 'key' });
+  const { items: syncMem } = useCollection('memory', { filter: 'key=eq.sync_status', order: 'key' });
   // Habit NAMES were already here; what was missing was whether any of them had
   // been done today, which is the only part of a habit anyone asks about.
   // The refresh matters more here than it looks. Without it habitLogs stays
@@ -146,6 +150,8 @@ export default function PlayerTwo({ tab }) {
         subjects: subjects || [],
         events: calMem?.[0]?.value?.events || [],
         habitLogs: habitLogs || [],
+        placements: placeMem?.[0]?.value?.rows || [],
+        syncStatus: syncMem?.[0]?.value || null,
         doneMap,
       });
       // The tail, not the whole thread. Every message goes to the model on every
@@ -224,6 +230,17 @@ export default function PlayerTwo({ tab }) {
         await db.update('todos', hit.row.id, patch);
         await rTodos();
         setActionNote(`Moved “${hit.row.title}” to ${a.due}${a.time ? ` at ${a.time}` : ''}.`);
+      } else if (a.do === 'delete_todo') {
+        // Resolved across OPEN AND COMPLETED todos — unlike complete_todo,
+        // which only looks at open ones. He may well want to throw away
+        // something he already ticked, and refusing to find it would be
+        // baffling. resolveBy still refuses anything ambiguous, which is the
+        // guard that matters when the operation cannot be undone.
+        const hit = resolveTodo(a.title, todos || [], { includeDone: true });
+        if (!hit.ok) { setActionNote(`Didn't do it — ${hit.reason}.`); return; }
+        await db.remove('todos', hit.row.id);
+        await rTodos();
+        setActionNote(`Deleted “${hit.row.title}”.`);
       } else if (a.do === 'complete_todo') {
         const hit = resolveTodo(a.title, todos || []);
         if (!hit.ok) { setActionNote(`Didn't do it — ${hit.reason}.`); return; }
@@ -327,10 +344,21 @@ export default function PlayerTwo({ tab }) {
           {pending.length > 0 && (
             <div className="p2-actions">
               {pending.map((a, i) => (
+                // A destructive action must not be one muscle-memory tap away
+                // from the reversible ones. Same row, different colour, and the
+                // button says the word — "DO IT" on a delete is exactly how you
+                // confirm something you did not read.
                 <div className="p2-action" key={i}>
-                  <span className="small" style={{ flex: 1 }}>{describeAction(a)}</span>
-                  <button className="btn btn-sm" disabled={acting} onClick={() => runAction(a)}>
-                    {acting ? '·' : 'DO IT'}
+                  <span className="small" style={{ flex: 1, color: isDestructive(a.do) ? 'var(--red)' : undefined }}>
+                    {isDestructive(a.do) && <span aria-hidden="true">⚠ </span>}
+                    {describeAction(a)}
+                  </span>
+                  <button
+                    className={`btn btn-sm${isDestructive(a.do) ? ' btn-red' : ''}`}
+                    disabled={acting}
+                    onClick={() => runAction(a)}
+                  >
+                    {acting ? '·' : isDestructive(a.do) ? 'DELETE' : 'DO IT'}
                   </button>
                   <button
                     className="btn btn-sm"

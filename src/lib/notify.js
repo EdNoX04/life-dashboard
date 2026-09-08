@@ -278,10 +278,56 @@ export function sipTrouble(sips, now = new Date()) {
  * Keyed by worker AND day, so a permanently dead sync says so once a day rather
  * than every minute — enough to be remembered, not enough to be muted.
  */
+/**
+ * How long each worker may stay quiet before the silence itself is the news.
+ *
+ * THE HOLE THIS CLOSES. The check below only fires on `ok === false`, which
+ * means a worker that reports a FAILURE is announced and a worker that simply
+ * STOPS RUNNING is not. Measured on 2026-09-08: `ai` was sitting at ok:true and
+ * 212 hours old — nine days silent, reported healthy, and the dashboard serving
+ * its last good data the whole time. A calendar sync that quietly stops is the
+ * same shape, and it is the failure this whole channel exists for.
+ *
+ * Only workers whose cadence is actually KNOWN appear here. An unlisted worker
+ * is never reported as quiet, for the same reason a worker that has never
+ * reported is not called broken: inventing an alarm out of an assumption is how
+ * a channel earns itself a permanent mute.
+ *
+ * The windows are deliberately generous — several missed runs, not one.
+ */
+export const QUIET_AFTER_H = {
+  meetings: 6,     // hourly cron; six hours is five misses
+  prices: 40,      // weekdays only, so a normal weekend gap must not fire
+  amizone: 12,     // the browser bridge runs every 30 min while Chrome is up
+  holdings: 60,    // weekday mornings AND needs his Mac awake — a long leash
+  letterboxd: 48,
+};
+
 export function syncDown(status, now = new Date()) {
   if (!status || typeof status !== 'object') return [];
   const day = dayStamp(now);
   const out = [];
+  const quiet = [];
+
+  for (const [worker, s] of Object.entries(status)) {
+    // A worker reporting healthy but long past its cadence. Checked before the
+    // `ok !== false` skip below, because the whole point is that `ok` is true.
+    const limit = QUIET_AFTER_H[worker];
+    if (limit && s && typeof s === 'object' && s.configured !== false) {
+      const t = Date.parse(s.at || '');
+      if (Number.isFinite(t)) {
+        const h = (now.getTime() - t) / 3600000;
+        if (h > limit) {
+          quiet.push({
+            thing: `${worker}:quiet:${day}`,
+            title: `${worker} sync has gone quiet`,
+            body: `Nothing for ${h < 48 ? `${Math.round(h)} hours` : `${Math.round(h / 24)} days`}, and it normally reports every ${limit}h. The dashboard is still showing its last good data.`,
+          });
+        }
+      }
+    }
+  }
+
   for (const [worker, s] of Object.entries(status)) {
     // `ok` must be explicitly false. A worker that has never reported has no
     // `ok` at all, and "we have never heard from this" is not the same claim as
@@ -296,7 +342,9 @@ export function syncDown(status, now = new Date()) {
       body: reason || 'It is reporting unhealthy. The dashboard is still showing its last good data.',
     });
   }
-  return out.slice(0, 2);
+  // Hard failures first. A worker that says it is broken outranks one that has
+  // merely gone quiet, and only two of either reach him at once.
+  return [...out, ...quiet].slice(0, 2);
 }
 
 export const EXAM_MILESTONES = [7, 3, 1];

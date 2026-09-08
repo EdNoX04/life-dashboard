@@ -327,7 +327,7 @@ import { attPct } from './attendance.js';
 
 export function homeContext({
   timetable = [], todos = [], events = [], habits = [], goals = [], subjects = [],
-  habitLogs = [], doneMap = {}, now = new Date(),
+  habitLogs = [], doneMap = {}, placements = [], syncStatus = null, now = new Date(),
 } = {}) {
   // LOCAL date. toISOString() is UTC and reported tomorrow from 18:30 IST
   // onwards, while the weekday beside it came from getDay() and stayed local —
@@ -380,6 +380,52 @@ export function homeContext({
     }
   } else {
     parts.push('No open tasks.');
+  }
+
+  // Placement drives. Added because the one question with a DEADLINE attached
+  // was the one thing the dock could not answer — it knew his timetable and his
+  // tasks and nothing about a registration window closing on Thursday.
+  //
+  // Only what he can still act on. A list of nineteen closed drives is the same
+  // noise here as it is on the card, and it would crowd out the two that matter.
+  if (Array.isArray(placements) && placements.length) {
+    const live = placements.filter(p => {
+      const settled = p.status === 'applied' || p.status === 'placed' || p.status === 'ineligible' || p.status === 'closed';
+      const ends = p.end ? Date.parse(p.end) : NaN;
+      return !settled && (!Number.isFinite(ends) || ends > now.getTime());
+    }).sort((a, b) => (Date.parse(a.end || 0) || Infinity) - (Date.parse(b.end || 0) || Infinity)).slice(0, 6);
+    if (live.length) {
+      parts.push('Placement drives still open: ' + live.map(p => {
+        const h = p.end ? (Date.parse(p.end) - now.getTime()) / 3600000 : null;
+        const when = h == null ? 'no closing time listed'
+          : h < 24 ? `closes in ${Math.max(1, Math.round(h))}h` : `closes in ${Math.round(h / 24)}d`;
+        return `${clip(p.company, 60)} (${when})`;
+      }).join('; ') + '.');
+      parts.push('He cannot register from PLAYER ONE — say so and point him at Amizone → Student Placement Hub → Placement.');
+    } else {
+      // Said out loud for the same reason the empty timetable is: an absent
+      // section reads as "nothing open", and that is a wrong answer with a
+      // deadline behind it.
+      parts.push('No placement drive is currently open for registration (the list is synced; there simply are none).');
+    }
+  }
+
+  // Whether its own information is CURRENT. Without this the dock answers every
+  // question with the same confidence whether the data arrived an hour ago or
+  // three weeks ago — which is the failure this whole codebase keeps hitting.
+  if (syncStatus && typeof syncStatus === 'object') {
+    const stale = [];
+    for (const [worker, st] of Object.entries(syncStatus)) {
+      if (!st || typeof st !== 'object') continue;
+      const t = Date.parse(st.at || '');
+      const h = Number.isFinite(t) ? (now.getTime() - t) / 3600000 : null;
+      if (st.ok === false) stale.push(`${worker} is failing${st.reason ? ` (${clip(st.reason, 80)})` : ''}`);
+      else if (h != null && h > 24) stale.push(`${worker} last reported ${Math.round(h / 24)}d ago`);
+    }
+    if (stale.length) {
+      parts.push('DATA FRESHNESS WARNING — ' + stale.join('; ') + '.');
+      parts.push('If a question depends on one of those, answer it and say plainly that the figures may be out of date. Never present stale data as current.');
+    }
   }
 
   const upcoming = events

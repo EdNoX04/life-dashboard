@@ -327,5 +327,60 @@ ok(/Network Security|Blockchain|IoT/.test(fblCtx.split('Study plan for today')[1
   ok(typeof asText({ text: 42 }) === 'string', 'and the return is always a string, whatever went in');
 }
 
+
+// ---------------------------------------------------------------- placements & freshness
+//
+// The two things the dock could not answer. It knew his timetable and his tasks
+// and nothing about a registration window closing on Thursday — the one
+// question in the app with a deadline behind it.
+{
+  const now = new Date(2026, 8, 8, 10, 0);
+  const iso = h => new Date(now.getTime() + h * 3600000).toISOString();
+  const rows = [
+    { company: 'Open Soon Co', status: 'open', end: iso(20) },
+    { company: 'Open Later Co', status: 'open', end: iso(24 * 9) },
+    { company: 'Applied Co', status: 'applied', end: iso(48) },
+    { company: 'Blocked Co', status: 'ineligible', end: iso(48) },
+    { company: 'Gone Co', status: 'open', end: iso(-5) },
+  ];
+  const c = homeContext({ placements: rows, now });
+  ok(/Open Soon Co/.test(c), 'an open drive reaches the model');
+  ok(/closes in 20h/.test(c), 'with the time left, not just the date');
+  ok(/Open Soon Co[\s\S]*Open Later Co/.test(c), 'soonest first — the order is the priority');
+  ok(!/Applied Co/.test(c), 'one already applied to is not something to act on');
+  ok(!/Blocked Co/.test(c), 'nor one he is not eligible for — telling him to apply would be worse than silence');
+  ok(!/Gone Co/.test(c), 'and a window that has shut is gone');
+  ok(/cannot register from PLAYER ONE/.test(c),
+     'and it is told it cannot register for him, so it does not promise to');
+
+  // The empty case has to be SAID. An absent section reads to a model as
+  // "nothing open", and that is a wrong answer with a deadline behind it.
+  ok(/No placement drive is currently open/.test(homeContext({ placements: [{ company: 'X', status: 'closed', end: iso(-5) }], now })),
+     'no open drives is stated out loud rather than left as an absence');
+  ok(!/placement/i.test(homeContext({ placements: [], now })),
+     'but with nothing synced at all it stays quiet rather than claiming there are none');
+}
+
+// Whether its own information is current. Without this the dock answers with
+// identical confidence whether the data arrived an hour ago or three weeks ago.
+{
+  const now = new Date(2026, 8, 8, 10, 0);
+  const ago = h => new Date(now.getTime() - h * 3600000).toISOString();
+
+  const bad = homeContext({ syncStatus: { amizone: { ok: false, at: ago(1), reason: 'no captured pages' } }, now });
+  ok(/FRESHNESS WARNING/.test(bad), 'a failing worker is flagged to the model');
+  ok(/amizone is failing/.test(bad), 'by name');
+  ok(/no captured pages/.test(bad), 'with the reason');
+  ok(/never present stale data as current/i.test(bad), 'and told what to do about it');
+
+  const quiet = homeContext({ syncStatus: { binance: { ok: true, at: ago(24 * 31) } }, now });
+  ok(/binance last reported 31d ago/.test(quiet),
+     'a worker reporting healthy but silent for a month is flagged too — ok:true is not the same as current');
+
+  ok(!/FRESHNESS/.test(homeContext({ syncStatus: { meetings: { ok: true, at: ago(3) } }, now })),
+     'a healthy recent worker adds nothing — the warning has to stay rare to mean anything');
+  ok(!/FRESHNESS/.test(homeContext({ now })), 'and no status at all says nothing');
+}
+
 console.log(`${pass}/${pass + fail} passing`);
 if (fail) process.exit(1);

@@ -252,6 +252,8 @@ h1,h2,h3,h4 { font-family: var(--font-pixel); font-weight: normal; }
 .btn-pink { border-color: var(--pink); color: var(--pink); }
 .btn-green { border-color: var(--green); color: var(--green); }
 .btn-cyan { border-color: var(--cyan); color: var(--cyan); }
+/* Destructive only. The point is that it does not look like the button beside it. */
+.btn-red { border-color: var(--red); color: var(--red); }
 .btn-sm { font-size: 8px; padding: 5px 8px; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 

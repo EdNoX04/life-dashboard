@@ -65,7 +65,28 @@ export const ACTIONS = {
     fields: {},
     describe: () => 'Mark the open Spanish FBL module as done',
   },
+  // THE ONLY DESTRUCTIVE VERB, AND THE REASONING FOR THE LINE IT SITS ON.
+  //
+  // Everything else here is reversible: a task can be un-completed, a habit log
+  // can be re-added, a due date can be moved back. This one is not, so it
+  // carries `destructive: true` — the confirm card words itself differently and
+  // the test asserts the destructive set is exactly what has been reviewed.
+  //
+  // It is limited to todos on purpose. A task Neel typed and no longer wants is
+  // his to throw away and costs nothing if it goes. Nothing else in the app is
+  // like that: attendance, holdings, habit history and diary events are all
+  // RECORDS OF WHAT HAPPENED, and a chat message must not be able to erase one.
+  // If a delete for those is ever wanted it needs its own argument, not this
+  // entry widened.
+  delete_todo: {
+    destructive: true,
+    fields: { title: 'text' },
+    describe: a => `Delete “${a.title}” — permanently, and it cannot be undone`,
+  },
 };
+
+/** Verbs that destroy something. The confirm UI reads this. */
+export const isDestructive = verb => Boolean(ACTIONS[verb]?.destructive);
 
 export const ACTION_NAMES = Object.keys(ACTIONS);
 
@@ -81,6 +102,8 @@ export const ACTION_INSTRUCTIONS = [
   'add_todo takes title, optional due (YYYY-MM-DD) and optional time (HH:MM, 24h).',
   'reschedule_todo takes title and due, plus optional time — use it to move a task, never complete-and-re-add.',
   'complete_todo takes title. log_habit and unlog_habit take name. fbl_done takes nothing.',
+  'delete_todo takes title and DESTROYS the task. Propose it only when Neel plainly asks to delete or remove a task —',
+  'never as tidying, never because a task looks stale, and never in place of complete_todo when he says he has done it.',
   'Propose an action only when asked to do something — never to answer a question.',
   'Never propose more than two. Keep your prose answer above the block, and do not mention the block itself.',
   'Nothing happens until Neel confirms, so do not claim you have done it — say what you are about to do.',
@@ -204,9 +227,17 @@ function resolveBy(name, rows, field) {
   return { ok: false, reason: `nothing called “${name}”` };
 }
 
-/** Open todos only: "mark X done" must never re-complete something finished. */
-export const resolveTodo = (title, todos = []) =>
-  resolveBy(title, todos.filter(t => !t.completed), 'title');
+/**
+ * Open todos by default: "mark X done" must never re-complete something already
+ * finished, and "move X to Friday" must not move something that is over.
+ *
+ * `includeDone` exists for exactly one caller — delete_todo. Throwing away a
+ * task he already ticked is a perfectly ordinary thing to want, and refusing to
+ * find it would be baffling. The ambiguity guard below is unchanged, and it is
+ * the one that matters when the operation cannot be undone.
+ */
+export const resolveTodo = (title, todos = [], { includeDone = false } = {}) =>
+  resolveBy(title, includeDone ? todos : todos.filter(t => !t.completed), 'title');
 
 /** Live habits only. */
 export const resolveHabit = (name, habits = []) =>
