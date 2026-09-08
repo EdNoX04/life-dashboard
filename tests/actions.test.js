@@ -7,7 +7,7 @@
 
 import {
   ACTIONS, ACTION_NAMES, ACTION_INSTRUCTIONS,
-  parseActions, stripActions, describeAction, resolveTodo, resolveHabit, isDestructive,
+  parseActions, stripActions, describeAction, resolveTodo, resolveHabit, resolveEvent, isDestructive,
 } from '../src/lib/actions.js';
 
 let pass = 0, fail = 0;
@@ -20,7 +20,7 @@ const block = o => '```action\n' + JSON.stringify(o) + '\n```';
 // gets "fixed" by bumping the number, which tests nothing. Naming them means a
 // new verb cannot reach the model without someone writing it down HERE, next to
 // the reason the allowlist exists.
-const ALLOWED = ['add_todo', 'reschedule_todo', 'complete_todo', 'delete_todo', 'log_habit', 'unlog_habit', 'fbl_done', 'remember', 'queue_build'];
+const ALLOWED = ['add_todo', 'reschedule_todo', 'complete_todo', 'delete_todo', 'log_habit', 'unlog_habit', 'fbl_done', 'remember', 'queue_build', 'add_event', 'cancel_event'];
 for (const n of ACTION_NAMES) ok(ALLOWED.includes(n), `${n} is on the reviewed allowlist`);
 for (const n of ALLOWED) ok(ACTION_NAMES.includes(n), `${n} is still implemented`);
 // FINANCIAL stays absolute. Money is read-only and no verb here may touch it.
@@ -30,15 +30,30 @@ ok(!ACTION_NAMES.some(n => /money|invest|trade|buy|sell|order|portfolio|holding/
 // DESTRUCTIVE is no longer "none", so it has to be "exactly these". A blanket
 // ban was easy to keep and stopped being true the moment Neel asked to be able
 // to delete a task; a named set is the version that still means something.
-const DESTRUCTIVE = ['delete_todo'];
+const DESTRUCTIVE = ['delete_todo', 'cancel_event'];
 for (const n of ACTION_NAMES) {
   ok(isDestructive(n) === DESTRUCTIVE.includes(n), `${n}'s destructive flag matches the reviewed set`);
 }
-// The line that matters more than the list: what a destructive verb may reach.
-// Everything else in this app is a RECORD OF WHAT HAPPENED — attendance,
-// holdings, habit history, diary events — and a chat message must not erase one.
+// The line that matters more than the list, restated when cancel_event was added.
+//
+// It was "destroys a todo and nothing else", which was the right rule stated too
+// narrowly: a calendar event is not a todo, and it is also not the thing the rule
+// was protecting. The real distinction is PLANS versus RECORDS.
+//
+// A plan is something not yet done — a task, a future meeting. Destroying one is
+// a normal thing to want, and its consequence is in the future.
+//
+// A record is what actually happened — attendance, holdings, habit history,
+// diary events, dividends. Those are the memory this whole app exists to keep,
+// and a chat message must never be able to erase one. Widening the list above is
+// only ever allowed to add plans.
+const PLANS = ['todo', 'event'];
 for (const n of ACTION_NAMES.filter(isDestructive)) {
-  ok(/todo/.test(n), `${n} destroys a todo and nothing else — records of what happened are out of reach`);
+  ok(PLANS.some(p => n.includes(p)), `${n} destroys a plan, not a record of what happened`);
+}
+for (const forbidden of ['attendance', 'holding', 'investment', 'habit_log', 'dividend', 'diary', 'brief', 'note']) {
+  ok(!ACTION_NAMES.filter(isDestructive).some(n => n.includes(forbidden)),
+     `nothing destructive can reach ${forbidden} — that is a record of what happened`);
 }
 for (const n of ACTION_NAMES) ok(ACTION_INSTRUCTIONS.includes(n), `the prompt teaches ${n} — prompt and allowlist must not drift`);
 
@@ -257,6 +272,56 @@ for (const verb of ['delete_habit', 'delete_subject', 'drop_table', 'buy', 'sell
   ok(/NEVER estimate hours/.test(ACTION_INSTRUCTIONS), 'the model is told not to estimate durations');
   ok(/S: small/.test(ACTION_INSTRUCTIONS), 'and given sizes instead');
   ok(!isDestructive('queue_build'), 'queueing a spec destroys nothing');
+}
+
+
+// ------------------------------------------------------------ the calendar
+{
+  const a = parseActions(block({ do: 'add_event', title: 'Dentist', date: '2026-09-12', time: '17:00' })).actions[0];
+  ok(a, 'an event can be proposed');
+  ok(/2026-09-12 at 17:00/.test(describeAction(a)), 'the card says exactly when');
+  ok(/17:00–18:30/.test(describeAction(parseActions(block({ do: 'add_event', title: 'X', date: '2026-09-12', time: '17:00', end: '18:30' })).actions[0])),
+     'and shows an end time when one is given');
+  is(parseActions(block({ do: 'add_event', title: 'X', date: '2026-09-12' })).actions.length, 0,
+     'an event with no time is refused — a meeting at midnight is not what he meant');
+  is(parseActions(block({ do: 'add_event', title: 'X', time: '17:00' })).actions.length, 0, 'nor one with no date');
+  is(parseActions(block({ do: 'add_event', title: 'X', date: '2026-09-12', time: '5pm' })).actions.length, 0,
+     'and "5pm" is still refused rather than guessed at');
+
+  // Cancelling is destructive in a way deleting a todo is not: it reaches other
+  // people's calendars, and there is no undo.
+  const c = parseActions(block({ do: 'cancel_event', title: 'Standup' })).actions[0];
+  ok(isDestructive('cancel_event'), 'cancelling is flagged destructive');
+  ok(/Cancel/.test(describeAction(c)), 'the card says cancel');
+  ok(/for everyone on it/.test(describeAction(c)),
+     'and says the consequence reaches other people — the part that makes it different from deleting a task');
+  ok(/never to tidy his calendar/.test(ACTION_INSTRUCTIONS), 'the model is told not to propose one unprompted');
+}
+
+// ------------------------------------------------------------ finding the event
+{
+  const now = new Date(2026, 8, 8, 9, 0);
+  const events = [
+    { id: 'personal:1', summary: 'Dentist', start: '2026-09-12T17:00' },
+    { id: 'work:2', summary: 'Standup', start: '2026-09-09T09:30' },
+    { id: 'work:3', summary: 'Standup', start: '2026-09-10T09:30' },
+    { id: 'personal:4', summary: 'Old thing', start: '2026-09-01T10:00' },
+  ];
+  is(resolveEvent('Dentist', events, { now }).row.id, 'personal:1', 'an event resolves by name');
+  is(resolveEvent('dentist', events, { now }).row.id, 'personal:1', 'case-insensitively');
+
+  // The one that matters: cancelling the wrong recurring instance takes it off
+  // other people's calendars too.
+  ok(!resolveEvent('Standup', events, { now }).ok, 'two matching events refuse rather than picking one');
+  ok(/matches 2/.test(resolveEvent('Standup', events, { now }).reason), 'saying how many');
+  is(resolveEvent('Standup', events, { date: '2026-09-10', now }).row.id, 'work:3', 'and a date narrows it to one');
+
+  ok(!resolveEvent('Old thing', events, { now }).ok,
+     'a PAST event is never a candidate — cancelling something that already happened is never what was meant');
+  ok(!resolveEvent('Dentist', events, { date: '2026-09-30', now }).ok, 'a date with nothing on it refuses');
+  ok(!resolveEvent('anything', [], { now }).ok, 'an empty calendar refuses');
+  ok(!resolveEvent('x', [{ summary: 'x', start: '2026-09-12T10:00' }], { now }).ok,
+     'and an event with no id is not cancellable, because there is nothing to send');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

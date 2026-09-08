@@ -9,7 +9,7 @@ import { THREAD_KEY, sanitizeThread, trimForStore, trimForSend, threadChanged } 
 import { useReminderDone } from '../lib/useReminderDone.js';
 import { fblStatus } from '../lib/exams.js';
 import { brainContext } from '../lib/brain.js';
-import { ACTION_INSTRUCTIONS, parseActions, stripActionsLive, describeAction, resolveTodo, resolveHabit, isDestructive } from '../lib/actions.js';
+import { ACTION_INSTRUCTIONS, parseActions, stripActionsLive, describeAction, resolveTodo, resolveHabit, resolveEvent, isDestructive } from '../lib/actions.js';
 import { inboxRow, WRITE_DELAY_NOTE, vaultTrouble } from '../lib/vault.js';
 import { specNote, toSteps, sizeSummary } from '../lib/buildspec.js';
 
@@ -250,6 +250,27 @@ export default function PlayerTwo({ tab }) {
         // does is the small lie that makes him check the vault, find nothing, and
         // stop trusting the feature.
         setActionNote(`Queued “${a.title}” for ${made.row.path}. ${WRITE_DELAY_NOTE}`);
+      } else if (a.do === 'add_event') {
+        // Onto the queue meeting-worker.mjs drains hourly. The timezone is sent
+        // explicitly rather than baked into the timestamp: Google takes a naive
+        // dateTime plus a zone, and an offset guessed here would be wrong twice
+        // a year in places that observe DST.
+        const end = a.end && a.end > a.time ? a.end : null;
+        await db.sendRequest('calendar_add', {
+          summary: a.title,
+          start: `${a.date}T${a.time}:00`,
+          end: `${a.date}T${end || a.time}:00`,
+          timeZone: 'Asia/Kolkata',
+        });
+        // "Queued", not "Added" — the worker runs hourly and the event does not
+        // exist until it has.
+        setActionNote(`Queued “${a.title}” for ${a.date} ${a.time}. It appears on the calendar within the hour.`);
+      } else if (a.do === 'cancel_event') {
+        const events = calMem?.[0]?.value?.events || [];
+        const hit = resolveEvent(a.title, events, { date: a.date, now: new Date() });
+        if (!hit.ok) { setActionNote(`Didn't do it — ${hit.reason}.`); return; }
+        await db.sendRequest('calendar_delete', { eventId: hit.row.id, title: hit.row.title });
+        setActionNote(`Queued the cancellation of “${hit.row.title}”. It comes off the calendar within the hour.`);
       } else if (a.do === 'queue_build') {
         // Same queue, same path rules, different folder. The spec is a note in
         // projects/ rather than a row in `builds`, so intake, plan, progress and

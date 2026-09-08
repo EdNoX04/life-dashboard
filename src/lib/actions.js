@@ -93,6 +93,26 @@ export const ACTIONS = {
     fields: { title: 'text', why: 'long', steps: 'list' },
     describe: a => `Queue “${a.title}” as a build spec — ${(a.steps || []).length} steps`,
   },
+  // Onto the real Google Calendar.
+  //
+  // Withheld earlier on the belief that the `requests` queue had no live
+  // consumer. That was wrong: scripts/meeting-worker.mjs drains calendar_add and
+  // calendar_delete every hour through meetings-sync.yml, and it was verified
+  // healthy — all three accounts authenticating, queue depth 0 — on 2026-09-08.
+  // The disabled Cowork task is a different consumer for different kinds.
+  add_event: {
+    fields: { title: 'text', date: 'date', time: 'time', end: 'time?' },
+    describe: a => `Put “${a.title}” on the calendar — ${a.date} at ${a.time}${a.end ? `–${a.end}` : ''}`,
+  },
+  // DESTRUCTIVE, and more so than deleting a todo: this removes the event from
+  // Google Calendar, which un-invites anyone else on it. There is no undo and
+  // the consequence reaches other people, so the card says "cancel" and says
+  // where it is being cancelled from.
+  cancel_event: {
+    destructive: true,
+    fields: { title: 'text', date: 'date?' },
+    describe: a => `Cancel “${a.title}”${a.date ? ` on ${a.date}` : ''} — removed from Google Calendar for everyone on it`,
+  },
   // THE ONLY DESTRUCTIVE VERB, AND THE REASONING FOR THE LINE IT SITS ON.
   //
   // Everything else here is reversible: a task can be un-completed, a habit log
@@ -140,6 +160,9 @@ export const ACTION_INSTRUCTIONS = [
   'NEVER estimate hours, days or weeks. A confident number with nothing behind it becomes the thing he plans around.',
   'Propose it when he describes something he wants built. Write the steps so they still make sense to a machine',
   'reading only that file, with none of this conversation around it.',
+  'add_event takes title, date (YYYY-MM-DD), time (HH:MM 24h) and optional end (HH:MM).',
+  'cancel_event takes title and optional date, and REMOVES the event from Google Calendar for everyone on it.',
+  '  Propose it only when Neel plainly says to cancel or delete an event, never to tidy his calendar.',
   'delete_todo takes title and DESTROYS the task. Propose it only when Neel plainly asks to delete or remove a task —',
   'never as tidying, never because a task looks stale, and never in place of complete_todo when he says he has done it.',
   'Propose an action only when asked to do something — never to answer a question.',
@@ -283,7 +306,10 @@ function resolveBy(name, rows, field) {
   if (!want) return { ok: false, reason: 'nothing to match' };
   const exact = rows.filter(r => norm(r[field]) === want);
   if (exact.length === 1) return { ok: true, row: exact[0] };
-  if (exact.length > 1) return { ok: false, reason: `more than one is called “${name}”` };
+  // The COUNT, not just "more than one". Two exactly-named things is the
+  // recurring-meeting case, and "matches 2 of them" tells him a date will
+  // disambiguate where "more than one" leaves him guessing what to say next.
+  if (exact.length > 1) return { ok: false, reason: `“${name}” matches ${exact.length} of them — say which` };
   const partial = rows.filter(r => norm(r[field]).includes(want));
   if (partial.length === 1) return { ok: true, row: partial[0] };
   if (partial.length > 1) return { ok: false, reason: `“${name}” matches ${partial.length} of them — say which` };
@@ -301,6 +327,28 @@ function resolveBy(name, rows, field) {
  */
 export const resolveTodo = (title, todos = [], { includeDone = false } = {}) =>
   resolveBy(title, includeDone ? todos : todos.filter(t => !t.completed), 'title');
+
+/**
+ * An event by name, out of what the dashboard already pulled.
+ *
+ * The model is shown event summaries and start times, never ids, so it names one
+ * and this finds the row — exactly like resolveTodo, and refusing for the same
+ * reason. "Cancel my meeting" with two meetings that day must ask which, because
+ * cancelling the wrong one takes it off other people's calendars too.
+ *
+ * PAST EVENTS ARE NOT CANDIDATES. Cancelling something that already happened is
+ * never what was meant, and including them roughly doubles the chance of an
+ * ambiguous match on a recurring title.
+ */
+export function resolveEvent(title, events = [], { date = '', now = new Date() } = {}) {
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const pool = (Array.isArray(events) ? events : [])
+    .filter(e => e && e.id && String(e.start || '').slice(0, 10) >= today)
+    .filter(e => !date || String(e.start || '').slice(0, 10) === date)
+    .map(e => ({ ...e, title: e.summary || e.title || '' }));
+  if (!pool.length) return { ok: false, reason: date ? `nothing on the calendar for ${date}` : 'nothing upcoming on the calendar' };
+  return resolveBy(title, pool, 'title');
+}
 
 /** Live habits only. */
 export const resolveHabit = (name, habits = []) =>
