@@ -26,6 +26,9 @@
 
 const MAX_ACTIONS = 2;
 const MAX_TEXT = 200;
+// A note body is not a title. Long enough to be worth keeping, short enough that
+// a model cannot quietly fill a git repo — the runner's own ceiling is 400 KB.
+const MAX_LONG = 8000;
 
 // The allowlist. Adding a verb here is a deliberate act; nothing is generic.
 export const ACTIONS = {
@@ -65,6 +68,17 @@ export const ACTIONS = {
     fields: {},
     describe: () => 'Mark the open Spanish FBL module as done',
   },
+  // Into the Obsidian vault. The reverse pipeline has existed for weeks and has
+  // never carried anything, because nothing in the app could write to it.
+  //
+  // The model supplies a folder from a fixed list and a title; the PATH is built
+  // in lib/vault.js and never accepted from the model. That makes traversal and
+  // dotfile tricks unreachable rather than merely defended against — and the
+  // runner re-validates anyway, since it is the one holding the push token.
+  remember: {
+    fields: { title: 'text', body: 'long', folder: 'text?' },
+    describe: a => `Save “${a.title}” to the vault${a.folder ? ` under ${a.folder}` : ''}`,
+  },
   // THE ONLY DESTRUCTIVE VERB, AND THE REASONING FOR THE LINE IT SITS ON.
   //
   // Everything else here is reversible: a task can be un-completed, a habit log
@@ -102,6 +116,10 @@ export const ACTION_INSTRUCTIONS = [
   'add_todo takes title, optional due (YYYY-MM-DD) and optional time (HH:MM, 24h).',
   'reschedule_todo takes title and due, plus optional time — use it to move a task, never complete-and-re-add.',
   'complete_todo takes title. log_habit and unlog_habit take name. fbl_done takes nothing.',
+  'remember takes title, body (markdown, the note itself) and optional folder — one of:',
+  '  inbox, daily, decisions, college, projects, people, reference. Defaults to inbox.',
+  'Use remember when he says to note, save, remember or write something down, or when a decision is reached',
+  'and worth keeping. Write the note as if he will read it in six months with none of this conversation around it.',
   'delete_todo takes title and DESTROYS the task. Propose it only when Neel plainly asks to delete or remove a task —',
   'never as tidying, never because a task looks stale, and never in place of complete_todo when he says he has done it.',
   'Propose an action only when asked to do something — never to answer a question.',
@@ -189,6 +207,11 @@ function build(item) {
     }
     if (type === 'text') {
       const t = cleanText(value);
+      if (!t) return { ok: false, reason: `${verb} needs ${field}` };
+      action[field] = t;
+    } else if (type === 'long') {
+      // Trimmed but NOT collapsed: a note keeps its paragraphs.
+      const t = typeof value === 'string' ? value.trim().slice(0, MAX_LONG) : '';
       if (!t) return { ok: false, reason: `${verb} needs ${field}` };
       action[field] = t;
     } else if (type === 'date') {

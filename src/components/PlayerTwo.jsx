@@ -10,6 +10,7 @@ import { useReminderDone } from '../lib/useReminderDone.js';
 import { fblStatus } from '../lib/exams.js';
 import { brainContext } from '../lib/brain.js';
 import { ACTION_INSTRUCTIONS, parseActions, stripActionsLive, describeAction, resolveTodo, resolveHabit, isDestructive } from '../lib/actions.js';
+import { inboxRow, WRITE_DELAY_NOTE } from '../lib/vault.js';
 
 // PLAYER TWO — the co-op partner, reachable from every screen.
 //
@@ -230,6 +231,18 @@ export default function PlayerTwo({ tab }) {
         await db.update('todos', hit.row.id, patch);
         await rTodos();
         setActionNote(`Moved “${hit.row.title}” to ${a.due}${a.time ? ` at ${a.time}` : ''}.`);
+      } else if (a.do === 'remember') {
+        // The path is BUILT from the folder and title — never taken from the
+        // model. The runner re-validates before writing a file, since it is the
+        // one holding the push token; this check is so a note the runner would
+        // reject is refused now rather than vanishing between here and the vault.
+        const made = inboxRow({ title: a.title, body: a.body, folder: a.folder, source: 'player-two' });
+        if (!made.ok) { setActionNote(`Didn't do it — ${made.reason}.`); return; }
+        await db.insert('vault_inbox', made.row);
+        // Deliberately not "Saved". The file does not exist yet, and claiming it
+        // does is the small lie that makes him check the vault, find nothing, and
+        // stop trusting the feature.
+        setActionNote(`Queued “${a.title}” for ${made.row.path}. ${WRITE_DELAY_NOTE}`);
       } else if (a.do === 'delete_todo') {
         // Resolved across OPEN AND COMPLETED todos — unlike complete_todo,
         // which only looks at open ones. He may well want to throw away

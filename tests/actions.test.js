@@ -20,7 +20,7 @@ const block = o => '```action\n' + JSON.stringify(o) + '\n```';
 // gets "fixed" by bumping the number, which tests nothing. Naming them means a
 // new verb cannot reach the model without someone writing it down HERE, next to
 // the reason the allowlist exists.
-const ALLOWED = ['add_todo', 'reschedule_todo', 'complete_todo', 'delete_todo', 'log_habit', 'unlog_habit', 'fbl_done'];
+const ALLOWED = ['add_todo', 'reschedule_todo', 'complete_todo', 'delete_todo', 'log_habit', 'unlog_habit', 'fbl_done', 'remember'];
 for (const n of ACTION_NAMES) ok(ALLOWED.includes(n), `${n} is on the reviewed allowlist`);
 for (const n of ALLOWED) ok(ACTION_NAMES.includes(n), `${n} is still implemented`);
 // FINANCIAL stays absolute. Money is read-only and no verb here may touch it.
@@ -181,6 +181,35 @@ for (const verb of ['delete_habit', 'delete_subject', 'drop_table', 'buy', 'sell
      'and tells it not to propose one as tidying');
   ok(/never in place of complete_todo/.test(ACTION_INSTRUCTIONS),
      'and not to reach for it when he says he has DONE something — that is the dangerous confusion');
+}
+
+
+// ------------------------------------------------------------ writing to the vault
+{
+  const r = parseActions(block({ do: 'remember', title: 'Why Turnstile blocks it', body: '# One\n\nTwo paragraphs.\n\nSecond.', folder: 'decisions' }));
+  is(r.actions.length, 1, 'a note can be proposed');
+  is(describeAction(r.actions[0]), 'Save “Why Turnstile blocks it” to the vault under decisions', 'the card says where it lands');
+  ok(r.actions[0].body.includes('\n\n'),
+     'the body keeps its paragraphs — cleanText collapses whitespace and would have flattened a note into one line');
+  ok(!isDestructive('remember'), 'writing a note is not destructive');
+
+  is(parseActions(block({ do: 'remember', title: 'X' })).actions.length, 0, 'a note with no body is refused');
+  is(parseActions(block({ do: 'remember', body: 'text' })).actions.length, 0, 'and one with no title');
+  is(parseActions(block({ do: 'remember', title: 'X', body: 'y' })).actions[0].folder, undefined,
+     'the folder is optional — vault.js supplies the default, not the parser');
+
+  // The model must not be able to queue something enormous. The runner's own
+  // ceiling is 400 KB; a chat reply has no business near it.
+  const huge = parseActions(block({ do: 'remember', title: 'X', body: 'y'.repeat(20000) }));
+  ok(huge.actions[0].body.length <= 8000, 'an oversized body is cut rather than queued whole');
+
+  // The path is never something the model wrote.
+  ok(!('path' in parseActions(block({ do: 'remember', title: 'X', body: 'y', path: '.github/workflows/evil.yml' })).actions[0]),
+     'a path the model invents is simply not read — build() copies fields from the spec, never from its object');
+
+  ok(ACTION_INSTRUCTIONS.includes('remember'), 'the prompt teaches it');
+  ok(/inbox, daily, decisions/.test(ACTION_INSTRUCTIONS), 'and names the folders it may choose from');
+  ok(/six months/.test(ACTION_INSTRUCTIONS), 'and tells it to write for a reader who has none of this conversation');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
