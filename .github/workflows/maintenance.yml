@@ -1,0 +1,42 @@
+name: Weekly maintenance
+
+# Wednesday ~03:00 IST, in the cloud. Neel's laptop is not involved and that is
+# the whole point: a Cowork scheduled task tried to do this weekly and failed
+# EVERY firing from 2026-07-21 to 2026-09-01, because Supabase is unreachable
+# from a headless session. GitHub Actions is the channel that works unattended.
+on:
+  schedule:
+    - cron: '30 21 * * 2'   # Tue 21:30 UTC = Wed 03:00 IST
+  workflow_dispatch:
+
+concurrency:
+  group: maintenance
+  cancel-in-progress: false   # never cancel a run that may be mid-delete
+
+permissions:
+  contents: read
+  actions: read               # to read the other workflows' last conclusion
+
+jobs:
+  maintenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      # The judgement about what needs a person is tested, not discovered in
+      # production five weeks later. If these fail the run stops before it
+      # deletes anything.
+      - name: The rules still hold
+        run: node tests/maintenance.test.js
+
+      - name: Hygiene and health check
+        run: node scripts/maintenance.mjs
+        env:
+          SUPABASE_URL: https://xroynvkzephebhcztvfo.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
