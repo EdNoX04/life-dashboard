@@ -358,3 +358,72 @@ export function sinceInception(rows, { valueNow = null } = {}) {
     counts: { p2pBuys, p2pSells, deposits, withdrawals, converts },
   };
 }
+
+/**
+ * A fiat ORDER — money moving between a bank account and Binance in rupees.
+ *
+ * /sapi/v1/fiat/orders, transactionType 0 = deposit, 1 = withdrawal.
+ *
+ * This is the on-ramp that existed before P2P, and for an account opened in
+ * 2021 or 2022 it is where the money actually went in. Nothing was reading it,
+ * so "put in" counted only P2P buys — which for an older account is close to
+ * counting none of it.
+ */
+export function normalizeFiatOrder(o, kind) {
+  if (!o) return null;
+  // "Successful" is the completed state here; anything else has not settled and
+  // counting it would report money that never arrived.
+  const status = String(o.status ?? '').toLowerCase();
+  if (status && !['successful', 'finished', 'completed'].includes(status)) return null;
+  const amount = num(o.indicatedAmount ?? o.amount);
+  if (amount <= 0) return null;
+  return {
+    id: `fiat:${kind}:${o.orderNo ?? ''}`,
+    source: kind === 'in' ? 'fiat-deposit' : 'fiat-withdrawal',
+    kind,
+    // The ASSET is the fiat currency itself: this row is rupees arriving, not
+    // crypto. It carries a fiatQty so the money totals see it, and a qty so the
+    // row is well-formed, and those are the same number.
+    asset: String(o.fiatCurrency ?? 'INR').toUpperCase(),
+    qty: amount,
+    fiat: String(o.fiatCurrency ?? 'INR').toUpperCase(),
+    fiatQty: amount,
+    price: 1,
+    fee: num(o.totalFee),
+    feeAsset: String(o.fiatCurrency ?? 'INR').toUpperCase(),
+    at: ms(o.createTime ?? o.updateTime),
+    note: kind === 'in' ? 'Bank deposit' : 'Bank withdrawal',
+  };
+}
+
+/**
+ * A fiat PAYMENT — buying or selling crypto directly with rupees (card, bank).
+ *
+ * /sapi/v1/fiat/payments, transactionType 0 = buy, 1 = sell.
+ *
+ * Unlike a convert, this one HAS a real fiat leg, so it is a proper buy or sell
+ * and carries a rupee price. It is the cleanest cost basis there is: rupees on
+ * one side, coins on the other, both stated by Binance.
+ */
+export function normalizeFiatPayment(p, kind) {
+  if (!p) return null;
+  const status = String(p.status ?? '').toLowerCase();
+  if (status && !['completed', 'successful', 'finished'].includes(status)) return null;
+  const qty = num(p.obtainAmount);        // crypto received (or sold)
+  const fiatQty = num(p.sourceAmount);    // rupees paid (or received)
+  if (qty <= 0 || fiatQty <= 0) return null;
+  return {
+    id: `fiatpay:${kind}:${p.orderNo ?? ''}`,
+    source: 'fiat-payment',
+    kind: kind === 'buy' ? 'buy' : 'sell',
+    asset: String(p.cryptoCurrency ?? '').toUpperCase(),
+    qty,
+    fiat: String(p.fiatCurrency ?? 'INR').toUpperCase(),
+    fiatQty,
+    price: qty ? fiatQty / qty : num(p.price),
+    fee: num(p.totalFee),
+    feeAsset: String(p.fiatCurrency ?? 'INR').toUpperCase(),
+    at: ms(p.createTime ?? p.updateTime),
+    note: kind === 'buy' ? 'Bought with INR' : 'Sold for INR',
+  };
+}

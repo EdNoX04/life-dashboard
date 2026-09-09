@@ -20,7 +20,7 @@
 
 import {
   normalizeP2P, normalizeTrade, normalizeFlow, dedupeLedger, positionFor, positions,
-  normalizeConvert, sinceInception,
+  normalizeConvert, sinceInception, normalizeFiatOrder, normalizeFiatPayment,
 } from '../scripts/lib/binance-ledger.mjs';
 
 let pass = 0, fail = 0;
@@ -368,6 +368,52 @@ const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
 
   ok('an empty ledger is zero, not a crash', sinceInception([]).in === 0);
   ok('and null does not throw', sinceInception(null).out === 0);
+}
+
+
+// ---------------------------------------------------------------- the INR on-ramp
+//
+// An account opened in 2021 or 2022 put its money in through a BANK TRANSFER or
+// a card, years before it ever touched P2P. Neither endpoint was being read, so
+// "put in" counted only P2P buys — which for an older account is close to
+// counting none of it, and makes every gain figure meaningless.
+{
+  const d = normalizeFiatOrder({ orderNo: 'A1', fiatCurrency: 'INR', indicatedAmount: '5000',
+    totalFee: '0', status: 'Successful', createTime: 1640000000000 }, 'in');
+  ok('a bank deposit is a row', !!d);
+  ok('with the rupees on it, so the money totals can see it', near(d.fiatQty, 5000), d.fiatQty);
+  ok('and the asset is the CURRENCY — this row is rupees arriving, not coins', d.asset === 'INR');
+  ok('counted as money in', d.kind === 'in');
+
+  // Not settled is not money.
+  ok('a pending deposit is not counted', normalizeFiatOrder({ orderNo: 'A2', indicatedAmount: '900', status: 'Processing' }, 'in') === null);
+  ok('nor a failed one', normalizeFiatOrder({ orderNo: 'A3', indicatedAmount: '900', status: 'Failed' }, 'in') === null);
+  ok('nor a zero', normalizeFiatOrder({ orderNo: 'A4', indicatedAmount: '0', status: 'Successful' }, 'in') === null);
+
+  const w = normalizeFiatOrder({ orderNo: 'B1', fiatCurrency: 'INR', indicatedAmount: '2000', status: 'Successful', createTime: 1650000000000 }, 'out');
+  ok('a bank withdrawal is money out', w.kind === 'out' && near(w.fiatQty, 2000));
+  ok('and the two directions cannot collide on id', d.id !== w.id);
+
+  // A card/bank buy is the cleanest basis there is: rupees one side, coins the
+  // other, both stated by Binance. Unlike a convert, it HAS a fiat leg.
+  const b = normalizeFiatPayment({ orderNo: 'C1', fiatCurrency: 'INR', cryptoCurrency: 'BTC',
+    sourceAmount: '1000', obtainAmount: '0.0002', totalFee: '10', status: 'Completed', createTime: 1645000000000 }, 'buy');
+  ok('an INR buy is a buy', b.kind === 'buy' && b.asset === 'BTC');
+  ok('with real rupees behind it', near(b.fiatQty, 1000));
+  ok('and a price derived from what actually settled', near(b.price, 1000 / 0.0002), b.price);
+
+  const sell = normalizeFiatPayment({ orderNo: 'C2', fiatCurrency: 'INR', cryptoCurrency: 'BTC',
+    sourceAmount: '1500', obtainAmount: '0.0002', status: 'Completed', createTime: 1646000000000 }, 'sell');
+  ok('and selling for INR is money out', sell.kind === 'sell');
+
+  // The whole point, end to end: a 2022 bank deposit and card buy have to reach
+  // the totals, or the gain figure is computed against a fraction of the money.
+  const s = sinceInception([d, b, sell], { valueNow: 4000 });
+  ok('a bank deposit counts as money in', s.in >= 5000, s.in);
+  ok('so does a card buy', near(s.in, 5000 + 1000), s.in);
+  ok('a sell counts as money out', near(s.out, 1500), s.out);
+  ok('and the net is computed against ALL of it', near(s.net, 4000 + 1500 - 6000), s.net);
+  ok('with the account dated from the earliest movement', s.firstAt === new Date(1640000000000).toISOString(), s.firstAt);
 }
 
 console.log(`${pass}/${pass + fail} passing`);

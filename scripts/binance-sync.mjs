@@ -21,7 +21,8 @@
 // Env (GitHub Secrets):
 //   SUPABASE_URL, SUPABASE_SERVICE_KEY
 //   BINANCE_API_KEY, BINANCE_API_SECRET     — read-only key pair
-//   BINANCE_LOOKBACK_DAYS  (optional, default 120)
+//   BINANCE_LOOKBACK_DAYS  (optional, default 120 — routine runs)
+//   BINANCE_SINCE          (optional, e.g. 2021-01-01 — a one-off backfill)
 //
 // A note on IP allow-listing: Binance offers it and it is normally the right
 // call, but GitHub Actions runners do not have stable egress addresses, so an
@@ -39,13 +40,17 @@
 
 import crypto from 'node:crypto';
 import {
-  normalizeP2P, normalizeFlow, normalizeConvert, dedupeLedger, positions, sinceInception,
+  normalizeP2P, normalizeFlow, normalizeConvert, normalizeFiatOrder, normalizeFiatPayment,
+  normalizeTrade, dedupeLedger, positions, sinceInception,
 } from './lib/binance-ledger.mjs';
 
 const {
   SUPABASE_URL, SUPABASE_SERVICE_KEY,
   BINANCE_API_KEY, BINANCE_API_SECRET,
   BINANCE_LOOKBACK_DAYS = '120',
+  // BINANCE_SINCE=2021-01-01 for a one-off backfill. See the note where `days`
+  // is computed for why the routine default stays small.
+  BINANCE_SINCE = '',
 } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
@@ -124,6 +129,33 @@ async function get(path, params) {
 }
 
 const DAY = 86400e3;
+
+/**
+ * Run a windowed pull, surviving windows the endpoint refuses.
+ *
+ * Reaching back years means some windows WILL fail — Binance retires history at
+ * different depths per endpoint, and it does not document where. Throwing on the
+ * first refusal ends the walk at that point and quietly reports everything older
+ * as "no data", which is indistinguishable from an account that did nothing.
+ *
+ * So each window is caught, counted, and the walk continues. What comes back
+ * says how far it actually reached, which is how the real limit gets discovered
+ * instead of assumed.
+ */
+async function walk(label, wins, fn) {
+  const rows = [];
+  let failed = 0;
+  let firstFailAt = null;
+  for (const w of wins) {
+    try { rows.push(...await fn(w)); }
+    catch (e) {
+      failed++;
+      if (!firstFailAt) { firstFailAt = w.startTime; console.error(`  · ${label}: window from ${new Date(w.startTime).toISOString().slice(0, 10)} refused — ${e.message.slice(0, 100)}`); }
+    }
+  }
+  if (failed) console.error(`  · ${label}: ${failed} of ${wins.length} window(s) refused (older history may not be available)`);
+  return rows;
+}
 
 /** Walk a time range backwards in chunks the endpoint will actually accept. */
 function windows(days, chunkDays) {
@@ -275,45 +307,102 @@ async function pullEarn() {
  * The endpoint takes a 30-day window at most.
  */
 async function pullConvert(days) {
-  const rows = [];
-  for (const w of windows(days, 30)) {
+  return walk('convert', windows(days, 30), async w => {
     const j = await get('/sapi/v1/convert/tradeFlow', { ...w, limit: '1000' });
+    const out = [];
     for (const c of (Array.isArray(j?.list) ? j.list : [])) {
       const pair = normalizeConvert(c);
-      if (pair) rows.push(...pair);
+      if (pair) out.push(...pair);
     }
-  }
-  return rows;
+    return out;
+  });
 }
 
 async function pullP2P(days) {
   const rows = [];
-  for (const w of windows(days, 30)) {
-    for (const tradeType of ['BUY', 'SELL']) {
+  for (const tradeType of ['BUY', 'SELL']) {
+    rows.push(...await walk(`p2p/${tradeType.toLowerCase()}`, windows(days, 30), async w => {
       const j = await get('/sapi/v1/c2c/orderMatch/listUserOrderHistory', { ...w, tradeType, rows: '100' });
-      for (const o of (j?.data || [])) {
-        const n = normalizeP2P(o);
-        if (n) rows.push(n);
-      }
-    }
+      return (j?.data || []).map(normalizeP2P).filter(Boolean);
+    }));
   }
   return rows;
 }
 
 async function pullCapital(days) {
+  // `Math.min(days, 90)` was here, which is not a chunk size — it capped the
+  // whole RANGE at 90 days. Deposits and withdrawals older than three months
+  // have never been fetched, whatever the lookback was set to. 90 is the window
+  // the endpoint accepts; it is not how far back you may ask.
   const rows = [];
-  for (const w of windows(Math.min(days, 90), 90)) {
-    for (const [path, kind] of [
-      ['/sapi/v1/capital/deposit/hisrec', 'in'],
-      ['/sapi/v1/capital/withdraw/history', 'out'],
-    ]) {
+  for (const [path, kind] of [
+    ['/sapi/v1/capital/deposit/hisrec', 'in'],
+    ['/sapi/v1/capital/withdraw/history', 'out'],
+  ]) {
+    rows.push(...await walk(`capital/${kind}`, windows(days, 90), async w => {
       const j = await get(path, w);
-      for (const r of (Array.isArray(j) ? j : [])) {
-        const n = normalizeFlow(r, kind);
-        if (n) rows.push(n);
-      }
+      return (Array.isArray(j) ? j : []).map(r => normalizeFlow(r, kind)).filter(Boolean);
+    }));
+  }
+  return rows;
+}
+
+/**
+ * Rupees in and out of Binance, and crypto bought directly with rupees.
+ *
+ * THE MISSING YEARS LIVE HERE. An account opened in 2021 or 2022 funded itself
+ * by bank transfer and card long before P2P, and neither endpoint was ever read
+ * — so "put in" counted P2P buys only, which for an older account is close to
+ * counting none of it, and makes every gain figure meaningless.
+ *
+ * Both take a 90-day window.
+ */
+async function pullFiat(days) {
+  const rows = [];
+  for (const [type, kind] of [['0', 'in'], ['1', 'out']]) {
+    rows.push(...await walk(`fiat/orders/${kind}`, windows(days, 90), async w => {
+      const j = await get('/sapi/v1/fiat/orders', { ...w, transactionType: type, rows: '500' });
+      return (Array.isArray(j?.data) ? j.data : []).map(r => normalizeFiatOrder(r, kind)).filter(Boolean);
+    }));
+  }
+  for (const [type, kind] of [['0', 'buy'], ['1', 'sell']]) {
+    rows.push(...await walk(`fiat/payments/${kind}`, windows(days, 90), async w => {
+      const j = await get('/sapi/v1/fiat/payments', { ...w, transactionType: type, rows: '500' });
+      return (Array.isArray(j?.data) ? j.data : []).map(r => normalizeFiatPayment(r, kind)).filter(Boolean);
+    }));
+  }
+  return rows;
+}
+
+/**
+ * Spot trades, per symbol.
+ *
+ * myTrades needs a symbol and returns everything for it, so the whole history
+ * comes back in one call per pair rather than by window — no time limit to walk
+ * around. The cost is knowing WHICH pairs, and there are thousands.
+ *
+ * Candidates are built from assets the account has actually touched — anything
+ * held, plus anything already in the ledger — crossed with the quote assets a
+ * retail account uses. A pair that never existed answers 400 and is skipped,
+ * which is cheap and requires no list of valid symbols.
+ */
+async function pullSpotTrades(assets) {
+  const QUOTES = ['USDT', 'FDUSD', 'BUSD', 'BTC', 'BNB'];
+  const bases = [...new Set(assets.map(a => String(a).toUpperCase()))].filter(a => a && !QUOTES.includes(a) || a === 'BTC');
+  const rows = [];
+  let tried = 0, found = 0;
+  for (const base of bases) {
+    for (const quote of QUOTES) {
+      if (base === quote) continue;
+      tried++;
+      try {
+        const j = await get('/api/v3/myTrades', { symbol: `${base}${quote}`, limit: '1000' });
+        const list = (Array.isArray(j) ? j : []).map(t => normalizeTrade(t, base, quote)).filter(Boolean);
+        if (list.length) { found += list.length; rows.push(...list); }
+      } catch { /* a pair that does not exist, or was never traded. Not news. */ }
     }
   }
+  console.log(`  · spot trades: ${found} across ${tried} candidate pair(s)`);
   return rows;
 }
 
@@ -341,9 +430,27 @@ async function run() {
   // The endpoints cap out around three years of history, so 'all' means that.
   // The cost is one 350ms-spaced call per window: roughly 90 calls, half a
   // minute, in a job nobody is waiting on.
-  const days = String(BINANCE_LOOKBACK_DAYS).toLowerCase() === 'all'
-    ? 1095
-    : Math.max(1, Math.min(Number(BINANCE_LOOKBACK_DAYS) || 1095, 1095));
+  // HOW FAR BACK.
+  //
+  // BINANCE_SINCE=2021-01-01 walks from that date. That is the one to use for a
+  // backfill, and it only needs running ONCE: the ledger merges with what is
+  // stored, so rows recovered today are still there next year. After that the
+  // twice-daily cron only needs a short window, which is why the default stays
+  // small — a routine run should not spend three minutes re-reading 2021.
+  //
+  // I do not know where Binance retires history for each endpoint, and I am not
+  // going to assert a number I have not measured. walk() survives a refused
+  // window and reports how many were refused, so the real limit shows up in the
+  // log rather than as silently missing years.
+  let days;
+  if (BINANCE_SINCE) {
+    const t = Date.parse(`${BINANCE_SINCE}T00:00:00Z`);
+    if (!Number.isFinite(t)) { console.error(`BINANCE_SINCE="${BINANCE_SINCE}" is not a date like 2021-01-01`); process.exit(1); }
+    days = Math.max(1, Math.ceil((Date.now() - t) / DAY));
+    console.log(`  · backfilling from ${BINANCE_SINCE} — ${days} days. This walks every window and takes a few minutes.`);
+  } else {
+    days = Math.max(1, Math.min(Number(BINANCE_LOOKBACK_DAYS) || 120, 3650));
+  }
   const problems = [];
 
   let balances = [];
@@ -386,7 +493,19 @@ async function run() {
   } catch (e) { problems.push(`earn: ${e.message}`); }
 
   let fresh = [];
-  for (const [label, fn] of [['p2p', () => pullP2P(days)], ['convert', () => pullConvert(days)], ['capital', () => pullCapital(days)]]) {
+  // Assets the account has ever touched, so spot trades know which pairs to ask
+  // about: what is held now, plus everything already in the stored ledger.
+  const storedAssets = Array.isArray((await memGet('binance_ledger'))?.rows)
+    ? (await memGet('binance_ledger')).rows.map(r => r.asset) : [];
+  const everAssets = [...new Set([...balances.map(b => b.asset), ...storedAssets])].filter(Boolean);
+
+  for (const [label, fn] of [
+    ['p2p', () => pullP2P(days)],
+    ['convert', () => pullConvert(days)],
+    ['fiat', () => pullFiat(days)],
+    ['capital', () => pullCapital(days)],
+    ['spot', () => pullSpotTrades(everAssets)],
+  ]) {
     try { fresh.push(...await fn()); }
     catch (e) { problems.push(`${label}: ${e.message}`); console.error('  ✗', e.message); }
   }
@@ -449,6 +568,11 @@ async function run() {
     updated: new Date().toISOString(),
   });
 
+  // Say how far back it actually reached. "No data before 2023" and "we never
+  // asked about 2023" look identical in a ledger, and only one of them is a
+  // finding.
+  const earliest = merged.map(r => r.at).filter(Boolean).sort()[0];
+  console.log(`  · earliest movement found: ${earliest ? String(earliest).slice(0, 10) : 'none'} (asked back to ${new Date(Date.now() - days * DAY).toISOString().slice(0, 10)})`);
   console.log(`${balances.length} asset(s) held via ${balanceSource || 'nothing'}${balancesComplete ? '' : ' (spot only — no Earn)'} · ${merged.length} ledger row(s) (${fresh.length} fetched this run) · ${pos.length} position(s)`);
   for (const p of pos.slice(0, 8)) {
     console.log(`  ${p.asset.padEnd(6)} qty ${p.qty} · avg ${p.avgCost ? p.avgCost.toFixed(2) : '—'} · realised ${p.realised.toFixed(2)}`);
