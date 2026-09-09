@@ -146,11 +146,30 @@ async function walk(label, wins, fn) {
   const rows = [];
   let failed = 0;
   let firstFailAt = null;
-  for (const w of wins) {
+
+  // SAY SOMETHING WHILE IT WORKS.
+  //
+  // A backfill is ~350 calls spaced 350ms apart: nearly two minutes during which
+  // the old version printed nothing at all, because every pull only logged on
+  // failure or at the end. Two minutes of silence and a hung process look
+  // exactly the same from a terminal, and the reasonable thing to do about a
+  // hung process is kill it — which is what a silent job invites.
+  //
+  // A line per window would be 350 lines of noise, so: one at the start, one
+  // every ten, one at the end.
+  const started = Date.now();
+  process.stdout.write(`  · ${label}: ${wins.length} window(s) back to ${new Date(wins[wins.length - 1]?.startTime || Date.now()).toISOString().slice(0, 10)}\n`);
+
+  for (let i = 0; i < wins.length; i++) {
+    const w = wins[i];
     try { rows.push(...await fn(w)); }
     catch (e) {
       failed++;
-      if (!firstFailAt) { firstFailAt = w.startTime; console.error(`  · ${label}: window from ${new Date(w.startTime).toISOString().slice(0, 10)} refused — ${e.message.slice(0, 100)}`); }
+      if (!firstFailAt) { firstFailAt = w.startTime; console.error(`    ! ${label}: window from ${new Date(w.startTime).toISOString().slice(0, 10)} refused — ${e.message.slice(0, 100)}`); }
+    }
+    if ((i + 1) % 10 === 0 || i === wins.length - 1) {
+      const secs = ((Date.now() - started) / 1000).toFixed(0);
+      process.stdout.write(`    ${label} ${i + 1}/${wins.length} · ${rows.length} row(s) · ${secs}s\n`);
     }
   }
   if (failed) console.error(`  · ${label}: ${failed} of ${wins.length} window(s) refused (older history may not be available)`);
@@ -488,7 +507,14 @@ async function run() {
       balancesComplete = true;
       const idx = problems.findIndex(p => p.startsWith('balances are spot-only'));
       if (idx >= 0) problems.splice(idx, 1);
+      // PRINTED PER ASSET, because "3 held" plus "3 folded in" is ambiguous in
+      // the one way that matters: it reads the same whether those are six
+      // different coins or the same three counted twice. Binance moves Earn
+      // funds OUT of the spot wallet, so adding them is right — but the only
+      // way to know that held for this account is to see the split beside the
+      // number in the Binance app.
       console.log(`  · Earn: ${earn.staked.size} asset(s) folded in`);
+      for (const [asset, qty] of earn.staked) console.log(`      ${asset} +${qty} from Earn`);
     }
   } catch (e) { problems.push(`earn: ${e.message}`); }
 
@@ -506,8 +532,13 @@ async function run() {
     ['capital', () => pullCapital(days)],
     ['spot', () => pullSpotTrades(everAssets)],
   ]) {
-    try { fresh.push(...await fn()); }
-    catch (e) { problems.push(`${label}: ${e.message}`); console.error('  ✗', e.message); }
+    const t0 = Date.now();
+    try {
+      const got = await fn();
+      fresh.push(...got);
+      console.log(`  ✓ ${label}: ${got.length} row(s) in ${((Date.now() - t0) / 1000).toFixed(0)}s`);
+    }
+    catch (e) { problems.push(`${label}: ${e.message}`); console.error('  ✗', label, e.message); }
   }
 
   // Value it. Prices in USDT from the public ticker; the USDT/INR rate comes
@@ -571,6 +602,13 @@ async function run() {
   // Say how far back it actually reached. "No data before 2023" and "we never
   // asked about 2023" look identical in a ledger, and only one of them is a
   // finding.
+  // The balance sheet, spelled out. Compare `total` against the Binance app: if
+  // it is double what the app shows, Earn is being counted twice and the fold-in
+  // above is wrong for this account.
+  for (const b of keptBalances) {
+    console.log(`      ${b.asset.padEnd(6)} total ${b.total}  (free ${b.free}, locked ${b.locked}, earn ${b.staked})`);
+  }
+
   const earliest = merged.map(r => r.at).filter(Boolean).sort()[0];
   console.log(`  · earliest movement found: ${earliest ? String(earliest).slice(0, 10) : 'none'} (asked back to ${new Date(Date.now() - days * DAY).toISOString().slice(0, 10)})`);
   console.log(`${balances.length} asset(s) held via ${balanceSource || 'nothing'}${balancesComplete ? '' : ' (spot only — no Earn)'} · ${merged.length} ledger row(s) (${fresh.length} fetched this run) · ${pos.length} position(s)`);
