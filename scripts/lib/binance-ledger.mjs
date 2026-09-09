@@ -427,3 +427,21 @@ export function normalizeFiatPayment(p, kind) {
     note: kind === 'buy' ? 'Bought with INR' : 'Sold for INR',
   };
 }
+
+/**
+ * LD-prefixed tokens are not coins — they are a Simple Earn receipt.
+ *
+ * Measured on this account: /api/v3/account returned LDBTC, LDSOL and LDSXT and
+ * nothing else, which is the BTC/SOL/SXT sitting in Flexible Earn. Left alone
+ * they price at zero (there is no LDBTCUSDT pair) and never reconcile against a
+ * ledger that records converts into BTC.
+ *
+ * The `{2,}` matters: LDO is Lido DAO, a real token, and stripping two letters
+ * from it would invent a holding in something called "O".
+ */
+export const unwrapLD = asset => {
+  const a = String(asset || '').toUpperCase();
+  return /^LD[A-Z0-9]{2,}$/.test(a) ? a.slice(2) : a;
+};
+
+export const isLDReceipt = asset => unwrapLD(asset) !== String(asset || '').toUpperCase();
