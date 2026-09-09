@@ -17,7 +17,7 @@
 # yourself — it is never to be committed, and nothing in this repo will write it
 # for you:
 #
-#   cd ~/Documents/Claude/Projects/life-dashboard
+#   cd ~/Projects/life-dashboard
 #   cat > scripts/.binance.env <<'EOF'
 #   BINANCE_API_KEY=...
 #   BINANCE_API_SECRET=...
@@ -32,7 +32,7 @@
 #
 # Schedule it twice a day with `crontab -e`:
 #
-#   0 9,21 * * *  /Users/neel/Documents/Claude/Projects/life-dashboard/scripts/binance-local.sh >> /tmp/binance-sync.log 2>&1
+#   0 9,21 * * *  /Users/neel/Projects/life-dashboard/scripts/binance-local.sh >> /tmp/binance-sync.log 2>&1
 #
 # A laptop is asleep sometimes and cron does not catch up on missed runs, so a
 # run can be skipped. That is harmless here: the script re-reads a trailing
@@ -51,7 +51,13 @@ fi
 
 # Refuse to run on a world-readable credentials file. A secret sitting at 644 in
 # a synced Documents folder is a secret with a wider audience than intended.
-PERM="$(stat -f '%A' "$ENV_FILE" 2>/dev/null || stat -c '%a' "$ENV_FILE")"
+# GNU stat FIRST, then BSD. The other order looks equivalent and is not: on
+# Linux `stat -f` means "filesystem status", so it SUCCEEDS on any path and
+# prints block counts, the `||` fallback never runs, and PERM becomes a
+# paragraph of filesystem stats that is not "600" — refusing to run on a
+# correctly-locked file. macOS has no `-c`, so it errors there and falls
+# through properly.
+PERM="$(stat -c '%a' "$ENV_FILE" 2>/dev/null || stat -f '%A' "$ENV_FILE")"
 if [ "$PERM" != "600" ]; then
   echo "$ENV_FILE is mode $PERM — run: chmod 600 '$ENV_FILE'" >&2
   exit 1

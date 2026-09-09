@@ -23,7 +23,7 @@
 //   BINANCE_API_KEY, BINANCE_API_SECRET     — read-only key pair
 //   BINANCE_LOOKBACK_DAYS  (optional, default 120 — routine runs)
 //   BINANCE_SINCE          (optional, e.g. 2021-01-01 — a one-off backfill)
-//   BINANCE_FIAT=1         (optional — bank/card history. Rate-limited hard; see below)
+//   BINANCE_FIAT=1         (optional — bank/card history. This account has none: P2P only)
 //
 // A note on IP allow-listing: Binance offers it and it is normally the right
 // call, but GitHub Actions runners do not have stable egress addresses, so an
@@ -682,19 +682,19 @@ async function run() {
   for (const [label, fn] of [
     ['p2p', () => pullP2P(days)],
     ['convert', () => pullConvert(days)],
-    // OPT-IN, and off by default.
+    // OFF. Not a workaround — there is nothing there.
     //
-    // /sapi/v1/fiat/orders has been rate-limited on the first window of three
-    // consecutive runs, before this process made any other call to it. The
-    // beginTime fix was right and did not change that, so the limit is on the
-    // endpoint and the UID rather than on anything this script is doing wrong.
+    // Neel, 2026-09-09: "There is no fiat (inr in binance) ... so p2p is the
+    // go to .. don't check fiat". /sapi/v1/fiat/orders and /fiat/payments cover
+    // bank transfers and card buys. This account on-ramps through P2P — 70 P2P
+    // rows against an INR balance that has never existed — so the correct
+    // result of both endpoints is an empty list.
     //
-    // It is also the least valuable pull here for THIS account: 70 P2P buy rows
-    // say plainly that P2P is the on-ramp, and bank-transfer history is what
-    // fiat/orders would add. Costing minutes and repeated limit strikes to
-    // confirm an empty list is a bad trade.
+    // Which is also why they were the ones getting rate-limited: three runs in
+    // a row, 429 on the FIRST window, before any other call. Minutes of backoff
+    // to confirm nothing, while the run never reached the write.
     //
-    // BINANCE_FIAT=1 turns it on when there is a reason to look.
+    // BINANCE_FIAT=1 still turns it on, for the day an INR deposit exists.
     ...(BINANCE_FIAT ? [['fiat', () => pullFiat(days)]] : []),
     ['capital', () => pullCapital(days)],
     ['spot', () => pullSpotTrades(everAssets)],
