@@ -23,6 +23,7 @@
 //   BINANCE_API_KEY, BINANCE_API_SECRET     — read-only key pair
 //   BINANCE_LOOKBACK_DAYS  (optional, default 120 — routine runs)
 //   BINANCE_SINCE          (optional, e.g. 2021-01-01 — a one-off backfill)
+//   BINANCE_FIAT=1         (optional — bank/card history. Rate-limited hard; see below)
 //
 // A note on IP allow-listing: Binance offers it and it is normally the right
 // call, but GitHub Actions runners do not have stable egress addresses, so an
@@ -51,6 +52,7 @@ const {
   // BINANCE_SINCE=2021-01-01 for a one-off backfill. See the note where `days`
   // is computed for why the routine default stays small.
   BINANCE_SINCE = '',
+  BINANCE_FIAT = '',
 } = process.env;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
@@ -126,7 +128,9 @@ let calls = 0;
  * So: retry a 429 with growing waits, and treat the retries as the cost of
  * asking for years of history rather than as a failure.
  */
-const RETRY_WAITS_MS = [2000, 6000, 15000, 40000];
+// Two tries, not four. Sixty-three seconds of waiting per window proved nothing
+// that ten seconds did not: if the endpoint is limiting, it is limiting.
+const RETRY_WAITS_MS = [2000, 8000];
 
 async function get(path, params, attempt = 0) {
   // Binance rate-limits by request weight, not count, and the endpoints used
@@ -209,6 +213,17 @@ async function walk(label, wins, fn) {
       consecutive++;
       if (/429|418|Too many requests/i.test(e.message)) rateLimited = true;
       if (!firstFailAt) { firstFailAt = w.startTime; console.error(`    ! ${label}: window from ${new Date(w.startTime).toISOString().slice(0, 10)} refused — ${e.message.slice(0, 100)}`); }
+      // A RATE LIMIT THAT SURVIVED EVERY BACKOFF ENDS THIS PULL NOW.
+      //
+      // Not after three windows. Binance's limiter is per-endpoint and per-UID
+      // and does not clear in the forty seconds a full backoff spends waiting —
+      // so window two will fail exactly like window one, and window three will
+      // too. Learning that costs three minutes and teaches nothing the first
+      // window did not already prove.
+      if (rateLimited) {
+        console.error(`  · ${label}: rate limited past every backoff — skipping the remaining ${wins.length - i - 1} window(s). Not missing history; Binance is refusing this endpoint right now.`);
+        break;
+      }
       if (consecutive >= 3) {
         console.error(`  · ${label}: giving up after 3 straight refusals — ${wins.length - i - 1} window(s) not attempted`);
         break;
@@ -667,7 +682,20 @@ async function run() {
   for (const [label, fn] of [
     ['p2p', () => pullP2P(days)],
     ['convert', () => pullConvert(days)],
-    ['fiat', () => pullFiat(days)],
+    // OPT-IN, and off by default.
+    //
+    // /sapi/v1/fiat/orders has been rate-limited on the first window of three
+    // consecutive runs, before this process made any other call to it. The
+    // beginTime fix was right and did not change that, so the limit is on the
+    // endpoint and the UID rather than on anything this script is doing wrong.
+    //
+    // It is also the least valuable pull here for THIS account: 70 P2P buy rows
+    // say plainly that P2P is the on-ramp, and bank-transfer history is what
+    // fiat/orders would add. Costing minutes and repeated limit strikes to
+    // confirm an empty list is a bad trade.
+    //
+    // BINANCE_FIAT=1 turns it on when there is a reason to look.
+    ...(BINANCE_FIAT ? [['fiat', () => pullFiat(days)]] : []),
     ['capital', () => pullCapital(days)],
     ['spot', () => pullSpotTrades(everAssets)],
   ]) {
