@@ -137,26 +137,64 @@ function windows(days, chunkDays) {
 
 // ------------------------------------------------------------------ pulls
 
+const shape = b => ({ ...b, total: b.free + b.locked + b.staked });
+const usable = list => list.filter(b => b.total > 0).sort((a, b) => b.btcValue - a.btcValue);
+
+/**
+ * Balances, with a fallback — because the good endpoint does not always answer.
+ *
+ * `/sapi/v1/asset/getUserAsset` is the one worth having: it reports Earn and
+ * staked balances alongside free and locked, and omitting those makes a staked
+ * position look like it was sold. Binance documents it as a POST.
+ *
+ * Measured 2026-09-09, from an eligible IP with a valid read-only key:
+ *
+ *   balances 404: {"code":-1000,"msg":"Request method 'POST' is not supported"}
+ *
+ * The router refused the method outright. Whatever the cause — a regional
+ * backend, a change on their side — it is not something this end can argue with,
+ * and every other call in this file succeeded on that same run.
+ *
+ * So: try it, and fall back to `GET /api/v3/account`, which is the oldest and
+ * most universally supported signed read Binance has. The fallback is NOT
+ * equivalent, and the difference is recorded rather than smoothed over — it
+ * returns free and locked only, so anything in Earn is invisible to it. A
+ * balance list that quietly under-reports is worse than one that says which
+ * parts it could not see.
+ */
 async function pullBalances() {
-  // getUserAsset is a POST in Binance's docs but is signed identically; it is
-  // the only endpoint here that is not a GET, and it still only reads.
-  const url = signed('/sapi/v1/asset/getUserAsset', { needBtcValuation: 'true' });
-  const r = await fetch(url, { method: 'POST', headers: { 'X-MBX-APIKEY': BINANCE_API_KEY } });
-  if (!r.ok) throw new Error(`balances ${r.status}: ${(await r.text()).slice(0, 200)}`);
-  const j = await r.json();
-  return (Array.isArray(j) ? j : [])
-    .map(b => ({
+  const problems = [];
+
+  try {
+    const url = signed('/sapi/v1/asset/getUserAsset', { needBtcValuation: 'true' });
+    const r = await fetch(url, { method: 'POST', headers: { 'X-MBX-APIKEY': BINANCE_API_KEY } });
+    if (!r.ok) throw new Error(`${r.status}: ${(await r.text()).slice(0, 160)}`);
+    const j = await r.json();
+    const rows = usable((Array.isArray(j) ? j : []).map(b => shape({
       asset: String(b.asset || '').toUpperCase(),
       free: Number(b.free) || 0,
       locked: Number(b.locked) || 0,
-      // Earn/staked balances live outside `free` and `locked`. Omitting them
-      // makes a staked position look like it was sold.
       staked: (Number(b.freeze) || 0) + (Number(b.withdrawing) || 0),
       btcValue: Number(b.btcValuation) || 0,
-    }))
-    .map(b => ({ ...b, total: b.free + b.locked + b.staked }))
-    .filter(b => b.total > 0)
-    .sort((a, b) => b.btcValue - a.btcValue);
+    })));
+    return { rows, source: 'getUserAsset', complete: true, problems };
+  } catch (e) {
+    problems.push(`getUserAsset ${e.message}`);
+    console.error('  · getUserAsset unavailable, falling back to spot account:', e.message);
+  }
+
+  const url = signed('/api/v3/account', { omitZeroBalances: 'true' });
+  const r = await fetch(url, { headers: { 'X-MBX-APIKEY': BINANCE_API_KEY } });
+  if (!r.ok) throw new Error(`balances ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  const j = await r.json();
+  const rows = usable((Array.isArray(j?.balances) ? j.balances : []).map(b => shape({
+    asset: String(b.asset || '').toUpperCase(),
+    free: Number(b.free) || 0,
+    locked: Number(b.locked) || 0,
+    staked: 0,          // this endpoint cannot see Earn. Said, not assumed to be zero.
+    btcValue: 0,
+  })));
+  return { rows, source: 'spot-account', complete: false, problems };
 }
 
 async function pullP2P(days) {
@@ -208,8 +246,19 @@ async function run() {
   const problems = [];
 
   let balances = [];
-  try { balances = await pullBalances(); }
-  catch (e) { problems.push(`balances: ${e.message}`); console.error('  ✗', e.message); }
+  let balanceSource = null;
+  let balancesComplete = true;
+  try {
+    const b = await pullBalances();
+    balances = b.rows;
+    balanceSource = b.source;
+    balancesComplete = b.complete;
+    if (!b.complete) {
+      // Not a failure — a partial answer, and the difference matters enough to
+      // reach the dashboard rather than only this log.
+      problems.push('balances are spot-only — Earn and staked holdings are not included (getUserAsset refused)');
+    }
+  } catch (e) { problems.push(`balances: ${e.message}`); console.error('  ✗', e.message); }
 
   // Each pull is isolated. P2P being unavailable — it is region-gated and can
   // 403 on some accounts — must not cost you the balances, which are the part
@@ -250,6 +299,8 @@ async function run() {
     rows: merged,
     positions: pos,
     balances: keptBalances,
+    balanceSource,
+    balancesComplete,
     // Said out loud in the blob, so a reader can tell "these numbers are from an
     // earlier run" from "these numbers are current".
     balancesStale: balancesFailed,
@@ -257,7 +308,7 @@ async function run() {
     updated: new Date().toISOString(),
   });
 
-  console.log(`${balances.length} asset(s) held · ${merged.length} ledger row(s) (${fresh.length} fetched this run) · ${pos.length} position(s)`);
+  console.log(`${balances.length} asset(s) held via ${balanceSource || 'nothing'}${balancesComplete ? '' : ' (spot only — no Earn)'} · ${merged.length} ledger row(s) (${fresh.length} fetched this run) · ${pos.length} position(s)`);
   for (const p of pos.slice(0, 8)) {
     console.log(`  ${p.asset.padEnd(6)} qty ${p.qty} · avg ${p.avgCost ? p.avgCost.toFixed(2) : '—'} · realised ${p.realised.toFixed(2)}`);
   }

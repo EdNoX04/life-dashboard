@@ -129,6 +129,19 @@ export default function Crypto() {
         <button className={`seg-btn${tab === 'ledger' ? ' on' : ''}`} onClick={() => setTab('ledger')}>Ledger</button>
       </span>
 
+      {/* A balance list that quietly under-reports is worse than one that says
+          which parts it could not see. getUserAsset gives Earn and staked;
+          /api/v3/account, the fallback, cannot see either. */}
+      {blob.balancesComplete === false && (
+        <div className="small" style={{ color: 'var(--yellow)', marginBottom: 8 }}>
+          Spot balances only — anything in Earn or staked is not counted here.
+        </div>
+      )}
+      {blob.balancesStale && (
+        <div className="small" style={{ color: 'var(--orange)', marginBottom: 8 }}>
+          These balances are from an earlier run — the latest sync could not read them.
+        </div>
+      )}
       {tab === 'holdings' && (
         <Card title="Holdings" color="var(--green)"
           right={<span className="small muted">{blob.updated ? `synced ${new Date(blob.updated).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</span>}>
