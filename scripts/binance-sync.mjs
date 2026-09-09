@@ -193,13 +193,26 @@ async function walk(label, wins, fn) {
   const started = Date.now();
   process.stdout.write(`  · ${label}: ${wins.length} window(s) back to ${new Date(wins[wins.length - 1]?.startTime || Date.now()).toISOString().slice(0, 10)}\n`);
 
+  // GIVE UP EARLY ON A WALL.
+  //
+  // Each window already retries through 2s, 6s, 15s and 40s of backoff. Grinding
+  // 48 windows into a limiter that is not letting anything through costs about
+  // forty minutes to learn something the third window already proved. Three
+  // consecutive fully-backed-off failures is enough.
+  let consecutive = 0;
+
   for (let i = 0; i < wins.length; i++) {
     const w = wins[i];
-    try { rows.push(...await fn(w)); }
+    try { rows.push(...await fn(w)); consecutive = 0; }
     catch (e) {
       failed++;
+      consecutive++;
       if (/429|418|Too many requests/i.test(e.message)) rateLimited = true;
       if (!firstFailAt) { firstFailAt = w.startTime; console.error(`    ! ${label}: window from ${new Date(w.startTime).toISOString().slice(0, 10)} refused — ${e.message.slice(0, 100)}`); }
+      if (consecutive >= 3) {
+        console.error(`  · ${label}: giving up after 3 straight refusals — ${wins.length - i - 1} window(s) not attempted`);
+        break;
+      }
     }
     if ((i + 1) % 10 === 0 || i === wins.length - 1) {
       const secs = ((Date.now() - started) / 1000).toFixed(0);
@@ -335,6 +348,39 @@ async function pullPrices(assets) {
   }
 }
 
+/**
+ * The FUNDING wallet — the third place coins live, and the one nobody remembers.
+ *
+ * Binance splits holdings across Spot, Funding and Earn. P2P buys land in
+ * FUNDING, not Spot, which is why a P2P-funded account can show a spot balance
+ * of nothing while plainly owning something.
+ *
+ * Measured on this account: Earn reported BTC 0.0003523 and the Binance app
+ * shows 0.00041152. The missing 0.00005922 is not in Spot — /api/v3/account
+ * returned only the LD receipts — so it is here.
+ *
+ * This is a POST, like getUserAsset, which already fails on this account. So it
+ * is allowed to fail: what it adds is real, and losing it costs a small part of
+ * one balance rather than the run.
+ */
+async function pullFunding() {
+  const out = new Map();
+  try {
+    const url = signed('/sapi/v1/asset/get-funding-asset', {});
+    const r = await fetch(url, { method: 'POST', headers: { 'X-MBX-APIKEY': BINANCE_API_KEY } });
+    if (!r.ok) throw new Error(`${r.status}: ${(await r.text()).slice(0, 120)}`);
+    for (const b of (await r.json()) || []) {
+      const asset = String(b.asset || '').toUpperCase();
+      const qty = (Number(b.free) || 0) + (Number(b.locked) || 0) + (Number(b.freeze) || 0);
+      if (asset && qty > 0) out.set(asset, (out.get(asset) || 0) + qty);
+    }
+    return { funding: out, problems: [] };
+  } catch (e) {
+    console.error('  · funding wallet unavailable:', e.message.slice(0, 120));
+    return { funding: out, problems: [`funding: ${e.message}`] };
+  }
+}
+
 async function pullEarn() {
   const out = new Map();
   const problems = [];
@@ -425,18 +471,30 @@ async function pullFiat(days) {
   // works but spends minutes in backoff; asking more slowly to begin with is
   // cheaper than being told to wait.
   const breathe = () => new Promise(r => setTimeout(r, 1200));
+
+  // THE PARAMETER NAMES ARE DIFFERENT HERE, AND THAT IS THE WHOLE PROBLEM.
+  //
+  // Every other endpoint in this file takes startTime/endTime. The fiat ones
+  // take beginTime/endTime. windows() produces startTime, so every fiat request
+  // was sending a parameter Binance ignores — which means all 24 windows asked
+  // the IDENTICAL default question, 24 times, as fast as the pacing allowed.
+  //
+  // That is what the 429s were. Not a heavy endpoint and not an account with no
+  // history: the same query repeated until the limiter noticed. Backing off
+  // harder would have made it slower and no more correct.
+  const fiatWindow = w => ({ beginTime: w.startTime, endTime: w.endTime });
   const rows = [];
   for (const [type, kind] of [['0', 'in'], ['1', 'out']]) {
     rows.push(...await walk(`fiat/orders/${kind}`, windows(days, 90), async w => {
       await breathe();
-      const j = await get('/sapi/v1/fiat/orders', { ...w, transactionType: type, rows: '500' });
+      const j = await get('/sapi/v1/fiat/orders', { ...fiatWindow(w), transactionType: type, rows: '500' });
       return (Array.isArray(j?.data) ? j.data : []).map(r => normalizeFiatOrder(r, kind)).filter(Boolean);
     }));
   }
   for (const [type, kind] of [['0', 'buy'], ['1', 'sell']]) {
     rows.push(...await walk(`fiat/payments/${kind}`, windows(days, 90), async w => {
       await breathe();
-      const j = await get('/sapi/v1/fiat/payments', { ...w, transactionType: type, rows: '500' });
+      const j = await get('/sapi/v1/fiat/payments', { ...fiatWindow(w), transactionType: type, rows: '500' });
       return (Array.isArray(j?.data) ? j.data : []).map(r => normalizeFiatPayment(r, kind)).filter(Boolean);
     }));
   }
@@ -562,6 +620,20 @@ async function run() {
       }
     }
 
+    // Funding, folded in the same way. Three wallets, one balance sheet.
+    const fund = await pullFunding();
+    problems.push(...fund.problems);
+    if (fund.funding.size) {
+      const by = new Map(balances.map(b => [b.asset, b]));
+      for (const [asset, qty] of fund.funding) {
+        const b = by.get(asset);
+        if (b) { b.free += qty; b.total += qty; }
+        else { by.set(asset, { asset, free: qty, locked: 0, staked: 0, btcValue: 0, total: qty }); }
+        console.log(`      ${asset} +${qty} from Funding`);
+      }
+      balances = [...by.values()].filter(b => b.total > 0);
+    }
+
     if (earn.staked.size) {
       const by = new Map(balances.map(b => [b.asset, b]));
       for (const [asset, qty] of earn.staked) {
@@ -679,7 +751,7 @@ async function run() {
   // it is double what the app shows, Earn is being counted twice and the fold-in
   // above is wrong for this account.
   for (const b of keptBalances) {
-    console.log(`      ${b.asset.padEnd(6)} total ${b.total}  (free ${b.free}, locked ${b.locked}, earn ${b.staked})`);
+    console.log(`      ${b.asset.padEnd(6)} total ${b.total}  (spot+funding ${b.free}, locked ${b.locked}, earn ${b.staked})`);
   }
 
   const earliest = merged.map(r => r.at).filter(Boolean).sort()[0];
