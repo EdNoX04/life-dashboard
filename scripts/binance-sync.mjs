@@ -195,7 +195,10 @@ async function pullCapital(days) {
 async function run() {
   if (!BINANCE_API_KEY || !BINANCE_API_SECRET) {
     const missing = [!BINANCE_API_KEY && 'BINANCE_API_KEY', !BINANCE_API_SECRET && 'BINANCE_API_SECRET'].filter(Boolean);
-    const reason = `Binance is not connected yet — missing ${missing.join(', ')} in repo secrets. Create a READ-ONLY key (Enable Reading only; Spot Trading and Withdrawals off).`;
+    // NOT "repo secrets". That instruction outlived the workflow it belonged to:
+    // the GitHub job was deleted because Binance answers 451 to American IPs, so
+    // a key added there is a key nothing will ever read.
+    const reason = `Binance is not connected yet — missing ${missing.join(', ')}. Put a READ-ONLY key (Enable Reading only; Spot Trading and Withdrawals off) in scripts/.binance.env and run scripts/binance-local.sh from your own machine — Binance refuses American IPs, so Actions and Vercel cannot do this.`;
     await reportStatus({ ok: false, configured: false, reason });
     console.log(reason);
     return;  // exit 0 on purpose.
@@ -225,10 +228,31 @@ async function run() {
   const merged = dedupeLedger([...(Array.isArray(prev.rows) ? prev.rows : []), ...fresh]);
   const pos = positions(merged);
 
+  // BALANCES ARE KEPT WHEN THE FETCH FAILED.
+  //
+  // They were written unconditionally, so a run that could not reach Binance
+  // stored `balances: []` over a good list — and the Crypto tab then rendered
+  // "the account is empty, or the key cannot read it", which is a statement
+  // about what Neel owns, made out of a network error. That is exactly what
+  // happened on 2026-08-08 and it read as fact for a month.
+  //
+  // Rows already survive this way (the merge above), for the same reason. This
+  // makes balances match.
+  const balancesFailed = problems.some(p => p.startsWith('balances:'));
+  const keptBalances = balancesFailed && Array.isArray(prev.balances) && prev.balances.length
+    ? prev.balances
+    : balances;
+  if (balancesFailed && keptBalances !== balances) {
+    console.error(`  · keeping ${keptBalances.length} previously-known balance(s) rather than storing an empty list`);
+  }
+
   await memPut('binance_ledger', {
     rows: merged,
     positions: pos,
-    balances,
+    balances: keptBalances,
+    // Said out loud in the blob, so a reader can tell "these numbers are from an
+    // earlier run" from "these numbers are current".
+    balancesStale: balancesFailed,
     lookbackDays: days,
     updated: new Date().toISOString(),
   });

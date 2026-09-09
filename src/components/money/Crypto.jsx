@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Card, Empty, StatTile, useMoneyVisible, money } from '../ui.jsx';
 import { useCollection } from '../../lib/hooks.js';
+import { explain, ledgerState } from '../../lib/binance.js';
 
 // Crypto — the Binance side of the portfolio.
 //
@@ -83,19 +84,33 @@ export default function Crypto() {
     [rows],
   );
 
-  if (!blob.updated && !status) {
+  const why = explain(status);
+  const state = ledgerState(blob, status);
+
+  if (state.state === 'never') {
     return (
       <Card title="Crypto · Binance" color="var(--yellow)">
-        <Empty icon="◈" text="Binance is not connected yet." note="Create a READ-ONLY API key on Binance (Enable Reading only — leave Spot Trading and Withdrawals OFF), then add BINANCE_API_KEY and BINANCE_API_SECRET to the repo secrets. Nothing here can trade; the key is not permitted to." />
+        {/* The old note here said to put the key in the REPO SECRETS. That
+            instruction outlived the workflow it belonged to — the GitHub job was
+            removed because Binance answers 451 to American IPs — and following
+            it leads to a key sitting somewhere nothing reads. */}
+        <Empty icon="◈" text="Binance is not connected yet."
+          note="Create a READ-ONLY key on Binance (Enable Reading only; Spot Trading and Withdrawals OFF), put it in scripts/.binance.env on your Mac, and run scripts/binance-local.sh. It has to run from your own connection — Binance refuses American IPs, so GitHub Actions and Vercel cannot do it. Nothing here can trade; the key is not permitted to." />
       </Card>
     );
   }
 
   return (
     <>
-      {status && status.ok === false && (
+      {/* The raw reason used to be dumped here — two hundred characters of JSON
+          with the real answer buried in the middle of it. What matters is which
+          KIND of failure it is, because the fixes have nothing in common. */}
+      {why && (
         <div className="mail-problem" style={{ marginBottom: 10 }}>
-          <strong>Binance sync:</strong> {status.reason}
+          <strong>{why.headline}</strong>
+          <div className="small" style={{ marginTop: 4 }}>{why.what}</div>
+          <div className="small" style={{ marginTop: 4, color: 'var(--yellow)' }}>{why.fix}</div>
+          {why.notThis && <div className="small" style={{ marginTop: 4, color: 'var(--ink-3)' }}>{why.notThis}</div>}
         </div>
       )}
 
@@ -117,7 +132,13 @@ export default function Crypto() {
       {tab === 'holdings' && (
         <Card title="Holdings" color="var(--green)"
           right={<span className="small muted">{blob.updated ? `synced ${new Date(blob.updated).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</span>}>
-          {view.held.length === 0 && <Empty icon="◈" text="No balances returned. The account is empty, or the key cannot read it." />}
+          {/* "The account is empty, or the key cannot read it" was wrong on both
+              counts and sent the search in the wrong direction for a month. An
+              empty result from a FAILED run is the failure, not a finding. */}
+          {view.held.length === 0 && (state.state === 'blank-because-failed'
+            ? <Empty icon="⚠" text="Nothing was read — the sync above failed."
+                note="This is not a statement about what you own. The last successful read was before that failure began." />
+            : <Empty icon="◈" text="No balances returned — the account really is empty." />)}
           {view.held.map(h => (
             <div className="row crypto-row" key={h.asset}>
               <span className="chip c-cyan">{h.asset}</span>
