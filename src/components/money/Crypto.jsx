@@ -114,6 +114,48 @@ export default function Crypto() {
         </div>
       )}
 
+      {/* SINCE INCEPTION — the only question that can be answered honestly across
+          the whole account. Per-asset cost basis breaks the moment a Convert is
+          involved (USDT→BTC has no rupee leg), but "did I make money" does not
+          need it: rupees in and rupees out are both directly observed, and
+          today's value is a live price. */}
+      {blob.summary && (
+        <Card title="Since you started" color="var(--purple)"
+          right={<span className="small muted">
+            {blob.summary.firstAt ? `first movement ${String(blob.summary.firstAt).slice(0, 10)}` : ''}
+          </span>}>
+          <div className="tile-row">
+            <StatTile label="Put in" value={money(blob.summary.in, moneyVis, '₹')} note="P2P buys and deposits" color="var(--yellow)" />
+            <StatTile label="Taken out" value={money(blob.summary.out, moneyVis, '₹')} note="sells and withdrawals" color="var(--cyan)" />
+            <StatTile label="Worth now"
+              value={blob.summary.valued ? money(blob.summary.valueNow, moneyVis, '₹') : '—'}
+              note={blob.summary.valued ? 'at live prices' : 'not priced this run'} color="var(--ink)" />
+            <StatTile label="Gain / loss"
+              value={blob.summary.valued ? money(blob.summary.net, moneyVis, '₹') : '—'}
+              note={blob.summary.valued && blob.summary.pct != null ? `${blob.summary.pct >= 0 ? '+' : ''}${blob.summary.pct.toFixed(1)}%` : 'needs a price'}
+              color={!blob.summary.valued ? 'var(--ink-3)' : blob.summary.net >= 0 ? 'var(--green)' : 'var(--red)'} />
+          </div>
+          {/* Said plainly, because it is not a live FX quote and should never be
+              mistaken for one. It is the rate he actually paid. */}
+          {blob.inrPerUsdt ? (
+            <div className="small muted" style={{ marginTop: 6 }}>
+              Valued at ₹{Number(blob.inrPerUsdt).toFixed(2)} per USDT — the rate on your own last P2P buy, not a market quote.
+              {blob.valueUsdt ? ` Holdings are ${Number(blob.valueUsdt).toFixed(2)} USDT.` : ''}
+            </div>
+          ) : (
+            <div className="small muted" style={{ marginTop: 6 }}>
+              No P2P buy in the ledger to take a rupee rate from, so the position is not valued in rupees.
+            </div>
+          )}
+          {blob.summary.counts && (
+            <div className="small muted" style={{ marginTop: 4 }}>
+              {blob.summary.counts.p2pBuys} P2P buy(s) · {blob.summary.counts.converts} convert(s) ·
+              {' '}{blob.summary.counts.deposits} deposit(s) · {blob.summary.counts.withdrawals} withdrawal(s)
+            </div>
+          )}
+        </Card>
+      )}
+
       <div className="tile-row">
         <StatTile label="Assets held" value={view.held.length} note="on Binance" color="var(--cyan)" />
         <StatTile label="Invested" value={money(view.investedTotal, moneyVis, '₹')}
@@ -159,6 +201,11 @@ export default function Crypto() {
               {h.staked > 0 && (
                 <span className="chip c-purple" title="Locked or in Earn — still yours, just not immediately movable">
                   {fmtQty(h.staked)} locked
+                </span>
+              )}
+              {blob.prices?.[h.asset] > 0 && (
+                <span className="small muted">
+                  {(h.qty * blob.prices[h.asset]).toFixed(2)} USDT
                 </span>
               )}
               <span style={{ flex: 1 }} />

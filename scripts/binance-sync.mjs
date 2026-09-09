@@ -39,7 +39,7 @@
 
 import crypto from 'node:crypto';
 import {
-  normalizeP2P, normalizeFlow, dedupeLedger, positions,
+  normalizeP2P, normalizeFlow, normalizeConvert, dedupeLedger, positions, sinceInception,
 } from './lib/binance-ledger.mjs';
 
 const {
@@ -197,6 +197,95 @@ async function pullBalances() {
   return { rows, source: 'spot-account', complete: false, problems };
 }
 
+/**
+ * Simple Earn — flexible and locked.
+ *
+ * The spot fallback cannot see these, and a coin in Earn is still a coin you
+ * own; leaving it out makes a staked position look like it was sold. Both of
+ * these are plain signed GETs, unlike getUserAsset, so they work where it does
+ * not.
+ *
+ * Failures here are collected and returned rather than thrown: Earn is an extra,
+ * and an account that has never used it answers with an empty list on a good day
+ * and a 404 on a bad one. Neither is a reason to lose the spot balances.
+ */
+/**
+ * Public prices, so the account can be valued.
+ *
+ * Unsigned and unauthenticated — this is the one call here that needs no key,
+ * which also means it cannot be the thing that fails for a permissions reason.
+ *
+ * Everything is priced in USDT because that is what Binance quotes. The rupee
+ * conversion happens one layer up, against a rate that was actually paid, rather
+ * than a rate invented here.
+ */
+async function pullPrices(assets) {
+  const want = new Set(assets.map(a => String(a).toUpperCase()));
+  if (!want.size) return {};
+  try {
+    const r = await fetch('https://api.binance.com/api/v3/ticker/price');
+    if (!r.ok) throw new Error(String(r.status));
+    const all = await r.json();
+    const out = {};
+    for (const t of (Array.isArray(all) ? all : [])) {
+      const sym = String(t.symbol || '');
+      if (!sym.endsWith('USDT')) continue;
+      const base = sym.slice(0, -4);
+      if (want.has(base)) out[base] = Number(t.price) || 0;
+    }
+    // A stablecoin has no XUSDT pair with itself.
+    for (const st of ['USDT', 'FDUSD', 'USDC']) if (want.has(st)) out[st] = out[st] ?? 1;
+    return out;
+  } catch (e) {
+    console.error('  · prices unavailable:', e.message);
+    return {};
+  }
+}
+
+async function pullEarn() {
+  const out = new Map();
+  const problems = [];
+  for (const [label, path] of [
+    ['flexible', '/sapi/v1/simple-earn/flexible/position'],
+    ['locked', '/sapi/v1/simple-earn/locked/position'],
+  ]) {
+    try {
+      const j = await get(path, { size: '100' });
+      for (const r of (Array.isArray(j?.rows) ? j.rows : [])) {
+        const asset = String(r.asset || '').toUpperCase();
+        const qty = Number(r.totalAmount ?? r.amount ?? r.principal) || 0;
+        if (!asset || qty <= 0) continue;
+        out.set(asset, (out.get(asset) || 0) + qty);
+      }
+    } catch (e) {
+      problems.push(`earn/${label}: ${e.message}`);
+      console.error(`  · earn ${label} unavailable:`, e.message.slice(0, 120));
+    }
+  }
+  return { staked: out, problems };
+}
+
+/**
+ * Binance Convert — the "swap USDT for BTC" flow.
+ *
+ * NOT spot trades, and that distinction is the reason three assets have been
+ * showing a held quantity with no cost behind them: this account acquired
+ * everything it holds through converts, and nothing was reading them.
+ *
+ * The endpoint takes a 30-day window at most.
+ */
+async function pullConvert(days) {
+  const rows = [];
+  for (const w of windows(days, 30)) {
+    const j = await get('/sapi/v1/convert/tradeFlow', { ...w, limit: '1000' });
+    for (const c of (Array.isArray(j?.list) ? j.list : [])) {
+      const pair = normalizeConvert(c);
+      if (pair) rows.push(...pair);
+    }
+  }
+  return rows;
+}
+
 async function pullP2P(days) {
   const rows = [];
   for (const w of windows(days, 30)) {
@@ -242,7 +331,19 @@ async function run() {
     return;  // exit 0 on purpose.
   }
 
-  const days = Math.max(1, Math.min(Number(BINANCE_LOOKBACK_DAYS) || 120, 365));
+  // SINCE INCEPTION, by default.
+  //
+  // It was 120 days, which is fine for "what changed lately" and wrong for the
+  // only question actually asked of this data: how much have I put in and how
+  // much is it worth. A window that starts after the first buy reports a cost
+  // basis for coins it never saw bought.
+  //
+  // The endpoints cap out around three years of history, so 'all' means that.
+  // The cost is one 350ms-spaced call per window: roughly 90 calls, half a
+  // minute, in a job nobody is waiting on.
+  const days = String(BINANCE_LOOKBACK_DAYS).toLowerCase() === 'all'
+    ? 1095
+    : Math.max(1, Math.min(Number(BINANCE_LOOKBACK_DAYS) || 1095, 1095));
   const problems = [];
 
   let balances = [];
@@ -263,11 +364,44 @@ async function run() {
   // Each pull is isolated. P2P being unavailable — it is region-gated and can
   // 403 on some accounts — must not cost you the balances, which are the part
   // you look at daily.
+  // Earn, folded into the balances as `staked`. Done after the balance pull so
+  // it can repair exactly what the spot fallback cannot see.
+  try {
+    const earn = await pullEarn();
+    problems.push(...earn.problems);
+    if (earn.staked.size) {
+      const by = new Map(balances.map(b => [b.asset, b]));
+      for (const [asset, qty] of earn.staked) {
+        const b = by.get(asset);
+        if (b) { b.staked += qty; b.total += qty; }
+        else { by.set(asset, { asset, free: 0, locked: 0, staked: qty, btcValue: 0, total: qty }); }
+      }
+      balances = [...by.values()].filter(b => b.total > 0).sort((a, b) => b.total - a.total);
+      // Earn was read, so the spot-only caveat no longer applies.
+      balancesComplete = true;
+      const idx = problems.findIndex(p => p.startsWith('balances are spot-only'));
+      if (idx >= 0) problems.splice(idx, 1);
+      console.log(`  · Earn: ${earn.staked.size} asset(s) folded in`);
+    }
+  } catch (e) { problems.push(`earn: ${e.message}`); }
+
   let fresh = [];
-  for (const [label, fn] of [['p2p', () => pullP2P(days)], ['capital', () => pullCapital(days)]]) {
+  for (const [label, fn] of [['p2p', () => pullP2P(days)], ['convert', () => pullConvert(days)], ['capital', () => pullCapital(days)]]) {
     try { fresh.push(...await fn()); }
     catch (e) { problems.push(`${label}: ${e.message}`); console.error('  ✗', e.message); }
   }
+
+  // Value it. Prices in USDT from the public ticker; the USDT/INR rate comes
+  // from HIS OWN most recent P2P buy rather than a market rate looked up
+  // somewhere, because that is the rate he actually got and it is already in the
+  // ledger. Labelled as such downstream, so nobody reads it as a live FX quote.
+  const prices = await pullPrices(keptBalances.map(b => b.asset));
+  const valueUsdt = keptBalances.reduce((t, b) => t + b.total * (prices[b.asset] || 0), 0);
+  const lastP2PBuy = [...merged]
+    .filter(r => r.source === 'p2p' && r.kind === 'buy' && r.price > 0)
+    .sort((a, b) => String(b.at).localeCompare(String(a.at)))[0];
+  const inrPerUsdt = lastP2PBuy?.price || null;
+  if (inrPerUsdt) console.log(`  · valuing at ₹${inrPerUsdt.toFixed(2)}/USDT (your last P2P rate, ${String(lastP2PBuy.at).slice(0, 10)})`);
 
   // Merge with what is already stored. The stored ledger is the long memory:
   // the lookback window only reaches back so far, and rows that fall out of it
@@ -301,6 +435,13 @@ async function run() {
     balances: keptBalances,
     balanceSource,
     balancesComplete,
+    // The one question answerable across a whole account: rupees in, rupees out.
+    // Not valued here — pricing is the app's job, and this file has no INR rate
+    // it did not make up.
+    prices,
+    inrPerUsdt,
+    valueUsdt,
+    summary: sinceInception(merged, { valueNow: inrPerUsdt && valueUsdt ? valueUsdt * inrPerUsdt : null }),
     // Said out loud in the blob, so a reader can tell "these numbers are from an
     // earlier run" from "these numbers are current".
     balancesStale: balancesFailed,

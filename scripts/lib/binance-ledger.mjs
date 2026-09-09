@@ -252,3 +252,109 @@ export function positions(rows) {
     .map(a => positionFor(rows, a))
     .sort((a, b) => b.cost - a.cost || a.asset.localeCompare(b.asset));
 }
+
+/**
+ * A Binance Convert — the "swap USDT for BTC" flow, not a spot trade.
+ *
+ * This is how the account actually acquired everything it holds: one P2P buy of
+ * USDT, then converts into BTC, SOL and SXT. The sync never read them, which is
+ * why three assets show a held quantity and no cost behind it.
+ *
+ * A convert is two movements and is recorded as two rows, because that is what
+ * happened: the from-asset left and the to-asset arrived.
+ *
+ * WHAT IT DELIBERATELY DOES NOT DO IS INVENT A RUPEE PRICE.
+ *
+ * A convert has no fiat leg. USDT→BTC is priced in USDT, and turning that into
+ * rupees means choosing a USDT/INR rate — and any rate chosen here would be a
+ * guess dressed as a measurement, which is the one thing this ledger refuses to
+ * do anywhere else (see avgCost null for a position with no basis). So the legs
+ * carry `quoteAsset` and `quoteQty`, and the rupee question is answered further
+ * up by whoever knows the rate that was actually paid.
+ */
+export function normalizeConvert(c) {
+  if (!c) return null;
+  const status = String(c.orderStatus ?? '').toUpperCase();
+  if (status && status !== 'SUCCESS') return null;
+
+  const from = String(c.fromAsset ?? '').toUpperCase();
+  const to = String(c.toAsset ?? '').toUpperCase();
+  const fromQty = num(c.fromAmount);
+  const toQty = num(c.toAmount);
+  if (!from || !to || fromQty <= 0 || toQty <= 0) return null;
+
+  const at = ms(c.createTime);
+  const id = String(c.orderId ?? c.quoteId ?? `${from}${to}${c.createTime ?? ''}`);
+  const base = { source: 'convert', fiat: '', fiatQty: 0, price: 0, fee: 0, feeAsset: '', at };
+
+  return [
+    // `out`/`in` rather than sell/buy: positionFor treats those as quantity
+    // movements that do not claim a fiat value, which is exactly the truth here.
+    { ...base, id: `convert:${id}:out`, kind: 'out', asset: from, qty: fromQty,
+      quoteAsset: to, quoteQty: toQty, note: `Converted to ${to}` },
+    { ...base, id: `convert:${id}:in`, kind: 'in', asset: to, qty: toQty,
+      quoteAsset: from, quoteQty: fromQty, note: `Converted from ${from}` },
+  ];
+}
+
+/**
+ * The only question that can be answered honestly across a whole account:
+ * how much money went in, how much came out, and what is it worth now.
+ *
+ * Per-asset cost basis breaks down the moment a convert is involved, because
+ * the chain USDT→BTC has no rupee leg. But "did I make money" does not need it:
+ * rupees in and rupees out are both directly observed — P2P orders and fiat
+ * deposits and withdrawals — and today's value is a live price.
+ *
+ *   net = valueNow + out - in
+ *
+ * `valueNow` is supplied by the caller because pricing is a network call and
+ * this file is pure. When it is unknown the totals are still returned with
+ * `valued: false`, so the caller shows what it knows rather than a zero.
+ */
+export function sinceInception(rows, { valueNow = null } = {}) {
+  let inFiat = 0, outFiat = 0, firstAt = null, lastAt = null;
+  let p2pBuys = 0, p2pSells = 0, deposits = 0, withdrawals = 0, converts = 0;
+
+  for (const r of Array.isArray(rows) ? rows : []) {
+    if (!r) continue;
+    // `at` is an ISO STRING here — ms() converts on the way in, so every other
+    // row in this file carries a string. Reading it as a number gave 0 for every
+    // row and reported the whole account as undated. ISO strings sort correctly
+    // as strings, which is the reason that format was chosen.
+    // Tolerant of a raw epoch too. Every row that comes through a normalizer is
+    // already ISO, but a row assembled by hand somewhere else should not silently
+    // drop out of the date range.
+    const at = typeof r.at === 'string' ? r.at
+      : (Number.isFinite(r.at) && r.at > 0 ? new Date(r.at).toISOString() : null);
+    if (at) {
+      if (firstAt == null || at < firstAt) firstAt = at;
+      if (lastAt == null || at > lastAt) lastAt = at;
+    }
+    if (r.source === 'convert') { if (r.kind === 'in') converts++; continue; }
+
+    const fiatQty = num(r.fiatQty);
+    // Only rows with a REAL fiat leg move these totals. A convert has none, and
+    // counting one at zero would quietly say money moved and it was free.
+    if (!fiatQty) continue;
+
+    if (r.kind === 'buy') { inFiat += fiatQty; if (r.source === 'p2p') p2pBuys++; }
+    else if (r.kind === 'sell') { outFiat += fiatQty; if (r.source === 'p2p') p2pSells++; }
+    else if (r.kind === 'in') { inFiat += fiatQty; deposits++; }
+    else if (r.kind === 'out') { outFiat += fiatQty; withdrawals++; }
+  }
+
+  const valued = typeof valueNow === 'number' && Number.isFinite(valueNow);
+  const net = valued ? valueNow + outFiat - inFiat : null;
+  return {
+    in: inFiat,
+    out: outFiat,
+    valueNow: valued ? valueNow : null,
+    net,
+    pct: valued && inFiat > 0 ? (net / inFiat) * 100 : null,
+    valued,
+    firstAt,
+    lastAt,
+    counts: { p2pBuys, p2pSells, deposits, withdrawals, converts },
+  };
+}

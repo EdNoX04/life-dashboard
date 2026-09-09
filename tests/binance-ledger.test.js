@@ -20,6 +20,7 @@
 
 import {
   normalizeP2P, normalizeTrade, normalizeFlow, dedupeLedger, positionFor, positions,
+  normalizeConvert, sinceInception,
 } from '../scripts/lib/binance-ledger.mjs';
 
 let pass = 0, fail = 0;
@@ -287,6 +288,86 @@ const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
   ok('each position aggregates all of that asset\'s rows',
     ps.find(p => p.asset === 'USDT').qty === 200);
   ok('an empty ledger yields no positions', positions([]).length === 0 && positions(null).length === 0);
+}
+
+
+// ---------------------------------------------------------------- converts
+//
+// How this account actually got what it holds: ONE P2P buy of USDT, then
+// converts into BTC, SOL and SXT. The sync never read converts, which is the
+// whole reason three assets show a quantity with no cost behind them.
+{
+  const c = normalizeConvert({ orderId: '77', orderStatus: 'SUCCESS', fromAsset: 'USDT',
+    fromAmount: '4.74', toAsset: 'BTC', toAmount: '0.00041152', createTime: 1788000000000 });
+  ok('a convert becomes TWO rows — the from-asset left and the to-asset arrived', Array.isArray(c) && c.length === 2, c && c.length);
+  ok('the from leg is an out', c[0].kind === 'out' && c[0].asset === 'USDT' && near(c[0].qty, 4.74));
+  ok('the to leg is an in', c[1].kind === 'in' && c[1].asset === 'BTC' && near(c[1].qty, 0.00041152));
+  ok('each leg records the other side, so the pair can be reconstructed later',
+     c[0].quoteAsset === 'BTC' && near(c[0].quoteQty, 0.00041152) && c[1].quoteAsset === 'USDT');
+  // `at` is an ISO STRING, not a number: ms() converts on the way in. Asserting
+  // a number here is what caught sinceInception reading it with num() and
+  // reporting every row as undated.
+  ok('both legs share the timestamp', c[0].at === c[1].at && c[0].at === new Date(1788000000000).toISOString(), c[0].at);
+  ok('and have distinct ids, or dedupe would eat one of them', c[0].id !== c[1].id);
+
+  // The refusal that matters. A convert has NO fiat leg: USDT->BTC is priced in
+  // USDT, and turning that into rupees means picking a USDT/INR rate. Any rate
+  // chosen here would be a guess dressed as a measurement.
+  ok('NO invented rupee price on either leg', c[0].fiatQty === 0 && c[1].fiatQty === 0 && c[0].price === 0);
+  ok('and out/in rather than sell/buy, so positionFor claims no fiat value for them',
+     c[0].kind === 'out' && c[1].kind === 'in');
+
+  ok('a failed convert is not a movement', normalizeConvert({ orderStatus: 'PROCESS', fromAsset: 'USDT', fromAmount: '1', toAsset: 'BTC', toAmount: '1' }) === null);
+  ok('nor one with a zero leg', normalizeConvert({ orderStatus: 'SUCCESS', fromAsset: 'USDT', fromAmount: '0', toAsset: 'BTC', toAmount: '1' }) === null);
+  ok('nor null', normalizeConvert(null) === null);
+}
+
+// ---------------------------------------------------------------- since inception
+//
+// The one question that CAN be answered honestly across a whole account. Per-
+// asset basis breaks the moment a convert is involved, because that chain has no
+// rupee leg — but "did I make money" does not need it. Rupees in and rupees out
+// are both directly observed, and today's value is a live price.
+{
+  const rows = [
+    { source: 'p2p', kind: 'buy', asset: 'USDT', qty: 4.74, fiatQty: 500, at: new Date(1788000000000).toISOString() },
+    ...normalizeConvert({ orderId: '1', orderStatus: 'SUCCESS', fromAsset: 'USDT', fromAmount: '4.74',
+      toAsset: 'BTC', toAmount: '0.00041152', createTime: 1788000100000 }),
+  ];
+  const s = sinceInception(rows, { valueNow: 3159.07 });
+  ok('every rupee that went in is counted', near(s.in, 500), s.in);
+  ok('nothing came out', near(s.out, 0), s.out);
+
+  // The convert must not move the money totals. It moved coins, not rupees, and
+  // counting it at zero would quietly say money moved and it was free.
+  ok('the convert does not touch the totals', near(s.in, 500) && near(s.out, 0));
+  ok('but it IS counted as an event', s.counts.converts === 1, s.counts.converts);
+  ok('net = what it is worth now, plus what came out, minus what went in', near(s.net, 3159.07 - 500), s.net);
+  ok('and a percentage against what was actually put in', near(s.pct, ((3159.07 - 500) / 500) * 100), s.pct);
+  ok('the first movement is dated', s.firstAt === new Date(1788000000000).toISOString(), s.firstAt);
+  ok('a raw epoch is tolerated too, rather than dropping out of the range',
+     sinceInception([{ source: 'p2p', kind: 'buy', asset: 'X', qty: 1, fiatQty: 1, at: 1788000000000 }]).firstAt
+       === new Date(1788000000000).toISOString());
+  ok('and the last', s.lastAt === new Date(1788000100000).toISOString(), s.lastAt);
+  ok('and they are ISO strings, which sort correctly as strings', typeof s.firstAt === 'string' && s.firstAt < s.lastAt);
+  ok('p2p buys are counted', s.counts.p2pBuys === 1);
+
+  // Without a price it must still report what it knows rather than a zero, which
+  // would read as "you have lost everything".
+  const unpriced = sinceInception(rows);
+  ok('with no price it still knows what went in', near(unpriced.in, 500));
+  ok('and says it cannot value the position rather than showing zero',
+     unpriced.valued === false && unpriced.net === null && unpriced.valueNow === null);
+
+  const sold = sinceInception([
+    { source: 'p2p', kind: 'buy', asset: 'USDT', qty: 10, fiatQty: 1000, at: 1 },
+    { source: 'p2p', kind: 'sell', asset: 'USDT', qty: 5, fiatQty: 600, at: 2 },
+  ], { valueNow: 550 });
+  ok('a sell counts as money OUT', near(sold.out, 600), sold.out);
+  ok('and the net includes it', near(sold.net, 550 + 600 - 1000), sold.net);
+
+  ok('an empty ledger is zero, not a crash', sinceInception([]).in === 0);
+  ok('and null does not throw', sinceInception(null).out === 0);
 }
 
 console.log(`${pass}/${pass + fail} passing`);
