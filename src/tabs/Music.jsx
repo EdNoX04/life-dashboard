@@ -78,7 +78,12 @@ function SourceCard({ src, active, onPick, configured }) {
 
 export default function Music() {
   const cfg = getConfig();
-  const [source, setSource] = useState('local');
+  // Landing here with an OAuth code means the Spotify panel is the thing that
+  // has to mount — selecting 'local' first would leave the code unread in the
+  // URL until he happened to click Spotify himself.
+  const [source, setSource] = useState(
+    () => (/[?&]code=|[?&]error=/.test(window.location.search) ? 'spotify' : 'local'),
+  );
   // What Spotify says is playing. Kept apart from `queue`/`index`, which are
   // about local files: merging them would let a Spotify track land in a queue
   // the <audio> element would then try, and fail, to play.

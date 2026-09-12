@@ -66,7 +66,22 @@ export default function App() {
   // A ticket arriving from the Amizone bookmarklet opens on Settings, where the
   // card files it and says so. Chosen as the initial state rather than an effect:
   // a flash of HOME before jumping is the app looking like it lost the click.
-  const [tab, setTab] = useState(() => (pendingHandoff() ? 'settings' : 'hq'));
+  // Spotify's OAuth sends the whole page to accounts.spotify.com and back, so
+  // the app returns cold with ?code=… in the URL — on HQ, where nothing is
+  // listening for it. SpotifyPanel leaves a flag before it navigates, and this
+  // reads it, so the code is still in the URL when the panel mounts. Chosen as
+  // initial state rather than an effect for the same reason as the handoff
+  // above: a flash of HOME first looks like the app lost the click.
+  const [tab, setTab] = useState(() => {
+    if (pendingHandoff()) return 'settings';
+    try {
+      if (sessionStorage.getItem('ldx_spotify_return') && /[?&]code=|[?&]error=/.test(window.location.search)) {
+        sessionStorage.removeItem('ldx_spotify_return');
+        return 'music';
+      }
+    } catch { /* private window — the flow cannot complete there anyway */ }
+    return 'hq';
+  });
   const [clickId, setClickId] = useState(null); // drives the click-press animation
   // Placement is a temporary tab — drop it automatically once the season's over.
   const tabs = TABS;
