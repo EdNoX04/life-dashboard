@@ -31,6 +31,8 @@
 // and a confident sentence is indistinguishable from a measured one once it is
 // on the screen.
 
+import { dayTotals, targets as refTargets } from './intake.js';
+
 const arr = v => (Array.isArray(v) ? v : null);
 const n0 = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 const pad = n => String(n).padStart(2, '0');
@@ -182,6 +184,27 @@ function mediaSection(viewings, date) {
   };
 }
 
+/**
+ * What was eaten. Totals, and the reference only if there IS one.
+ *
+ * No verdict, for the same reason lib/intake.js has none: food is the one place
+ * in this app where a nightly score does real harm. It reports what went in,
+ * and against what, and nothing about whether that was good.
+ */
+function foodSection(meals, supps, profile) {
+  if (!arr(meals) && !arr(supps)) return { gap: { what: 'food', why: 'the meal log could not be read' } };
+  const t = dayTotals(arr(meals) || [], arr(supps) || []);
+  if (!t.logged) return { key: 'food', title: 'Food', body: 'Nothing logged today.', kcal: 0 };
+  const tgt = refTargets(profile || {});
+  const lines = [`${t.kcal} kcal · ${t.protein}g protein · ${t.carbs}g carbs · ${t.fat}g fat`];
+  lines.push(`from ${t.logged} entr${t.logged === 1 ? 'y' : 'ies'}`);
+  // The reference appears only when the profile supports one. A "% of target"
+  // computed from a default body is the same lie as a zero for an unmeasured
+  // source — it looks exactly as authoritative as a real one.
+  if (tgt.known) lines.push(`reference for the day is ${tgt.kcal} kcal and ${tgt.protein}g protein`);
+  return { key: 'food', title: 'Food', body: lines.join('\n'), kcal: t.kcal, protein: t.protein };
+}
+
 function tomorrowSection(next) {
   // `next` is an agenda (agenda.js `agendaFor`) for tomorrow, or null.
   if (!next || !Array.isArray(next.items)) return null;
@@ -214,13 +237,14 @@ function tomorrowSection(next) {
 export function nightly({
   date, todos = null, habits = null, habitLogs = null, focusSessions = null,
   snapshots = null, builds = null, viewings = null, dayView = null, tomorrow = null,
-  listening = null,
+  listening = null, meals = null, supps = null, bodyProfile = null,
 } = {}) {
   const day = String(date || '');
   const built = [
     doneSection(todos, day),
     habitSection(habits, habitLogs, day),
     focusSection(focusSessions, day),
+    foodSection(meals, supps, bodyProfile),
     collegeSection(dayView),
     moneySection(snapshots, day),
     mediaSection(viewings, day),

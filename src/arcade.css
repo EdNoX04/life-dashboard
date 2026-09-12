@@ -6359,6 +6359,25 @@ th:hover .hold-info { color: var(--cyan); }
 .cal-load i { font-style: normal; }
 .cal-clash { font-weight: 400; color: var(--orange); }
 
+/* ---- Intake targets -------------------------------------------------------
+   A row per macro: label, bar, the two numbers, the share. No colour changes
+   by value — nothing here goes red for being past a line. The bar is a glance
+   and the figure beside it is the truth, which is why the bar caps at 100%
+   and the number never does. */
+.intake-tgt { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.tgt-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 12px; }
+.tgt-label { flex: 0 0 58px; color: var(--ink-2); }
+.tgt-bar {
+  flex: 1; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden;
+}
+.tgt-fill { display: block; height: 100%; background: var(--orange); border-radius: 3px; }
+.tgt-num { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.tgt-num i { color: var(--ink-3); font-style: normal; }
+.tgt-pct { flex: 0 0 38px; text-align: right; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+/* The portion row on a database-sourced meal. */
+.portion-row { align-items: center; gap: 8px; margin-top: 6px; }
+
 /* ---- Medication courses ---------------------------------------------------
    Today's doses sit above the course list because they are the thing you act
    on; the courses are reference. A dose row is a fixed-width time chip, the

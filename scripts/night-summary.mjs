@@ -57,7 +57,7 @@ async function main() {
     table('portfolio_snapshots?select=date,total_value&order=date.desc&limit=8', 'portfolio_snapshots'),
     table('builds?select=name,status,updated_at', 'builds'),
     table('timetable?select=day,subject,code,start_time,end_time,room', 'timetable'),
-    table('memory?select=key,value&key=in.(amizone_raw_diary,calendar_events,meetings,media_log)', 'memory'),
+    table('memory?select=key,value&key=in.(amizone_raw_diary,calendar_events,meetings,media_log,meals_log,supps_log,body_profile)', 'memory'),
   ]);
 
   const mem = k => (memRows || []).find(r => r.key === k)?.value ?? null;
@@ -80,6 +80,12 @@ async function main() {
   const summary = nightly({
     date: TODAY, todos, habits, habitLogs, focusSessions, snapshots, builds,
     viewings: mem('media_log')?.list ?? null,
+    // `?? null` throughout, never `|| []`: a memory read that failed and a day
+    // with no meals on it are different answers, and only one of them is worth
+    // doing anything about.
+    meals: mem('meals_log')?.[TODAY] ?? null,
+    supps: mem('supps_log')?.[TODAY] ?? null,
+    bodyProfile: mem('body_profile'),
     dayView, tomorrow,
   });
 

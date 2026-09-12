@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Card, Empty, StatTile } from './ui.jsx';
 import { suppByKey } from '../lib/healthdata.js';
 import PixelIcon from './PixelIcon.jsx';
+import { isThin } from '../lib/intake.js';
 
 // Looking back.
 //
@@ -85,10 +86,18 @@ export default function BodyHistory({
       protein: avg(withFood, 'protein'),
       hitRate: withWater.length ? (hit / withWater.length) * 100 : null,
       streak,
+      // The average is over days with food on them, which is right — five blank
+      // days do not mean he ate nothing. But an average over two days of thirty
+      // is a number that needs saying out loud, or it gets read as a month.
+      foodDays: withFood.length,
+      thin: isThin(withFood.length, range || days.length),
     };
   }, [days, goal, today]);
 
   const maxKcal = Math.max(1, ...days.map(d => d.kcal));
+  const thinNote = stats?.thin
+    ? `Calories and protein are averaged over the ${stats.foodDays} day${stats.foodDays === 1 ? '' : 's'} with food logged, not the ${range || days.length} in this range.`
+    : null;
 
   return (
     <Card title="History" color="var(--purple)"
@@ -117,6 +126,12 @@ export default function BodyHistory({
           {stats.hitRate != null && (
             <div className="small muted" style={{ marginTop: -4, marginBottom: 10 }}>
               Water goal hit on {Math.round(stats.hitRate)}% of the days you logged.
+            </div>
+          )}
+
+          {thinNote && (
+            <div className="small" style={{ color: 'var(--ink-3)', marginTop: -4, marginBottom: 10 }}>
+              {thinNote}
             </div>
           )}
 

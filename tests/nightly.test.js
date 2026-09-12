@@ -52,6 +52,28 @@ const text = r => r.sections.map(s => `${s.title}\n${s.body}`).join('\n');
   ok(!/should|behind|failed|only/i.test(sec(r, 'done').body), 'without a word of judgement about it');
 }
 
+// -------------------------------------------------------------------- food
+{
+  ok(gap(nightly({ date: D }), 'food'), 'an unreadable meal log is a gap, not a day of eating nothing');
+  eq(sec(nightly({ date: D, meals: [] }), 'food').body, 'Nothing logged today.',
+     'and a log that WAS read, with nothing in it, says so');
+
+  const r = nightly({ date: D, meals: [{ kcal: 600, protein: 30 }, { kcal: 800, protein: 40 }], supps: [{ kcal: 120, protein: 24 }] });
+  ok(/1520 kcal/.test(sec(r, 'food').body), 'meals and supplements are summed');
+  ok(/94g protein/.test(sec(r, 'food').body), 'macros too');
+  ok(!/reference/.test(sec(r, 'food').body),
+     'with NO reference figure, because no body profile was given — a target from a default body is as much a lie as a zero for an unmeasured source');
+
+  const withRef = nightly({ date: D, meals: [{ kcal: 1520, protein: 94 }],
+    bodyProfile: { weightKg: 70, heightCm: 178, age: 21, sex: 'male', activity: 'moderate' } });
+  ok(/reference for the day is 2655 kcal/.test(sec(withRef, 'food').body), 'with a profile, the reference is stated');
+
+  const heavy = nightly({ date: D, meals: [{ kcal: 4200, protein: 40 }],
+    bodyProfile: { weightKg: 70, heightCm: 178, age: 21, sex: 'male', activity: 'moderate' } });
+  ok(!/(over|too much|should|bad|budget|exceeded|tomorrow you|cut back)/i.test(text(heavy)),
+     'and a day well past the reference produces NO verdict — a nightly score on food does real harm');
+}
+
 // ------------------------------------------------------------------ habits
 {
   const habits = [{ id: 'a', name: 'Read' }, { id: 'b', name: 'Gym' }];

@@ -3,22 +3,43 @@
 const OFF = 'https://world.openfoodfacts.org';
 const r1 = n => Math.round(n * 10) / 10;
 
-// pick a nutriment value, preferring the per-serving field, else per-100g
-function val(n, base) {
-  if (n[base + '_serving'] != null && n[base + '_serving'] !== '') return { v: Number(n[base + '_serving']), per: 'serving' };
-  if (n[base + '_100g'] != null && n[base + '_100g'] !== '') return { v: Number(n[base + '_100g']), per: '100g' };
-  return null;
+// ONE BASIS PER ITEM. This is not a style preference — it was a bug.
+//
+// The old `val()` picked per-serving if present and fell back to per-100g,
+// INDEPENDENTLY for every nutrient, while the item's `per` label was decided by
+// the energy field alone. Open Food Facts is patchily populated, so a product
+// with `energy-kcal_serving` but only `proteins_100g` produced calories for a
+// 30g serving beside protein for 100g, in one row, labelled "serving". The
+// protein was 3.3× too high and nothing on screen could have told you.
+//
+// So the basis is chosen ONCE, for the whole item: per-serving only if the four
+// numbers that matter are all there per serving, otherwise everything per 100g.
+// A consistent 100g row that says 100g is useful. A mixed row is worse than no
+// row, because it looks like data.
+const RAW = ['energy-kcal', 'proteins', 'carbohydrates', 'fat'];
+const has = (n, base, per) => n[`${base}_${per}`] != null && n[`${base}_${per}`] !== '';
+
+export function basisOf(n) {
+  return RAW.every(b => has(n, b, 'serving')) ? 'serving' : '100g';
 }
 
-function toItem(p, code) {
+function pick(n, base, per) {
+  const v = n[`${base}_${per}`];
+  return v == null || v === '' ? null : Number(v);
+}
+
+export function toItem(p, code) {
   const n = p.nutriments || {};
-  const kcalO = val(n, 'energy-kcal');
-  const per = (kcalO && kcalO.per) || 'serving';
-  const g = b => { const o = val(n, b); return o ? o.v : 0; };
-  const mg = b => { const o = val(n, b); return o ? o.v * 1000 : 0; };   // OFF stores minerals in grams
-  const ug = b => { const o = val(n, b); return o ? o.v * 1e6 : 0; };
+  const per = basisOf(n);
+  // Every field now comes from the SAME column. A nutrient missing on that
+  // basis is 0 rather than silently borrowed from the other one.
+  const val = b => { const v = pick(n, b, per); return v == null ? null : { v, per }; };
+  const kcalO = val('energy-kcal');
+  const g = b => { const o = val(b); return o ? o.v : 0; };
+  const mg = b => { const o = val(b); return o ? o.v * 1000 : 0; };   // OFF stores minerals in grams
+  const ug = b => { const o = val(b); return o ? o.v * 1e6 : 0; };
   let sodium = mg('sodium');
-  if (!sodium) { const salt = val(n, 'salt'); if (salt) sodium = (salt.v * 1000) / 2.5; }
+  if (!sodium) { const salt = val('salt'); if (salt) sodium = (salt.v * 1000) / 2.5; }
   const brand = (p.brands || '').split(',')[0].trim();
   return {
     name: [brand, p.product_name].filter(Boolean).join(' ').trim() || p.product_name || 'Food',

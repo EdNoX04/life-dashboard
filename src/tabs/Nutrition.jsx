@@ -8,6 +8,8 @@ import BarcodeScanner from '../components/BarcodeScanner.jsx';
 import Supplements from '../components/Supplements.jsx';
 import BodyHistory from '../components/BodyHistory.jsx';
 import MedCourses from '../components/MedCourses.jsx';
+import IntakeTargets from '../components/IntakeTargets.jsx';
+import { scale, unitFor, dayTotals, targets as refTargets, against } from '../lib/intake.js';
 import SymptomDetail from '../components/SymptomDetail.jsx';
 
 const GLASS = 250, GOAL = 3000;
@@ -26,6 +28,7 @@ export default function Nutrition() {
   const { items: symMem, refresh: rSym } = useCollection('memory', { filter: 'key=eq.symptoms_log', order: 'key' });
   const { items: suppMem, refresh: rSupp } = useCollection('memory', { filter: 'key=eq.supps_log', order: 'key' });
   const { items: courseMem, refresh: rCourse } = useCollection('memory', { filter: 'key=eq.med_courses', order: 'key' });
+  const { items: profMem, refresh: rProf } = useCollection('memory', { filter: 'key=eq.body_profile', order: 'key' });
   // health_metrics is what an episode gets lined up against.
   //
   // useCollection starts at [] and STAYS [] when the read fails, so passing
@@ -44,6 +47,7 @@ export default function Nutrition() {
   const symLog = symMem?.[0]?.value || { list: [] };
   const suppLog = suppMem?.[0]?.value || {};
   const courses = courseMem?.[0]?.value?.list || [];
+  const profile = profMem?.[0]?.value || {};
 
   const ml = Number(waterLog[today] || 0);
   const meals = Array.isArray(mealLog[today]) ? mealLog[today] : [];
@@ -54,6 +58,12 @@ export default function Nutrition() {
 
   const [busy, setBusy] = useState(false);
   const [meal, setMeal] = useState(blankMeal());
+  // The item as the database gave it, kept WHOLE so the portion can be changed
+  // without re-fetching and without compounding roundings. Typing over a macro
+  // by hand clears it — at that point the row is his numbers, not the
+  // database's, and silently rescaling them later would be wrong.
+  const [picked, setPicked] = useState(null);
+  const [portion, setPortion] = useState('');
   const [scanning, setScanning] = useState(false);
   const [searching, setSearching] = useState(false);
 
@@ -80,8 +90,23 @@ export default function Nutrition() {
   }
   const setWater = next => save('water_log', { ...waterLog, [today]: Math.max(0, Math.min(GOAL + GLASS, next)) }, rW);
 
-  function applyItem(it) {
+  function fillFrom(it) {
     setMeal({ name: it.name, kcal: String(it.kcal || ''), protein: String(it.protein || ''), carbs: String(it.carbs || ''), fat: String(it.fat || ''), fiber: String(it.micros?.fiber || ''), micros: it.micros || {} });
+  }
+  function applyItem(it) {
+    setPicked(it);
+    // One serving, or 100g — whatever basis the row actually came on. The old
+    // behaviour logged the database row as-is, so 100g of peanut butter and the
+    // spoonful he ate were the same entry.
+    const start = it.per === '100g' ? 100 : 1;
+    setPortion(String(start));
+    fillFrom(scale(it, start) || it);
+  }
+  function reportion(v) {
+    setPortion(v);
+    if (!picked) return;
+    const s = scale(picked, v);
+    if (s) fillFrom(s);
   }
   async function onBarcode(code) {
     setScanning(false); setBusy(true);
@@ -95,10 +120,16 @@ export default function Nutrition() {
     if (meal.fiber !== '') micros.fiber = num(meal.fiber);
     const row = { id: uid(), name: meal.name.trim() || 'Meal', kcal: num(meal.kcal), protein: num(meal.protein), carbs: num(meal.carbs), fat: num(meal.fat), micros, ts: new Date().toISOString() };
     await save('meals_log', { ...mealLog, [today]: [...meals, row] }, rM);
-    setMeal(blankMeal());
+    setMeal(blankMeal()); setPicked(null); setPortion('');
   }
   const delMeal = id => save('meals_log', { ...mealLog, [today]: meals.filter(m => m.id !== id) }, rM);
-  const setM = (k, v) => setMeal(f => ({ ...f, [k]: v }));
+  // Typing over a macro by hand ends the link to the database row: from that
+  // point the numbers are his, and rescaling them when the portion changes
+  // would silently overwrite a correction.
+  const setM = (k, v) => {
+    if (k !== 'name' && picked) { setPicked(null); setPortion(''); }
+    setMeal(f => ({ ...f, [k]: v }));
+  };
 
   // ---- medicine ----
   const [medForm, setMedForm] = useState({ name: '', salt: '', dose: '', time: nowHM() });
@@ -195,6 +226,8 @@ export default function Nutrition() {
           <div className="small muted mt">{logged
             ? [meals.length && `${meals.length} meal${meals.length > 1 ? 's' : ''}`, supps.length && `${supps.length} supplement${supps.length > 1 ? 's' : ''}`].filter(Boolean).join(' + ') + ' logged today.'
             : 'Scan a barcode, log a meal, or tap a supplement to fill these.'}</div>
+          <IntakeTargets totals={dayTotals(meals, supps)} profile={profile}
+            onSave={p => save('body_profile', p, rProf)} busy={busy} />
         </Card>
       </div>
 
@@ -214,6 +247,20 @@ export default function Nutrition() {
             <input type="number" inputMode="decimal" placeholder="fiber" value={meal.fiber} onChange={e => setM('fiber', e.target.value)} />
             <button className="btn btn-sm btn-green" onClick={addMeal} disabled={busy}>+ Add</button>
           </div>
+          {/* The portion row only appears for a row that came from the food
+              database, because only that row has a basis to scale FROM. A
+              hand-typed meal is already the amount he ate. */}
+          {picked && (
+            <div className="row portion-row">
+              <span className="small" style={{ color: 'var(--ink-2)' }}>Portion</span>
+              <input type="number" inputMode="decimal" min="0" step="any" style={{ width: 84 }}
+                value={portion} onChange={e => reportion(e.target.value)} />
+              <span className="chip">{unitFor(picked.per)}</span>
+              <span className="small" style={{ color: 'var(--ink-3)', flex: 1 }}>
+                database row is per {picked.per}{picked.serving ? ` (${picked.serving})` : ''}
+              </span>
+            </div>
+          )}
           {Object.keys(meal.micros || {}).some(k => meal.micros[k]) && <div className="small muted mt">✦ micros captured from the food database — they roll into the panel below.</div>}
         </div>
 
