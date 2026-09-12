@@ -65,6 +65,91 @@ is(describeAction(good.actions[0]), 'Add task “Email Krati mam” — due 2026
 is(parseActions('Just an answer.').actions.length, 0, 'a plain answer proposes nothing');
 
 // ------------------------------------------------------------ the boundary
+// =========================================================================
+// THE SYSTEM-WIDE SWEEP
+//
+// Neel tested add_todo, it failed, and the honest question was "what else is
+// broken that I have not tried yet?" A per-verb test answers that once and
+// keeps answering it.
+//
+// Every verb gets ONE realistic proposal — phrased the way the free-tier model
+// actually phrases things, aliases and relative dates included — and must come
+// out the other side as a usable action. A verb that exists in ACTIONS but has
+// no entry here fails the test, so adding an action without proving it can be
+// proposed is not possible.
+{
+  const MON = new Date('2026-09-14T09:00:00');
+  const SWEEP = {
+    add_todo:        { do: 'add_todo', task: 'Call the bank', due: 'tomorrow', at: '5pm' },
+    reschedule_todo: { do: 'reschedule_todo', title: 'Call the bank', date: 'friday' },
+    complete_todo:   { do: 'complete_todo', task: 'Call the bank' },
+    delete_todo:     { do: 'delete_todo', title: 'Call the bank' },
+    log_habit:       { do: 'log_habit', habit: 'Read' },
+    unlog_habit:     { do: 'unlog_habit', habit: 'Read' },
+    fbl_done:        { do: 'fbl_done' },
+    remember:        { do: 'remember', title: 'Vault round trip', note: 'It works.', tag: 'vault, test' },
+    queue_build:     { do: 'queue_build', title: 'Wealth tab', why: 'One view of net worth.', plan: 'M: read the holdings\nS: draw it' },
+    add_event:       { do: 'add_event', title: 'Dentist', day: 'tomorrow', at: '5pm' },
+    cancel_event:    { do: 'cancel_event', title: 'Dentist', date: 'tomorrow' },
+  };
+
+  for (const verb of ACTION_NAMES) {
+    ok(SWEEP[verb], `${verb} is covered by the sweep — a verb nobody proves can be proposed is a verb that quietly does not work`);
+    if (!SWEEP[verb]) continue;
+    const r = parseActions(block(SWEEP[verb]), { today: MON });
+    is(r.actions.length, 1, `${verb} survives a realistically-phrased proposal`);
+    is(r.actions[0]?.do, verb, `${verb} comes out as itself`);
+    ok(describeAction(r.actions[0]).length > 0, `${verb} has something to show on the confirmation card`);
+  }
+
+  // The two that carry a time, checked in full, because these are the ones the
+  // model gets wrong and they are the ones where being wrong is expensive.
+  const t = parseActions(block(SWEEP.add_todo), { today: MON }).actions[0];
+  is(t.title, 'Call the bank', 'the sweep task keeps its title through an alias');
+  is(t.due, '2026-09-15', 'its relative date became a real one');
+  is(t.time, '17:00', 'and its 12-hour time became 24-hour');
+
+  const e = parseActions(block(SWEEP.add_event), { today: MON }).actions[0];
+  is(e.date, '2026-09-15', 'the event landed on a real date');
+  is(e.time, '17:00', 'at a real time');
+}
+
+// =========================================================================
+// MEETING THE FREE-TIER MODEL HALFWAY
+//
+// The 'home' agent routes to a 30B model. It follows this format well enough to
+// be useful and badly enough to be maddening: "tomorrow" for a date, "5pm" for
+// a time, "task" for "title". Every one of those used to produce a sentence and
+// no card. None of this widens what the model may ASK for — the verb allowlist,
+// the field list and the confirmation click are untouched. It is the difference
+// between reading what it wrote and refusing to.
+{
+  const MON = new Date('2026-09-14T09:00:00');   // a Monday
+  const p = (obj, today = MON) => parseActions(block(obj), { today });
+
+  is(p({ do: 'add_todo', title: 'Call the bank', due: 'tomorrow' }).actions[0].due, '2026-09-15',
+     'THE BUG HE HIT: "tomorrow" is a date, and the task now gets added with it');
+  is(p({ do: 'add_todo', title: 'x', due: 'today' }).actions[0].due, '2026-09-14', '"today" too');
+  is(p({ do: 'add_todo', title: 'x', due: 'tonight' }).actions[0].due, '2026-09-14', 'and "tonight" is today, not a time');
+  is(p({ do: 'add_todo', title: 'x', due: 'friday' }).actions[0].due, '2026-09-18', 'a weekday is the NEXT one');
+  is(p({ do: 'add_todo', title: 'x', due: 'next friday' }).actions[0].due, '2026-09-18', 'with or without "next"');
+  is(p({ do: 'add_todo', title: 'x', due: 'monday' }).actions[0].due, '2026-09-21',
+     'and "monday" ON a Monday means the one coming, not today — "do it monday" is never about the day you are standing in');
+
+  is(p({ do: 'add_todo', title: 'x', due: 'next week' }).actions[0].due, undefined,
+     '"next week" names no day, so it is dropped rather than guessed');
+  is(p({ do: 'add_todo', title: 'x', due: '02/09' }).actions[0].due, undefined,
+     'and a date with no year could be either order — refused, not picked');
+
+  // Field names it reaches for when it has not read the spec closely.
+  is(p({ do: 'add_todo', task: 'Email Krati mam' }).actions[0].title, 'Email Krati mam', '"task" is read as "title"');
+  is(p({ do: 'add_todo', title: 'x', date: '2026-09-20' }).actions[0].due, '2026-09-20', '"date" as "due"');
+  is(p({ do: 'add_todo', title: 'x', at: '17:00' }).actions[0].time, '17:00', 'and "at" as "time"');
+  is(p({ do: 'log_habit', habit: 'Read' }).actions[0].name, 'Read', '"habit" as "name"');
+  is(Object.keys(p({ do: 'add_todo', task: 'x', evil: 1 }).actions[0]).join(','), 'do,title',
+     'and an alias still only lands on a field the spec already allows — nothing invented survives');
+}
+
 // Everything below is a thing a confused or steered model might emit.
 is(parseActions(block({ do: 'delete_all', table: 'todos' })).actions.length, 0, 'an unknown verb is refused');
 is(parseActions(block({ do: 'add_todo', title: 'x', table: 'memory', id: 9, completed: true })).actions[0].table, undefined,
@@ -73,7 +158,15 @@ is(Object.keys(parseActions(block({ do: 'add_todo', title: 'x', evil: 1 })).acti
   'and only spec fields survive');
 is(parseActions(block({ do: 'add_todo' })).actions.length, 0, 'a missing required field is refused');
 ok(/needs title/.test(parseActions(block({ do: 'add_todo' })).rejected[0]), 'and says why — a silent drop looks like being ignored');
-is(parseActions(block({ do: 'add_todo', title: 'x', due: 'next tuesday' })).actions.length, 0, 'a vague date is refused, not guessed');
+// A date the model wrote badly must never BECOME a date. But it must not take
+// the task down with it either — that was the live bug: `due` is optional, so
+// "add a task to call the bank tomorrow" produced no card and no reason.
+{
+  const vague = parseActions(block({ do: 'add_todo', title: 'x', due: 'sometime next quarter' }));
+  is(vague.actions.length, 1, 'an unreadable OPTIONAL date no longer destroys the task — most of what was asked for still happens');
+  is(vague.actions[0].due, undefined, 'but it never becomes a date');
+  ok(vague.actions[0].dropped.includes('due'), 'and the action says which field it had to drop, so the card can say so too');
+}
 is(parseActions('```action\nnot json\n```').actions.length, 0, 'an unreadable block is refused');
 is(parseActions(block([{ do: 'add_todo', title: 'a' }, { do: 'add_todo', title: 'b' }, { do: 'add_todo', title: 'c' }])).actions.length, 2,
   'at most two proposals — a real one must not be buried under a pile');
@@ -122,12 +215,23 @@ ok(!resolveHabit('Read', habits).ok, 'an archived habit is not loggable');
 
   // 24-hour only. "5pm" would mean guessing at "5", and a task placed twelve
   // hours from where it was meant is worse than one with no time at all.
-  for (const bad of ['5pm', '5:00 PM', '25:00', '17:60', '7:5', 1700]) {
-    const r = parseActions(block({ do: 'add_todo', title: 'X', time: bad }));
-    is(r.actions.length, 0, `“${bad}” is refused rather than guessed at`);
+  // THE LINE BETWEEN READING AND GUESSING.
+  //
+  // "5pm" has exactly one meaning and the free-tier model writes it constantly,
+  // so refusing it was costing real actions for nothing. A bare "5" does NOT
+  // have one meaning, and guessing puts a task twelve hours from where it was
+  // meant — worse than placing it nowhere. So one is read and the other is not.
+  for (const [written, meant] of [['5pm', '17:00'], ['5:00 PM', '17:00'], ['9am', '09:00'],
+                                  ['12am', '00:00'], ['12pm', '12:00'], ['17.00', '17:00'],
+                                  ['noon', '12:00'], ['midnight', '00:00']]) {
+    const r = parseActions(block({ do: 'add_todo', title: 'X', time: written }));
+    is(r.actions[0]?.time, meant, `“${written}” is read as ${meant}`);
   }
-  ok(/17:00/.test(parseActions(block({ do: 'add_todo', title: 'X', time: '5pm' })).rejected.join(' ')),
-     'and the rejection says what a time should look like');
+  for (const bad of ['25:00', '17:60', '7:5', 1700, '5', 'evening', 'later']) {
+    const r = parseActions(block({ do: 'add_todo', title: 'X', time: bad }));
+    is(r.actions.length, 1, `“${bad}” does not lose the task`);
+    is(r.actions[0].time, undefined, `but “${bad}” never becomes a time — that half of the clock is a guess`);
+  }
 
   is(parseActions(block({ do: 'add_todo', title: 'X' })).actions[0].time, undefined,
      'no time stays no time — never defaulted to midnight');
@@ -285,8 +389,10 @@ for (const verb of ['delete_habit', 'delete_subject', 'drop_table', 'buy', 'sell
   is(parseActions(block({ do: 'add_event', title: 'X', date: '2026-09-12' })).actions.length, 0,
      'an event with no time is refused — a meeting at midnight is not what he meant');
   is(parseActions(block({ do: 'add_event', title: 'X', time: '17:00' })).actions.length, 0, 'nor one with no date');
-  is(parseActions(block({ do: 'add_event', title: 'X', date: '2026-09-12', time: '5pm' })).actions.length, 0,
-     'and "5pm" is still refused rather than guessed at');
+  is(parseActions(block({ do: 'add_event', title: 'X', date: '2026-09-12', time: '5pm' })).actions[0].time, '17:00',
+     'and "5pm" is read here too — an event is the place a time matters most');
+  is(parseActions(block({ do: 'add_event', title: 'X', date: '2026-09-12', time: '5' })).actions.length, 0,
+     'while a bare "5" still refuses the whole event — time is REQUIRED here, so there is no partial event to fall back to');
 
   // Cancelling is destructive in a way deleting a todo is not: it reaches other
   // people's calendars, and there is no undo.

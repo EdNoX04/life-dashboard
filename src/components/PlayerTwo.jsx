@@ -183,9 +183,21 @@ export default function PlayerTwo({ tab }) {
       // The JSON block is machinery, not conversation: it is stripped before the
       // reply is shown or stored, so the thread never contains a confirmation
       // card's raw source.
-      const { prose, actions } = parseActions(reply || '');
+      const { prose, actions, rejected } = parseActions(reply || '');
       setMsgs(m => [...m, { role: 'assistant', content: prose || reply || '(no reply)' }]);
       setPending(actions);
+      // A MODEL THAT TRIED AND FAILED MUST NOT LOOK LIKE ONE THAT DID NOT TRY.
+      //
+      // `rejected` was computed and thrown away. So when the free-tier model
+      // proposed something this file could not read, Neel got a sentence, no
+      // card, and no reason — indistinguishable from the assistant deciding not
+      // to act. That is most of why "it's not able to perform".
+      //
+      // Only shown when NOTHING survived: an action that went through plus one
+      // that did not is a card and a footnote, and the card is the point.
+      setActionNote(!actions.length && rejected.length
+        ? `It tried to act and I could not read it — ${rejected[0]}. Say it again with the date or time spelled out.`
+        : '');
       // Cleared only once the finished message is in the log, or the text would
       // blink out and back in.
       setStreaming('');
@@ -413,6 +425,15 @@ export default function PlayerTwo({ tab }) {
                         Asking him to approve "queue a build?" is asking him to
                         approve something he cannot see — and the point of the
                         intake is that he corrects the plan BEFORE it is a file. */}
+                    {/* A field the model wrote unreadably was dropped rather
+                        than taking the action down with it — so the card has to
+                        say which, or he confirms "add task" and quietly loses
+                        the time he asked for. */}
+                    {a.dropped?.length > 0 && (
+                      <span style={{ display: 'block', marginTop: 4, color: 'var(--yellow)' }}>
+                        without the {a.dropped.join(' or ')} — it wrote something I could not read as one
+                      </span>
+                    )}
                     {a.do === 'queue_build' && (
                       <span style={{ display: 'block', marginTop: 6, color: 'var(--ink-2)' }}>
                         {a.why && <span style={{ display: 'block', marginBottom: 4 }}>{a.why}</span>}

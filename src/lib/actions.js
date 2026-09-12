@@ -174,9 +174,114 @@ const FENCE = /```action\s*([\s\S]*?)```/g;
 
 const cleanText = v => (typeof v === 'string' ? v.trim().slice(0, MAX_TEXT) : '');
 const isDate = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
-// 24-hour only. Accepting "5pm" would mean guessing at "5" — and a task placed
-// twelve hours from where it was meant is worse than one with no time at all.
 const isTime = v => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+
+// ------------------------------------------------------- meeting the model halfway
+//
+// The 'home' agent routes to the free tier — currently a 30B model. It follows
+// the format well enough to be useful and badly enough to be maddening: asked
+// to add a task for tomorrow it writes `"due":"tomorrow"`, and asked for five
+// in the evening it writes `"time":"5pm"`.
+//
+// The old code rejected both, and rejected the WHOLE action with them. So "add
+// a task to call the bank tomorrow" produced a sentence and nothing else, with
+// no card and no explanation — which is exactly what Neel hit.
+//
+// These coercions are PARSING leniency, not authority leniency. Nothing below
+// widens what the model may ask for: the verb allowlist, the field list, the
+// destructive-action confirmation and the click that actually performs it are
+// all untouched. It is only the difference between reading "tomorrow" and
+// refusing to.
+//
+// Anything genuinely ambiguous is still refused. "next week" has no obvious day
+// and "5" has no obvious half of the clock, so neither is guessed — guessing
+// puts a task twelve hours or five days from where it was meant, which is worse
+// than not placing it at all.
+
+const z2 = n => String(n).padStart(2, '0');
+const isoOf = d => `${d.getFullYear()}-${z2(d.getMonth() + 1)}-${z2(d.getDate())}`;
+
+const DAY_WORDS = { today: 0, tonight: 0, tomorrow: 1, tmrw: 1, overmorrow: 2 };
+const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+/** A date the model wrote, as an ISO date — or null when it is a real guess. */
+export function coerceDate(value, today = new Date()) {
+  if (isDate(value)) return value;
+  const v = String(value ?? '').trim().toLowerCase();
+  if (!v) return null;
+
+  if (Object.prototype.hasOwnProperty.call(DAY_WORDS, v)) {
+    const d = new Date(today); d.setDate(d.getDate() + DAY_WORDS[v]); return isoOf(d);
+  }
+  // "next friday" / "friday" — the NEXT one strictly ahead, never today itself.
+  // "this friday" is the same day by any reading, so both words land here.
+  const wd = /^(?:next |this |on )?([a-z]+)$/.exec(v)?.[1];
+  const idx = WEEKDAYS.indexOf(wd);
+  if (idx >= 0) {
+    const d = new Date(today);
+    let add = (idx - d.getDay() + 7) % 7;
+    if (add === 0) add = 7;
+    d.setDate(d.getDate() + add);
+    return isoOf(d);
+  }
+  // A full date in another order, e.g. "02/09/2026" or "2 Sep 2026". Parsed only
+  // when it is unambiguous to Date itself AND names a year — "02/09" could be
+  // either order and is refused rather than picked.
+  if (/\d{4}/.test(v)) {
+    const t = Date.parse(v);
+    if (Number.isFinite(t)) return isoOf(new Date(t));
+  }
+  return null;
+}
+
+/** A clock time the model wrote, as HH:MM — or null when the half of the day is a guess. */
+export function coerceTime(value) {
+  if (isTime(value)) return value;
+  const v = String(value ?? '').trim().toLowerCase().replace(/\s+/g, '');
+  if (!v) return null;
+  // 5pm · 5:30pm · 05.30 · 17.00 — but never a bare "5", which is the guess
+  // that puts a task twelve hours out.
+  const m = /^(\d{1,2})(?:[:.](\d{2}))?(am|pm)$/.exec(v);
+  if (m) {
+    let h = Number(m[1]);
+    if (h < 1 || h > 12) return null;
+    if (m[3] === 'pm' && h !== 12) h += 12;
+    if (m[3] === 'am' && h === 12) h = 0;
+    return `${z2(h)}:${m[2] || '00'}`;
+  }
+  const dot = /^([01]?\d|2[0-3])[.:]([0-5]\d)$/.exec(v);
+  if (dot) return `${z2(Number(dot[1]))}:${dot[2]}`;
+  // "noon" and "midnight" are the two English words with exactly one meaning.
+  if (v === 'noon' || v === 'midday') return '12:00';
+  if (v === 'midnight') return '00:00';
+  return null;
+}
+
+// Field names a model reaches for when it has not read the spec carefully.
+// Aliasing is safe in a way that inventing a value is not: the alias still has
+// to land on a field this file already allows, and the value still has to pass
+// that field's own validation.
+const ALIASES = {
+  title: ['task', 'name', 'summary', 'text', 'todo', 'item'],
+  due: ['date', 'due_date', 'dueDate', 'when', 'day'],
+  time: ['at', 'due_time', 'dueTime', 'start', 'start_time'],
+  name: ['habit', 'title', 'habit_name'],
+  body: ['note', 'content', 'text'],
+  folder: ['category', 'dir'],
+  tags: ['tag', 'labels'],
+  steps: ['plan', 'tasks'],
+  why: ['reason', 'rationale', 'goal'],
+  date: ['due', 'day', 'on'],
+  end: ['end_time', 'endTime', 'until'],
+};
+
+function fieldValue(item, field) {
+  if (item[field] !== undefined) return item[field];
+  for (const alt of ALIASES[field] || []) {
+    if (item[alt] !== undefined) return item[alt];
+  }
+  return undefined;
+}
 
 /** Prose with the machinery removed. Neel should never see a JSON block. */
 export function stripActions(text) {
@@ -212,7 +317,7 @@ export function stripActionsLive(text) {
  * block, because an action silently dropped is indistinguishable from a model
  * that ignored the request.
  */
-export function parseActions(text) {
+export function parseActions(text, { today = new Date() } = {}) {
   const raw = String(text || '');
   const actions = [];
   const rejected = [];
@@ -224,14 +329,14 @@ export function parseActions(text) {
     const list = Array.isArray(obj) ? obj : [obj];
     for (const item of list) {
       if (actions.length >= MAX_ACTIONS) { rejected.push('too many actions proposed'); break; }
-      const built = build(item);
+      const built = build(item, today);
       if (built.ok) actions.push(built.action); else rejected.push(built.reason);
     }
   }
   return { prose: stripActions(raw), actions, rejected };
 }
 
-function build(item) {
+function build(item, today = new Date()) {
   if (!item || typeof item !== 'object' || Array.isArray(item)) return { ok: false, reason: 'not an action object' };
   const verb = typeof item.do === 'string' ? item.do : '';
   const spec = Object.prototype.hasOwnProperty.call(ACTIONS, verb) ? ACTIONS[verb] : null;
@@ -240,17 +345,24 @@ function build(item) {
   // Built field by field from the spec, never by copying the model's object.
   // Anything it invented — a table, an id, an extra column — is simply not read.
   const action = { do: verb };
+  // Fields this action WOULD have had, dropped because the model wrote
+  // something unreadable in them. Reported so the card can say "added, but
+  // without the time — it wrote '5' and that could be either half of the day".
+  const dropped = [];
   for (const [field, kind] of Object.entries(spec.fields)) {
     const optional = kind.endsWith('?');
     const type = optional ? kind.slice(0, -1) : kind;
-    const value = item[field];
+    const value = fieldValue(item, field);
     if (value === undefined || value === null || value === '') {
       if (!optional) return { ok: false, reason: `${verb} needs ${field}` };
       continue;
     }
     if (type === 'text') {
       const t = cleanText(value);
-      if (!t) return { ok: false, reason: `${verb} needs ${field}` };
+      if (!t) {
+        if (optional) { dropped.push(field); continue; }
+        return { ok: false, reason: `${verb} needs ${field}` };
+      }
       action[field] = t;
     } else if (type === 'list') {
       // Tags. Taken as an array or a comma string, because a model asked for
@@ -278,13 +390,32 @@ function build(item) {
       if (!t) return { ok: false, reason: `${verb} needs ${field}` };
       action[field] = t;
     } else if (type === 'date') {
-      if (!isDate(value)) return { ok: false, reason: `${field} must look like 2026-09-02` };
-      action[field] = value;
+      const d = coerceDate(value, today);
+      // A BAD OPTIONAL FIELD MUST NOT DESTROY THE ACTION.
+      //
+      // This was the bug. `due` is optional on add_todo, so "add a task to call
+      // the bank tomorrow" — where the model wrote `"due":"tomorrow"` — failed
+      // the date test and took the whole add_todo down with it. Neel got a
+      // sentence, no card, and no reason.
+      //
+      // A task added without its date is most of what was wanted. A task not
+      // added at all is none of it. So an unreadable optional field is dropped
+      // and NAMED; only a required one can still refuse the action.
+      if (!d) {
+        if (optional) { dropped.push(field); continue; }
+        return { ok: false, reason: `${field} must look like 2026-09-02` };
+      }
+      action[field] = d;
     } else if (type === 'time') {
-      if (!isTime(value)) return { ok: false, reason: `${field} must look like 17:00` };
-      action[field] = value;
+      const t = coerceTime(value);
+      if (!t) {
+        if (optional) { dropped.push(field); continue; }
+        return { ok: false, reason: `${field} must look like 17:00` };
+      }
+      action[field] = t;
     }
   }
+  if (dropped.length) action.dropped = dropped;
   return { ok: true, action };
 }
 
