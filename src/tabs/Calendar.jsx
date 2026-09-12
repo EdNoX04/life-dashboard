@@ -17,7 +17,12 @@ export default function Calendar() {
   const { items: mem, refresh: rMem } = useCollection('memory', { filter: 'key=eq.calendar_events', order: 'key' });
   const { items: timetable } = useCollection('timetable', { order: 'start_time', asc: true });
   const { items: rawTodos } = useCollection('todos');
-  const { items: meetings } = useCollection('meetings');
+  // Meetings are a blob under memory.meetings, not a table — the same read
+  // NextMeeting and the Meetings tab do. Querying a `meetings` table returns
+  // nothing and fails silently, which would have looked exactly like "no
+  // meetings this month".
+  const { items: meetMem } = useCollection('memory', { filter: 'key=eq.meetings', order: 'key' });
+  const meetings = meetMem?.[0]?.value?.list || [];
   // Normalised through the same model the Todos tab uses, so a task cannot mean
   // one thing on one screen and another here.
   const todos = useMemo(() => (rawTodos || []).map(normaliseTask), [rawTodos]);
@@ -37,7 +42,7 @@ export default function Calendar() {
   // meeting survives rather than the event because it is the copy that carries
   // the join link.
   const timed = useMemo(
-    () => foldAgenda([...fromCalendar(gEvents), ...fromMeetings(meetings || [])]),
+    () => foldAgenda([...fromCalendar(gEvents), ...fromMeetings(meetings)]),
     [gEvents, meetings],
   );
 
@@ -214,7 +219,7 @@ export default function Calendar() {
               // on the same rules, with its own tests.
               const day = agendaFor(selected, {
                 classes: { iso: selected, rows: timetable.filter(t => t.day === DOW[selDate.getDay()]) },
-                events: gEvents, meetings: meetings || [], todos,
+                events: gEvents, meetings, todos,
               });
               if (!d.blocks.length && !d.unscheduled.length && !day.conflicts.length) return null;
               return (

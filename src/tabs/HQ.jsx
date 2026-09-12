@@ -7,6 +7,7 @@ import LiveStatus from '../components/LiveStatus.jsx';
 import RetroClock from '../components/RetroClock.jsx';
 import MiniCalendar from '../components/MiniCalendar.jsx';
 import NextMeeting from '../components/NextMeeting.jsx';
+import UpNext from '../components/UpNext.jsx';
 import MailStrip from '../components/MailStrip.jsx';
 import { useLiveQuotes } from '../lib/live.js';
 import { portfolioTotals } from '../lib/holdings.js';
@@ -61,6 +62,11 @@ export default function HQ({ go }) {
   const { items: news } = useCollection('news', { order: 'published_at' });
   const { items: subjects } = useCollection('subjects');
   const { items: calMem } = useCollection('memory', { filter: 'key=eq.calendar_events', order: 'key' });
+  // One extra single-row read, for the same reason the notification loop lives
+  // in this file: UpNext needs classes, events, meetings and tasks together, and
+  // HQ is the only place already holding three of the four. NextMeeting keeps
+  // its own read because it WRITES and needs its own refresh.
+  const { items: meetMem } = useCollection('memory', { filter: 'key=eq.meetings', order: 'key' });
   // The diary. The `timetable` table is a WEEKLY pattern and is deliberately
   // lossy — it keeps only slots seen on two or more dates, which is what stops
   // makeups being welded into the grid, and is also why it structurally cannot
@@ -393,6 +399,8 @@ export default function HQ({ go }) {
         </div>
         <LiveStatus className="hero-live" />
       </div>
+      <UpNext dayView={dayView} events={gEvents} meetings={meetMem?.[0]?.value?.list || []}
+        todos={todos} now={now.getTime()} />
       <Ticker />
 
       <div className="tile-row">

@@ -6359,6 +6359,37 @@ th:hover .hold-info { color: var(--cyan); }
 .cal-load i { font-style: normal; }
 .cal-clash { font-weight: 400; color: var(--orange); }
 
+/* ---- UpNext — the one line under the hero ----------------------------------
+   A strip, not a card. It sits between the hero and the ticker and says one
+   thing, so it has to read in a glance and then get out of the way: a left
+   border in the source's colour, everything on one row, and the countdown
+   pushed to the right where the eye lands last. It wraps rather than truncating
+   on a phone, because the room number is the half you would have cut. */
+.upnext {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  margin: 10px 0 0; padding: 8px 12px;
+  background: var(--panel); border: 1px solid var(--line);
+  border-left: 3px solid var(--ink-3); border-radius: 6px;
+}
+.upnext-title { font-size: 15px; letter-spacing: .2px; }
+.upnext-where { color: var(--ink-2); font-size: 13px; }
+.upnext-moved {
+  color: var(--yellow); font-size: 12px; text-transform: uppercase; letter-spacing: .5px;
+}
+.upnext-when {
+  margin-left: auto; font-size: 13px; color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+/* Live is the one state worth a colour of its own — "now" and "in 40m" must not
+   look alike at arm's length. */
+.upnext-when.live { color: var(--green); font-weight: 700; text-transform: uppercase; }
+.upnext-clash {
+  flex-basis: 100%; color: var(--orange); font-size: 12.5px;
+}
+@media (max-width: 520px) {
+  .upnext-when { margin-left: 0; }
+}
+
 /* ---- LoginGate ---- */
 .login-wrap {
   min-height: 100dvh;
