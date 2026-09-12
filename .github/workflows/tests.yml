@@ -1,0 +1,30 @@
+name: Tests
+
+# Every push, because the alternative was 91 test files and nothing running
+# them — under which five of them had been failing to start for weeks and the
+# repo looked, to anyone glancing at it, thoroughly tested.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      # bun is installed here even though most files do not need it, so the ten
+      # that DO are actually run in CI. Skipping them on the one machine that
+      # runs on every push would recreate the exact hole this job closes.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: npm ci --ignore-scripts || npm install --ignore-scripts
+      - run: node tests/run.mjs
