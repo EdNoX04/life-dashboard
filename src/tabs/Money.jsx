@@ -61,6 +61,7 @@ import { aiNewsSummary, memGet, memSet } from '../lib/advisor.js';
 import { pickProvider } from '../lib/ai.js';
 import * as db from '../lib/db.js';
 import Crypto from '../components/money/Crypto.jsx';
+import Wealth from '../components/money/Wealth.jsx';
 import { MONEY_SECTIONS } from '../lib/moneynav.js';
 import { portfolioTotals } from '../lib/holdings.js';
 import { fetchUsdInr } from '../lib/markets.js';
@@ -670,6 +671,22 @@ export default function Money() {
           of the tab is displaying, and converting it to dollars to match would
           be inventing a number nobody transacted in. */}
       {view === 'crypto' && <Crypto />}
+      {/* The book total is PASSED IN rather than recomputed, so the wealth view
+          cannot disagree with the Portfolio view about what the book is worth —
+          and `excludedInr` travels with it, because a book total that quietly
+          dropped a rupee holding is exactly the kind of number this view exists
+          not to add things to. */}
+      {view === 'wealth' && (
+        <Wealth
+          book={{
+            base: 'USD', value,
+            note: excludedInr
+              ? `${excludedInr} rupee holding(s) were left out of the book total for want of an exchange rate`
+              : null,
+          }}
+          fx={fx}
+        />
+      )}
 
       {view === 'book' && (
         <Book held={scopedHeld} priceOf={priceOf} quotes={quotes} visible={visible}

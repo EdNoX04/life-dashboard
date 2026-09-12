@@ -36,6 +36,10 @@ export const MONEY_SECTIONS = [
       // before seeing your own +6.6% is the difference between a number and a
       // number that means something.
       { id: 'overview', label: 'Overview' },
+      // First after Overview because it is the only view that answers "what am
+      // I worth" rather than "how is the book doing". Everything else on this
+      // tab is the brokerage account; this is the balance sheet around it.
+      { id: 'wealth', label: '◆ Wealth' },
       { id: 'portfolio', label: 'Portfolio' },
       { id: 'brief', label: '◆ Briefing' },
       { id: 'book', label: 'Book' },

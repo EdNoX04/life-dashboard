@@ -6359,6 +6359,37 @@ th:hover .hold-info { color: var(--cyan); }
 .cal-load i { font-style: normal; }
 .cal-clash { font-weight: 400; color: var(--orange); }
 
+/* ---- Wealth ---------------------------------------------------------------
+   A balance sheet reads top-down, so this is rows rather than a pie: a label,
+   a bar, the percentage, the money. No colour changes by value anywhere — the
+   only coloured thing is the sleeve's own colour, and the one orange line is
+   reserved for a debt that could not be valued, because that is the error that
+   flatters you. */
+.wealth-head {
+  font-size: 20px; letter-spacing: .5px; margin-bottom: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.wealth-gap {
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line);
+  font-size: 12px; color: var(--ink-3); line-height: 1.5;
+}
+.wealth-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 12px; }
+.wealth-bar-label { flex: 0 0 104px; color: var(--ink-2); }
+.wealth-bar-track { flex: 1; height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.wealth-bar-fill { display: block; height: 100%; border-radius: 4px; }
+.wealth-bar-pct { flex: 0 0 48px; text-align: right; font-variant-numeric: tabular-nums; }
+.wealth-bar-val { flex: 0 0 92px; text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.wealth-form { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.wealth-form input:nth-of-type(1) { flex: 2 1 200px; }
+.wealth-target {
+  margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 4px;
+}
+@media (max-width: 560px) {
+  .wealth-bar-label { flex-basis: 80px; }
+  .wealth-bar-val { display: none; }
+}
+
 /* ---- Spotify --------------------------------------------------------------
    Sits inside the Music tab's own card, so it borrows the surrounding type and
    only defines what is specific to it: the now-playing strip, artwork, and the
