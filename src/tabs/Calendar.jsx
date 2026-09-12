@@ -4,6 +4,7 @@ import { Card, RefreshButton } from '../components/ui.jsx';
 import * as db from '../lib/db.js';
 import { buildICS, downloadICS } from '../lib/ics.js';
 import { normaliseTask, fmtTime as fmtT, fmtDuration, isScheduled, layoutDay } from '../lib/todos.js';
+import { foldAgenda, fromCalendar, fromMeetings, dayISO, agendaFor } from '../lib/agenda.js';
 
 const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DOW_S = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -16,6 +17,7 @@ export default function Calendar() {
   const { items: mem, refresh: rMem } = useCollection('memory', { filter: 'key=eq.calendar_events', order: 'key' });
   const { items: timetable } = useCollection('timetable', { order: 'start_time', asc: true });
   const { items: rawTodos } = useCollection('todos');
+  const { items: meetings } = useCollection('meetings');
   // Normalised through the same model the Todos tab uses, so a task cannot mean
   // one thing on one screen and another here.
   const todos = useMemo(() => (rawTodos || []).map(normaliseTask), [rawTodos]);
@@ -28,24 +30,43 @@ export default function Calendar() {
   const gEvents = mem?.[0]?.value?.events || [];
   const lastSync = mem?.[0]?.value?.updated;
 
+  // Meetings booked in PLAYER ONE belong on this grid, and Google hands back an
+  // event for every one of them — so putting both on the page unfolded would
+  // show each meeting twice. agenda.js owns that fold (and its tests own the
+  // rule that two same-named things at different times are two things). The
+  // meeting survives rather than the event because it is the copy that carries
+  // the join link.
+  const timed = useMemo(
+    () => foldAgenda([...fromCalendar(gEvents), ...fromMeetings(meetings || [])]),
+    [gEvents, meetings],
+  );
+
   // merged items (recurring college classes + google events) for one date
   const itemsFor = (key, weekday) => {
     const items = [];
     timetable.filter(t => t.day === weekday).forEach(t => items.push({
       type: 'class', time: t.start_time, endTime: t.end_time, title: t.subject, sub: t.room, sortT: t.start_time || '00:00',
     }));
-    gEvents.forEach(e => {
-      const s = e.start ? new Date(e.start) : null;
-      if (s && dayKey(s) === key) items.push({
-        type: 'gcal', time: e.allDay ? 'All day' : fmtTime(e.start), title: e.summary || '(no title)',
+    timed.forEach(e => {
+      if (e.at == null || dayISO(e.at) !== key) return;
+      const s = new Date(e.at);
+      const label = e.meta.accountLabel || '';
+      items.push({
+        // A meeting keeps its own type: it is the one row here with a join link
+        // and a "creating…" state, and flattening it into a plain event would
+        // throw both away.
+        type: e.source === 'meeting' ? 'meeting' : 'gcal',
+        time: e.allDay ? 'All day' : fmtTime(e.at), title: e.title,
         // Location is the useful subtitle when there is one; when there is not,
         // the account the event came from is the next most useful thing to know
         // — "is this a work thing or a me thing" is the question you ask of an
         // unfamiliar entry, and it is answered here without a click.
-        sub: e.location || (e.accountLabel && e.accountLabel !== 'Personal' ? e.accountLabel : ''),
-        id: e.id,
-        account: e.account || '', accountLabel: e.accountLabel || '',
-        color: e.color || '', meet: e.meet || '', alsoOn: e.alsoOn || [],
+        sub: e.where || (label && label !== 'Personal' ? label : ''),
+        // The raw id, because delEvent talks to Google about the event, not
+        // about our row for it.
+        id: e.id.replace(/^(event|meeting):/, ''),
+        account: e.meta.account || '', accountLabel: label,
+        color: e.color || '', meet: e.url || '', alsoOn: e.meta.alsoOn || [],
         sortT: e.allDay ? '00:00' : `${z(s.getHours())}:${z(s.getMinutes())}`,
       });
     });
@@ -94,7 +115,7 @@ export default function Calendar() {
       out.push(row);
     }
     return out;
-  }, [cursor, gEvents, timetable]); // eslint-disable-line
+  }, [cursor, timed, timetable]); // eslint-disable-line
 
   const selDate = selected ? new Date(selected + 'T00:00:00') : null;
   const selItems = selected ? itemsFor(selected, DOW[selDate.getDay()]) : [];
@@ -186,14 +207,25 @@ export default function Calendar() {
                 exactly where you want to find one. */}
             {(() => {
               const d = layoutDay(todos, selected);
-              if (!d.blocks.length && !d.unscheduled.length) return null;
+              // layoutDay compares tasks against TASKS. That was the whole of
+              // the clash check, so the one double-booking that actually hurts —
+              // a task, a meeting or an event laid over a class — was the one it
+              // could not see. agendaFor compares everything against everything,
+              // on the same rules, with its own tests.
+              const day = agendaFor(selected, {
+                classes: { iso: selected, rows: timetable.filter(t => t.day === DOW[selDate.getDay()]) },
+                events: gEvents, meetings: meetings || [], todos,
+              });
+              if (!d.blocks.length && !d.unscheduled.length && !day.conflicts.length) return null;
               return (
                 <div className="cal-load">
                   {fmtDuration(d.plannedMin) || 'no time'} of tasks booked
                   {d.unplacedMin > 0 && <i> · {fmtDuration(d.unplacedMin)} estimated with no time yet</i>}
-                  {d.clashes.length > 0 && (
-                    <b className="cal-clash" title={d.clashes.map(c => `${c.a.title} × ${c.b.title}`).join('\n')}>
-                      {' '}· ⚠ {d.clashes.length} overlap{d.clashes.length === 1 ? '' : 's'}
+                  {day.conflicts.length > 0 && (
+                    <b className="cal-clash" title={day.conflicts.map(([a, b]) => `${a.title} × ${b.title}`).join('\n')}>
+                      {' '}· ⚠ {day.conflicts.length} clash{day.conflicts.length === 1 ? '' : 'es'}
+                      {' '}({day.conflicts[0][0].title} × {day.conflicts[0][1].title}
+                      {day.conflicts.length > 1 ? ', …' : ''})
                     </b>
                   )}
                 </div>
@@ -223,7 +255,8 @@ export default function Calendar() {
                 >
                   {it.type === 'class' ? 'CLASS'
                     : it.type === 'task' ? (it.done ? 'DONE' : 'TASK')
-                      : (it.accountLabel || 'GCAL').toUpperCase()}
+                      : it.type === 'meeting' ? 'MEETING'
+                        : (it.accountLabel || 'GCAL').toUpperCase()}
                 </span>
                 {it.type === 'gcal' && it.id && <button className="btn btn-sm" onClick={() => delEvent(it.id, it.title)}>✕</button>}
               </div>

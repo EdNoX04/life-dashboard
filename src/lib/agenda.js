@@ -91,7 +91,13 @@ export function fromCalendar(events) {
       endAt: Number.isFinite(end) ? end : null,
       allDay: !!e?.allDay, where: e?.location, url: e?.meet || e?.htmlLink,
       color: e?.color,
-      meta: { gcalId: str(e?.gcalId), account: str(e?.account), response: str(e?.response) },
+      // accountLabel and alsoOn are carried through rather than dropped: the
+      // Calendar tab answers "is this a work thing or a me thing" with them,
+      // and a fold that silently loses them would look like a rendering bug.
+      meta: {
+        gcalId: str(e?.gcalId), account: str(e?.account), response: str(e?.response),
+        accountLabel: str(e?.accountLabel), alsoOn: Array.isArray(e?.alsoOn) ? e.alsoOn : [],
+      },
     });
   }).filter(i => i.at != null || i.allDay);
 }

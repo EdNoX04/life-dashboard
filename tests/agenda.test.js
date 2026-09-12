@@ -52,6 +52,10 @@ const iso = hhmm => new Date(at(hhmm)).toISOString();
 
   eq(fromCalendar([{ id: 'y', summary: 'no start' }]).length, 0, 'an event with no start is dropped, not kept as NaN');
 
+  const tagged = fromCalendar([{ id: 'z', summary: 'Review', start: iso('12:00'), accountLabel: 'Work', alsoOn: ['personal'] }]);
+  eq(tagged[0].meta.accountLabel, 'Work', 'which account an event came from survives the adapter');
+  eq(tagged[0].meta.alsoOn.length, 1, 'as does the cross-account note the calendar fold left on it');
+
   const td = fromTodos([{ id: 't1', title: 'Gym', due_date: DATE, due_time: '18:00', duration_min: 45 }]);
   eq(td[0].endAt - td[0].at, 45 * 60000, 'a todo with a length gets exactly that length');
   const noLen = fromTodos([{ id: 't2', title: 'Read', due_date: DATE, due_time: '20:00' }]);
