@@ -7,6 +7,8 @@ import { lookupBarcode, searchFood, searchConditions } from '../lib/foodapi.js';
 import BarcodeScanner from '../components/BarcodeScanner.jsx';
 import Supplements from '../components/Supplements.jsx';
 import BodyHistory from '../components/BodyHistory.jsx';
+import MedCourses from '../components/MedCourses.jsx';
+import SymptomDetail from '../components/SymptomDetail.jsx';
 
 const GLASS = 250, GOAL = 3000;
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.round(performance.now()));
@@ -23,11 +25,25 @@ export default function Nutrition() {
   const { items: medMem, refresh: rMed } = useCollection('memory', { filter: 'key=eq.meds_log', order: 'key' });
   const { items: symMem, refresh: rSym } = useCollection('memory', { filter: 'key=eq.symptoms_log', order: 'key' });
   const { items: suppMem, refresh: rSupp } = useCollection('memory', { filter: 'key=eq.supps_log', order: 'key' });
+  const { items: courseMem, refresh: rCourse } = useCollection('memory', { filter: 'key=eq.med_courses', order: 'key' });
+  // health_metrics is what an episode gets lined up against.
+  //
+  // useCollection starts at [] and STAYS [] when the read fails, so passing
+  // `items` straight down would tell SymptomDetail "read fine, no rows" in
+  // three different situations — still loading, table unreachable, and
+  // genuinely empty. Those get different sentences on screen, so the null is
+  // reconstructed here from loading/error rather than inferred from emptiness.
+  const { items: healthItems, loading: healthLoading, error: healthError } = useCollection('health_metrics', { order: 'date' });
+  const healthRows = (healthLoading || healthError) ? null : healthItems;
+  const healthWhy = healthError ? 'Health data could not be read just now.'
+    : healthLoading ? 'Loading your health data…'
+      : null;
   const waterLog = waterMem?.[0]?.value || {};
   const mealLog = mealMem?.[0]?.value || {};
   const medLog = medMem?.[0]?.value || {};
   const symLog = symMem?.[0]?.value || { list: [] };
   const suppLog = suppMem?.[0]?.value || {};
+  const courses = courseMem?.[0]?.value?.list || [];
 
   const ml = Number(waterLog[today] || 0);
   const meals = Array.isArray(mealLog[today]) ? mealLog[today] : [];
@@ -121,6 +137,23 @@ export default function Nutrition() {
     setSymForm({ name: '', from: today, to: '', note: '' }); setSymQ('');
   }
   const delSymptom = id => save('symptoms_log', { list: symptoms.filter(s => s.id !== id) }, rSym);
+  const [openSym, setOpenSym] = useState(null);
+
+  // Scoring a day writes into the episode's own `severity` map, keyed by date,
+  // so a day can be scored late or corrected without a second kind of row.
+  const scoreSymptom = (id, date, value) => save('symptoms_log', {
+    list: symptoms.map(s => (s.id === id ? { ...s, severity: { ...(s.severity || {}), [date]: value } } : s)),
+  }, rSym);
+
+  // ---- medication courses ----
+  const saveCourses = list => save('med_courses', { list }, rCourse);
+  // Taking a dose writes an ordinary meds_log entry — the same row the manual
+  // logger makes — carrying `courseId` so the dose still matches its course
+  // after the medicine is renamed.
+  const takeDose = async course => {
+    const entry = { id: uid(), name: course.name, salt: course.salt || '', courseId: course.id, at: nowHM(), micros: {} };
+    await save('meds_log', { ...medLog, [today]: [...meds, entry] }, rMed);
+  };
   const activeSym = symptoms.filter(s => !s.to || s.to >= today);
   const pastSym = symptoms.filter(s => s.to && s.to < today);
 
@@ -220,6 +253,9 @@ export default function Nutrition() {
 
       <Supplements log={supps} onAdd={addSupp} onRemove={delSupp} busy={busy} />
 
+      <MedCourses courses={courses} medLog={medLog} today={today}
+        onSave={saveCourses} onTake={takeDose} busy={busy} />
+
       <Card title="Medication" color="var(--pink)"
         right={meds.length ? <span className="chip c-pink">{meds.length} today</span> : null}>
         <div className="meal-form">
@@ -266,18 +302,36 @@ export default function Nutrition() {
         {symptoms.length === 0 && <Empty icon="🌡" text="Search from thousands of conditions and log yours with a date range — build a history you can look back on." />}
         {activeSym.length > 0 && <div className="card-title mt" style={{ fontSize: 11 }}><span className="sq" style={{ background: 'var(--red)' }} />Active</div>}
         {activeSym.map(s => (
-          <div className="row meal-row" key={s.id}>
-            <span style={{ flex: 1 }}>{s.name}{s.note ? <span className="muted small"> · {s.note}</span> : ''}</span>
-            <span className="chip c-red">since {s.from}</span>
-            <button className="btn btn-sm" onClick={() => delSymptom(s.id)} disabled={busy}>✕</button>
+          <div key={s.id}>
+            <div className="row meal-row">
+              <button className="btn btn-sm" onClick={() => setOpenSym(openSym === s.id ? null : s.id)}>
+                {openSym === s.id ? '▾' : '▸'}
+              </button>
+              <span style={{ flex: 1 }}>{s.name}{s.note ? <span className="muted small"> · {s.note}</span> : ''}</span>
+              <span className="chip c-red">since {s.from}</span>
+              <button className="btn btn-sm" onClick={() => delSymptom(s.id)} disabled={busy}>✕</button>
+            </div>
+            {openSym === s.id && (
+              <SymptomDetail episode={s} medLog={medLog} healthRows={healthRows} healthWhy={healthWhy}
+                today={today} onScore={scoreSymptom} busy={busy} />
+            )}
           </div>
         ))}
         {pastSym.length > 0 && <div className="card-title mt" style={{ fontSize: 11 }}><span className="sq" style={{ background: 'var(--ink-3)' }} />Past</div>}
         {pastSym.map(s => (
-          <div className="row meal-row" key={s.id}>
-            <span style={{ flex: 1 }} className="muted">{s.name}</span>
-            <span className="chip">{s.from} → {s.to}</span>
-            <button className="btn btn-sm" onClick={() => delSymptom(s.id)} disabled={busy}>✕</button>
+          <div key={s.id}>
+            <div className="row meal-row">
+              <button className="btn btn-sm" onClick={() => setOpenSym(openSym === s.id ? null : s.id)}>
+                {openSym === s.id ? '▾' : '▸'}
+              </button>
+              <span style={{ flex: 1 }} className="muted">{s.name}</span>
+              <span className="chip">{s.from} → {s.to}</span>
+              <button className="btn btn-sm" onClick={() => delSymptom(s.id)} disabled={busy}>✕</button>
+            </div>
+            {openSym === s.id && (
+              <SymptomDetail episode={s} medLog={medLog} healthRows={healthRows} healthWhy={healthWhy}
+                today={today} onScore={scoreSymptom} busy={busy} />
+            )}
           </div>
         ))}
       </Card>

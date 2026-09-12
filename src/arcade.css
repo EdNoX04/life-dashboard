@@ -6359,6 +6359,52 @@ th:hover .hold-info { color: var(--cyan); }
 .cal-load i { font-style: normal; }
 .cal-clash { font-weight: 400; color: var(--orange); }
 
+/* ---- Medication courses ---------------------------------------------------
+   Today's doses sit above the course list because they are the thing you act
+   on; the courses are reference. A dose row is a fixed-width time chip, the
+   name, and one button — nothing else, because this gets tapped half asleep. */
+.med-form { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.med-due {
+  display: flex; flex-direction: column; gap: 4px;
+  padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line);
+}
+.med-dose { align-items: center; gap: 8px; }
+.med-course { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.med-course:last-child { border-bottom: 0; }
+.med-past summary { cursor: pointer; color: var(--ink-3); padding: 6px 0; }
+
+/* ---- Symptom detail -------------------------------------------------------
+   The severity strip is the centre of it. An unscored day is an empty slot
+   with a dotted outline, never a zero-height bar — 0 means the symptom was
+   gone, and the two must not look alike. */
+.sym-detail {
+  padding: 10px 12px; margin: 4px 0 10px;
+  background: var(--panel-2, var(--panel)); border: 1px solid var(--line); border-radius: 6px;
+}
+.sym-line { font-size: 13px; margin-bottom: 10px; }
+.sym-bars {
+  display: flex; align-items: flex-end; gap: 4px;
+  height: 76px; margin-bottom: 6px; overflow-x: auto;
+}
+.sym-bar {
+  flex: 0 0 24px; height: 100%; display: flex; flex-direction: column;
+  justify-content: flex-end; align-items: center; gap: 3px;
+}
+.sym-fill {
+  width: 100%; background: var(--red); border-radius: 2px 2px 0 0; min-height: 4px;
+}
+.sym-fill.unscored {
+  height: 100%; background: transparent;
+  border: 1px dotted var(--line); border-radius: 2px;
+}
+.sym-day { font-size: 9px; color: var(--ink-3); }
+.sym-score { flex-wrap: wrap; gap: 4px; align-items: center; margin: 8px 0; }
+.sym-h {
+  font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--ink-3); margin: 10px 0 4px;
+}
+.sym-meds, .sym-cmp { border-top: 1px solid var(--line); }
+
 /* ---- NightSummary ---------------------------------------------------------
    Sections stacked, each with a small caps title. The bodies are newline-
    separated text composed in nightly.js, so pre-wrap is load-bearing: the same
