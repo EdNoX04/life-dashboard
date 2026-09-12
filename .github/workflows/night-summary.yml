@@ -1,0 +1,35 @@
+name: Night summary
+
+# 22:30 IST. Late enough that the day is over, early enough to still be read
+# before bed — and after prices-sync has closed the book on the portfolio.
+on:
+  schedule:
+    - cron: '0 17 * * *'   # 17:00 UTC = 22:30 IST
+  workflow_dispatch:
+
+concurrency:
+  group: night-summary
+  cancel-in-progress: false
+
+jobs:
+  summarise:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      # The rules run before the job does. Everything that decides what the
+      # summary SAYS is in nightly.js, and the difference between "nothing
+      # happened" and "nothing was measured" is not something to discover in
+      # production a month later.
+      - name: The rules still hold
+        run: node tests/nightly.test.js
+
+      - name: Write the night summary
+        run: node scripts/night-summary.mjs
+        env:
+          SUPABASE_URL: https://xroynvkzephebhcztvfo.supabase.co
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

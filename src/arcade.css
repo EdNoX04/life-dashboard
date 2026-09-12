@@ -6359,6 +6359,29 @@ th:hover .hold-info { color: var(--cyan); }
 .cal-load i { font-style: normal; }
 .cal-clash { font-weight: 400; color: var(--orange); }
 
+/* ---- NightSummary ---------------------------------------------------------
+   Sections stacked, each with a small caps title. The bodies are newline-
+   separated text composed in nightly.js, so pre-wrap is load-bearing: the same
+   string renders here, in the Actions log, and anywhere it is sent on. */
+.nightsum { line-height: 1.55; }
+.nightsum-head {
+  font-size: 14px; color: var(--ink); letter-spacing: .3px;
+  padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--line);
+}
+.nightsum-sec { margin-bottom: 10px; }
+.nightsum-title {
+  font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--ink-3); margin-bottom: 2px;
+}
+.nightsum-body { white-space: pre-wrap; font-size: 13.5px; }
+/* Grey and small because it is not an error — it is the edge of what this
+   system can see, and it should be readable without being alarming. */
+.nightsum-gap {
+  margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line);
+  font-size: 12px; color: var(--ink-3);
+}
+.nightsum-why { color: var(--ink-3); opacity: .75; }
+
 /* ---- UpNext — the one line under the hero ----------------------------------
    A strip, not a card. It sits between the hero and the ticker and says one
    thing, so it has to read in a glance and then get out of the way: a left

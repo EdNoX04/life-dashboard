@@ -8,6 +8,7 @@ import RetroClock from '../components/RetroClock.jsx';
 import MiniCalendar from '../components/MiniCalendar.jsx';
 import NextMeeting from '../components/NextMeeting.jsx';
 import UpNext from '../components/UpNext.jsx';
+import NightSummary from '../components/NightSummary.jsx';
 import MailStrip from '../components/MailStrip.jsx';
 import { useLiveQuotes } from '../lib/live.js';
 import { portfolioTotals } from '../lib/holdings.js';
@@ -67,6 +68,7 @@ export default function HQ({ go }) {
   // HQ is the only place already holding three of the four. NextMeeting keeps
   // its own read because it WRITES and needs its own refresh.
   const { items: meetMem } = useCollection('memory', { filter: 'key=eq.meetings', order: 'key' });
+  const { items: nightMem } = useCollection('memory', { filter: 'key=eq.night_summary', order: 'key' });
   // The diary. The `timetable` table is a WEEKLY pattern and is deliberately
   // lossy — it keeps only slots seen on two or more dates, which is what stops
   // makeups being welded into the grid, and is also why it structurally cannot
@@ -262,11 +264,20 @@ export default function HQ({ go }) {
         </>
       )}
       {phase === 'night' && (
-        <div style={{ lineHeight: 1.6 }}>
-          {doneToday} task{doneToday !== 1 ? 's' : ''} done, habits {habitsDone}/{liveHabits.length}.
-          {held.length ? ` Portfolio closed ${pPct >= 0 ? 'up' : 'down'} ${Math.abs(pPct).toFixed(1)}%.` : ''}
-          {' '}{lookAhead.isTomorrow ? 'Tomorrow' : 'Next up'} ({nextDay}): {tmrwClasses} class{tmrwClasses !== 1 ? 'es' : ''} — {openTodos.length ? `${openTodos.length} carried over.` : 'clean slate.'}
-        </div>
+        // The real summary when tonight's has been written, and the line that
+        // used to live here as the fallback — which is honest about being
+        // counted on the spot rather than pretending to be the same thing.
+        <NightSummary
+          summary={nightMem?.[0]?.value || null}
+          today={todayStr()}
+          fallback={(
+            <>
+              {doneToday} task{doneToday !== 1 ? 's' : ''} done, habits {habitsDone}/{liveHabits.length}.
+              {held.length ? ` Portfolio closed ${pPct >= 0 ? 'up' : 'down'} ${Math.abs(pPct).toFixed(1)}%.` : ''}
+              {' '}{lookAhead.isTomorrow ? 'Tomorrow' : 'Next up'} ({nextDay}): {tmrwClasses} class{tmrwClasses !== 1 ? 'es' : ''} — {openTodos.length ? `${openTodos.length} carried over.` : 'clean slate.'}
+            </>
+          )}
+        />
       )}
     </Card>
   );
