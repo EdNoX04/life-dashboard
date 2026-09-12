@@ -58,6 +58,15 @@ const SYNC_KEYS = [
   // secret — the server holds the keys and validates the model against its own
   // allowlist, so the worst a tampered value can do is get ignored.
   'finboyModel', 'finboyWeb',
+  // A Spotify CLIENT ID, which is a public identifier rather than a credential
+  // — PKCE exists so a browser app needs no secret, and the id alone can only
+  // start a login that lands back on a redirect URI the reader does not
+  // control. It syncs so the iPad does not need setting up twice.
+  //
+  // The TOKEN is a different matter and is deliberately not here: a Spotify
+  // refresh token is a durable credential, so it lives in localStorage on the
+  // device that authorised it and is never written to the database.
+  'spotifyClientId',
 ];
 
 export async function syncPushConfig() {

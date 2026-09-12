@@ -137,6 +137,10 @@ export function qualityReport({
   bitrate = null, deviceRate = null,
 } = {}) {
   const src = sourceOf(source);
+  // Measured means the page decoded the audio itself and read the header. Only
+  // local files can be: every streaming source hands back a player, not a
+  // stream, so anything said about their quality is REPORTED.
+  const measured = source === 'local' && num(sampleRate) !== null;
   const lossless = format ? format.lossless : null;
   const tier = tierOf({ lossless, sampleRate, bitDepth });
   const sr = num(sampleRate), dr = num(deviceRate);
@@ -151,7 +155,12 @@ export function qualityReport({
   const rate = formatRate(sampleRate);
   if (rate) parts.push(rate);
   if (num(bitDepth)) parts.push(`${num(bitDepth)}-bit`);
-  if (num(bitrate)) parts.push(`${Math.round(num(bitrate))} kbps`);
+  // "up to", because a ceiling is not a measurement. The Web Playback SDK
+  // never exposes the decoded samples, so for a stream this number is the
+  // licence terms rather than the bitrate of the thing currently playing — and
+  // printing a bare "320 kbps" over whatever Spotify actually sent is the same
+  // failure as printing BIT PERFECT over a 256 kbps AAC stream.
+  if (num(bitrate)) parts.push(`${measured ? '' : 'up to '}${Math.round(num(bitrate))} kbps`);
 
   return {
     source: src,
@@ -160,6 +169,7 @@ export function qualityReport({
     lossless,
     resampled,
     deviceRate: dr,
+    measured,
     // Never true. Stated as a field rather than omitted, so the UI shows the
     // reason instead of quietly leaving the claim out.
     bitPerfect: false,

@@ -91,7 +91,8 @@ ok(resamp.why.includes('resampling'), 'the resampling case names resampling as t
 const sp = qualityReport({ source: 'spotify', bitrate: 320 });
 eq(sp.bitPerfect, false, 'Spotify never claims bit-perfect');
 ok(sp.why.includes('320'), "the Spotify blocker quotes the service's own ceiling");
-eq(sp.label, '320 kbps', 'a stream with no file format reports its bitrate');
+eq(sp.label, 'up to 320 kbps', 'a stream reports its CEILING, worded as one — the SDK never exposes what actually played');
+eq(sp.measured, false, 'and says outright that nothing about it was measured');
 // Unknown rate: resampled must be null, not a guess in either direction.
 eq(qualityReport({ source: 'local', format: FORMATS.flac }).resampled, null,
   'with no device rate, resampling is unknown rather than assumed');

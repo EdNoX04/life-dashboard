@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Empty } from '../components/ui.jsx';
+import SpotifyPanel from '../components/SpotifyPanel.jsx';
 import { getConfig } from '../lib/db.js';
 import {
   SOURCES, sourceOf, sourcesByQuality, TIERS, formatOf, qualityReport,
@@ -31,6 +32,14 @@ function QualityPanel({ report }) {
           ? <span className="chip" style={{ color: t.color, borderColor: t.color }}>{t.label}</span>
           : <span className="chip">UNKNOWN</span>}
         {report.label && <span className="mu-q-spec">{report.label}</span>}
+        {/* Measured means this page decoded the file and read its header. A
+            streaming source hands back a player rather than a stream, so
+            everything said about it is the service's own claim. */}
+        <span className="mu-q-src" title={report.measured
+          ? 'Decoded here — the sample rate is read from the file itself.'
+          : 'Reported by the service. The player never exposes the audio, so nothing here was measured.'}>
+          {report.measured ? 'measured' : 'reported'}
+        </span>
         {report.deviceRate && (
           <span className="mu-q-dev">
             device {(report.deviceRate / 1000).toFixed(1)} kHz
@@ -70,6 +79,10 @@ function SourceCard({ src, active, onPick, configured }) {
 export default function Music() {
   const cfg = getConfig();
   const [source, setSource] = useState('local');
+  // What Spotify says is playing. Kept apart from `queue`/`index`, which are
+  // about local files: merging them would let a Spotify track land in a queue
+  // the <audio> element would then try, and fail, to play.
+  const [spTrack, setSpTrack] = useState(null);
   const [queue, setQueue] = useState([]);      // {name, url, format, size}
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -200,14 +213,31 @@ export default function Music() {
         <p className="mu-note">{src?.note}</p>
       </Card>
 
+      {/* Spotify runs its own player — the Web Playback SDK owns the audio and
+          never hands the page a stream — so it gets its own card rather than
+          being forced through the <audio> element below, which would only be
+          able to sit there empty. */}
+      {source === 'spotify' && (
+        <Card title="Spotify" color="var(--green)">
+          <SpotifyPanel clientId={(cfg.spotifyClientId || '').trim()} onTrack={setSpTrack} />
+        </Card>
+      )}
+
       <Card title="Now playing" color="var(--pink)">
         <div className="player">
           <div className="player-art">{playing ? '♫' : '♪'}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="player-track">{track ? track.name : source === 'local' ? 'Nothing queued' : `${src?.name} not connected`}</div>
-            <div className="player-artist small muted">
-              {track ? (track.format?.label || 'unknown format') : (src?.needs || 'Add files below')}
-            </div>
+            <div className="player-track">{
+              source === 'spotify' && spTrack ? spTrack.name
+                : track ? track.name
+                  : source === 'local' ? 'Nothing queued'
+                    : `${src?.name} not connected`
+            }</div>
+            <div className="player-artist small muted">{
+              source === 'spotify' && spTrack ? spTrack.artist
+                : track ? (track.format?.label || 'unknown format')
+                  : (src?.needs || 'Add files below')
+            }</div>
             <div
               className="player-bar mu-seek"
               onClick={e => {

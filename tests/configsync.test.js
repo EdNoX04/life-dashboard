@@ -40,6 +40,14 @@ ok(synced.includes('fmpKey'), 'the dividend key syncs — this is the one that w
 ok(synced.includes('finnhubKey'), 'the price key syncs');
 ok(synced.includes('twelveKey'), 'the chart key syncs');
 ok(synced.includes('tmdbKey'), 'the media key syncs');
+// A client ID is a public identifier, not a credential — PKCE is the whole
+// reason a browser app needs no secret. The TOKEN it produces is a credential
+// and must never take the same road.
+ok(synced.includes('spotifyClientId'), 'the Spotify client ID syncs — it is an identifier, not a secret');
+ok(!synced.some(k => /spotify.*(token|secret|refresh)/i.test(k)),
+  'but no Spotify token or secret is ever synced — the refresh token stays on the device that authorised it');
+ok(!dbSrc.includes('spotifySecret') && !setSrc.includes('spotifySecret'),
+  'and no Spotify client secret field exists in the browser at all');
 
 // Deliberately NOT synced, each for a stated reason.
 //   supabaseUrl/supabaseKey are how a device reaches the table this sync uses;

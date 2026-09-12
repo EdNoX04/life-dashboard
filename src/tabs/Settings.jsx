@@ -85,6 +85,19 @@ export default function Settings() {
         <input placeholder="eyJhbGciOi…" defaultValue={cfg.supabaseKey || ''} onChange={upd('supabaseKey')} />
         <label className="mt">TMDB API key (movie search & posters — free)</label>
         <input placeholder="optional" defaultValue={cfg.tmdbKey || ''} onChange={upd('tmdbKey')} />
+        {/* A client ID is NOT a secret, and that is worth saying here where every
+            other field is one. Spotify's browser flow is PKCE, which exists so a
+            public client needs no secret: the id names the app, and the code
+            verifier proves the request came from the page that started it.
+            Anyone who reads the id can only start a login that lands back on a
+            redirect URI they do not control. */}
+        <label className="mt">Spotify Client ID — the Music tab's player (<a href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer" style={{ color: 'var(--cyan)' }}>developer.spotify.com/dashboard</a>)</label>
+        <input placeholder="optional — not a secret, this flow uses PKCE" defaultValue={cfg.spotifyClientId || ''} onChange={upd('spotifyClientId')} />
+        <div className="small muted">
+          Create an app there (free, no card), and register this exact redirect URI:{' '}
+          <code>{`${window.location.origin}/`}</code> — it has to match character for character, trailing slash included.
+          Playback needs Premium; search works without it.
+        </div>
         <div className="flex mt">
           <button className="btn btn-green" onClick={save}>{saved ? 'Saved ✓' : 'Save'}</button>
           <span className="small muted">After saving, reload the page. Local data stays as a fallback.</span>
