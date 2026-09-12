@@ -103,6 +103,9 @@ const eq = (a, b, n) => ok(Object.is(a, b), `${n} (got ${JSON.stringify(a)}, wan
     [{ status: 429 }, 'rate', /minute/],
     [{ status: 404, reason: 'no active device' }, 'nodevice', /press play here once/i],
     [{ reason: 'Failed to fetch' }, 'network', /connection/],
+    // The one that cost a debugging session: the SDK script blocked by this
+    // app's own CSP, reported as a connection problem.
+    [{ kind: 'sdk' }, 'sdk', /Content-Security-Policy/],
   ];
   for (const [input, kind, re] of cases) {
     const r = explain(input);

@@ -182,6 +182,15 @@ export function explain(e = {}) {
   if (status === 404 && /device/i.test(reason)) {
     return { kind: 'nodevice', fix: 'No active Spotify device. Press play here once to make this tab the device.' };
   }
+  // The SDK script specifically. A blocked script and a dead network look
+  // identical from JavaScript — `onerror` says nothing either way — and calling
+  // it a connection problem sent Neel looking at his wifi while the real cause
+  // was this app's own Content-Security-Policy missing sdk.scdn.co. So the
+  // message names the likelier of the two first, and names it precisely enough
+  // to fix.
+  if (e.kind === 'sdk') {
+    return { kind: 'sdk', fix: 'The Spotify player script would not load. The usual cause is this app\'s own Content-Security-Policy: script-src has to list https://sdk.scdn.co, and until it does the browser refuses the script silently.' };
+  }
   if (!status && /fetch|network/i.test(reason)) {
     return { kind: 'network', fix: 'Could not reach Spotify. That is almost always the connection rather than the account.' };
   }

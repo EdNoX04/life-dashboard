@@ -169,7 +169,10 @@ export default function SpotifyPanel({ clientId, onTrack }) {
       if (!document.getElementById('spotify-sdk')) {
         const s = document.createElement('script');
         s.id = 'spotify-sdk'; s.src = 'https://sdk.scdn.co/spotify-player.js'; s.async = true;
-        s.onerror = () => fail({ reason: 'Failed to fetch the Spotify SDK' });
+        // Its own kind. A blocked script and a dead network are the same event
+        // to JavaScript, and guessing "network" is what sent the last debugging
+        // session to the wrong place.
+        s.onerror = () => fail({ kind: 'sdk' });
         document.body.appendChild(s);
       }
     }
