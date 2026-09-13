@@ -50,6 +50,46 @@
 // their behalf. It also happens to be the tier that cannot read the slides.
 const SENSITIVE = new Set(['money', 'ledger', 'finboy', 'journal', 'brief', 'lecture']);
 
+// A SECOND reason to leave the free tier, and it is not privacy — it is that
+// the job needs a model that can hold a format.
+//
+// Kept apart from SENSITIVE on purpose. That set is about what may be sent
+// where, and folding "this one needs to be cleverer" into it would make the
+// privacy rule unreadable within a month.
+//
+// PLAYER TWO is here because of what it became. The free tier was the right
+// call when the dock ANSWERED things — "when is my next class", where latency
+// is the product and a 30B lightning model is genuinely the better answer. It
+// now PROPOSES ACTIONS against his real data: tasks, calendar events, vault
+// notes. A model that follows the action format most of the time produces an
+// assistant that works most of the time, and an assistant that works most of
+// the time is one you stop trusting and then stop using — which is exactly what
+// happened. Neel, 2026-09-13: "the current Player two seems very dumb and can't
+// perform the tasks in the dashboard, it's just not reliable."
+//
+// Haiku rather than Sonnet: this is a correctness problem, not a thinking one,
+// and Haiku is both cheap and quick. The latency the free tier was chosen for is
+// largely preserved; the format-following is not a coin flip any more.
+const NEEDS_PRECISION = new Set(['home']);
+const PRECISION_MODEL = 'claude-haiku-4-5';
+
+/** Which provider serves an agent, and why. Exported so it is a test, not a habit. */
+export function providerFor(agent) {
+  const a = String(agent || '').toLowerCase();
+  if (!a) return { provider: 'anthropic', why: 'unknown agent — fails closed to the paid, private path' };
+  if (SENSITIVE.has(a)) return { provider: 'anthropic', why: 'sensitive data must not reach a free tier whose terms say inputs improve their models' };
+  if (NEEDS_PRECISION.has(a)) return { provider: 'anthropic', why: 'proposes actions against real data and has to hold a format' };
+  return { provider: 'nvidia', why: 'answers questions, where latency is the product' };
+}
+
+/** The model an agent gets when the caller did not pin one. */
+export function defaultModelFor(agent, provider) {
+  if (provider !== 'anthropic') return NVIDIA_DEFAULT;
+  const a = String(agent || '').toLowerCase();
+  // Precision-but-not-sensitive gets the cheap fast one; sensitive keeps Sonnet.
+  return NEEDS_PRECISION.has(a) && !SENSITIVE.has(a) ? PRECISION_MODEL : ANTHROPIC_DEFAULT;
+}
+
 // z-ai/glm-5.2 reached end of life on 2026-08-21 and NVIDIA now refuses it
 // outright. It was the default here, so from that morning every question routed
 // to the free tier — which is most of the app — returned an error, and nothing
@@ -454,12 +494,12 @@ export default async function handler(req, res) {
   const agent = String(body.agent || '').toLowerCase();
   // Unknown agent → sensitive. See the note at the top: this default is the
   // whole safety property, and the expensive direction is the safe one.
-  const provider = SENSITIVE.has(agent) || !agent ? 'anthropic' : 'nvidia';
+  const { provider } = providerFor(agent);
 
   const requested = String(body.model || '');
   const model = ALLOWED[provider].has(requested)
     ? requested
-    : (provider === 'anthropic' ? ANTHROPIC_DEFAULT : NVIDIA_DEFAULT);
+    : defaultModelFor(agent, provider);
 
   // Capped here rather than trusted from the client, because output tokens are
   // the expensive half and max_tokens is the only lever on them.

@@ -5,7 +5,7 @@
 // for nine days with nobody told. The chain is the fix; these assertions are
 // about it advancing for the right reason and NOT for the wrong ones.
 
-import { nvidiaChainFrom, runChain } from '../api/chat.js';
+import { nvidiaChainFrom, runChain, providerFor, defaultModelFor } from '../api/chat.js';
 
 let pass = 0, fail = 0;
 const ok = (c, n) => { if (c) { pass++; } else { fail++; console.log('FAIL ' + n); } };
@@ -73,3 +73,33 @@ is(r.model, 'claude-sonnet-5', 'with the model it asked for');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
+
+
+// ---------------------------------------------------- which brain serves whom
+//
+// Two DIFFERENT reasons to leave the free tier, deliberately kept apart: what
+// may be sent where (privacy), and what can hold a format (capability). Folding
+// the second into the first would make the privacy rule unreadable inside a
+// month, and the privacy rule is the one that must stay obvious.
+{
+  const p = a => providerFor(a).provider;
+  const m = a => defaultModelFor(a, p(a));
+
+  is(p('money'), 'anthropic', 'money never reaches a free tier');
+  is(p('ledger'), 'anthropic', 'nor the money assistant');
+  is(p('journal'), 'anthropic', 'nor the journal');
+  is(p('lecture'), 'anthropic', 'nor a recording of other people who did not agree to anything');
+  is(p(''), 'anthropic', 'and an unknown agent fails CLOSED to the paid, private path');
+
+  // The change: PLAYER TWO stopped being a thing that answers and became a
+  // thing that acts, and a 30B model that follows the action format most of the
+  // time is an assistant you stop trusting and then stop using.
+  is(p('home'), 'anthropic', 'PLAYER TWO is on the paid path because it PROPOSES ACTIONS against real data');
+  is(m('home'), 'claude-haiku-4-5',
+     'on Haiku rather than Sonnet — this is a correctness problem, not a thinking one, and the latency the free tier was chosen for is mostly kept');
+  is(m('money'), 'claude-sonnet-5', 'while a money question still gets the bigger model');
+
+  is(p('news'), 'nvidia', 'and everything that only ANSWERS stays on the fast free tier, where latency is the product');
+  is(p('media'), 'nvidia', 'same for media');
+  ok(providerFor('home').why.length > 10, 'every routing decision carries its reason, so the next person does not have to guess');
+}

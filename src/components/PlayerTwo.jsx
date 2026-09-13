@@ -183,7 +183,28 @@ export default function PlayerTwo({ tab }) {
       // The JSON block is machinery, not conversation: it is stripped before the
       // reply is shown or stored, so the thread never contains a confirmation
       // card's raw source.
-      const { prose, actions, rejected } = parseActions(reply || '');
+      let { prose, actions, rejected } = parseActions(reply || '');
+
+      // ONE REPAIR ATTEMPT, and only when it actually tried.
+      //
+      // A model that emitted a block this app could not read has already done
+      // the hard part — it understood the request and decided to act. Throwing
+      // that away and saying nothing is the difference between "the assistant
+      // is unreliable" and "it asked me to rephrase once". The retry is narrow
+      // on purpose: only when a block was present AND nothing survived it, once,
+      // with the specific complaint attached. A loop here would be a way to
+      // spend money slowly.
+      if (!actions.length && rejected.length) {
+        try {
+          const { text: second } = await aiChat(
+            [...trimForSend(next), { role: 'assistant', content: reply || '' },
+             { role: 'user', content: `That action block could not be read — ${rejected[0]}. Send just the corrected \`\`\`action block, nothing else.` }],
+            { system: SYSTEM, agent: 'home', maxTokens: 200 },
+          );
+          const fixed = parseActions(second || '');
+          if (fixed.actions.length) { actions = fixed.actions; rejected = []; }
+        } catch { /* the first answer still stands; the note below explains */ }
+      }
       setMsgs(m => [...m, { role: 'assistant', content: prose || reply || '(no reply)' }]);
       setPending(actions);
       // A MODEL THAT TRIED AND FAILED MUST NOT LOOK LIKE ONE THAT DID NOT TRY.
